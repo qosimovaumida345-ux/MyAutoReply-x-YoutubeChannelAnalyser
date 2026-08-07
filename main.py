@@ -16,6 +16,11 @@ except RuntimeError:
 
 from config import SESSION_STRING, BOT_TOKEN
 
+async def dummy_server(reader, writer):
+    """Render.com Port binding talabini qondirish uchun oddiy server"""
+    writer.write(b"HTTP/1.1 200 OK\r\n\r\nBot is running!")
+    await writer.drain()
+    writer.close()
 
 async def main():
     """Ikkala botni bir vaqtda ishga tushirish"""
@@ -46,6 +51,11 @@ async def main():
     print("\n" + "=" * 40)
     print("🚀 Barcha botlar ishga tushirilmoqda...")
     print("=" * 40 + "\n")
+    # Render.com uchun Web Server (Portni band qilish)
+    port = int(os.environ.get("PORT", 10000))
+    server = await asyncio.start_server(dummy_server, '0.0.0.0', port)
+    print(f"🌐 Dummy web server {port}-portda ishga tushdi (Render uchun)")
+    tasks.append(server.serve_forever())
     
     # Barcha botlarni parallel ishga tushirish
     await asyncio.gather(*tasks)
