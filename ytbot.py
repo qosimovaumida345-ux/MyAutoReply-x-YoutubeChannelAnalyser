@@ -3,7 +3,7 @@ import asyncio
 import math
 import json
 from datetime import datetime, timedelta
-from pyrogram import Client, filters
+from pyrogram import Client, filters, StopPropagation
 from pyrogram.enums import ParseMode, ChatAction
 from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
@@ -15,8 +15,11 @@ from config import BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key
 from database import (
     add_tracked_channel, remove_tracked_channel, get_tracked_channels,
     save_channel_snapshot, save_video_snapshot,
-    get_channel_history, get_channel_growth
+    get_channel_history, get_channel_growth,
+    add_bot_admin, is_bot_admin, get_all_admins,
+    create_autopost_task
 )
+from autopost import autopost_worker
 
 # ==================== YOUTUBE API ====================
 
@@ -366,6 +369,57 @@ def create_ytbot():
     
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
     
+    # ==================== AUTH MIDDLEWARE ====================
+    
+    @bot.on_message(filters.all, group=-1)
+    async def auth_middleware(client, message):
+        if not message.from_user:
+            return
+        user_id = message.from_user.id
+        
+        # Agar user admin bo'lsa, davom etamiz
+        if is_bot_admin(user_id):
+            return
+            
+        text = message.text or ""
+        
+        # /start bosilganda login so'rash
+        if text.startswith("/start"):
+            await message.reply_text(
+                "👋 Assalomu alaykum! Ushbu bot yopiq (private) tizim.\n\n"
+                "Iltimos, tizimga kirish uchun username va parolni quyidagi formatda yuboring:\n"
+                "`username:password`\n\n"
+                "(Masalan: blox_forge1:abdulloh2011)"
+            )
+            raise StopPropagation
+            
+        # Login urinishini tekshirish
+        parts = text.split(":")
+        if len(parts) == 2:
+            username = parts[0].strip()
+            password = parts[1].strip()
+            
+            # Hardcoded admin akkauntini tekshirish
+            if username == "blox_forge1" and password == "abdulloh2011":
+                if add_bot_admin(user_id, username):
+                    await message.reply_text(
+                        "✅ Tizimga muvaffaqiyatli kirdingiz! Sizga admin ruxsati berildi.\n\n"
+                        "Barcha buyruqlarni ko'rish uchun /help ni bosing yoki /menu orqali bosh menyuni oching."
+                    )
+                else:
+                    await message.reply_text("❌ Xatolik yuz berdi. Iltimos qayta urinib ko'ring.")
+                raise StopPropagation
+                
+        # Boshqa hollarda (noto'g'ri parol yoki umuman parol yozilmagan)
+        await message.reply_text("Bot vaqtincha ishlamayapti.")
+        raise StopPropagation
+        
+    @bot.on_callback_query(filters.all, group=-1)
+    async def auth_callback_middleware(client, cb):
+        if not is_bot_admin(cb.from_user.id):
+            await cb.answer("Bot vaqtincha ishlamayapti.", show_alert=True)
+            raise StopPropagation
+
     # ==================== /start ====================
     @bot.on_message(filters.command("start"))
     async def start_cmd(client, message):

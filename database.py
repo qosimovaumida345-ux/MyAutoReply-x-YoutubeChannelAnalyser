@@ -109,10 +109,63 @@ def init_db():
         )
     """)
     
+    # Bot adminlari (avtorizatsiyadan o'tganlar)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS bot_admins (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT UNIQUE NOT NULL,
+            username TEXT,
+            added_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()
     print("PostgreSQL database tayyor!")
+
+
+# ==================== BOT ADMINS ====================
+
+def add_bot_admin(tg_user_id, username=None):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO bot_admins (tg_user_id, username) VALUES (%s, %s) ON CONFLICT (tg_user_id) DO UPDATE SET username = %s",
+            (tg_user_id, username, username)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"DB xato: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def is_bot_admin(tg_user_id):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM bot_admins WHERE tg_user_id = %s", (tg_user_id,))
+        return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def get_all_admins():
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM bot_admins ORDER BY added_at DESC")
+        return cur.fetchall()
+    finally:
+        conn.close()
 
 
 # ==================== TRACKED CHANNELS ====================
