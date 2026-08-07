@@ -1,0 +1,29 @@
+services:
+  - type: worker
+    name: auto-reply-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: SESSION_STRING
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: GEMINI_KEYS
+        sync: false
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: REPLY_DELAY_MIN
+        value: "1"
+      - key: REPLY_DELAY_MAX
+        value: "4"
+      - key: AI_SYSTEM_PROMPT
+        value: "Sen mening shaxsiy yordamchimsan. Men hozir bandman. Mening o'rnimga kelgan xabarga qisqa, do'stona va o'zbek tilida javob yoz."
+      - key: PYTHON_VERSION
+        value: "3.11.0"
