@@ -389,7 +389,7 @@ def create_ytbot():
                 "👋 Assalomu alaykum! Ushbu bot yopiq (private) tizim.\n\n"
                 "Iltimos, tizimga kirish uchun username va parolni quyidagi formatda yuboring:\n"
                 "`username:password`\n\n"
-                "(Masalan: blox_forge1:abdulloh2011)"
+                "(Masalan: user_name:password)"
             )
             raise StopPropagation
             
