@@ -40,6 +40,9 @@ def get_youtube_key():
     _yt_index += 1
     return key
 
+YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
+YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
+
 # ==================== DATABASE ====================
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 

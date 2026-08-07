@@ -19,7 +19,7 @@ from database import (
     add_bot_admin, is_bot_admin, get_all_admins,
     create_autopost_task
 )
-from autopost import autopost_worker
+from autopost import autopost_worker, get_auth_url, exchange_code
 
 # ==================== YOUTUBE API ====================
 
@@ -548,6 +548,32 @@ def create_ytbot():
             f"**{ch['snippet']['title']}**\n\nVideolar soni: **{fmt_full(vids)}**",
             parse_mode=ParseMode.MARKDOWN
         )
+
+    # ==================== /ytlogin ====================
+    
+    @bot.on_message(filters.command("ytlogin"))
+    async def ytlogin_cmd(client, message):
+        args = message.text.split(maxsplit=1)
+        if len(args) == 1:
+            try:
+                url = get_auth_url()
+                text = (
+                    "🔗 **YouTube kanalingizni ulash uchun ruxsat bering:**\n\n"
+                    f"[Bu yerga bosing va ruxsat bering]({url})\n\n"
+                    "Ruxsat berganingizdan so'ng, ekranda paydo bo'lgan kodni nusxalab, menga quyidagi formatda yuboring:\n"
+                    "`/ytlogin SIZNING_KODINGIZ`"
+                )
+                await message.reply_text(text, disable_web_page_preview=True)
+            except Exception as e:
+                await message.reply_text(f"❌ Xatolik yuz berdi (Client ID noto'g'ri bo'lishi mumkin): {e}")
+        else:
+            code = args[1].strip()
+            msg = await message.reply_text("⏳ Kod tekshirilmoqda va ulanmoqda...")
+            try:
+                channel_name = exchange_code(message.from_user.id, code)
+                await msg.edit_text(f"✅ Muvaffaqiyatli ulandi!\n\nKanalingiz: **{channel_name}**\nEndi bemalol `/autopost` orqali video yuklashingiz mumkin!")
+            except Exception as e:
+                await msg.edit_text(f"❌ Kod noto'g'ri yoki xatolik yuz berdi: {e}")
     
     # ==================== /about ====================
     @bot.on_message(filters.command("about"))

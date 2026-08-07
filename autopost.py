@@ -4,8 +4,61 @@ import yt_dlp
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history
-from config import get_youtube_key
+from google_auth_oauthlib.flow import Flow
+from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection
+from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
+
+CLIENT_CONFIG = {
+    "web": {
+        "client_id": YT_CLIENT_ID,
+        "client_secret": YT_CLIENT_SECRET,
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost"]
+    }
+}
+
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+
+def get_auth_url():
+    """OAuth URL yaratish"""
+    flow = Flow.from_client_config(
+        CLIENT_CONFIG,
+        scopes=SCOPES,
+        redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+    )
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    return auth_url
+
+def exchange_code(tg_user_id, code):
+    """Kodni tokenlarga almashtirish va DB ga saqlash"""
+    flow = Flow.from_client_config(
+        CLIENT_CONFIG,
+        scopes=SCOPES,
+        redirect_uri="urn:ietf:wg:oauth:2.0:oob"
+    )
+    flow.fetch_token(code=code)
+    creds = flow.credentials
+    
+    # Kanalingiz nomini bilish uchun YouTube Data API ni chaqiramiz
+    youtube = build("youtube", "v3", credentials=creds)
+    r = youtube.channels().list(part="snippet", mine=True).execute()
+    
+    channel_title = "Unknown"
+    channel_id = "unknown"
+    if r.get("items"):
+        channel_title = r["items"][0]["snippet"]["title"]
+        channel_id = r["items"][0]["id"]
+        
+    save_yt_connection(
+        tg_user_id=tg_user_id,
+        yt_channel_id=channel_id,
+        yt_channel_title=channel_title,
+        access_token=creds.token,
+        refresh_token=creds.refresh_token,
+        token_expiry=creds.expiry
+    )
+    return channel_title
 
 def download_video(video_id):
     """yt-dlp orqali videoni yuklab olish"""
@@ -26,8 +79,8 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
         token=credentials_dict['access_token'],
         refresh_token=credentials_dict['refresh_token'],
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=os.getenv("YT_CLIENT_ID", "dummy_client_id"),
-        client_secret=os.getenv("YT_CLIENT_SECRET", "dummy_client_secret")
+        client_id=YT_CLIENT_ID,
+        client_secret=YT_CLIENT_SECRET
     )
     
     youtube = build("youtube", "v3", credentials=creds)
@@ -102,14 +155,8 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 
                 await msg.edit_text(f"⏳ [{idx}/{count}] Kanalingizga yuklanmoqda (upload): {title}...")
                 
-                # Yuklash
-                # Eslatma: Hozircha Google Oauth ruxsati bo'lmagani uchun xato beradi.
-                # Agar to'liq ishlab ketsa, pastdagi qatorni oching.
-                # new_vid_id = upload_to_youtube(file_path, title, desc, conn_data)
-                
-                # Sмуляatsiya (Simulyasiya o'rniga haqiqiy ulanish uchun yuqoridagi kodni ishlating)
-                await asyncio.sleep(2)
-                new_vid_id = f"simulated_{vid_id}"
+                # Haqiqiy yuklash (Upload)
+                new_vid_id = upload_to_youtube(file_path, title, desc, conn_data)
                 
                 update_autopost_history(hist_id, status="uploaded", uploaded_video_id=new_vid_id, uploaded_title=title)
                 success_count += 1
