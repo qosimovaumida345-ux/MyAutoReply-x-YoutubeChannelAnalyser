@@ -272,7 +272,7 @@ Bu bot orqali istalgan YouTube kanalning to'liq statistikasini ko'rishingiz mumk
 {'━' * 28}
 
 🆔 **Channel ID:** `{channel['id']}`
-📝 **Tavsif:** {snippet.get('description', 'Tavsif yo'q')[:200]}...
+📝 **Tavsif:** {snippet.get('description', "Tavsif yo'q")[:200]}...
 """
         await wait_msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
     
