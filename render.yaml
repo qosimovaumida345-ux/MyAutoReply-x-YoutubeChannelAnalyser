@@ -1,5 +1,5 @@
 services:
-  - type: worker
+  - type: web
     name: auto-reply-bot
     runtime: python
     buildCommand: pip install -r requirements.txt
@@ -15,15 +15,23 @@ services:
         sync: false
       - key: GEMINI_KEYS
         sync: false
-      - key: YOUTUBE_API_KEY
-        sync: false
-      - key: OWNER_ID
+      - key: YOUTUBE_API_KEYS
         sync: false
       - key: REPLY_DELAY_MIN
         value: "1"
       - key: REPLY_DELAY_MAX
         value: "4"
+      - key: OWNER_ID
+        sync: false
       - key: AI_SYSTEM_PROMPT
-        value: "Sen mening shaxsiy yordamchimsan. Men hozir bandman. Mening o'rnimga kelgan xabarga qisqa, do'stona va o'zbek tilida javob yoz."
-      - key: PYTHON_VERSION
-        value: "3.11.0"
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autoreply-db
+          property: connectionString
+
+databases:
+  - name: autoreply-db
+    plan: free
+    databaseName: autoreply_db
+    user: autoreply_user

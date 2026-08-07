@@ -15,14 +15,33 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 # ==================== GEMINI AI ====================
 GEMINI_KEYS = [k.strip() for k in os.getenv("GEMINI_KEYS", "").split(",") if k.strip()]
 
+_gemini_index = 0
 def get_gemini_key():
-    """Har safar random Gemini API kalitini qaytaradi (rate limit dan qochish uchun)"""
+    """Round-robin Gemini API kaliti (har safar navbatdagisi)"""
+    global _gemini_index
     if not GEMINI_KEYS:
         raise ValueError("GEMINI_KEYS topilmadi! .env faylni tekshiring.")
-    return random.choice(GEMINI_KEYS)
+    key = GEMINI_KEYS[_gemini_index % len(GEMINI_KEYS)]
+    _gemini_index += 1
+    return key
 
 # ==================== YOUTUBE DATA API ====================
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
+YOUTUBE_API_KEYS = [k.strip() for k in os.getenv("YOUTUBE_API_KEYS", "").split(",") if k.strip()]
+# Backward compatibility
+YOUTUBE_API_KEY = YOUTUBE_API_KEYS[0] if YOUTUBE_API_KEYS else os.getenv("YOUTUBE_API_KEY", "")
+
+_yt_index = 0
+def get_youtube_key():
+    """Round-robin YouTube API kaliti (kvota limit dan qochish uchun)"""
+    global _yt_index
+    if not YOUTUBE_API_KEYS:
+        raise ValueError("YOUTUBE_API_KEYS topilmadi!")
+    key = YOUTUBE_API_KEYS[_yt_index % len(YOUTUBE_API_KEYS)]
+    _yt_index += 1
+    return key
+
+# ==================== DATABASE ====================
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 # ==================== AUTO-REPLY SOZLAMALARI ====================
 REPLY_DELAY_MIN = int(os.getenv("REPLY_DELAY_MIN", "1"))
@@ -34,4 +53,4 @@ AI_SYSTEM_PROMPT = os.getenv("AI_SYSTEM_PROMPT",
     "Xuddi odam yozgandek tabiiy bo'lsin. Emoji ham ishlat.")
 
 # ==================== OWNER SETTINGS ====================
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))  # Sizning Telegram ID raqamingiz
+OWNER_ID = int(os.getenv("OWNER_ID", "0"))

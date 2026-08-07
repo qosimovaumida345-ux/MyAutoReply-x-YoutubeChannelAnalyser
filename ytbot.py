@@ -11,7 +11,7 @@ from pyrogram.types import (
 )
 from googleapiclient.discovery import build
 
-from config import BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY
+from config import BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key
 from database import (
     add_tracked_channel, remove_tracked_channel, get_tracked_channels,
     save_channel_snapshot, save_video_snapshot,
@@ -21,9 +21,13 @@ from database import (
 # ==================== YOUTUBE API ====================
 
 def get_yt():
-    if not YOUTUBE_API_KEY:
+    try:
+        key = get_youtube_key()
+        return build("youtube", "v3", developerKey=key)
+    except Exception:
+        if YOUTUBE_API_KEY:
+            return build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
         return None
-    return build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
 # ==================== YORDAMCHI FUNKSIYALAR ====================
 

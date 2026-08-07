@@ -283,9 +283,16 @@ def create_userbot():
             return
         try:
             emoji = get_reaction_for_mood(mood)
-            await client.send_reaction(chat_id, message_id, emoji)
-        except Exception as e:
-            # Reaksiya qo'llab-quvvatlanmasa xato bermasin
+            from pyrogram.raw.functions.messages import SendReaction
+            from pyrogram.raw.types import ReactionEmoji
+            await client.invoke(
+                SendReaction(
+                    peer=await client.resolve_peer(chat_id),
+                    msg_id=message_id,
+                    reaction=[ReactionEmoji(emoticon=emoji)]
+                )
+            )
+        except Exception:
             pass
     
     # ==================== AI JAVOB OLISH ====================
@@ -316,22 +323,23 @@ def create_userbot():
     
     async def get_ai_response(user_id, user_name, user_text):
         """Gemini AI dan hissiyotli javob olish"""
-        # API kalitini olish (rotation)
-        api_key = get_gemini_key()
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        
-        # Suhbat tarixini olish
-        if user_id not in chat_history:
-            chat_history[user_id] = []
-        
-        history = chat_history[user_id]
-        history_text = ""
-        for msg in history[-8:]:
-            role = "Suhbatdosh" if msg["role"] == "user" else "Men"
-            history_text += f"{role}: {msg['text']}\n"
-        
-        prompt = f"""{EMOTIONAL_PROMPT}
+        try:
+            # API kalitini olish (rotation)
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            # Suhbat tarixini olish
+            if user_id not in chat_history:
+                chat_history[user_id] = []
+            
+            history = chat_history[user_id]
+            history_text = ""
+            for msg in history[-8:]:
+                role = "Suhbatdosh" if msg["role"] == "user" else "Men"
+                history_text += f"{role}: {msg['text']}\n"
+            
+            prompt = f"""{EMOTIONAL_PROMPT}
 
 Suhbatdoshning ismi: {user_name}
 Suhbat tarixi:
@@ -340,19 +348,39 @@ Suhbat tarixi:
 Suhbatdoshning so'nggi xabari: {user_text}
 
 FAQAT JSON formatida javob ber:"""
-        
-        response = model.generate_content(prompt)
-        result = parse_ai_response(response.text)
-        
-        # Tarixga qo'shish
-        history.append({"role": "user", "text": user_text})
-        history.append({"role": "assistant", "text": result["reply"]})
-        
-        # Tarixni cheklash
-        if len(history) > MAX_HISTORY:
-            chat_history[user_id] = history[-MAX_HISTORY:]
-        
-        return result
+            
+            response = model.generate_content(prompt)
+            
+            if not response or not response.text:
+                raise Exception("Bo'sh javob")
+            
+            result = parse_ai_response(response.text)
+            
+            # Tarixga qo'shish
+            history.append({"role": "user", "text": user_text})
+            history.append({"role": "assistant", "text": result["reply"]})
+            
+            # Tarixni cheklash
+            if len(history) > MAX_HISTORY:
+                chat_history[user_id] = history[-MAX_HISTORY:]
+            
+            return result
+            
+        except Exception as e:
+            print(f"AI xatosi: {e}")
+            # Xatolik bo'lsa oddiy javob qaytarish
+            fallback_replies = [
+                f"Salom {user_name}! Hozir biroz bandman, keyinroq yozaman",
+                f"Hey {user_name}! Xabaringni oldim, biroz kuting",
+                f"Rahmat {user_name}! Imkonim bo'lganda javob beraman",
+                f"{user_name}, ko'rdim xabarni! Hozir band edim",
+            ]
+            return {
+                "reply": random.choice(fallback_replies),
+                "mood": "neutral",
+                "should_send_gif": False,
+                "gif_keyword": "",
+            }
     
     # ==================== ASOSIY AUTO-REPLY HANDLER ====================
     
