@@ -85,31 +85,48 @@ def exchange_code_with_redirect(code, state=None):
     }
 
 
+from pytubefix import YouTube as PytubeVideo
+from pytubefix.cli import on_progress
+
 # ==================== VIDEO DOWNLOAD ====================
 
 def download_video(video_id):
-    """yt-dlp orqali videoni yuklab olish"""
+    """pytubefix orqali videoni yuklab olish (bot xatosini aylanib o'tish uchun)"""
     os.makedirs("downloads", exist_ok=True)
-    outtmpl = f"downloads/{video_id}.%(ext)s"
-    ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-        'outtmpl': outtmpl,
-        'quiet': True,
-        'no_warnings': True,
-        'merge_output_format': 'mp4',
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+    outtmpl = f"downloads/{video_id}.mp4"
     
-    # Haqiqiy fayl nomini topish
-    final_path = f"downloads/{video_id}.mp4"
-    if os.path.exists(final_path):
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    try:
+        # Pytubefix orqali urinish (TV va ANDROID clientlar odatda bot checkdan o'tadi)
+        yt = PytubeVideo(url, client='TV')
+        stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+        if not stream:
+            # Agar progressive topilmasa, yt-dlp ga o'tamiz
+            raise Exception("Pytubefix: Stream topilmadi")
+        stream.download(output_path="downloads", filename=f"{video_id}.mp4")
+        return outtmpl
+    except Exception as e:
+        print(f"Pytubefix xatosi: {e}. yt-dlp orqali qayta urinilmoqda...")
+        # Fallback: yt-dlp
+        ydl_opts = {
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+            'outtmpl': outtmpl,
+            'quiet': True,
+            'no_warnings': True,
+            'merge_output_format': 'mp4',
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+        
+        # Haqiqiy fayl nomini topish
+        final_path = f"downloads/{video_id}.mp4"
+        if os.path.exists(final_path):
+            return final_path
+        # Agar boshqa nomda saqlangan bo'lsa
+        for f in os.listdir("downloads"):
+            if f.startswith(video_id):
+                return os.path.join("downloads", f)
         return final_path
-    # Agar boshqa nomda saqlangan bo'lsa
-    for f in os.listdir("downloads"):
-        if f.startswith(video_id):
-            return os.path.join("downloads", f)
-    return final_path
 
 
 # ==================== VIDEO UPLOAD ====================
