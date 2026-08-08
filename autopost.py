@@ -94,7 +94,7 @@ def download_video(video_id, proxy_url=None):
     url = f"https://www.youtube.com/watch?v={video_id}"
     
     ydl_opts = {
-        'format': 'best[height<=1080]/bestvideo[height<=1080]+bestaudio/best',
+        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio/bestvideo+bestaudio/best[ext=mp4]/best',
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
