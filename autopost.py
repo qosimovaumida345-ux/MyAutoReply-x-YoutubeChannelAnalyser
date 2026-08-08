@@ -13,7 +13,7 @@ from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
 # Render service URL (callback uchun)
-RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://myautoreply-x-youtubechannelanalyser.onrender.com")
+RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com")
 REDIRECT_URI = f"{RENDER_URL}/oauth/callback"
 
 CLIENT_CONFIG = {
