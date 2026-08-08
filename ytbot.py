@@ -1944,6 +1944,45 @@ def create_ytbot():
             )
             await cb.message.edit_text(text, reply_markup=video_action_kb(video_id), parse_mode=ParseMode.MARKDOWN)
     
+    # ==================== /testformats ====================
+    @bot.on_message(filters.command("testformats") & filters.private)
+    async def cmd_test_formats(client, message):
+        """Render serverda mavjud formatlarni tekshirish — /testformats [video_id]"""
+        from config import ADMIN_USERNAME
+        
+        # Only admin can run this (diagnostic command)
+        if not check_is_admin(message.from_user):
+            await message.reply("❌ Bu buyruq faqat bot egasi uchun.")
+            return
+        
+        args = message.text.split()
+        video_id = args[1] if len(args) > 1 else "dQw4w9WgXcQ"
+        
+        msg = await message.reply(f"🔍 `{video_id}` uchun formatlar tekshirilmoqda...\n_(Render logs ga ham yoziladi)_")
+        
+        try:
+            from autopost import test_available_formats
+            results = await asyncio.to_thread(test_available_formats, video_id)
+            
+            lines = [f"📊 **Format Test Natijalari** (`{video_id}`):\n"]
+            for client_name, data in results.items():
+                if 'error' in data:
+                    lines.append(f"❌ `{client_name}` → {data['error'][:60]}")
+                else:
+                    emoji = "✅" if data['http_only'] > 0 else "⚠️"
+                    lines.append(
+                        f"{emoji} `{client_name}` → "
+                        f"jami: {data['total']} | "
+                        f"HTTP: {data['http_only']} | "
+                        f"max: {data['best']}p"
+                    )
+            
+            lines.append("\n_To'liq natija Render logs da ko'rinadi_")
+            await msg.edit_text("\n".join(lines))
+        
+        except Exception as e:
+            await msg.edit_text(f"❌ Test xatosi: `{str(e)[:200]}`")
+
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
     async def ai_routing_handler(client, message):

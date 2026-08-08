@@ -87,70 +87,121 @@ def exchange_code_with_redirect(code, state=None):
 
 # ==================== VIDEO DOWNLOAD ====================
 
-def download_video(video_id, proxy_url=None):
-    """yt-dlp orqali videoni yuklab olish (proxy va cookies bilan)"""
-    os.makedirs("downloads", exist_ok=True)
-    outtmpl = f"downloads/{video_id}.mp4"
+def test_available_formats(video_id="dQw4w9WgXcQ"):
+    """
+    Bulut serverda qaysi formatlar mavjudligini tekshirish uchun.
+    Bot loglarida ko'rinadi (Render Dashboard > Logs).
+    Usage: call this from ytbot.py with a /testformats command.
+    """
+    import json
     url = f"https://www.youtube.com/watch?v={video_id}"
     
+    results = {}
+    clients_to_test = ['tv_embedded', 'ios', 'web', 'android', 'mweb']
+    
+    print(f"\n{'='*60}")
+    print(f"[FORMAT TEST] Testing video: {video_id}")
+    print(f"[FORMAT TEST] URL: {url}")
+    print(f"{'='*60}")
+    
+    for client in clients_to_test:
+        try:
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': False,
+                'skip_download': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': [client],
+                        'player_skip': ['webpage'],
+                    }
+                },
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                formats = info.get('formats', [])
+                http_formats = [f for f in formats if f.get('protocol') in ('https', 'http')]
+                results[client] = {
+                    'total': len(formats),
+                    'http_only': len(http_formats),
+                    'best': max((f.get('height', 0) for f in http_formats if f.get('height')), default=0)
+                }
+                print(f"[FORMAT TEST] {client:15} → total={len(formats):3d} | http={len(http_formats):3d} | best_height={results[client]['best']}p")
+        except Exception as e:
+            results[client] = {'error': str(e)[:100]}
+            print(f"[FORMAT TEST] {client:15} → ERROR: {str(e)[:80]}")
+    
+    print(f"{'='*60}\n")
+    return results
+
+def download_video(video_id, proxy_url=None):
+    """yt-dlp orqali videoni yuklab olish (tv_embedded — n-challenge talab qilmaydi)"""
+    os.makedirs("downloads", exist_ok=True)
+    outtmpl = f"downloads/{video_id}.%(ext)s"
+    url = f"https://www.youtube.com/watch?v={video_id}"
+
     ydl_opts = {
-        'format': 'best',  # Eng oddiy va har doim ishlaydi
+        # bv*+ba/b = best video + best audio, fallback to best combined
+        'format': 'bv*+ba/b',
         'outtmpl': outtmpl,
-        'quiet': True,
-        'no_warnings': True,
+        'quiet': False,        # IMPORTANT: False so errors are visible in Render logs
+        'no_warnings': False,  # IMPORTANT: False so warnings are visible in Render logs
         'merge_output_format': 'mp4',
         'postprocessors': [{
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',
         }],
-        # ====== YouTube Bot Detection Bypass ======
-        'source_address': '0.0.0.0',  # Force IPv4
-        # Brauzer kabi ko'rinish (YouTube bot larni filter qiladi)
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125"',
-            'Sec-Ch-Ua-Mobile': '?0',
-            'Sec-Ch-Ua-Platform': '"Windows"',
-        },
-        # iOS va web player orqali urinish (bot bloklarini aylanib o'tish)
+
+        # KEY FIX: tv_embedded does NOT require n-challenge
+        # ios/web require n-challenge → fails on cloud → empty format list
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'web'],
+                'player_client': ['tv_embedded', 'mweb'],
+                'player_skip': ['webpage'],
             }
         },
-        # So'rovlar orasida kechikish (bot kabi ko'rinmaslik uchun)
-        'sleep_interval': 2,
-        'max_sleep_interval': 5,
-        'sleep_interval_requests': 1,
-        # Xato bo'lsa qayta urinish
-        'retries': 5,
-        'fragment_retries': 5,
+
+        # EJS remote solver as backup (uses Node.js if installed)
+        'remote_components': 'ejs:github',
+
+        'source_address': '0.0.0.0',
+        'retries': 10,
+        'fragment_retries': 10,
         'skip_unavailable_fragments': True,
+        'sleep_interval': 1,
+        'max_sleep_interval': 3,
     }
-    
-    # Proxy qo'shish (foydalanuvchi yoki default)
+
     if proxy_url:
         ydl_opts['proxy'] = proxy_url
-    
-    # Bazadan cookies ni olish
+
+    # Per-video cookie file (prevents race condition with concurrent downloads)
     cookies_text = get_config("yt_cookies")
-    cookie_path = "downloads/cookies.txt"
+    cookie_path = f"downloads/cookies_{video_id}.txt"
     if cookies_text:
         with open(cookie_path, "w", encoding="utf-8") as f:
             f.write(cookies_text)
         ydl_opts['cookiefile'] = cookie_path
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
+    except yt_dlp.utils.DownloadError as e:
+        error_msg = str(e).lower()
+        if "format" in error_msg or "not available" in error_msg:
+            # Fallback attempt with android client
+            print(f"[AUTOPOST] tv_embedded failed for {video_id}, trying android client...")
+            ydl_opts['extractor_args']['youtube']['player_client'] = ['android', 'mweb']
+            ydl_opts['format'] = 'b'
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        else:
+            raise
     finally:
-        # Faylni xavfsizlik uchun o'chirish (agar yaratilgan bo'lsa)
         if os.path.exists(cookie_path):
             os.remove(cookie_path)
-    
-    # Haqiqiy fayl nomini topish
+
+    # Find the actual downloaded file
     final_path = f"downloads/{video_id}.mp4"
     if os.path.exists(final_path):
         return final_path
