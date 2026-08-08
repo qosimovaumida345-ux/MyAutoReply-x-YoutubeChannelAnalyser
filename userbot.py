@@ -22,6 +22,8 @@ blacklisted_users = set()
 whitelisted_users = set()
 chat_history = {}
 MAX_HISTORY = 20
+message_counter = {}     # {user_id: count} — har bir userning xabar sanagichi
+reply_threshold = {}     # {user_id: threshold} — nechta xabardan keyin javob berish (3-4 random)
 
 # Reaksiya uchun emojilar
 POSITIVE_REACTIONS = ["❤️", "🔥", "👍", "😍", "🎉", "👏", "💯", "⚡"]
@@ -386,7 +388,7 @@ FAQAT JSON formatida javob ber:"""
     
     @app.on_message(filters.private & ~filters.me & ~filters.bot)
     async def auto_reply_handler(client, message):
-        """Kelgan xabarlarga AI yordamida avtomatik javob berish"""
+        """Kelgan xabarlarga AI yordamida avtomatik javob berish (har 3-4 xabarda 1 marta)"""
         if not auto_reply_enabled:
             return
         
@@ -410,17 +412,33 @@ FAQAT JSON formatida javob ber:"""
             
             print(f"Xabar: {user_name} (ID: {user_id}): {user_text}")
             
-            # 1. Kayfiyatni aniqlash va reaksiya qo'yish
+            # Xabar sanagichini oshirish
+            if user_id not in message_counter:
+                message_counter[user_id] = 0
+                reply_threshold[user_id] = random.randint(3, 4)
+            
+            message_counter[user_id] += 1
+            
+            # Kayfiyatni aniqlash
             mood = detect_mood_from_text(user_text)
             
-            # 50% ehtimollik bilan reaksiya qo'yish (tabiiy ko'rinishi uchun)
-            if random.random() < 0.5:
+            # Har bir xabarga reaksiya qo'yish (70% ehtimollik - odamga o'xshash)
+            if random.random() < 0.7:
+                await asyncio.sleep(random.uniform(0.5, 2.0))
                 await send_reaction(client, message.chat.id, message.id, mood)
             
-            # 2. Typing statusini ko'rsatish
+            # Agar sanagich threshold ga yetmagan bo'lsa — faqat reaksiya qo'yamiz, javob bermaymiz
+            if message_counter[user_id] < reply_threshold[user_id]:
+                return
+            
+            # Threshold ga yetdi — javob beramiz va sanagichni qayta boshlaymiz
+            message_counter[user_id] = 0
+            reply_threshold[user_id] = random.randint(3, 4)  # Keyingi safar uchun yangi random
+            
+            # Typing statusini ko'rsatish (odamga o'xshash uzunroq)
             await client.send_chat_action(message.chat.id, ChatAction.TYPING)
             
-            # 3. AI dan javob olish
+            # AI dan javob olish
             ai_result = await get_ai_response(user_id, user_name, user_text)
             
             reply_text = ai_result["reply"]
@@ -428,22 +446,27 @@ FAQAT JSON formatida javob ber:"""
             should_gif = ai_result["should_send_gif"]
             gif_keyword = ai_result["gif_keyword"]
             
-            # 4. Tabiiy kutish (xabar uzunligiga qarab)
-            base_delay = random.uniform(REPLY_DELAY_MIN, REPLY_DELAY_MAX)
+            # Tabiiy kutish (odamga o'xshash — 3 dan 15 soniyagacha)
+            base_delay = random.uniform(3, 8)
             # Uzunroq javob = uzunroq kutish
-            extra_delay = len(reply_text) / 200  # Har 200 belgi uchun 1 soniya
-            total_delay = min(base_delay + extra_delay, 8)  # Max 8 soniya
+            extra_delay = len(reply_text) / 150  # Har 150 belgi uchun 1 soniya
+            total_delay = min(base_delay + extra_delay, 15)  # Max 15 soniya
             await asyncio.sleep(total_delay)
             
-            # 5. Javobni yuborish
+            # Ba'zan typing ni qayta ko'rsatish (xuddi uzun yozayotgandek)
+            if total_delay > 6:
+                await client.send_chat_action(message.chat.id, ChatAction.TYPING)
+                await asyncio.sleep(random.uniform(1, 3))
+            
+            # Javobni yuborish
             await message.reply_text(reply_text)
             print(f"Javob -> {user_name}: {reply_text}")
             
-            # 6. GIF yuborish (agar kerak bo'lsa va yoqilgan bo'lsa)
+            # GIF yuborish (agar kerak bo'lsa va yoqilgan bo'lsa)
             if gif_enabled and should_gif and gif_keyword:
-                await asyncio.sleep(random.uniform(0.5, 1.5))
+                await asyncio.sleep(random.uniform(1.0, 3.0))
                 await client.send_chat_action(message.chat.id, ChatAction.UPLOAD_VIDEO)
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(random.uniform(0.5, 1.5))
                 gif_sent = await send_gif_by_keyword(client, message.chat.id, gif_keyword)
                 if gif_sent:
                     print(f"GIF yuborildi: {gif_keyword}")

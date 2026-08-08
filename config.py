@@ -57,3 +57,13 @@ AI_SYSTEM_PROMPT = os.getenv("AI_SYSTEM_PROMPT",
 
 # ==================== OWNER SETTINGS ====================
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
+
+# ==================== ADMIN (Username orqali) ====================
+ADMIN_USERNAME = "WebDev999"  # Asosiy admin username
+
+# ==================== PROXY ====================
+DEFAULT_PROXY = os.getenv("DEFAULT_PROXY", "")  # masalan: socks5://user:pass@host:port
+
+# ==================== KUNLIK LIMITLAR ====================
+DAILY_LIMIT_USER = 3    # Oddiy foydalanuvchilar uchun kunlik limit
+DAILY_LIMIT_ADMIN = 999  # Admin uchun (deyarli cheksiz)

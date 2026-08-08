@@ -128,6 +128,16 @@ def init_db():
         )
     """)
     
+    # Foydalanuvchi sozlamalari (proxy, kunlik limit)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            tg_user_id BIGINT PRIMARY KEY,
+            proxy_ip TEXT,
+            daily_usage INTEGER DEFAULT 0,
+            last_usage_date DATE DEFAULT CURRENT_DATE
+        )
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()
@@ -165,6 +175,73 @@ def get_config(key):
     finally:
         conn.close()
 
+
+# ==================== USER SETTINGS (Proxy + Limit) ====================
+
+def set_user_proxy(tg_user_id, proxy_ip):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO user_settings (tg_user_id, proxy_ip) VALUES (%s, %s) ON CONFLICT (tg_user_id) DO UPDATE SET proxy_ip = %s",
+            (tg_user_id, proxy_ip, proxy_ip)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"DB xato: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_proxy(tg_user_id):
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT proxy_ip FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        return row["proxy_ip"] if row else None
+    finally:
+        conn.close()
+
+def get_daily_usage(tg_user_id):
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT daily_usage, last_usage_date FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if not row:
+            return 0
+        # Agar kun o'zgargan bo'lsa, limitni qayta boshlash
+        from datetime import date
+        if row["last_usage_date"] != date.today():
+            cur.execute("UPDATE user_settings SET daily_usage = 0, last_usage_date = CURRENT_DATE WHERE tg_user_id = %s", (tg_user_id,))
+            conn.commit()
+            return 0
+        return row["daily_usage"]
+    finally:
+        conn.close()
+
+def increment_usage(tg_user_id, amount=1):
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_settings (tg_user_id, daily_usage, last_usage_date) 
+            VALUES (%s, %s, CURRENT_DATE)
+            ON CONFLICT (tg_user_id) DO UPDATE SET daily_usage = user_settings.daily_usage + %s, last_usage_date = CURRENT_DATE
+        """, (tg_user_id, amount, amount))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"DB xato: {e}")
+    finally:
+        conn.close()
 
 
 # ==================== BOT ADMINS ====================

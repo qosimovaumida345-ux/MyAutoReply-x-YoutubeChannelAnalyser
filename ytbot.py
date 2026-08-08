@@ -11,15 +11,20 @@ from pyrogram.types import (
 )
 from googleapiclient.discovery import build
 
-from config import BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key
+from config import (
+    BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
+    ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key
+)
 from database import (
     add_tracked_channel, remove_tracked_channel, get_tracked_channels,
     save_channel_snapshot, save_video_snapshot,
     get_channel_history, get_channel_growth,
     add_bot_admin, is_bot_admin, get_all_admins,
-    create_autopost_task
+    create_autopost_task,
+    set_user_proxy, get_user_proxy, get_daily_usage, increment_usage, set_config
 )
 from autopost import autopost_worker, get_auth_url
+import google.generativeai as genai
 
 # ==================== YOUTUBE API ====================
 
@@ -369,56 +374,11 @@ def create_ytbot():
     
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
     
-    # ==================== AUTH MIDDLEWARE ====================
-    
-    @bot.on_message(filters.all, group=-1)
-    async def auth_middleware(client, message):
-        if not message.from_user:
-            return
-        user_id = message.from_user.id
-        
-        # Agar user admin bo'lsa, davom etamiz
-        if is_bot_admin(user_id):
-            return
-            
-        text = message.text or ""
-        
-        # /start bosilganda login so'rash
-        if text.startswith("/start"):
-            await message.reply_text(
-                "👋 Assalomu alaykum! Ushbu bot yopiq (private) tizim.\n\n"
-                "Iltimos, tizimga kirish uchun username va parolni quyidagi formatda yuboring:\n"
-                "`username:password`\n\n"
-                "(Masalan: user_name:password)"
-            )
-            raise StopPropagation
-            
-        # Login urinishini tekshirish
-        parts = text.split(":")
-        if len(parts) == 2:
-            username = parts[0].strip()
-            password = parts[1].strip()
-            
-            # Hardcoded admin akkauntini tekshirish
-            if username == "blox_forge1" and password == "abdulloh2011":
-                if add_bot_admin(user_id, username):
-                    await message.reply_text(
-                        "✅ Tizimga muvaffaqiyatli kirdingiz! Sizga admin ruxsati berildi.\n\n"
-                        "Barcha buyruqlarni ko'rish uchun /help ni bosing yoki /menu orqali bosh menyuni oching."
-                    )
-                else:
-                    await message.reply_text("❌ Xatolik yuz berdi. Iltimos qayta urinib ko'ring.")
-                raise StopPropagation
-                
-        # Boshqa hollarda (noto'g'ri parol yoki umuman parol yozilmagan)
-        await message.reply_text("Bot vaqtincha ishlamayapti.")
-        raise StopPropagation
-        
-    @bot.on_callback_query(filters.all, group=-1)
-    async def auth_callback_middleware(client, cb):
-        if not is_bot_admin(cb.from_user.id):
-            await cb.answer("Bot vaqtincha ishlamayapti.", show_alert=True)
-            raise StopPropagation
+    # Adminni username (@WebDev999) orqali aniqlash
+    def check_is_admin(user):
+        if not user or not user.username:
+            return False
+        return user.username.lower() == ADMIN_USERNAME.lower()
 
     # ==================== /start ====================
     @bot.on_message(filters.command("start"))
@@ -434,17 +394,32 @@ def create_ytbot():
     # ==================== /help ====================
     @bot.on_message(filters.command("help"))
     async def help_cmd(client, message):
-        text = (
-            "**Yordam bo'limi**\n\n"
-            "Quyidagi kategoriyalardan birini tanlang yoki "
-            "to'g'ridan-to'g'ri buyruqlarni yozing:\n\n"
-            "`/channel` `<nom>` - Kanal statistikasi\n"
-            "`/video` `<url>` - Video statistikasi\n"
-            "`/search` `<so'z>` - Qidiruv\n"
-            "`/trending` - Trendlar\n"
-            "`/menu` - Asosiy menyu"
+        is_admin = check_is_admin(message.from_user)
+        
+        help_text = (
+            "`📖 YouTube Analytics Bot Buyruqlari:`\n\n"
+            "`📌 Asosiy buyruqlar:`\n"
+            "`/start` - Botni boshlash\n"
+            "`/help` - Yordam\n"
+            "`/ytlogin` - YouTube kanalini ulash\n"
+            "`/autopost <soni> <qidiruv>` - Auto-post (Kunlik limit: 3 ta)\n"
+            "`/setproxy <ip:port>` - O'z proxy IP ingizni o'rnatish\n"
+            "`/myproxy` - Hozirgi proxy sozlamasini ko'rish\n\n"
+            "`📊 Analitika va Qidiruv:`\n"
+            "`/channel <kanal>` - Kanal statistikasi\n"
+            "`/video <url>` - Video statistikasi\n"
+            "`/compare <kanal1> <kanal2>` - Kanallarni solishtirish\n"
+            "`/search <so'z>` - Qidiruv\n"
+            "`/trending` - Trendlar"
         )
-        await message.reply_text(text, reply_markup=help_menu_kb(), parse_mode=ParseMode.MARKDOWN)
+        
+        if is_admin:
+            help_text += (
+                "\n\n`⚙️ Admin buyruqlari:`\n"
+                "`/setcookies` - YouTube cookies faylini yuklash (.txt)"
+            )
+            
+        await message.reply_text(help_text, reply_markup=help_menu_kb(), parse_mode=ParseMode.MARKDOWN)
     
     # ==================== /menu ====================
     @bot.on_message(filters.command("menu"))
@@ -569,53 +544,94 @@ def create_ytbot():
         except Exception as e:
             await message.reply_text(f"❌ Xatolik yuz berdi: {e}")
             
+    # ==================== /setproxy & /myproxy ====================
+    @bot.on_message(filters.command("setproxy"))
+    async def setproxy_cmd(client, message):
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply_text("`❌ Noto'g'ri format! Foydalanish: /setproxy http://ip:port yoki /setproxy socks5://user:pass@ip:port`", parse_mode=ParseMode.MARKDOWN)
+            return
+        proxy = args[1].strip()
+        user_id = message.from_user.id
+        if set_user_proxy(user_id, proxy):
+            await message.reply_text(f"`✅ Proxy muvaffaqiyatli saqlandi:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text("`❌ Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
+
+    @bot.on_message(filters.command("myproxy"))
+    async def myproxy_cmd(client, message):
+        user_id = message.from_user.id
+        proxy = get_user_proxy(user_id)
+        if proxy:
+            await message.reply_text(f"`🌐 Sizning proxy sozlamangiz:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
+        else:
+            def_p = DEFAULT_PROXY or "o'rnatilmagan"
+            await message.reply_text(f"`🌐 Sizda shaxsiy proxy yo'q. Default proxy:` `{def_p}`", parse_mode=ParseMode.MARKDOWN)
+
     # ==================== /autopost ====================
     
     @bot.on_message(filters.command("autopost"))
     async def autopost_cmd(client, message):
+        user_id = message.from_user.id
+        is_admin = check_is_admin(message.from_user)
+
+        # Limit tekshirish
+        daily_used = get_daily_usage(user_id)
+        limit = DAILY_LIMIT_ADMIN if is_admin else DAILY_LIMIT_USER
+
+        if daily_used >= limit:
+            await message.reply_text(
+                f"`⏳ Kunlik limitingiz ({limit} ta) tugadi! Ertaga qayta urinib ko'ring.`",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return
+
         args = message.text.split(maxsplit=2)
         if len(args) < 3:
-            await message.reply_text("Buzilgan format!\nTo'g'ri foydalanish: `/autopost <soni> <qidiruv so'zi>`\nMasalan: `/autopost 5 gaming shorts`")
+            await message.reply_text("`Buzilgan format!\nTo'g'ri foydalanish: /autopost <soni> <qidiruv so'zi>\nMasalan: /autopost 2 gaming shorts`", parse_mode=ParseMode.MARKDOWN)
             return
             
         try:
             count = int(args[1])
             query = args[2]
-            
-            if count > 100:
-                await message.reply_text("❌ Maksimal 100 ta video yuklash mumkin.")
+
+            remaining = limit - daily_used
+            if count > remaining:
+                await message.reply_text(
+                    f"`❌ Siz bugun max {remaining} ta video yuklay olasiz! (Kunlik limit: {limit} ta)`",
+                    parse_mode=ParseMode.MARKDOWN
+                )
                 return
                 
-            task_id = create_autopost_task(message.from_user.id, "my_channel", query, "video", count)
+            task_id = create_autopost_task(user_id, "my_channel", query, "video", count)
             if task_id:
-                await message.reply_text(f"✅ Vazifa qabul qilindi. {count} ta video '{query}' bo'yicha qidirilmoqda...")
-                # Fon vazifasi (background task) sifatida yurgizish
-                asyncio.create_task(autopost_worker(task_id, message.from_user.id, query, count, client, message.chat.id))
+                increment_usage(user_id, count)
+                user_proxy = get_user_proxy(user_id) or DEFAULT_PROXY
+                await message.reply_text(f"`✅ Vazifa qabul qilindi. {count} ta video '{query}' bo'yicha qidirilmoqda...`", parse_mode=ParseMode.MARKDOWN)
+                asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, message.chat.id, proxy_url=user_proxy))
             else:
-                await message.reply_text("❌ Xatolik yuz berdi. DB ni tekshiring.")
+                await message.reply_text("`❌ Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
                 
         except ValueError:
-            await message.reply_text("❌ Soni raqam bo'lishi kerak!")
+            await message.reply_text("`❌ Soni raqam bo'lishi kerak!`", parse_mode=ParseMode.MARKDOWN)
 
     
     # ==================== /setcookies ====================
-    from database import set_config
     
     @bot.on_message(filters.command("setcookies"))
     async def setcookies_cmd(client, message):
-        # Admin check
-        from database import is_bot_admin
-        if not is_bot_admin(message.from_user.id):
-            await message.reply_text("❌ Faqat adminlar cookies yuklay oladi!")
+        # Admin check (@WebDev999)
+        if not check_is_admin(message.from_user):
+            await message.reply_text("`❌ Faqat adminlar cookies yuklay oladi!`", parse_mode=ParseMode.MARKDOWN)
             return
             
         doc = message.document
         if not doc:
-            await message.reply_text("❌ Siz fayl yubormadingiz!\n\n**To'g'ri usul:** Faylni Telegramga yuklayotganda, pasdagi izoh (caption) qismiga `/setcookies` deb yozib yuboring.")
+            await message.reply_text("`❌ Siz fayl yubormadingiz!\n\nTo'g'ri usul: Faylni Telegramga yuklayotganda, izoh (caption) qismiga /setcookies deb yozing.`", parse_mode=ParseMode.MARKDOWN)
             return
             
         if not doc.file_name.endswith(".txt"):
-            await message.reply_text("❌ Iltimos, faqat `.txt` formatidagi fayl yuklang (masalan `cookies.txt`).")
+            await message.reply_text("`❌ Iltimos, faqat .txt formatidagi fayl yuklang (masalan cookies.txt).`", parse_mode=ParseMode.MARKDOWN)
             return
             
         try:
@@ -624,15 +640,15 @@ def create_ytbot():
             with open(file_path, 'r', encoding='utf-8') as f:
                 cookies_text = f.read()
             import os
-            os.remove(file_path) # Vaqtinchalik faylni o'chiramiz
+            os.remove(file_path)
             
             # Bazaga saqlash
             if set_config("yt_cookies", cookies_text):
-                await message.reply_text("✅ Cookies muvaffaqiyatli saqlandi! Endi /autopost ishlab ketadi.")
+                await message.reply_text("`✅ Cookies muvaffaqiyatli saqlandi! Endi /autopost ishlab ketadi.`", parse_mode=ParseMode.MARKDOWN)
             else:
-                await message.reply_text("❌ Bazaga saqlashda xatolik yuz berdi.")
+                await message.reply_text("`❌ Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
-            await message.reply_text(f"❌ Faylni o'qishda xatolik: {e}")
+            await message.reply_text(f"`❌ Faylni o'qishda xatolik: {e}`", parse_mode=ParseMode.MARKDOWN)
 
     # ==================== /about ====================
     @bot.on_message(filters.command("about"))
@@ -1925,7 +1941,67 @@ def create_ytbot():
                 f"Izohlar: `{fmt(comments_count)}`\n"
                 f"Engagement: `{eng:.2f}%`"
             )
-            await cb.message.edit_text(text, reply_markup=video_action_kb(video_id), parse_mode=ParseMode.MARKDOWN)
+    # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
+    @bot.on_message(filters.text & ~filters.command & filters.private)
+    async def ai_routing_handler(client, message):
+        user_text = message.text.strip()
+        if not user_text:
+            return
+            
+        try:
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = f"""Foydalanuvchi Telegram botga quyidagi matnni yozdi:
+"{user_text}"
+
+Botda quyidagi buyruqlar bor:
+1. /compare <kanal1> <kanal2> - ikki kanalni taqqoslash
+2. /autopost <soni> <mavzu> - videolarni avto post qilish
+3. /channel <kanal> - kanal statistikasini ko'rish
+4. /video <url> - video statistikasini ko'rish
+5. /trending - trenddagi videolarni ko'rish
+6. /search <so'z> - videolar qidirish
+
+Vazifang: Foydalanuvchi niyatini aniqla. 
+Agar foydalanuvchi kanal taqqoslashni so'rasa yoki boshqa buyruqqa mos keladigan narsa so'rasa, mos Telegram buyrug'ini aniq qaytar.
+Javobingni FAQAT JSON formatida ber:
+{{
+    "action": "command" yoki "text",
+    "result": "buyruq matni (masalan /compare ch1 ch2) YOKI foydalanuvchiga do'stona javob"
+}}"""
+            res = model.generate_content(prompt)
+            if res and res.text:
+                json_match = re.search(r'\{[\s\S]*\}', res.text)
+                if json_match:
+                    data = json.loads(json_match.group())
+                    act = data.get("action")
+                    val = data.get("result", "")
+                    if act == "command" and val.startswith("/"):
+                        await message.reply_text(f"`🎯 AI yo'naltirishi: {val}`\n\nBuyruq ijro etilmoqda...", parse_mode=ParseMode.MARKDOWN)
+                        message.text = val
+                        cmd_name = val.split()[0][1:]
+                        if cmd_name == "compare":
+                            await compare_cmd(client, message)
+                        elif cmd_name == "channel":
+                            await channel_cmd(client, message)
+                        elif cmd_name == "video":
+                            await video_cmd(client, message)
+                        elif cmd_name == "search":
+                            await search_cmd(client, message)
+                        elif cmd_name == "trending":
+                            await trending_cmd(client, message)
+                        elif cmd_name == "autopost":
+                            await autopost_cmd(client, message)
+                        return
+                    else:
+                        await message.reply_text(f"`{val}`", parse_mode=ParseMode.MARKDOWN)
+                        return
+        except Exception as e:
+            print(f"AI routing xato: {e}")
+        
+        await message.reply_text("`Yordam uchun /help ni bosing.`", parse_mode=ParseMode.MARKDOWN)
     
     return bot
 
