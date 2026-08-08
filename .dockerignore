@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+downloads/
+sessions/
+*.session
+*.session-journal
+brain/
+.gemini/

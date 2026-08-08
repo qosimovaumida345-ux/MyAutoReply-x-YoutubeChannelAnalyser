@@ -1,23 +1,31 @@
 FROM python:3.11-slim
 
-# Node.js o'rnatish (yt-dlp challenge solver uchun)
+# OS darajasidagi kutubxonalarni o'rnatish
+# ffmpeg - videolarni birlashtirish uchun
+# curl, gnupg - nodejs o'rnatish uchun
 RUN apt-get update && apt-get install -y \
-    nodejs \
-    npm \
+    ffmpeg \
+    curl \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
-# Python 3.11 tanlash (Render'da 3.14 bo'lsa ham 3.11 barqaror)
+# Node.js o'rnatish (yt-dlp youtube challenge ni aylanib o'tishi uchun)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ishchi katalogni yaratish
 WORKDIR /app
 
-# Requirements avval o'rnatish (cache uchun)
+# Talab qilinadigan Python kutubxonalarini nusxalash va o'rnatish
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Kodni nusxalash
+# Barcha kodlarni nusxalash
 COPY . .
 
-# Web server PORT
-ENV PORT=10000
+# Portni ochish (Render standart porti)
+EXPOSE 10000
 
+# Bot va serverni ishga tushirish
 CMD ["python", "main.py"]

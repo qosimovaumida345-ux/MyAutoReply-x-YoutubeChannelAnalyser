@@ -85,8 +85,6 @@ def exchange_code_with_redirect(code, state=None):
     }
 
 
-import imageio_ffmpeg
-
 # ==================== VIDEO DOWNLOAD ====================
 
 def download_video(video_id):
@@ -95,14 +93,12 @@ def download_video(video_id):
     outtmpl = f"downloads/{video_id}.mp4"
     url = f"https://www.youtube.com/watch?v={video_id}"
     
-    ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
-    
     ydl_opts = {
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
         'merge_output_format': 'mp4',
-        'ffmpeg_location': ffmpeg_path,
         # Bot himoyasini aylanib o'tish uchun sozlamalar:
         'source_address': '0.0.0.0', # IPv6 blokirovkasini chetlab o'tish (Force IPv4)
     }
