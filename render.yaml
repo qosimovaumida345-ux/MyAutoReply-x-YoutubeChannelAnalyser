@@ -2,10 +2,7 @@ services:
   - type: web
     name: auto-reply-bot
     runtime: python
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
     startCommand: python main.py
     envVars:
       - key: API_ID
