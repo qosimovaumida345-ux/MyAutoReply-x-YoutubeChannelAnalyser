@@ -97,7 +97,6 @@ def download_video(video_id):
         'quiet': True,
         'no_warnings': True,
         'merge_output_format': 'mp4',
-        'extractor_args': {'youtube': {'player_client': ['android']}},
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
