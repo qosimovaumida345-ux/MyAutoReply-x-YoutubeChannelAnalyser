@@ -14,18 +14,116 @@ try:
 except RuntimeError:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
+from aiohttp import web
 from config import SESSION_STRING, BOT_TOKEN
+from autopost import exchange_code_with_redirect, pending_oauth
+from database import save_yt_connection
 
-async def dummy_server(reader, writer):
-    """Render.com Port binding talabini qondirish uchun oddiy server"""
-    writer.write(b"HTTP/1.1 200 OK\r\n\r\nBot is running!")
-    await writer.drain()
-    writer.close()
+# ==================== BOT REFERENCES ====================
+# ytbot instance ni saqlash (callback dan xabar yuborish uchun)
+ytbot_instance = None
+
+
+# ==================== WEB SERVER (OAuth Callback + Health Check) ====================
+
+async def handle_health(request):
+    """Render health check uchun"""
+    return web.Response(text="Bot is running!", content_type="text/html")
+
+
+async def handle_oauth_callback(request):
+    """Google OAuth callback — foydalanuvchi ruxsat bergandan keyin Google shu yerga qaytaradi"""
+    code = request.query.get("code")
+    state = request.query.get("state")
+    error = request.query.get("error")
+
+    if error:
+        return web.Response(
+            text=f"<html><body style='font-family:sans-serif;text-align:center;padding:50px;'>"
+                 f"<h1>❌ Ruxsat berilmadi</h1><p>{error}</p>"
+                 f"<p>Telegram botga qaytib, qayta urinib ko'ring.</p></body></html>",
+            content_type="text/html"
+        )
+
+    if not code:
+        return web.Response(
+            text="<html><body style='font-family:sans-serif;text-align:center;padding:50px;'>"
+                 "<h1>❌ Xatolik</h1><p>Kod topilmadi.</p></body></html>",
+            content_type="text/html"
+        )
+
+    try:
+        result = exchange_code_with_redirect(code, state)
+
+        tg_user_id = result["tg_user_id"]
+        channel_title = result["channel_title"]
+        channel_id = result["channel_id"]
+
+        if tg_user_id:
+            save_yt_connection(
+                tg_user_id=tg_user_id,
+                yt_channel_id=channel_id,
+                yt_channel_title=channel_title,
+                access_token=result["access_token"],
+                refresh_token=result["refresh_token"],
+                token_expiry=result["token_expiry"]
+            )
+
+            # Telegram orqali xabar yuborish
+            if ytbot_instance:
+                try:
+                    await ytbot_instance.send_message(
+                        tg_user_id,
+                        f"✅ YouTube kanalingiz muvaffaqiyatli ulandi!\n\n"
+                        f"📺 Kanal: **{channel_title}**\n"
+                        f"🆔 ID: `{channel_id}`\n\n"
+                        f"Endi `/autopost` orqali video yuklashingiz mumkin!"
+                    )
+                except Exception as e:
+                    print(f"Telegram xabar yuborish xatosi: {e}")
+
+        html = (
+            f"<html><body style='font-family:sans-serif;text-align:center;padding:50px;"
+            f"background:#1a1a2e;color:#fff;'>"
+            f"<h1 style='color:#4ecca3;'>✅ Muvaffaqiyatli ulandi!</h1>"
+            f"<p style='font-size:20px;'>Kanal: <strong>{channel_title}</strong></p>"
+            f"<p>Endi Telegram botga qaytib, <code>/autopost</code> buyrug'ini ishlating.</p>"
+            f"<p style='margin-top:30px;'>Bu oynani yopishingiz mumkin.</p>"
+            f"</body></html>"
+        )
+        return web.Response(text=html, content_type="text/html")
+
+    except Exception as e:
+        print(f"OAuth callback xatosi: {e}")
+        return web.Response(
+            text=f"<html><body style='font-family:sans-serif;text-align:center;padding:50px;'>"
+                 f"<h1>❌ Xatolik yuz berdi</h1><p>{e}</p>"
+                 f"<p>Telegram botga qaytib, /ytlogin ni qayta bosing.</p></body></html>",
+            content_type="text/html"
+        )
+
+
+async def start_web_server(port):
+    """aiohttp web serverni ishga tushirish"""
+    app = web.Application()
+    app.router.add_get("/", handle_health)
+    app.router.add_get("/oauth/callback", handle_oauth_callback)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"🌐 Web server {port}-portda ishga tushdi (OAuth callback tayyor)")
+    return runner
+
+
+# ==================== MAIN ====================
 
 async def main():
     """Ikkala botni bir vaqtda ishga tushirish"""
+    global ytbot_instance
     tasks = []
-    
+
     # 1. Auto-Reply Userbot
     if SESSION_STRING:
         from userbot import run_userbot
@@ -34,29 +132,35 @@ async def main():
     else:
         print("⚠️  SESSION_STRING topilmadi — Userbot o'chirilgan")
         print("   ➡️  Avval session_generator.py ni ishga tushiring")
-    
+
     # 2. YouTube Analytics Bot
     if BOT_TOKEN:
-        from ytbot import run_ytbot
-        tasks.append(run_ytbot())
-        print("🎬 YouTube Analytics Bot qo'shildi")
+        from ytbot import create_ytbot
+        bot = create_ytbot()
+        if bot:
+            ytbot_instance = bot
+            async def run_bot():
+                await bot.start()
+                print("🎬 YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
+                await asyncio.Event().wait()
+            tasks.append(run_bot())
+            print("🎬 YouTube Analytics Bot qo'shildi")
     else:
         print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
-    
+
     if not tasks:
         print("\n❌ Hech qanday bot ishga tushirilmadi!")
         print("   .env faylni tekshiring.")
         sys.exit(1)
-    
+
     print("\n" + "=" * 40)
     print("🚀 Barcha botlar ishga tushirilmoqda...")
     print("=" * 40 + "\n")
-    # Render.com uchun Web Server (Portni band qilish)
+
+    # Web Server (OAuth callback + health check)
     port = int(os.environ.get("PORT", 10000))
-    server = await asyncio.start_server(dummy_server, '0.0.0.0', port)
-    print(f"🌐 Dummy web server {port}-portda ishga tushdi (Render uchun)")
-    tasks.append(server.serve_forever())
-    
+    await start_web_server(port)
+
     # Barcha botlarni parallel ishga tushirish
     await asyncio.gather(*tasks)
 
