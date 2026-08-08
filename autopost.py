@@ -113,7 +113,6 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
                 'extractor_args': {
                     'youtube': {
                         'player_client': [client],
-                        'player_skip': ['webpage'],
                     }
                 },
             }
@@ -152,16 +151,7 @@ def download_video(video_id, proxy_url=None):
             'preferedformat': 'mp4',
         }],
 
-        # KEY FIX: tv_embedded does NOT require n-challenge
-        # ios/web require n-challenge → fails on cloud → empty format list
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['tv_embedded', 'mweb'],
-                'player_skip': ['webpage'],
-            }
-        },
-
-        # EJS remote solver as backup (uses Node.js if installed)
+        # Default clients (web) will use deno to solve challenges natively
         'remote_components': 'ejs:github',
 
         'source_address': '0.0.0.0',
@@ -190,8 +180,8 @@ def download_video(video_id, proxy_url=None):
         error_msg = str(e).lower()
         if "format" in error_msg or "not available" in error_msg:
             # Fallback attempt with android client
-            print(f"[AUTOPOST] tv_embedded failed for {video_id}, trying android client...")
-            ydl_opts['extractor_args']['youtube']['player_client'] = ['android', 'mweb']
+            print(f"[AUTOPOST] Default clients failed for {video_id}, trying android client as fallback...")
+            ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
             ydl_opts['format'] = 'b'
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
