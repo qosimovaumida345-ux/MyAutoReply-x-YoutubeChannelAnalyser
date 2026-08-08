@@ -98,7 +98,6 @@ def download_video(video_id):
     ffmpeg_path = imageio_ffmpeg.get_ffmpeg_exe()
     
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
