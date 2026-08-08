@@ -9,6 +9,9 @@ from google_auth_oauthlib.flow import Flow
 from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection
 from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
 
+# Google qo'shimcha scope qaytarishini qabul qilish (scope mismatch xatosini oldini olish)
+os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
+
 # Render service URL (callback uchun)
 RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://myautoreply-x-youtubechannelanalyser.onrender.com")
 REDIRECT_URI = f"{RENDER_URL}/oauth/callback"
