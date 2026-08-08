@@ -10,7 +10,7 @@ from database import get_yt_connection, update_autopost_task, add_autopost_histo
 from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
 
 # Render service URL (callback uchun)
-RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://auto-reply-bot.onrender.com")
+RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://myautoreply-x-youtubechannelanalyser.onrender.com")
 REDIRECT_URI = f"{RENDER_URL}/oauth/callback"
 
 CLIENT_CONFIG = {
