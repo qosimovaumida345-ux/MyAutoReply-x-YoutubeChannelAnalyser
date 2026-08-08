@@ -101,7 +101,6 @@ def download_video(video_id):
         'merge_output_format': 'mp4',
         # Bot himoyasini aylanib o'tish uchun sozlamalar:
         'source_address': '0.0.0.0', # IPv6 blokirovkasini chetlab o'tish (Force IPv4)
-        'extractor_args': {'youtube': {'player_client': ['ios', 'web']}}, # iOS client odatda kamroq bloklanadi
     }
     
     # Bazadan cookies ni olish
