@@ -280,18 +280,26 @@ def create_userbot():
     # ==================== EMOJI REAKSIYA ====================
     
     async def send_reaction(client, chat_id, message_id, mood):
-        """Xabarga emoji reaksiya qo'yish"""
+        """Xabarga emoji yoki custom emoji reaksiya qo'yish"""
         if not reactions_enabled:
             return
         try:
-            emoji = get_reaction_for_mood(mood)
             from pyrogram.raw.functions.messages import SendReaction
-            from pyrogram.raw.types import ReactionEmoji
+            from pyrogram.raw.types import ReactionEmoji, ReactionCustomEmoji
+            from custom_emojis import get_random_custom_emoji_id
+            
+            if random.random() < 0.5:
+                custom_id = get_random_custom_emoji_id()
+                reaction_obj = ReactionCustomEmoji(document_id=custom_id)
+            else:
+                emoji = get_reaction_for_mood(mood)
+                reaction_obj = ReactionEmoji(emoticon=emoji)
+                
             await client.invoke(
                 SendReaction(
                     peer=await client.resolve_peer(chat_id),
                     msg_id=message_id,
-                    reaction=[ReactionEmoji(emoticon=emoji)]
+                    reaction=[reaction_obj]
                 )
             )
         except Exception:
