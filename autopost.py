@@ -181,12 +181,12 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
 async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat_id, proxy_url=None):
     """Background task: videolarni qidiradi, yuklab oladi va kanalga post qiladi"""
     try:
-        await client.send_message(chat_id, f"`🔄 Auto-post boshlandi: {count} ta video '{search_query}' bo'yicha...`")
+        await client.send_message(chat_id, f"🔄 `Auto-post boshlandi: {count} ta video '{search_query}' bo'yicha...`")
 
         # 1. Credentials tekshirish
         conn_data = get_yt_connection(tg_user_id)
         if not conn_data or not conn_data.get("access_token"):
-            await client.send_message(chat_id, "`❌ Kanalingiz ulanmagan! Avval /ytlogin orqali kanalingizni ulang.`")
+            await client.send_message(chat_id, "❌ `Kanalingiz ulanmagan! Avval /ytlogin orqali kanalingizni ulang.`")
             update_autopost_task(task_id, status="failed")
             return
 
@@ -201,7 +201,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
         videos = search_res.get("items", [])
         if not videos:
-            await client.send_message(chat_id, "`❌ Videolar topilmadi.`")
+            await client.send_message(chat_id, "❌ `Videolar topilmadi.`")
             update_autopost_task(task_id, status="failed")
             return
 
@@ -216,13 +216,13 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)
 
-            msg = await client.send_message(chat_id, f"`⏳ [{idx}/{len(videos)}] Yuklab olinmoqda: {title[:50]}...`")
+            msg = await client.send_message(chat_id, f"⏳ `[{idx}/{len(videos)}] Yuklab olinmoqda: {title[:50]}...`")
 
             try:
                 # Yuklab olish (proxy bilan)
                 file_path = await asyncio.to_thread(download_video, vid_id, proxy_url)
 
-                await msg.edit_text(f"`⏳ [{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {title[:50]}...`")
+                await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {title[:50]}...`")
 
                 # Haqiqiy yuklash
                 new_vid_id = await asyncio.to_thread(upload_to_youtube, file_path, title, desc, conn_data)
@@ -234,11 +234,11 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-                await msg.edit_text(f"`✅ [{idx}/{len(videos)}] Yuklandi: {title[:50]}`")
+                await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {title[:50]}`")
 
             except Exception as e:
                 update_autopost_history(hist_id, status="failed", error_msg=str(e))
-                await msg.edit_text(f"`❌ [{idx}/{len(videos)}] Xatolik: {str(e)[:100]}`")
+                await msg.edit_text(f"❌ `[{idx}/{len(videos)}] Xatolik: {str(e)[:100]}`")
                 # Xatolikda ham faylni tozalash
                 try:
                     if os.path.exists(file_path):
@@ -252,8 +252,8 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             await asyncio.sleep(10)
 
         update_autopost_task(task_id, status="completed")
-        await client.send_message(chat_id, f"`🎉 Auto-post yakunlandi! {success_count}/{len(videos)} video yuklandi.`")
+        await client.send_message(chat_id, f"🎉 `Auto-post yakunlandi! {success_count}/{len(videos)} video yuklandi.`")
 
     except Exception as e:
         update_autopost_task(task_id, status="failed")
-        await client.send_message(chat_id, f"`❌ Dastur xatosi: {str(e)[:100]}`")
+        await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:100]}`")

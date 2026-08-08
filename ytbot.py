@@ -397,15 +397,15 @@ def create_ytbot():
         is_admin = check_is_admin(message.from_user)
         
         help_text = (
-            "`📖 YouTube Analytics Bot Buyruqlari:`\n\n"
-            "`📌 Asosiy buyruqlar:`\n"
+            "📖 `YouTube Analytics Bot Buyruqlari:`\n\n"
+            "📌 `Asosiy buyruqlar:`\n"
             "`/start` - Botni boshlash\n"
             "`/help` - Yordam\n"
             "`/ytlogin` - YouTube kanalini ulash\n"
             "`/autopost <soni> <qidiruv>` - Auto-post (Kunlik limit: 3 ta)\n"
             "`/setproxy <ip:port>` - O'z proxy IP ingizni o'rnatish\n"
             "`/myproxy` - Hozirgi proxy sozlamasini ko'rish\n\n"
-            "`📊 Analitika va Qidiruv:`\n"
+            "📊 `Analitika va Qidiruv:`\n"
             "`/channel <kanal>` - Kanal statistikasi\n"
             "`/video <url>` - Video statistikasi\n"
             "`/compare <kanal1> <kanal2>` - Kanallarni solishtirish\n"
@@ -415,7 +415,7 @@ def create_ytbot():
         
         if is_admin:
             help_text += (
-                "\n\n`⚙️ Admin buyruqlari:`\n"
+                "\n\n⚙️ `Admin buyruqlari:`\n"
                 "`/setcookies` - YouTube cookies faylini yuklash (.txt)"
             )
             
@@ -549,24 +549,24 @@ def create_ytbot():
     async def setproxy_cmd(client, message):
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
-            await message.reply_text("`❌ Noto'g'ri format! Foydalanish: /setproxy http://ip:port yoki /setproxy socks5://user:pass@ip:port`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text("❌ `Noto'g'ri format! Foydalanish: /setproxy http://ip:port yoki /setproxy socks5://user:pass@ip:port`", parse_mode=ParseMode.MARKDOWN)
             return
         proxy = args[1].strip()
         user_id = message.from_user.id
         if set_user_proxy(user_id, proxy):
-            await message.reply_text(f"`✅ Proxy muvaffaqiyatli saqlandi:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"✅ `Proxy muvaffaqiyatli saqlandi:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
         else:
-            await message.reply_text("`❌ Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text("❌ `Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
 
     @bot.on_message(filters.command("myproxy"))
     async def myproxy_cmd(client, message):
         user_id = message.from_user.id
         proxy = get_user_proxy(user_id)
         if proxy:
-            await message.reply_text(f"`🌐 Sizning proxy sozlamangiz:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"🌐 `Sizning proxy sozlamangiz:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
         else:
             def_p = DEFAULT_PROXY or "o'rnatilmagan"
-            await message.reply_text(f"`🌐 Sizda shaxsiy proxy yo'q. Default proxy:` `{def_p}`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"🌐 `Sizda shaxsiy proxy yo'q. Default proxy:` `{def_p}`", parse_mode=ParseMode.MARKDOWN)
 
     # ==================== /autopost ====================
     
@@ -581,7 +581,7 @@ def create_ytbot():
 
         if daily_used >= limit:
             await message.reply_text(
-                f"`⏳ Kunlik limitingiz ({limit} ta) tugadi! Ertaga qayta urinib ko'ring.`",
+                f"⏳ `Kunlik limitingiz ({limit} ta) tugadi! Ertaga qayta urinib ko'ring.`",
                 parse_mode=ParseMode.MARKDOWN
             )
             return
@@ -598,7 +598,7 @@ def create_ytbot():
             remaining = limit - daily_used
             if count > remaining:
                 await message.reply_text(
-                    f"`❌ Siz bugun max {remaining} ta video yuklay olasiz! (Kunlik limit: {limit} ta)`",
+                    f"❌ `Siz bugun max {remaining} ta video yuklay olasiz! (Kunlik limit: {limit} ta)`",
                     parse_mode=ParseMode.MARKDOWN
                 )
                 return
@@ -607,13 +607,13 @@ def create_ytbot():
             if task_id:
                 increment_usage(user_id, count)
                 user_proxy = get_user_proxy(user_id) or DEFAULT_PROXY
-                await message.reply_text(f"`✅ Vazifa qabul qilindi. {count} ta video '{query}' bo'yicha qidirilmoqda...`", parse_mode=ParseMode.MARKDOWN)
+                await message.reply_text(f"✅ `Vazifa qabul qilindi. {count} ta video '{query}' bo'yicha qidirilmoqda...`", parse_mode=ParseMode.MARKDOWN)
                 asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, message.chat.id, proxy_url=user_proxy))
             else:
-                await message.reply_text("`❌ Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
+                await message.reply_text("❌ `Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
                 
         except ValueError:
-            await message.reply_text("`❌ Soni raqam bo'lishi kerak!`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text("❌ `Soni raqam bo'lishi kerak!`", parse_mode=ParseMode.MARKDOWN)
 
     
     # ==================== /setcookies ====================
@@ -622,16 +622,16 @@ def create_ytbot():
     async def setcookies_cmd(client, message):
         # Admin check (@WebDev999)
         if not check_is_admin(message.from_user):
-            await message.reply_text("`❌ Faqat adminlar cookies yuklay oladi!`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text("❌ `Faqat adminlar cookies yuklay oladi!`", parse_mode=ParseMode.MARKDOWN)
             return
             
         doc = message.document
         if not doc:
-            await message.reply_text("`❌ Siz fayl yubormadingiz!\n\nTo'g'ri usul: Faylni Telegramga yuklayotganda, izoh (caption) qismiga /setcookies deb yozing.`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text("❌ `Siz fayl yubormadingiz!\n\nTo'g'ri usul: Faylni Telegramga yuklayotganda, izoh (caption) qismiga /setcookies deb yozing.`", parse_mode=ParseMode.MARKDOWN)
             return
             
         if not doc.file_name.endswith(".txt"):
-            await message.reply_text("`❌ Iltimos, faqat .txt formatidagi fayl yuklang (masalan cookies.txt).`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text("❌ `Iltimos, faqat .txt formatidagi fayl yuklang (masalan cookies.txt).`", parse_mode=ParseMode.MARKDOWN)
             return
             
         try:
@@ -644,11 +644,11 @@ def create_ytbot():
             
             # Bazaga saqlash
             if set_config("yt_cookies", cookies_text):
-                await message.reply_text("`✅ Cookies muvaffaqiyatli saqlandi! Endi /autopost ishlab ketadi.`", parse_mode=ParseMode.MARKDOWN)
+                await message.reply_text("✅ `Cookies muvaffaqiyatli saqlandi! Endi /autopost ishlab ketadi.`", parse_mode=ParseMode.MARKDOWN)
             else:
-                await message.reply_text("`❌ Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
+                await message.reply_text("❌ `Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
-            await message.reply_text(f"`❌ Faylni o'qishda xatolik: {e}`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"❌ `Faylni o'qishda xatolik: {e}`", parse_mode=ParseMode.MARKDOWN)
 
     # ==================== /about ====================
     @bot.on_message(filters.command("about"))
@@ -1941,6 +1941,8 @@ def create_ytbot():
                 f"Izohlar: `{fmt(comments_count)}`\n"
                 f"Engagement: `{eng:.2f}%`"
             )
+            await cb.message.edit_text(text, reply_markup=video_action_kb(video_id), parse_mode=ParseMode.MARKDOWN)
+    
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
     async def ai_routing_handler(client, message):
