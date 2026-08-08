@@ -94,7 +94,7 @@ def download_video(video_id, proxy_url=None):
     url = f"https://www.youtube.com/watch?v={video_id}"
     
     ydl_opts = {
-        'format': 'best[height<=1080]/bestvideo[height<=1080]+bestaudio/best',  # ✅ SHORTS FORMAT + Fallback
+        'format': 'best[height<=1080]/bestvideo[height<=1080]+bestaudio/best',
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
@@ -103,8 +103,32 @@ def download_video(video_id, proxy_url=None):
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',
         }],
-        # Bot himoyasini aylanib o'tish uchun sozlamalar:
-        'source_address': '0.0.0.0', # IPv6 blokirovkasini chetlab o'tish (Force IPv4)
+        # ====== YouTube Bot Detection Bypass ======
+        'source_address': '0.0.0.0',  # Force IPv4
+        # Brauzer kabi ko'rinish (YouTube bot larni filter qiladi)
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Sec-Ch-Ua': '"Google Chrome";v="125", "Chromium";v="125"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+        },
+        # iOS va web player orqali urinish (bot bloklarini aylanib o'tish)
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['ios', 'web'],
+                'player_skip': ['webpage'],
+            }
+        },
+        # So'rovlar orasida kechikish (bot kabi ko'rinmaslik uchun)
+        'sleep_interval': 2,
+        'max_sleep_interval': 5,
+        'sleep_interval_requests': 1,
+        # Xato bo'lsa qayta urinish
+        'retries': 5,
+        'fragment_retries': 5,
+        'skip_unavailable_fragments': True,
     }
     
     # Proxy qo'shish (foydalanuvchi yoki default)
