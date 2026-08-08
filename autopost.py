@@ -94,11 +94,15 @@ def download_video(video_id):
     url = f"https://www.youtube.com/watch?v={video_id}"
     
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
+        'format': 'best[height<=1080]/bestvideo[height<=1080]+bestaudio/best',  # ✅ SHORTS FORMAT + Fallback
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
         'merge_output_format': 'mp4',
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }],
         # Bot himoyasini aylanib o'tish uchun sozlamalar:
         'source_address': '0.0.0.0', # IPv6 blokirovkasini chetlab o'tish (Force IPv4)
     }
