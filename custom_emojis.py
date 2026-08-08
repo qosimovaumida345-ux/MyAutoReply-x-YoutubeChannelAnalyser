@@ -59,10 +59,9 @@ EMOJI_MAP = {
 }
 
 def e(key: str) -> str:
-    """Returns HTML tag for custom emoji, e.g. <emoji id="1234">✅</emoji>"""
+    """Returns fallback emoji string, e.g. ✅. The monkey-patch will auto-convert to custom emoji."""
     if key in EMOJI_MAP:
-        emoji_id, fallback = EMOJI_MAP[key]
-        return f'<emoji id="{emoji_id}">{fallback}</emoji>'
+        return EMOJI_MAP[key][1]
     return "✨"
 
 def get_random_custom_emoji_id() -> int:

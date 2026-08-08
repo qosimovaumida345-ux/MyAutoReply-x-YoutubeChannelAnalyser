@@ -142,6 +142,20 @@ async def main():
             async def run_bot():
                 await bot.start()
                 print("🎬 YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
+                
+                # Fetch custom emoji fallbacks to map them accurately
+                try:
+                    from ytbot import AUTO_EMOJI_MAP
+                    from custom_emojis import CUSTOM_EMOJI_POOL
+                    ids = [int(i) for i in CUSTOM_EMOJI_POOL]
+                    stickers = await bot.get_custom_emoji_stickers(custom_emoji_ids=ids)
+                    for s in stickers:
+                        if getattr(s, 'emoji', None):
+                            AUTO_EMOJI_MAP[s.emoji] = s.custom_emoji_id
+                    print(f"🌟 Yuklangan maxsus emojilar soni: {len(AUTO_EMOJI_MAP)}")
+                except Exception as e:
+                    print(f"Maxsus emojilarni yuklashda xatolik: {e}")
+
                 await asyncio.Event().wait()
             tasks.append(run_bot())
             print("🎬 YouTube Analytics Bot qo'shildi")
@@ -160,6 +174,15 @@ async def main():
     # Web Server (OAuth callback + health check)
     port = int(os.environ.get("PORT", 10000))
     await start_web_server(port)
+
+    # Startup: log available formats for debugging
+    print("\n[STARTUP] Running format availability test on server...")
+    try:
+        from autopost import test_available_formats
+        await asyncio.to_thread(test_available_formats)
+    except Exception as e:
+        print(f"[STARTUP] Format test error (non-critical): {e}")
+    print("[STARTUP] Format test complete. Check logs above.\n")
 
     # Barcha botlarni parallel ishga tushirish
     await asyncio.gather(*tasks)

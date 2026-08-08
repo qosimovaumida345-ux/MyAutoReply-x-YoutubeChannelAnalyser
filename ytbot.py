@@ -27,6 +27,52 @@ from autopost import autopost_worker, get_auth_url
 from custom_emojis import e
 import google.generativeai as genai
 
+# ==================== EMOJI PATCH & AUTO MAP ====================
+AUTO_EMOJI_MAP = {}
+
+def convert_md_to_html_and_emojis(text):
+    if not isinstance(text, str): return text
+    # 1. Convert links
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
+    # 2. Convert bold
+    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text, flags=re.DOTALL)
+    # 3. Convert code
+    text = re.sub(r'`(.*?)`', r'<code>\1</code>', text, flags=re.DOTALL)
+    # 4. Convert italic
+    text = re.sub(r'(?<![\w\\])_(.*?)_(?![\w\\])', r'<i>\1</i>', text, flags=re.DOTALL)
+    
+    # 5. Apply custom emojis
+    for std_emoji in sorted(AUTO_EMOJI_MAP.keys(), key=len, reverse=True):
+        if std_emoji in text:
+            text = text.replace(std_emoji, f'<emoji id="{AUTO_EMOJI_MAP[std_emoji]}">{std_emoji}</emoji>')
+            
+    return text
+
+_orig_send_message = Client.send_message
+async def _patched_send_message(self, chat_id, text, parse_mode=None, **kwargs):
+    if parse_mode == ParseMode.MARKDOWN:
+        text = convert_md_to_html_and_emojis(text)
+        parse_mode = ParseMode.HTML
+    return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, **kwargs)
+Client.send_message = _patched_send_message
+
+_orig_edit_message_text = Client.edit_message_text
+async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode=None, **kwargs):
+    if parse_mode == ParseMode.MARKDOWN:
+        text = convert_md_to_html_and_emojis(text)
+        parse_mode = ParseMode.HTML
+    return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, **kwargs)
+Client.edit_message_text = _patched_edit_message_text
+
+_orig_send_photo = Client.send_photo
+async def _patched_send_photo(self, chat_id, photo, caption=None, parse_mode=None, **kwargs):
+    if caption and parse_mode == ParseMode.MARKDOWN:
+        caption = convert_md_to_html_and_emojis(caption)
+        parse_mode = ParseMode.HTML
+    return await _orig_send_photo(self, chat_id, photo, caption=caption, parse_mode=parse_mode, **kwargs)
+Client.send_photo = _patched_send_photo
+# ================================================================
+
 # ==================== YOUTUBE API ====================
 
 def get_yt():
