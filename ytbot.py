@@ -568,6 +568,35 @@ def create_ytbot():
             await message.reply_text(text, disable_web_page_preview=True)
         except Exception as e:
             await message.reply_text(f"❌ Xatolik yuz berdi: {e}")
+            
+    # ==================== /autopost ====================
+    
+    @bot.on_message(filters.command("autopost"))
+    async def autopost_cmd(client, message):
+        args = message.text.split(maxsplit=2)
+        if len(args) < 3:
+            await message.reply_text("Buzilgan format!\nTo'g'ri foydalanish: `/autopost <soni> <qidiruv so'zi>`\nMasalan: `/autopost 5 gaming shorts`")
+            return
+            
+        try:
+            count = int(args[1])
+            query = args[2]
+            
+            if count > 100:
+                await message.reply_text("❌ Maksimal 100 ta video yuklash mumkin.")
+                return
+                
+            task_id = create_autopost_task(message.from_user.id, "my_channel", query, "video", count)
+            if task_id:
+                await message.reply_text(f"✅ Vazifa qabul qilindi. {count} ta video '{query}' bo'yicha qidirilmoqda...")
+                # Fon vazifasi (background task) sifatida yurgizish
+                asyncio.create_task(autopost_worker(task_id, message.from_user.id, query, count, client, message.chat.id))
+            else:
+                await message.reply_text("❌ Xatolik yuz berdi. DB ni tekshiring.")
+                
+        except ValueError:
+            await message.reply_text("❌ Soni raqam bo'lishi kerak!")
+
     
     # ==================== /about ====================
     @bot.on_message(filters.command("about"))
