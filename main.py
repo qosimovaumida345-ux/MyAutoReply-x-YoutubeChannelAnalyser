@@ -176,13 +176,6 @@ async def main():
     await start_web_server(port)
 
     # Startup: log available formats for debugging
-    print("\n[STARTUP] Running format availability test on server...")
-    try:
-        from autopost import test_available_formats
-        await asyncio.to_thread(test_available_formats)
-    except Exception as e:
-        print(f"[STARTUP] Format test error (non-critical): {e}")
-    print("[STARTUP] Format test complete. Check logs above.\n")
 
     # Barcha botlarni parallel ishga tushirish
     await asyncio.gather(*tasks)

@@ -27,5 +27,4 @@ RUN yt-dlp --remote-components ejs:github \
 COPY . .
 
 EXPOSE 10000
-
 CMD ["python", "main.py"]
