@@ -94,7 +94,7 @@ def download_video(video_id):
     url = f"https://www.youtube.com/watch?v={video_id}"
     
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': 'b',
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
