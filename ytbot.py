@@ -1942,7 +1942,7 @@ def create_ytbot():
                 f"Engagement: `{eng:.2f}%`"
             )
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
-    @bot.on_message(filters.text & ~filters.command & filters.private)
+    @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
     async def ai_routing_handler(client, message):
         user_text = message.text.strip()
         if not user_text:
