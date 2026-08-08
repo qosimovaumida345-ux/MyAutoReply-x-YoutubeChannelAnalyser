@@ -94,7 +94,7 @@ def download_video(video_id, proxy_url=None):
     url = f"https://www.youtube.com/watch?v={video_id}"
     
     ydl_opts = {
-        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720][ext=mp4]+bestaudio/bestvideo+bestaudio/best[ext=mp4]/best',
+        'format': 'best',  # Eng oddiy va har doim ishlaydi
         'outtmpl': outtmpl,
         'quiet': True,
         'no_warnings': True,
@@ -118,7 +118,6 @@ def download_video(video_id, proxy_url=None):
         'extractor_args': {
             'youtube': {
                 'player_client': ['ios', 'web'],
-                'player_skip': ['webpage'],
             }
         },
         # So'rovlar orasida kechikish (bot kabi ko'rinmaslik uchun)
