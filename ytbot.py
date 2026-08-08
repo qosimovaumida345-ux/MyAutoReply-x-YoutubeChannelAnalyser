@@ -598,6 +598,38 @@ def create_ytbot():
             await message.reply_text("❌ Soni raqam bo'lishi kerak!")
 
     
+    # ==================== /setcookies ====================
+    from database import set_config
+    
+    @bot.on_message(filters.command("setcookies") & filters.document)
+    async def setcookies_cmd(client, message):
+        # Admin check
+        from database import is_bot_admin
+        if not is_bot_admin(message.from_user.id):
+            await message.reply_text("❌ Faqat adminlar cookies yuklay oladi!")
+            return
+            
+        doc = message.document
+        if not doc.file_name.endswith(".txt"):
+            await message.reply_text("❌ Iltimos, faqat `.txt` formatidagi fayl yuklang (masalan `cookies.txt`).")
+            return
+            
+        try:
+            # Faylni xotiraga yuklash
+            file_path = await client.download_media(message)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                cookies_text = f.read()
+            import os
+            os.remove(file_path) # Vaqtinchalik faylni o'chiramiz
+            
+            # Bazaga saqlash
+            if set_config("yt_cookies", cookies_text):
+                await message.reply_text("✅ Cookies muvaffaqiyatli saqlandi! Endi /autopost ishlab ketadi.")
+            else:
+                await message.reply_text("❌ Bazaga saqlashda xatolik yuz berdi.")
+        except Exception as e:
+            await message.reply_text(f"❌ Faylni o'qishda xatolik: {e}")
+
     # ==================== /about ====================
     @bot.on_message(filters.command("about"))
     async def about_cmd(client, message):

@@ -119,10 +119,52 @@ def init_db():
         )
     """)
     
+    # Bot maxfiy sozlamalari (cookies, tokens va h.k.)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS bot_config (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()
     print("PostgreSQL database tayyor!")
+
+
+# ==================== BOT CONFIG ====================
+
+def set_config(key, value):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO bot_config (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = %s, updated_at = NOW()",
+            (key, value, value)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"DB xato: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_config(key):
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM bot_config WHERE key = %s", (key,))
+        row = cur.fetchone()
+        return row["value"] if row else None
+    finally:
+        conn.close()
+
 
 
 # ==================== BOT ADMINS ====================

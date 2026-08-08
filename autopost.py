@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection
+from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection, get_config
 from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
 
 # Google qo'shimcha scope qaytarishini qabul qilish (scope mismatch xatosini oldini olish)
@@ -104,8 +104,21 @@ def download_video(video_id):
         'extractor_args': {'youtube': {'player_client': ['ios', 'web']}}, # iOS client odatda kamroq bloklanadi
     }
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+    # Bazadan cookies ni olish
+    cookies_text = get_config("yt_cookies")
+    cookie_path = "downloads/cookies.txt"
+    if cookies_text:
+        with open(cookie_path, "w", encoding="utf-8") as f:
+            f.write(cookies_text)
+        ydl_opts['cookiefile'] = cookie_path
+    
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    finally:
+        # Faylni xavfsizlik uchun o'chirish (agar yaratilgan bo'lsa)
+        if os.path.exists(cookie_path):
+            os.remove(cookie_path)
     
     # Haqiqiy fayl nomini topish
     final_path = f"downloads/{video_id}.mp4"
