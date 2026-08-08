@@ -58,7 +58,7 @@ EMOJI_MAP = {
     "PIN": ("5258450450448915742", "📌"),
 }
 
-def get_custom_emoji(key: str) -> str:
+def e(key: str) -> str:
     """Returns HTML tag for custom emoji, e.g. <emoji id="1234">✅</emoji>"""
     if key in EMOJI_MAP:
         emoji_id, fallback = EMOJI_MAP[key]

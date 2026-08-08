@@ -24,6 +24,7 @@ from database import (
     set_user_proxy, get_user_proxy, get_daily_usage, increment_usage, set_config
 )
 from autopost import autopost_worker, get_auth_url
+from custom_emojis import e
 import google.generativeai as genai
 
 # ==================== YOUTUBE API ====================
@@ -233,57 +234,57 @@ def get_categories(region="US"):
 
 def main_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Kanal tahlili", callback_data="menu_channel"),
-         InlineKeyboardButton("Video tahlili", callback_data="menu_video")],
-        [InlineKeyboardButton("Analitika", callback_data="menu_analytics"),
-         InlineKeyboardButton("Qidiruv", callback_data="menu_search")],
-        [InlineKeyboardButton("Kuzatuv", callback_data="menu_tracking"),
-         InlineKeyboardButton("Asboblar", callback_data="menu_tools")],
-        [InlineKeyboardButton("Trending", callback_data="menu_trending"),
-         InlineKeyboardButton("Yordam", callback_data="menu_help")],
+        [InlineKeyboardButton("📢 Kanal tahlili", callback_data="menu_channel"),
+         InlineKeyboardButton("🎬 Video tahlili", callback_data="menu_video")],
+        [InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics"),
+         InlineKeyboardButton("🔍 Qidiruv", callback_data="menu_search")],
+        [InlineKeyboardButton("📌 Kuzatuv", callback_data="menu_tracking"),
+         InlineKeyboardButton("⚙️ Asboblar", callback_data="menu_tools")],
+        [InlineKeyboardButton("🔥 Trending", callback_data="menu_trending"),
+         InlineKeyboardButton("📖 Yordam", callback_data="menu_help")],
     ])
 
 def channel_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("To'liq statistika", callback_data="ch_full"),
-         InlineKeyboardButton("Obunachilar", callback_data="ch_subs")],
-        [InlineKeyboardButton("So'nggi videolar", callback_data="ch_recent"),
-         InlineKeyboardButton("Ommabop videolar", callback_data="ch_popular")],
-        [InlineKeyboardButton("Pleylistlar", callback_data="ch_playlists"),
-         InlineKeyboardButton("Kanal haqida", callback_data="ch_about")],
-        [InlineKeyboardButton("Banner/Avatar", callback_data="ch_banner"),
-         InlineKeyboardButton("Kalit so'zlar", callback_data="ch_keywords")],
-        [InlineKeyboardButton("Upload chastotasi", callback_data="ch_frequency"),
-         InlineKeyboardButton("Daromad taxmini", callback_data="ch_earnings")],
-        [InlineKeyboardButton("Orqaga", callback_data="back_main")],
+        [InlineKeyboardButton("📊 To'liq statistika", callback_data="ch_full"),
+         InlineKeyboardButton("👥 Obunachilar", callback_data="ch_subs")],
+        [InlineKeyboardButton("🎬 So'nggi videolar", callback_data="ch_recent"),
+         InlineKeyboardButton("🔥 Ommabop videolar", callback_data="ch_popular")],
+        [InlineKeyboardButton("📂 Pleylistlar", callback_data="ch_playlists"),
+         InlineKeyboardButton("ℹ️ Kanal haqida", callback_data="ch_about")],
+        [InlineKeyboardButton("🖼 Banner/Avatar", callback_data="ch_banner"),
+         InlineKeyboardButton("🔑 Kalit so'zlar", callback_data="ch_keywords")],
+        [InlineKeyboardButton("⏱ Upload chastotasi", callback_data="ch_frequency"),
+         InlineKeyboardButton("💰 Daromad taxmini", callback_data="ch_earnings")],
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")],
     ])
 
 def video_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("To'liq statistika", callback_data="vid_full"),
-         InlineKeyboardButton("Likelar", callback_data="vid_likes")],
-        [InlineKeyboardButton("Izohlar", callback_data="vid_comments"),
-         InlineKeyboardButton("Teglar", callback_data="vid_tags")],
-        [InlineKeyboardButton("Thumbnail", callback_data="vid_thumb"),
-         InlineKeyboardButton("Tavsif", callback_data="vid_desc")],
-        [InlineKeyboardButton("Engagement", callback_data="vid_engage"),
-         InlineKeyboardButton("Davomiyligi", callback_data="vid_duration")],
-        [InlineKeyboardButton("Orqaga", callback_data="back_main")],
+        [InlineKeyboardButton("📊 To'liq statistika", callback_data="vid_full"),
+         InlineKeyboardButton("👍 Likelar", callback_data="vid_likes")],
+        [InlineKeyboardButton("💬 Izohlar", callback_data="vid_comments"),
+         InlineKeyboardButton("🏷 Teglar", callback_data="vid_tags")],
+        [InlineKeyboardButton("🖼 Thumbnail", callback_data="vid_thumb"),
+         InlineKeyboardButton("📝 Tavsif", callback_data="vid_desc")],
+        [InlineKeyboardButton("⚡ Engagement", callback_data="vid_engage"),
+         InlineKeyboardButton("⏱ Davomiyligi", callback_data="vid_duration")],
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")],
     ])
 
 def analytics_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("O'sish tahlili", callback_data="an_growth"),
-         InlineKeyboardButton("Solishtirish", callback_data="an_compare")],
-        [InlineKeyboardButton("Engagement rate", callback_data="an_engage"),
-         InlineKeyboardButton("O'rtacha ko'rishlar", callback_data="an_avgviews")],
-        [InlineKeyboardButton("Top videolar", callback_data="an_top"),
-         InlineKeyboardButton("Eng kam ko'rilgan", callback_data="an_bottom")],
-        [InlineKeyboardButton("Daromad taxmini", callback_data="an_earnings"),
-         InlineKeyboardButton("Milestone", callback_data="an_milestone")],
-        [InlineKeyboardButton("To'liq hisobot", callback_data="an_report"),
-         InlineKeyboardButton("Upload tezligi", callback_data="an_uploadrate")],
-        [InlineKeyboardButton("Orqaga", callback_data="back_main")],
+        [InlineKeyboardButton("📈 O'sish tahlili", callback_data="an_growth"),
+         InlineKeyboardButton("⚖️ Solishtirish", callback_data="an_compare")],
+        [InlineKeyboardButton("❤️ Engagement rate", callback_data="an_engage"),
+         InlineKeyboardButton("📉 O'rtacha ko'rishlar", callback_data="an_avgviews")],
+        [InlineKeyboardButton("🏆 Top videolar", callback_data="an_top"),
+         InlineKeyboardButton("👎 Eng kam ko'rilgan", callback_data="an_bottom")],
+        [InlineKeyboardButton("💸 Daromad taxmini", callback_data="an_earnings"),
+         InlineKeyboardButton("🎯 Milestone", callback_data="an_milestone")],
+        [InlineKeyboardButton("📄 To'liq hisobot", callback_data="an_report"),
+         InlineKeyboardButton("🚀 Upload tezligi", callback_data="an_uploadrate")],
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")],
     ])
 
 def search_menu_kb():
@@ -296,22 +297,22 @@ def search_menu_kb():
 
 def tracking_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Kanal qo'shish", callback_data="tr_add"),
-         InlineKeyboardButton("Kanal o'chirish", callback_data="tr_remove")],
-        [InlineKeyboardButton("Mening ro'yxatim", callback_data="tr_list"),
-         InlineKeyboardButton("Barchasini tekshirish", callback_data="tr_checkall")],
-        [InlineKeyboardButton("Orqaga", callback_data="back_main")],
+        [InlineKeyboardButton("➕ Kanal qo'shish", callback_data="tr_add"),
+         InlineKeyboardButton("➖ Kanal o'chirish", callback_data="tr_remove")],
+        [InlineKeyboardButton("📋 Mening ro'yxatim", callback_data="tr_list"),
+         InlineKeyboardButton("🔄 Barchasini tekshirish", callback_data="tr_checkall")],
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")],
     ])
 
 def tools_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("URL dan ID olish", callback_data="tl_id"),
-         InlineKeyboardButton("Thumbnail olish", callback_data="tl_thumb")],
-        [InlineKeyboardButton("Kanal solishtirish", callback_data="tl_compare"),
-         InlineKeyboardButton("Kalkulyator", callback_data="tl_calc")],
-        [InlineKeyboardButton("Kategoriyalar", callback_data="tl_categories"),
-         InlineKeyboardButton("Davlat trending", callback_data="tl_region")],
-        [InlineKeyboardButton("Orqaga", callback_data="back_main")],
+        [InlineKeyboardButton("🔗 URL dan ID olish", callback_data="tl_id"),
+         InlineKeyboardButton("🖼 Thumbnail olish", callback_data="tl_thumb")],
+        [InlineKeyboardButton("⚔️ Kanal solishtirish", callback_data="tl_compare"),
+         InlineKeyboardButton("🧮 Kalkulyator", callback_data="tl_calc")],
+        [InlineKeyboardButton("📂 Kategoriyalar", callback_data="tl_categories"),
+         InlineKeyboardButton("🌍 Davlat trending", callback_data="tl_region")],
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")],
     ])
 
 def trending_menu_kb():
@@ -330,39 +331,39 @@ def trending_menu_kb():
 
 def channel_action_kb(channel_id):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("So'nggi videolar", callback_data=f"cact_recent_{channel_id}"),
-         InlineKeyboardButton("Ommabop", callback_data=f"cact_popular_{channel_id}")],
-        [InlineKeyboardButton("Pleylistlar", callback_data=f"cact_playlists_{channel_id}"),
-         InlineKeyboardButton("O'sish", callback_data=f"cact_growth_{channel_id}")],
-        [InlineKeyboardButton("To'liq hisobot", callback_data=f"cact_report_{channel_id}"),
-         InlineKeyboardButton("Daromad", callback_data=f"cact_earn_{channel_id}")],
-        [InlineKeyboardButton("Kuzatishga olish", callback_data=f"cact_track_{channel_id}"),
-         InlineKeyboardButton("Yangilash", callback_data=f"cact_refresh_{channel_id}")],
+        [InlineKeyboardButton("🎬 So'nggi videolar", callback_data=f"cact_recent_{channel_id}"),
+         InlineKeyboardButton("🔥 Ommabop", callback_data=f"cact_popular_{channel_id}")],
+        [InlineKeyboardButton("📂 Pleylistlar", callback_data=f"cact_playlists_{channel_id}"),
+         InlineKeyboardButton("📈 O'sish", callback_data=f"cact_growth_{channel_id}")],
+        [InlineKeyboardButton("📄 To'liq hisobot", callback_data=f"cact_report_{channel_id}"),
+         InlineKeyboardButton("💰 Daromad", callback_data=f"cact_earn_{channel_id}")],
+        [InlineKeyboardButton("📌 Kuzatishga olish", callback_data=f"cact_track_{channel_id}"),
+         InlineKeyboardButton("🔄 Yangilash", callback_data=f"cact_refresh_{channel_id}")],
     ])
 
 def video_action_kb(video_id):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Izohlar", callback_data=f"vact_comments_{video_id}"),
-         InlineKeyboardButton("Teglar", callback_data=f"vact_tags_{video_id}")],
-        [InlineKeyboardButton("Thumbnail", callback_data=f"vact_thumb_{video_id}"),
-         InlineKeyboardButton("Engagement", callback_data=f"vact_engage_{video_id}")],
-        [InlineKeyboardButton("Yangilash", callback_data=f"vact_refresh_{video_id}")],
+        [InlineKeyboardButton("💬 Izohlar", callback_data=f"vact_comments_{video_id}"),
+         InlineKeyboardButton("🏷 Teglar", callback_data=f"vact_tags_{video_id}")],
+        [InlineKeyboardButton("🖼 Thumbnail", callback_data=f"vact_thumb_{video_id}"),
+         InlineKeyboardButton("⚡ Engagement", callback_data=f"vact_engage_{video_id}")],
+        [InlineKeyboardButton("🔄 Yangilash", callback_data=f"vact_refresh_{video_id}")],
     ])
 
 def back_main_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Bosh menyu", callback_data="back_main")],
+        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
 
 def help_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Kanal buyruqlari", callback_data="help_channel"),
-         InlineKeyboardButton("Video buyruqlari", callback_data="help_video")],
-        [InlineKeyboardButton("Analitika", callback_data="help_analytics"),
-         InlineKeyboardButton("Qidiruv", callback_data="help_search")],
-        [InlineKeyboardButton("Kuzatuv", callback_data="help_tracking"),
-         InlineKeyboardButton("Asboblar", callback_data="help_tools")],
-        [InlineKeyboardButton("Bosh menyu", callback_data="back_main")],
+        [InlineKeyboardButton("📢 Kanal buyruqlari", callback_data="help_channel"),
+         InlineKeyboardButton("🎬 Video buyruqlari", callback_data="help_video")],
+        [InlineKeyboardButton("📊 Analitika", callback_data="help_analytics"),
+         InlineKeyboardButton("🔍 Qidiruv", callback_data="help_search")],
+        [InlineKeyboardButton("📌 Kuzatuv", callback_data="help_tracking"),
+         InlineKeyboardButton("⚙️ Asboblar", callback_data="help_tools")],
+        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
 
 # ==================== BOT YARATISH ====================
@@ -384,12 +385,12 @@ def create_ytbot():
     @bot.on_message(filters.command("start"))
     async def start_cmd(client, message):
         text = (
-            "**YouTube Analytics Bot** ga xush kelibsiz!\n\n"
-            "Bu bot orqali istalgan YouTube kanal va videolarning "
-            "to'liq statistikasini ko'rishingiz mumkin.\n\n"
-            "Quyidagi menyudan kerakli bo'limni tanlang:"
+            f"{e('BOT')} **YouTube Analytics Bot** ga xush kelibsiz!\n\n"
+            f"{e('STAR')} Bu bot orqali istalgan YouTube kanal va videolarning "
+            f"to'liq statistikasini ko'rishingiz mumkin.\n\n"
+            f"{e('PIN')} Quyidagi menyudan kerakli bo'limni tanlang:"
         )
-        await message.reply_text(text, reply_markup=main_menu_kb(), parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(text, reply_markup=main_menu_kb(), parse_mode=ParseMode.HTML)
     
     # ==================== /help ====================
     @bot.on_message(filters.command("help"))
@@ -424,7 +425,7 @@ def create_ytbot():
     # ==================== /menu ====================
     @bot.on_message(filters.command("menu"))
     async def menu_cmd(client, message):
-        await message.reply_text("Asosiy menyu:", reply_markup=main_menu_kb())
+        await message.reply_text(f"{e('STAR')} Asosiy menyu:", reply_markup=main_menu_kb(), parse_mode=ParseMode.HTML)
     
     # ==================== /ping ====================
     @bot.on_message(filters.command("ping"))
