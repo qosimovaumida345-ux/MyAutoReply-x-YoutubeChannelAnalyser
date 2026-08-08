@@ -601,7 +601,7 @@ def create_ytbot():
     # ==================== /setcookies ====================
     from database import set_config
     
-    @bot.on_message(filters.command("setcookies") & filters.document)
+    @bot.on_message(filters.command("setcookies"))
     async def setcookies_cmd(client, message):
         # Admin check
         from database import is_bot_admin
@@ -610,6 +610,10 @@ def create_ytbot():
             return
             
         doc = message.document
+        if not doc:
+            await message.reply_text("❌ Siz fayl yubormadingiz!\n\n**To'g'ri usul:** Faylni Telegramga yuklayotganda, pasdagi izoh (caption) qismiga `/setcookies` deb yozib yuboring.")
+            return
+            
         if not doc.file_name.endswith(".txt"):
             await message.reply_text("❌ Iltimos, faqat `.txt` formatidagi fayl yuklang (masalan `cookies.txt`).")
             return
