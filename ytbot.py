@@ -32,6 +32,8 @@ AUTO_EMOJI_MAP = {}
 
 def convert_md_to_html_and_emojis(text):
     if not isinstance(text, str): return text
+    # Escape HTML special chars first
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     # 1. Convert links
     text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
     # 2. Convert bold

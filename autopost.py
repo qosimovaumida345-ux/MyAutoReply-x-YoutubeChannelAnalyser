@@ -127,7 +127,7 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
                 }
                 print(f"[FORMAT TEST] {client:15} → total={len(formats):3d} | http={len(http_formats):3d} | best_height={results[client]['best']}p")
         except Exception as e:
-            results[client] = {'error': str(e)[:100]}
+            results[client] = {'error': str(e)[:300]}
             print(f"[FORMAT TEST] {client:15} → ERROR: {str(e)[:80]}")
     
     print(f"{'='*60}\n")
@@ -301,8 +301,11 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {title[:50]}`")
 
             except Exception as e:
-                update_autopost_history(hist_id, status="failed", error_msg=str(e))
-                await msg.edit_text(f"❌ `[{idx}/{len(videos)}] Xatolik: {str(e)[:100]}`")
+                err_msg = str(e)
+                if "Sign in to confirm" in err_msg:
+                    err_msg = "YouTube cookie lari yaroqsiz! Iltimos, ularni yangilang yoki /delconfig yt_cookies qiling."
+                update_autopost_history(hist_id, status="failed", error_msg=err_msg)
+                await msg.edit_text(f"❌ `[{idx}/{len(videos)}] Xatolik: {err_msg[:300]}`")
                 # Xatolikda ham faylni tozalash
                 try:
                     if os.path.exists(file_path):
@@ -320,4 +323,4 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
     except Exception as e:
         update_autopost_task(task_id, status="failed")
-        await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:100]}`")
+        await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:300]}`")
