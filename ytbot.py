@@ -405,12 +405,14 @@ def back_main_kb():
 
 def help_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Kanal buyruqlari", callback_data="help_channel"),
-         InlineKeyboardButton("🎬 Video buyruqlari", callback_data="help_video")],
+        [InlineKeyboardButton("📢 Kanal", callback_data="help_channel"),
+         InlineKeyboardButton("🎬 Video", callback_data="help_video"),
+         InlineKeyboardButton("🧠 AI Yordamchi", callback_data="help_ai")],
         [InlineKeyboardButton("📊 Analitika", callback_data="help_analytics"),
          InlineKeyboardButton("🔍 Qidiruv", callback_data="help_search")],
         [InlineKeyboardButton("📌 Kuzatuv", callback_data="help_tracking"),
-         InlineKeyboardButton("⚙️ Asboblar", callback_data="help_tools")],
+         InlineKeyboardButton("⚙️ Asboblar", callback_data="help_tools"),
+         InlineKeyboardButton("⬇️ Yuklash", callback_data="help_download")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
 
@@ -1874,7 +1876,21 @@ def create_ytbot():
                 "`/thumbnail` - Thumbnail olish\n"
                 "`/compare` - Kanallarni solishtirish\n"
                 "`/categories` - Kategoriyalar\n"
+                "`/rivals` - Raqobatchi kanallarni topish\n"
                 "`/ping` - Bot tezligini tekshirish"
+            ),
+            "ai": (
+                "**🧠 AI Yordamchi:**\n\n"
+                "`/seo <mavzu>` - SEO optimizatsiya (Sarlavha, Ta'rif, Teglar)\n"
+                "`/audit <kanal URL>` - Kanalni AI tahlili\n"
+                "`/ideas <mavzu>` - Video g'oyalar yaratish\n"
+                "`/translate <video URL>` - Video sarlavhasini tarjima qilish\n"
+                "`/script <mavzu>` - Video uchun ssenariy yozish\n"
+                "`/shorts <video URL>` - Videodan shorts g'oyalarini olish"
+            ),
+            "download": (
+                "**⬇️ Yuklab olish:**\n\n"
+                "`/dl <URL>` - Video yoki Audio yuklab olish (Tez kunda)"
             ),
         }
         text = helps.get(cat, "Yordam topilmadi")
@@ -2137,6 +2153,317 @@ def create_ytbot():
         
         except Exception as e:
             await msg.edit_text(f"❌ Test xatosi: `{str(e)[:200]}`")
+
+
+    # ==================== /dl ====================
+    @bot.on_message(filters.command("dl") & filters.private)
+    async def cmd_dl(client, message):
+        """Video yoki audio yuklab olish — /dl <url>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **URL kiritilmadi!**\nMasalan: `/dl https://youtube.com/watch?v=...`")
+            return
+            
+        url = args[1].strip()
+        await message.reply(f"⬇️ **{url}** yuklab olinmoqda...\n_Bu funksiya tez kunda to'liq ishga tushadi._")
+
+    # ==================== /seo ====================
+    @bot.on_message(filters.command("seo") & filters.private)
+    async def cmd_seo(client, message):
+        """AI yordamida SEO (Sarlavha, Ta'rif, Taglar) — /seo <mavzu>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Mavzu kiritilmadi!**\nMasalan: `/seo Python darslari`")
+            return
+            
+        topic = args[1].strip()
+        wait_msg = await message.reply("🤖 AI o'ylamoqda...")
+        
+        try:
+            import google.generativeai as genai
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Siz professional YouTube SEO mutaxassisisiz. Qisqa va lo'nda javob bering.\n"
+                f"Mavzu: '{topic}'\n"
+                f"Shu mavzuda YouTube video uchun quyidagilarni o'zbek tilida yozib bering:\n"
+                f"1. 3 ta jozibador sarlavha varianti.\n"
+                f"2. Qisqa va qiziqarli video tavsifi (description).\n"
+                f"3. 15-20 ta qidiruvbop taglar (vergul bilan ajratilgan)."
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text.replace('**', '') if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"📊 **SEO Natijasi:**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /ideas ====================
+    @bot.on_message(filters.command("ideas") & filters.private)
+    async def cmd_ideas(client, message):
+        """Video g'oyalar yaratish — /ideas <mavzu>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Mavzu kiritilmadi!**\nMasalan: `/ideas Dasturlash`")
+            return
+            
+        topic = args[1].strip()
+        wait_msg = await message.reply("🤖 AI g'oyalar o'ylamoqda...")
+        
+        try:
+            import google.generativeai as genai
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Mavzu: '{topic}'.\n"
+                f"Shu mavzu bo'yicha YouTube'da ko'p ko'riladigan, qiziqarli va kreativ 5 ta aniq video g'oyasini o'zbek tilida qisqa yozib bering."
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text.replace('**', '') if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"💡 **Video G'oyalar:**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /translate ====================
+    @bot.on_message(filters.command("translate") & filters.private)
+    async def cmd_translate(client, message):
+        """Video sarlavhasini tarjima qilish — /translate <video URL yoki ID>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **URL kiritilmadi!**\nMasalan: `/translate <URL>`")
+            return
+            
+        video_id = extract_video_id(args[1])
+        if not video_id:
+            await message.reply("❌ Yaroqsiz YouTube URL yoki ID.")
+            return
+            
+        wait_msg = await message.reply("🔄 Video ma'lumotlari olinmoqda va tarjima qilinmoqda...")
+        
+        try:
+            video = get_video_stats(video_id)
+            if not video:
+                await wait_msg.edit_text("❌ Video topilmadi.")
+                return
+                
+            title = video['snippet']['title']
+            desc = video['snippet'].get('description', '')[:500]
+            
+            import google.generativeai as genai
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Quyidagi YouTube video sarlavhasi va ta'rifini o'zbek tiliga professional tarjima qilib ber.\n\n"
+                f"Sarlavha: {title}\n"
+                f"Ta'rif: {desc}"
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"🇺🇿 **Tarjima:**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /script ====================
+    @bot.on_message(filters.command("script") & filters.private)
+    async def cmd_script(client, message):
+        """Video uchun ssenariy yozish — /script <mavzu>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Mavzu kiritilmadi!**\nMasalan: `/script 5 daqiqada blinchik tayyorlash`")
+            return
+            
+        topic = args[1].strip()
+        wait_msg = await message.reply("🤖 AI ssenariy yozmoqda, biroz kuting...")
+        
+        try:
+            import google.generativeai as genai
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Mavzu: '{topic}'.\n"
+                f"YouTube video uchun qisqa va qiziqarli ssenariy yozib ber (O'zbek tilida). "
+                f"Ssenariy qismlari: Kirish (Hook), Asosiy qism va Xulosa (Call to action). "
+                f"Juda uzun bo'lmasin, taxminan 3 daqiqalik video uchun."
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"📝 **Video Ssenariysi:**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /shorts ====================
+    @bot.on_message(filters.command("shorts") & filters.private)
+    async def cmd_shorts(client, message):
+        """Videodan shorts g'oyalarini olish — /shorts <video URL yoki ID>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **URL kiritilmadi!**\nMasalan: `/shorts <URL>`")
+            return
+            
+        video_id = extract_video_id(args[1])
+        if not video_id:
+            await message.reply("❌ Yaroqsiz YouTube URL yoki ID.")
+            return
+            
+        wait_msg = await message.reply("🔄 Video ma'lumotlari tahlil qilinmoqda...")
+        
+        try:
+            video = get_video_stats(video_id)
+            if not video:
+                await wait_msg.edit_text("❌ Video topilmadi.")
+                return
+                
+            title = video['snippet']['title']
+            desc = video['snippet'].get('description', '')[:1000]
+            
+            import google.generativeai as genai
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Quyidagi YouTube video (Sarlavha: {title}, Ta'rif: {desc}) asosida "
+                f"1 daqiqalik 2-3 ta qiziqarli Shorts videolari uchun g'oyalar va matnlar (skriptlar) "
+                f"yozib bering (O'zbek tilida)."
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"📱 **Shorts G'oyalar:**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /audit ====================
+    @bot.on_message(filters.command("audit") & filters.private)
+    async def cmd_audit(client, message):
+        """Kanalni AI tahlili — /audit <kanal URL>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Kanal kiritilmadi!**\nMasalan: `/audit @PewDiePie`")
+            return
+            
+        query = args[1].strip()
+        wait_msg = await message.reply("🔍 Kanal qidirilmoqda...")
+        
+        try:
+            ch_data = get_channel(query)
+            if not ch_data:
+                await wait_msg.edit_text("❌ Kanal topilmadi.")
+                return
+                
+            stats = ch_data["statistics"]
+            subs = int(stats.get("subscriberCount", 0))
+            views = int(stats.get("viewCount", 0))
+            vids = int(stats.get("videoCount", 0))
+            title = ch_data["snippet"]["title"]
+            desc = ch_data["snippet"].get("description", "")[:500]
+            
+            await wait_msg.edit_text("🤖 AI kanal ma'lumotlarini o'rganmoqda...")
+            
+            import google.generativeai as genai
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Sen professional YouTube audit mutaxassisisan.\n"
+                f"Kanal: {title}\n"
+                f"Obunachilar: {subs}, Ko'rishlar: {views}, Videolar: {vids}\n"
+                f"Ta'rif: {desc}\n\n"
+                f"Shu ma'lumotlar asosida ushbu kanalga o'zbek tilida qisqa baho va rivojlanish uchun 3 ta maslahat ber."
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"📈 **Kanal Auditi: {title}**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /rivals ====================
+    @bot.on_message(filters.command("rivals") & filters.private)
+    async def cmd_rivals(client, message):
+        """Raqobatchi kanallarni topish — /rivals <kanal URL yoki ID>"""
+        if not can_use_bot(message.from_user): return
+        
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Kanal kiritilmadi!**\nMasalan: `/rivals @PewDiePie`")
+            return
+            
+        query = args[1].strip()
+        wait_msg = await message.reply("🔍 Kanal qidirilmoqda...")
+        
+        try:
+            ch_data = get_channel(query)
+            if not ch_data:
+                await wait_msg.edit_text("❌ Kanal topilmadi.")
+                return
+                
+            channel_id = ch_data['id']
+            title = ch_data['snippet']['title']
+            
+            await wait_msg.edit_text("🔍 Raqobatchilar izlanmoqda...")
+            
+            from googleapiclient.discovery import build
+            key = get_youtube_key()
+            yt = build('youtube', 'v3', developerKey=key, cache_discovery=False)
+            
+            req = yt.search().list(
+                q=title,
+                type="channel",
+                part="snippet",
+                maxResults=6
+            )
+            res = await asyncio.to_thread(req.execute)
+            
+            items = res.get('items', [])
+            rivals = []
+            for item in items:
+                ch_title = item['snippet']['title']
+                ch_id = item['snippet']['channelId']
+                if ch_id != channel_id:
+                    rivals.append(f"🔗 [{ch_title}](https://youtube.com/channel/{ch_id})")
+                    
+            if rivals:
+                text = f"🤺 **{title}** uchun ehtimoliy raqobatchi yoki o'xshash kanallar:\n\n" + "\n".join(rivals)
+            else:
+                text = "❌ Raqobatchi kanallar topilmadi."
+                
+            await wait_msg.edit_text(text, disable_web_page_preview=True)
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
 
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
