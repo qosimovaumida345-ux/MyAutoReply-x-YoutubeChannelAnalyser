@@ -432,6 +432,70 @@ def create_ytbot():
     # ==================== /start ====================
 
     # ==================== /status ====================
+
+    # ==================== /apikeys ====================
+    @bot.on_message(filters.command("apikeys") & filters.private)
+    async def cmd_apikeys(client, message):
+        """YouTube API kalitlari holatini tekshirish (Faqat admin uchun)"""
+        from config import ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
+        from googleapiclient.discovery import build
+        from googleapiclient.errors import HttpError
+        
+        username = message.from_user.username
+        if not username or username.lower() != ADMIN_USERNAME.lower():
+            await message.reply("❌ Bu buyruq faqat admin uchun!")
+            return
+            
+        if not YOUTUBE_API_KEYS:
+            await message.reply("⚠️ Hech qanday YouTube API kaliti topilmadi (.env faylni tekshiring).")
+            return
+            
+        wait_msg = await message.reply(f"🔍 **{len(YOUTUBE_API_KEYS)}** ta API kalit tekshirilmoqda...")
+        
+        # Reset before checking
+        reset_yt_keys()
+        
+        results = []
+        import asyncio
+        
+        def check_key(key):
+            try:
+                # Quota ni tekshirish uchun kichik so'rov
+                yt = build('youtube', 'v3', developerKey=key, cache_discovery=False)
+                yt.videos().list(part="id", chart="mostPopular", maxResults=1).execute()
+                return True, None
+            except HttpError as e:
+                err_msg = str(e)
+                if "quotaExceeded" in err_msg or "dailyLimitExceeded" in err_msg:
+                    return False, "Quota Limit"
+                elif "API key not valid" in err_msg or "API_KEY_INVALID" in err_msg:
+                    return False, "Yaroqsiz kalit"
+                else:
+                    return False, f"Xato: {err_msg[:50]}"
+            except Exception as e:
+                return False, f"Xato: {str(e)[:50]}"
+                
+        good_keys = 0
+        for idx, key in enumerate(YOUTUBE_API_KEYS, 1):
+            masked_key = f"{key[:5]}...{key[-5:]}" if len(key) > 10 else "Noma'lum"
+            is_valid, err_reason = await asyncio.to_thread(check_key, key)
+            
+            if is_valid:
+                results.append(f"{idx}. `{masked_key}` - ✅ Ishlayapti")
+                good_keys += 1
+            else:
+                results.append(f"{idx}. `{masked_key}` - ❌ {err_reason}")
+                remove_bad_yt_key(key)
+                
+        res_text = f"📊 **API Kalitlar Holati:**\n\n" + "\n".join(results)
+        res_text += f"\n\n🔄 **Jami ishlayotganlar:** {good_keys}/{len(YOUTUBE_API_KEYS)}"
+        if good_keys == 0:
+            res_text += "\n⚠️ Barcha kalitlar limitdan oshgan yoki yaroqsiz!"
+        else:
+            res_text += "\n✅ Ishlaydigan kalitlar avtomatik tanlandi."
+            
+        await wait_msg.edit_text(res_text, parse_mode=ParseMode.MARKDOWN)
+
     @bot.on_message(filters.command("status") & filters.private)
     async def cmd_status(client, message):
         """Kanal va Proxy ulanish holatini ko'rish — /status"""

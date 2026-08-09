@@ -30,15 +30,29 @@ YOUTUBE_API_KEYS = [k.strip() for k in os.getenv("YOUTUBE_API_KEYS", "").split("
 # Backward compatibility
 YOUTUBE_API_KEY = YOUTUBE_API_KEYS[0] if YOUTUBE_API_KEYS else os.getenv("YOUTUBE_API_KEY", "")
 
+WORKING_YT_KEYS = list(YOUTUBE_API_KEYS)
 _yt_index = 0
+
 def get_youtube_key():
     """Round-robin YouTube API kaliti (kvota limit dan qochish uchun)"""
     global _yt_index
-    if not YOUTUBE_API_KEYS:
+    keys_to_use = WORKING_YT_KEYS if WORKING_YT_KEYS else YOUTUBE_API_KEYS
+    if not keys_to_use:
         raise ValueError("YOUTUBE_API_KEYS topilmadi!")
-    key = YOUTUBE_API_KEYS[_yt_index % len(YOUTUBE_API_KEYS)]
+    
+    key = keys_to_use[_yt_index % len(keys_to_use)]
     _yt_index += 1
     return key
+
+def remove_bad_yt_key(key):
+    if key in WORKING_YT_KEYS:
+        WORKING_YT_KEYS.remove(key)
+        print(f"Xato kalit olib tashlandi. Qolgan kalitlar: {len(WORKING_YT_KEYS)}")
+
+def reset_yt_keys():
+    global WORKING_YT_KEYS
+    WORKING_YT_KEYS = list(YOUTUBE_API_KEYS)
+
 
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
