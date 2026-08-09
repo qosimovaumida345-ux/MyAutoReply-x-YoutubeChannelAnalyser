@@ -127,7 +127,7 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
                 }
                 print(f"[FORMAT TEST] {client:15} → total={len(formats):3d} | http={len(http_formats):3d} | best_height={results[client]['best']}p")
         except Exception as e:
-            results[client] = {'error': str(e)[:300]}
+            results[client] = {'error': str(e)[:100]}
             print(f"[FORMAT TEST] {client:15} → ERROR: {str(e)[:80]}")
     
     print(f"{'='*60}\n")
@@ -280,13 +280,14 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)
 
-            msg = await client.send_message(chat_id, f"⏳ `[{idx}/{len(videos)}] Yuklab olinmoqda: {title[:50]}...`")
+            msg = await client.send_message(chat_id, f"⏳ `[{idx}/{len(videos)}] Yuklab olinmoqda: {title[:50].replace('`', '')}...`")
 
             try:
                 # Yuklab olish (proxy bilan)
                 file_path = await asyncio.to_thread(download_video, vid_id, proxy_url)
 
-                await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {title[:50]}...`")
+                safe_title = title[:50].replace('`', "'")
+                await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {safe_title}...`")
 
                 # Haqiqiy yuklash
                 new_vid_id = await asyncio.to_thread(upload_to_youtube, file_path, title, desc, conn_data)
@@ -298,10 +299,10 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-                await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {title[:50]}`")
+                await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {safe_title}`")
 
             except Exception as e:
-                err_msg = str(e)
+                err_msg = str(e).replace('`', "'")
                 if "Sign in to confirm" in err_msg:
                     err_msg = "YouTube cookie lari yaroqsiz! Iltimos, ularni yangilang yoki /delconfig yt_cookies qiling."
                 update_autopost_history(hist_id, status="failed", error_msg=err_msg)
@@ -323,4 +324,4 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
     except Exception as e:
         update_autopost_task(task_id, status="failed")
-        await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:300]}`")
+        await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:300].replace('`', '')}`")

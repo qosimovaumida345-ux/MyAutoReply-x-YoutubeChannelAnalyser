@@ -52,7 +52,7 @@ def convert_md_to_html_and_emojis(text):
 
 _orig_send_message = Client.send_message
 async def _patched_send_message(self, chat_id, text, parse_mode=None, **kwargs):
-    if parse_mode == ParseMode.MARKDOWN:
+    if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
     return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, **kwargs)
@@ -60,7 +60,7 @@ Client.send_message = _patched_send_message
 
 _orig_edit_message_text = Client.edit_message_text
 async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode=None, **kwargs):
-    if parse_mode == ParseMode.MARKDOWN:
+    if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
     return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, **kwargs)
@@ -68,7 +68,7 @@ Client.edit_message_text = _patched_edit_message_text
 
 _orig_send_photo = Client.send_photo
 async def _patched_send_photo(self, chat_id, photo, caption=None, parse_mode=None, **kwargs):
-    if caption and parse_mode == ParseMode.MARKDOWN:
+    if caption and parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         caption = convert_md_to_html_and_emojis(caption)
         parse_mode = ParseMode.HTML
     return await _orig_send_photo(self, chat_id, photo, caption=caption, parse_mode=parse_mode, **kwargs)
@@ -430,6 +430,49 @@ def create_ytbot():
         return user.username.lower() == ADMIN_USERNAME.lower()
 
     # ==================== /start ====================
+
+    # ==================== /status ====================
+    @bot.on_message(filters.command("status") & filters.private)
+    async def cmd_status(client, message):
+        """Kanal va Proxy ulanish holatini ko'rish — /status"""
+        tg_user_id = str(message.from_user.id)
+        
+        # 1. YT Login Status
+        from database import get_yt_connection
+        conn = get_yt_connection(tg_user_id)
+        
+        if conn:
+            yt_status = f"✅ Ulangan\n📺 Kanal: **{conn['yt_channel_title']}**\n🆔 ID: `{conn['yt_channel_id']}`"
+        else:
+            yt_status = "❌ Ulanmagan\n`/ytlogin` orqali ulaning."
+            
+        # 2. Proxy Status
+        from database import get_config
+        import aiohttp
+        proxy_url = get_config("proxy_url")
+        
+        proxy_status = "❌ O'rnatilmagan"
+        if proxy_url:
+            proxy_status = f"🔄 Tekshirilmoqda... (`{proxy_url[:20]}...`)"
+            wait_msg = await message.reply("⏳ Proxy ulanishi tekshirilmoqda...")
+            is_working = False
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get("https://www.youtube.com", proxy=proxy_url, timeout=5) as resp:
+                        if resp.status == 200:
+                            is_working = True
+            except Exception:
+                pass
+            
+            if is_working:
+                proxy_status = f"✅ O'rnatilgan va Ishlayapti! (`{proxy_url[:20]}...`)"
+            else:
+                proxy_status = f"⚠️ O'rnatilgan, lekin ulanishda xatolik (Ishlamayapti)"
+            await wait_msg.delete()
+            
+        text = f"📊 **Tizim Holati**\n\n**YouTube Holati:**\n{yt_status}\n\n**Proxy Holati:**\n{proxy_status}"
+        await message.reply(text, parse_mode=ParseMode.MARKDOWN)
+
     @bot.on_message(filters.command("start"))
     async def start_cmd(client, message):
         text = (
