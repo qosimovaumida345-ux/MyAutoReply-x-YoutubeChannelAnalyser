@@ -568,7 +568,23 @@ def create_ytbot():
             "`/video <url>` - Video statistikasi\n"
             "`/compare <kanal1> <kanal2>` - Kanallarni solishtirish\n"
             "`/search <so'z>` - Qidiruv\n"
-            "`/trending` - Trendlar"
+            "`/trending` - Trendlar\n\n"
+            "🧠 `AI Yordamchi:`\n"
+            "`/seo <mavzu>` - SEO optimizatsiya (Sarlavha, Ta'rif, Teglar)\n"
+            "`/audit <kanal URL>` - Kanalni AI tahlili\n"
+            "`/ideas <mavzu>` - Video g'oyalar yaratish\n"
+            "`/translate <video URL>` - Sarlavhani tarjima qilish\n"
+            "`/script <mavzu>` - Ssenariy yozish\n"
+            "`/shorts <video URL>` - Shorts g'oyalar\n"
+            "`/summarize <video URL>` - Video mazmuni xulosasi\n\n"
+            "⚙️ `Asboblar va Yuklash:`\n"
+            "`/id <url>` - URL dan ID olish\n"
+            "`/categories` - Kategoriyalar\n"
+            "`/rivals <kanal URL>` - Raqobatchilar topish\n"
+            "`/live <kanal>` - Jonli efir tekshirish\n"
+            "`/schedule <kanal>` - Yuklash jadvalini tahlil qilish\n"
+            "`/money <video url>` - Video daromadini tahlili\n"
+            "`/dl <url>` - Video/Audio yuklash"
         )
         
         if is_admin:
@@ -1877,16 +1893,20 @@ def create_ytbot():
                 "`/compare` - Kanallarni solishtirish\n"
                 "`/categories` - Kategoriyalar\n"
                 "`/rivals` - Raqobatchi kanallarni topish\n"
+                "`/live` - Kanalda jonli efir borligini tekshirish\n"
+                "`/schedule` - Video yuklash jadvali tahlili\n"
+                "`/money` - Video daromadini aniqroq tahlil qilish\n"
                 "`/ping` - Bot tezligini tekshirish"
             ),
             "ai": (
                 "**🧠 AI Yordamchi:**\n\n"
-                "`/seo <mavzu>` - SEO optimizatsiya (Sarlavha, Ta'rif, Teglar)\n"
+                "`/seo <mavzu>` - SEO optimizatsiya\n"
                 "`/audit <kanal URL>` - Kanalni AI tahlili\n"
                 "`/ideas <mavzu>` - Video g'oyalar yaratish\n"
-                "`/translate <video URL>` - Video sarlavhasini tarjima qilish\n"
-                "`/script <mavzu>` - Video uchun ssenariy yozish\n"
-                "`/shorts <video URL>` - Videodan shorts g'oyalarini olish"
+                "`/translate <video URL>` - Sarlavhani tarjima qilish\n"
+                "`/script <mavzu>` - Ssenariy yozish\n"
+                "`/shorts <video URL>` - Shorts g'oyalar\n"
+                "`/summarize <video URL>` - Video mazmuni xulosasi"
             ),
             "download": (
                 "**⬇️ Yuklab olish:**\n\n"
@@ -2464,6 +2484,208 @@ def create_ytbot():
             
         except Exception as e:
             await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+
+    # ==================== /summarize ====================
+    @bot.on_message(filters.command("summarize") & filters.private)
+    async def cmd_summarize(client, message):
+        """Videoni AI yordamida qisqacha mazmunini chiqarish — /summarize <video URL>"""
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **URL kiritilmadi!**\nMasalan: `/summarize <URL>`")
+            return
+            
+        video_id = extract_video_id(args[1])
+        if not video_id:
+            await message.reply("❌ Yaroqsiz YouTube URL yoki ID.")
+            return
+            
+        wait_msg = await message.reply("🔄 Video ma'lumotlari tahlil qilinmoqda...")
+        
+        try:
+            v = get_video(video_id)
+            if not v:
+                await wait_msg.edit_text("❌ Video topilmadi.")
+                return
+                
+            title = v['snippet']['title']
+            desc = v['snippet'].get('description', '')[:2500]
+            
+            import google.generativeai as genai
+            from config import get_gemini_key
+            import asyncio
+            api_key = get_gemini_key()
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            
+            prompt = (
+                f"Siz professional yordamchisiz. Quyidagi YouTube video haqida ma'lumot asosida uning qisqacha mazmunini (xulosasini) o'zbek tilida yozib bering.\n\n"
+                f"Sarlavha: {title}\n"
+                f"Ta'rif: {desc}\n\n"
+                f"Iltimos, asosiy g'oyalarni ajratib, o'qishli qilib yozing."
+            )
+            
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            res_text = response.text if response.text else "Natija topilmadi."
+            await wait_msg.edit_text(f"📝 **Video Xulosasi:**\n\n{res_text[:4000]}")
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /live ====================
+    @bot.on_message(filters.command("live") & filters.private)
+    async def cmd_live(client, message):
+        """Kanalda jonli efir borligini tekshirish — /live <kanal>"""
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Kanal kiritilmadi!**\nMasalan: `/live @PewDiePie`")
+            return
+            
+        query = args[1].strip()
+        wait_msg = await message.reply("🔍 Kanal qidirilmoqda...")
+        
+        try:
+            ch_data = get_channel(extract_channel_id(query))
+            if not ch_data:
+                await wait_msg.edit_text("❌ Kanal topilmadi.")
+                return
+                
+            channel_id = ch_data['id']
+            title = ch_data['snippet']['title']
+            
+            await wait_msg.edit_text(f"🔍 {title} da jonli efirlar izlanmoqda...")
+            
+            yt = get_yt()
+            if not yt:
+                await wait_msg.edit_text("❌ YouTube API xatosi.")
+                return
+                
+            import asyncio
+            req = yt.search().list(
+                channelId=channel_id,
+                eventType="live",
+                type="video",
+                part="snippet",
+                maxResults=5
+            )
+            res = await asyncio.to_thread(req.execute)
+            
+            items = res.get('items', [])
+            if not items:
+                await wait_msg.edit_text(f"🔴 **{title}** da ayni vaqtda jonli efir yo'q.")
+                return
+                
+            text = f"🟢 **{title}** dagi joriy jonli efirlar:\n\n"
+            for item in items:
+                v_title = item['snippet']['title']
+                v_id = item['id']['videoId']
+                text += f"▶️ [{v_title}](https://youtube.com/watch?v={v_id})\n\n"
+                
+            await wait_msg.edit_text(text, disable_web_page_preview=True)
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /schedule ====================
+    @bot.on_message(filters.command("schedule") & filters.private)
+    async def cmd_schedule(client, message):
+        """Kanal video yuklash jadvalini tahlil qilish — /schedule <kanal>"""
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **Kanal kiritilmadi!**\nMasalan: `/schedule @PewDiePie`")
+            return
+            
+        wait_msg = await message.reply("🔍 Jadval tahlil qilinmoqda...")
+        try:
+            ch = get_channel(extract_channel_id(args[1]))
+            if not ch:
+                await wait_msg.edit_text("❌ Kanal topilmadi.")
+                return
+                
+            videos = get_videos_by_channel(ch["id"], max_results=15, order="date")
+            if not videos:
+                await wait_msg.edit_text("❌ Videolar topilmadi.")
+                return
+                
+            days = [0]*7
+            hours = [0]*24
+            
+            from datetime import datetime
+            for v in videos:
+                try:
+                    dt = datetime.fromisoformat(v["snippet"]["publishedAt"].replace('Z', '+00:00'))
+                    days[dt.weekday()] += 1
+                    hours[dt.hour] += 1
+                except: pass
+                
+            weekdays = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
+            best_day = weekdays[days.index(max(days))]
+            best_hour = hours.index(max(hours))
+            
+            text = f"📅 **{ch['snippet']['title']}** yuklash jadvali\n_(oxirgi {len(videos)} video asosida)_\n\n"
+            text += f"🔥 **Eng ko'p yuklanadigan kun:** {best_day}\n"
+            text += f"⏰ **Eng faol soat (UTC):** {best_hour}:00\n\n"
+            
+            text += "**Hafta kunlari bo'yicha:**\n"
+            for i, d in enumerate(weekdays):
+                if days[i] > 0:
+                    text += f"• {d}: {days[i]} ta video\n"
+                    
+            await wait_msg.edit_text(text)
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+    # ==================== /money ====================
+    @bot.on_message(filters.command("money") & filters.private)
+    async def cmd_money(client, message):
+        """Video daromadini aniqroq tahlil qilish — /money <video URL>"""
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply("📝 **URL kiritilmadi!**\nMasalan: `/money <URL>`")
+            return
+            
+        vid_id = extract_video_id(args[1])
+        if not vid_id:
+            await message.reply("❌ Video topilmadi.")
+            return
+            
+        wait_msg = await message.reply("🔍 Daromad tahlil qilinmoqda...")
+        try:
+            v = get_video(vid_id)
+            if not v:
+                await wait_msg.edit_text("❌ Video ma'lumotlari topilmadi.")
+                return
+                
+            st = v["statistics"]
+            sn = v["snippet"]
+            views = int(st.get("viewCount",0))
+            
+            dur = parse_duration_seconds(v.get("contentDetails",{}).get("duration",""))
+            
+            base_rpm_low = 1.0
+            base_rpm_high = 3.5
+            
+            if dur > 480: # 8 minutes
+                base_rpm_low *= 1.5
+                base_rpm_high *= 1.8
+                
+            low_earn = (views / 1000) * base_rpm_low
+            high_earn = (views / 1000) * base_rpm_high
+            
+            text = (
+                f"💸 **{sn['title'][:40]}** - Daromad\n\n"
+                f"👁 **Ko'rishlar:** {fmt_full(views)}\n"
+                f"⏱ **Davomiyligi:** {parse_duration(v.get('contentDetails',{}).get('duration',''))}\n\n"
+                f"💰 **Taxminiy daromad:** `${low_earn:,.0f}` - `${high_earn:,.0f}`\n\n"
+                f"📊 _Taxminiy RPM (har 1000 ko'rish uchun): ${base_rpm_low:.2f} - ${base_rpm_high:.2f}_\n"
+                f"_(Bu ko'rsatkich video uzunligi asosida hisoblandi, >8 min videolarda qo'shimcha reklamalar bo'lishi hisobga olindi)_"
+            )
+            await wait_msg.edit_text(text)
+            
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
 
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
