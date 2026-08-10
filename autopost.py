@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection, get_config
+from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection, get_config, get_user_cookies
 from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
 
 # Google qo'shimcha scope qaytarishini qabul qilish (scope mismatch xatosini oldini olish)
@@ -325,3 +325,4 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
     except Exception as e:
         update_autopost_task(task_id, status="failed")
         await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:300].replace('`', '')}`")
+        

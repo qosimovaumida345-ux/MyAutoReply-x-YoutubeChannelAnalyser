@@ -212,6 +212,9 @@ def get_video(video_id):
         print(f"Video API xato: {e}")
         return None
 
+# /translate buyrug'i uchun (get_video bilan bir xil, faqat nomi mos)
+get_video_stats = get_video
+
 def get_videos_by_channel(channel_id, max_results=10, order="date"):
     yt = get_yt()
     if not yt: return []
@@ -431,6 +434,16 @@ def create_ytbot():
         if not user or not user.username:
             return False
         return user.username.lower() == ADMIN_USERNAME.lower()
+
+    # /dl, /seo, /ideas, /translate kabi buyruqlar uchun kunlik limit tekshiruvi
+    # (admin uchun cheklovsiz, oddiy foydalanuvchi uchun /autopost bilan bir xil limit)
+    def can_use_bot(user):
+        if not user:
+            return False
+        if check_is_admin(user):
+            return True
+        daily_used = get_daily_usage(user.id)
+        return daily_used < DAILY_LIMIT_USER
 
     # ==================== /start ====================
 
