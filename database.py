@@ -130,13 +130,28 @@ def init_db():
     
     # Foydalanuvchi sozlamalari (proxy, kunlik limit)
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS user_settings (
+                CREATE TABLE IF NOT EXISTS user_settings (
             tg_user_id BIGINT PRIMARY KEY,
             proxy_ip TEXT,
             daily_usage INTEGER DEFAULT 0,
             last_usage_date DATE DEFAULT CURRENT_DATE
         )
     """)
+    cur.execute('''\n        CREATE TABLE IF NOT EXISTS autopilot_settings (
+            tg_user_id BIGINT PRIMARY KEY,
+            topics TEXT,
+            interval_days INTEGER DEFAULT 2,
+            last_run TIMESTAMP DEFAULT NULL,
+            is_active BOOLEAN DEFAULT TRUE
+        )
+    ''')
+    # Check and add yt_cookies column if it doesn't exist
+    try:
+        cur.execute("ALTER TABLE user_settings ADD COLUMN yt_cookies TEXT;")
+    except Exception:
+        conn.rollback()
+    else:
+        conn.commit()
     
     conn.commit()
     cur.close()
@@ -605,3 +620,127 @@ try:
 except Exception as e:
     print(f"Database init xatosi: {e}")
     print("DATABASE_URL ni tekshiring yoki Render PostgreSQL ni ulang.")
+
+def set_user_cookies(user_id, cookies_text):
+    conn = get_db_connection()
+    if not conn: return False
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO user_settings (tg_user_id, yt_cookies)
+            VALUES (%s, %s)
+            ON CONFLICT (tg_user_id) DO UPDATE SET yt_cookies = %s
+        """, (user_id, cookies_text, cookies_text))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error setting user cookies: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
+def get_user_cookies(user_id):
+    conn = get_db_connection()
+    if not conn: return None
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT yt_cookies FROM user_settings WHERE tg_user_id = %s", (user_id,))
+        res = cur.fetchone()
+        return res[0] if res else None
+    except Exception as e:
+        print(f"Error getting user cookies: {e}")
+        return None
+    finally:
+        cur.close()
+        conn.close()
+
+# ==================== AUTOPILOT CONFIG ====================
+def set_autopilot(user_id, topics, interval_days):
+    conn = get_db_connection()
+    if not conn: return False
+    cur = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO autopilot_settings (tg_user_id, topics, interval_days, is_active)
+            VALUES (%s, %s, %s, TRUE)
+            ON CONFLICT (tg_user_id) DO UPDATE SET topics = %s, interval_days = %s, is_active = TRUE
+        """, (user_id, topics, interval_days, topics, interval_days))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error setting autopilot: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
+def get_autopilot(user_id):
+    conn = get_db_connection()
+    if not conn: return None
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT topics, interval_days, is_active, last_run FROM autopilot_settings WHERE tg_user_id = %s", (user_id,))
+        res = cur.fetchone()
+        if res:
+            return {"topics": res[0], "interval_days": res[1], "is_active": res[2], "last_run": res[3]}
+        return None
+    except Exception as e:
+        print(f"Error getting autopilot: {e}")
+        return None
+    finally:
+        cur.close()
+        conn.close()
+
+def stop_autopilot(user_id):
+    conn = get_db_connection()
+    if not conn: return False
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE autopilot_settings SET is_active = FALSE WHERE tg_user_id = %s", (user_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error stopping autopilot: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
+def get_all_active_autopilots():
+    conn = get_db_connection()
+    if not conn: return []
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT tg_user_id, topics, interval_days, last_run FROM autopilot_settings WHERE is_active = TRUE")
+        rows = cur.fetchall()
+        result = []
+        for r in rows:
+            result.append({
+                "tg_user_id": r[0],
+                "topics": r[1],
+                "interval_days": r[2],
+                "last_run": r[3]
+            })
+        return result
+    except Exception as e:
+        print(f"Error fetching active autopilots: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+def update_autopilot_last_run(user_id):
+    conn = get_db_connection()
+    if not conn: return False
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE autopilot_settings SET last_run = NOW() WHERE tg_user_id = %s", (user_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating autopilot last run: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()

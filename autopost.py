@@ -133,7 +133,7 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
     print(f"{'='*60}\n")
     return results
 
-def download_video(video_id, proxy_url=None):
+def download_video(video_id, proxy_url=None, user_id=None):
     """yt-dlp orqali videoni yuklab olish (tv_embedded — n-challenge talab qilmaydi)"""
     os.makedirs("downloads", exist_ok=True)
     outtmpl = f"downloads/{video_id}.%(ext)s"
@@ -166,7 +166,7 @@ def download_video(video_id, proxy_url=None):
         ydl_opts['proxy'] = proxy_url
 
     # Per-video cookie file (prevents race condition with concurrent downloads)
-    cookies_text = get_config("yt_cookies")
+    cookies_text = get_user_cookies(user_id) if user_id else None
     cookie_path = f"downloads/cookies_{video_id}.txt"
     if cookies_text:
         with open(cookie_path, "w", encoding="utf-8") as f:
@@ -284,7 +284,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
             try:
                 # Yuklab olish (proxy bilan)
-                file_path = await asyncio.to_thread(download_video, vid_id, proxy_url)
+                file_path = await asyncio.to_thread(download_video, vid_id, proxy_url, tg_user_id)
 
                 safe_title = title[:50].replace('`', "'")
                 await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {safe_title}...`")
@@ -304,7 +304,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             except Exception as e:
                 err_msg = str(e).replace('`', "'")
                 if "Sign in to confirm" in err_msg:
-                    err_msg = "YouTube cookie lari yaroqsiz! Iltimos, ularni yangilang yoki /delconfig yt_cookies qiling."
+                    err_msg = "YouTube cookie lari yaroqsiz! Iltimos, ularni yangilang yoki qayta /setcookies qiling."
                 update_autopost_history(hist_id, status="failed", error_msg=err_msg)
                 await msg.edit_text(f"❌ `[{idx}/{len(videos)}] Xatolik: {err_msg[:300]}`")
                 # Xatolikda ham faylni tozalash
