@@ -568,7 +568,19 @@ def create_ytbot():
             "`/video <url>` - Video statistikasi\n"
             "`/compare <kanal1> <kanal2>` - Kanallarni solishtirish\n"
             "`/search <so'z>` - Qidiruv\n"
-            "`/trending` - Trendlar"
+            "`/trending` - Trendlar\n\n"
+            "🧠 `AI Yordamchi:`\n"
+            "`/seo <mavzu>` - SEO optimizatsiya (Sarlavha, Ta'rif, Teglar)\n"
+            "`/audit <kanal URL>` - Kanalni AI tahlili\n"
+            "`/ideas <mavzu>` - Video g'oyalar yaratish\n"
+            "`/translate <video URL>` - Video sarlavhasini tarjima qilish\n"
+            "`/script <mavzu>` - Video uchun ssenariy yozish\n"
+            "`/shorts <video URL>` - Shorts g'oyalarini olish\n\n"
+            "⚙️ `Asboblar va Yuklash:`\n"
+            "`/id <url>` - URL dan ID olish\n"
+            "`/categories` - Kategoriyalar\n"
+            "`/rivals <kanal URL>` - Raqobatchi kanallarni topish\n"
+            "`/dl <url>` - Video yoki Audio yuklab olish"
         )
         
         if is_admin:
@@ -2159,7 +2171,6 @@ def create_ytbot():
     @bot.on_message(filters.command("dl") & filters.private)
     async def cmd_dl(client, message):
         """Video yoki audio yuklab olish — /dl <url>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2173,7 +2184,6 @@ def create_ytbot():
     @bot.on_message(filters.command("seo") & filters.private)
     async def cmd_seo(client, message):
         """AI yordamida SEO (Sarlavha, Ta'rif, Taglar) — /seo <mavzu>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2209,7 +2219,6 @@ def create_ytbot():
     @bot.on_message(filters.command("ideas") & filters.private)
     async def cmd_ideas(client, message):
         """Video g'oyalar yaratish — /ideas <mavzu>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2241,7 +2250,6 @@ def create_ytbot():
     @bot.on_message(filters.command("translate") & filters.private)
     async def cmd_translate(client, message):
         """Video sarlavhasini tarjima qilish — /translate <video URL yoki ID>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2286,7 +2294,6 @@ def create_ytbot():
     @bot.on_message(filters.command("script") & filters.private)
     async def cmd_script(client, message):
         """Video uchun ssenariy yozish — /script <mavzu>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2320,7 +2327,6 @@ def create_ytbot():
     @bot.on_message(filters.command("shorts") & filters.private)
     async def cmd_shorts(client, message):
         """Videodan shorts g'oyalarini olish — /shorts <video URL yoki ID>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2365,7 +2371,6 @@ def create_ytbot():
     @bot.on_message(filters.command("audit") & filters.private)
     async def cmd_audit(client, message):
         """Kanalni AI tahlili — /audit <kanal URL>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
@@ -2414,7 +2419,6 @@ def create_ytbot():
     @bot.on_message(filters.command("rivals") & filters.private)
     async def cmd_rivals(client, message):
         """Raqobatchi kanallarni topish — /rivals <kanal URL yoki ID>"""
-        if not can_use_bot(message.from_user): return
         
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
