@@ -15,7 +15,8 @@ from config import (
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
     ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key
 )
-from database import (\n    set_autopilot, get_autopilot, stop_autopilot,
+from database import (
+    set_autopilot, get_autopilot, stop_autopilot,
     add_tracked_channel, remove_tracked_channel, get_tracked_channels,
     save_channel_snapshot, save_video_snapshot,
     get_channel_history, get_channel_growth,

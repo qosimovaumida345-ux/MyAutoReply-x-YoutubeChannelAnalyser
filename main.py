@@ -90,7 +90,7 @@ async def run_autopilot_worker():
             
         await asyncio.sleep(60 * 60) # Check every hour
 
-\n# ==================== WEB SERVER (OAuth Callback + Health Check) ====================
+# ==================== WEB SERVER (OAuth Callback + Health Check) ====================
 
 async def handle_health(request):
     """Render health check uchun"""
@@ -239,7 +239,8 @@ async def main():
 
     # Web Server (OAuth callback + health check)
     port = int(os.environ.get("PORT", 3000))
-    await start_web_server(port)\n    tasks.append(run_autopilot_worker())
+    await start_web_server(port)    
+    tasks.append(run_autopilot_worker())
 
     # Startup: log available formats for debugging
 
