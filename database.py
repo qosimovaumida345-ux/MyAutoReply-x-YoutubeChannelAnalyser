@@ -622,7 +622,7 @@ except Exception as e:
     print("DATABASE_URL ni tekshiring yoki Render PostgreSQL ni ulang.")
 
 def set_user_cookies(user_id, cookies_text):
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return False
     cur = conn.cursor()
     try:
@@ -641,7 +641,7 @@ def set_user_cookies(user_id, cookies_text):
         conn.close()
 
 def get_user_cookies(user_id):
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return None
     cur = conn.cursor()
     try:
@@ -657,7 +657,7 @@ def get_user_cookies(user_id):
 
 # ==================== AUTOPILOT CONFIG ====================
 def set_autopilot(user_id, topics, interval_days):
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return False
     cur = conn.cursor()
     try:
@@ -676,7 +676,7 @@ def set_autopilot(user_id, topics, interval_days):
         conn.close()
 
 def get_autopilot(user_id):
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return None
     cur = conn.cursor()
     try:
@@ -693,7 +693,7 @@ def get_autopilot(user_id):
         conn.close()
 
 def stop_autopilot(user_id):
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return False
     cur = conn.cursor()
     try:
@@ -708,7 +708,7 @@ def stop_autopilot(user_id):
         conn.close()
 
 def get_all_active_autopilots():
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return []
     cur = conn.cursor()
     try:
@@ -731,7 +731,7 @@ def get_all_active_autopilots():
         conn.close()
 
 def update_autopilot_last_run(user_id):
-    conn = get_db_connection()
+    conn = get_db()
     if not conn: return False
     cur = conn.cursor()
     try:

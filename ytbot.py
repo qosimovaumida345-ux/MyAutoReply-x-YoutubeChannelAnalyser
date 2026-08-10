@@ -15,7 +15,7 @@ from config import (
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
     ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key
 )
-from database import (
+from database import (\n    set_autopilot, get_autopilot, stop_autopilot,
     add_tracked_channel, remove_tracked_channel, get_tracked_channels,
     save_channel_snapshot, save_video_snapshot,
     get_channel_history, get_channel_growth,
@@ -2915,6 +2915,57 @@ def create_ytbot():
             
         except Exception as e:
             await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {str(e)[:100]}")
+
+
+    # ==================== /autopilot ====================
+    @bot.on_message(filters.command("autopilot") & filters.private)
+    async def cmd_autopilot(client, message):
+        """Auto-pilot orqali bot har kuni (yoki 2 kunda 1) o'zi video yuklashi — /autopilot on <mavzu>"""
+        args = message.text.split(maxsplit=1)
+        
+        if len(args) < 2:
+            await message.reply(
+                "🤖 **AutoPilot Yordam:**\n\n"
+                "`/autopilot on <mavzular>` - Avtomatik yuklashni yoqish (masalan: `/autopilot on Minecraft, Roblox`)\n"
+                "`/autopilot off` - Avtomatik yuklashni o'chirish\n"
+                "`/autopilot status` - Holatni ko'rish"
+            )
+            return
+            
+        action = args[1].strip()
+        user_id = message.from_user.id
+        
+        if action.lower() == "off":
+            if stop_autopilot(user_id):
+                await message.reply("🛑 AutoPilot o'chirildi.")
+            else:
+                await message.reply("❌ Xatolik yuz berdi.")
+            return
+            
+        if action.lower() == "status":
+            st = get_autopilot(user_id)
+            if st and st['is_active']:
+                await message.reply(f"✅ **AutoPilot faol!**\n\n📝 Mavzular: {st['topics']}\n⏱ Interval: Har {st['interval_days']} kunda\n🕒 Oxirgi yuklash: {st['last_run'] or 'Hali ishlamadi'}")
+            else:
+                await message.reply("❌ AutoPilot o'chirilgan yoki o'rnatilmagan.")
+            return
+            
+        if action.lower().startswith("on "):
+            topics = action[3:].strip()
+            if not topics:
+                await message.reply("📝 Mavzularni kiritishingiz kerak!")
+                return
+                
+            from database import is_bot_admin
+            interval = 1 if is_bot_admin(user_id) else 2
+            
+            if set_autopilot(user_id, topics, interval):
+                await message.reply(f"✅ **AutoPilot Muvaffaqiyatli Yoqildi!**\n\n📝 Mavzular: {topics}\n⏱ Interval: Har {interval} kunda\n\n_Bot belgilangan vaqtda o'zi avtomatik tarzda video qidirib kanalga yuklaydi._")
+            else:
+                await message.reply("❌ AutoPilot ni saqlashda xatolik yuz berdi.")
+            return
+            
+        await message.reply("Noma'lum buyruq.")
 
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)

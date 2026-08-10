@@ -24,7 +24,73 @@ from database import save_yt_connection
 ytbot_instance = None
 
 
-# ==================== WEB SERVER (OAuth Callback + Health Check) ====================
+
+# ==================== AUTOPILOT WORKER ====================
+async def run_autopilot_worker():
+    import asyncio
+    from database import get_all_active_autopilots, update_autopilot_last_run
+    from autopost import autopost_worker
+    from ytbot import search_and_autopost
+    from datetime import datetime, timedelta
+    
+    print("🤖 Autopilot worker started")
+    while True:
+        try:
+            now = datetime.now()
+            autopilots = get_all_active_autopilots()
+            
+            for ap in autopilots:
+                user_id = ap['tg_user_id']
+                topics_str = ap['topics']
+                interval = ap['interval_days']
+                last_run = ap['last_run']
+                
+                # Check if it should run
+                should_run = False
+                if not last_run:
+                    should_run = True
+                else:
+                    if (now - last_run).days >= interval:
+                        should_run = True
+                        
+                if should_run:
+                    print(f"🚀 Running autopilot for user {user_id}, topics: {topics_str}")
+                    
+                    import random
+                    topics_list = [t.strip() for t in topics_str.split(",") if t.strip()]
+                    if topics_list and ytbot_instance:
+                        topic = random.choice(topics_list)
+                        try:
+                            # send message to user to notify
+                            await ytbot_instance.send_message(user_id, f"🤖 **AutoPilot Ishga Tushdi!**\n\n🔍 Qidirilmoqda: `{topic}`")
+                            
+                            from database import get_yt_connection
+                            conn = get_yt_connection(user_id)
+                            if not conn:
+                                await ytbot_instance.send_message(user_id, "❌ **AutoPilot Xatosi:** YouTube kanal ulanmagan! `/ytlogin` orqali ulang.")
+                                continue
+                                
+                            channel_id = conn['yt_channel_id']
+                            
+                            # Start search and autopost for 1 video
+                            from database import create_autopost_task
+                            task_id = create_autopost_task(user_id, channel_id, topic, "shorts", 1)
+                            
+                            # Update last run right away so it doesn't run again if it fails
+                            update_autopilot_last_run(user_id)
+                            
+                            # Add to background worker
+                            asyncio.create_task(autopost_worker(task_id, user_id, channel_id, topic, "shorts", 1, ytbot_instance))
+                            
+                        except Exception as e:
+                            print(f"Autopilot task error: {e}")
+                            
+        except Exception as e:
+            print(f"Autopilot worker error: {e}")
+            
+        await asyncio.sleep(60 * 60) # Check every hour
+
+\n# ==================== WEB SERVER (OAuth Callback + Health Check) ====================
 
 async def handle_health(request):
     """Render health check uchun"""
@@ -172,8 +238,8 @@ async def main():
     print("=" * 40 + "\n")
 
     # Web Server (OAuth callback + health check)
-    port = int(os.environ.get("PORT", 10000))
-    await start_web_server(port)
+    port = int(os.environ.get("PORT", 3000))
+    await start_web_server(port)\n    tasks.append(run_autopilot_worker())
 
     # Startup: log available formats for debugging
 
