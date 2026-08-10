@@ -30,7 +30,6 @@ async def run_autopilot_worker():
     import asyncio
     from database import get_all_active_autopilots, update_autopilot_last_run
     from autopost import autopost_worker
-    from ytbot import search_and_autopost
     from datetime import datetime, timedelta
     
     print("🤖 Autopilot worker started")
@@ -80,7 +79,7 @@ async def run_autopilot_worker():
                             update_autopilot_last_run(user_id)
                             
                             # Add to background worker
-                            asyncio.create_task(autopost_worker(task_id, user_id, channel_id, topic, "shorts", 1, ytbot_instance))
+                            asyncio.create_task(autopost_worker(task_id, user_id, topic, 1, ytbot_instance, user_id))
                             
                         except Exception as e:
                             print(f"Autopilot task error: {e}")
