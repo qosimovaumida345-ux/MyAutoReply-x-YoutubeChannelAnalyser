@@ -2195,19 +2195,8 @@ def create_ytbot():
             await msg.edit_text(f"❌ Test xatosi: `{str(e)[:200]}`")
 
 
-    # ==================== /dl ====================
-    @bot.on_message(filters.command("dl") & filters.private)
-    async def cmd_dl(client, message):
-        """Video yoki audio yuklab olish — /dl <url>"""
-        if not can_use_bot(message.from_user): return
-        
-        args = message.text.split(maxsplit=1)
-        if len(args) < 2:
-            await message.reply("📝 **URL kiritilmadi!**\nMasalan: `/dl https://youtube.com/watch?v=...`")
-            return
-            
-        url = args[1].strip()
-        await message.reply(f"⬇️ **{url}** yuklab olinmoqda...\n_Bu funksiya tez kunda to'liq ishga tushadi._")
+    # ==================== /dl (MOVED TO SUPER FEATURES) ====================
+    # (Removed mock cmd_dl here so super_features.py can handle it)
 
     # ==================== /seo ====================
     @bot.on_message(filters.command("seo") & filters.private)

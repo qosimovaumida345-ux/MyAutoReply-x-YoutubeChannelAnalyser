@@ -21,11 +21,7 @@ def load_super_features(bot: Client):
 
     @bot.on_message(filters.command("myrivals") & filters.private)
     async def get_rivals(client, message):
-        await message.reply_text("🕵️‍♂️ **Raqobatchilar:**\n\nHozircha raqobatchilar ro'yxati poylanmoqda. /addrival orqali qo'shing.")
-
-
-
-    # 1. Advanced /dl command with multiple qualities and MP3
+        await message.reply_text("🕵️‍♂️ **Raqobatchilar:**\n\nHozircha raqobatchilar ro'yxati poylanmoqda. /addrival orqali qo'shing.")    # 1. Advanced /dl command with multiple qualities and MP3
     @bot.on_message(filters.command("dl") & filters.private)
     async def dl_advanced(client, message):
         if len(message.command) < 2:
@@ -36,25 +32,40 @@ def load_super_features(bot: Client):
         msg = await message.reply_text("⏳ Formatlar tekshirilmoqda...")
         
         ydl_opts = {'quiet': True}
+        
+        # Try to use cookies to prevent bot detection
+        from database import get_user_cookies
+        cookies_text = get_user_cookies(message.from_user.id)
+        cookie_path = None
+        if cookies_text:
+            cookie_path = f"downloads/cookies_{message.from_user.id}.txt"
+            os.makedirs("downloads", exist_ok=True)
+            with open(cookie_path, "w", encoding="utf-8") as f:
+                f.write(cookies_text)
+            ydl_opts['cookiefile'] = cookie_path
+            
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
-            
+                
             buttons = [
                 [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{url}")],
-                [InlineKeyboardButton("🎬 360p (MP4)", callback_data=f"down_360|{url}")],
-                [InlineKeyboardButton("🎬 480p (MP4)", callback_data=f"down_480|{url}")],
-                [InlineKeyboardButton("🎬 720p (MP4)", callback_data=f"down_720|{url}")],
-                [InlineKeyboardButton("🎬 1080p (MP4)", callback_data=f"down_1080|{url}")]
+                [InlineKeyboardButton("🎬 1080p (MP4 + Audio)", callback_data=f"down_1080|{url}")],
+                [InlineKeyboardButton("🎬 720p (MP4 + Audio)", callback_data=f"down_720|{url}")],
+                [InlineKeyboardButton("🎬 480p (MP4 + Audio)", callback_data=f"down_480|{url}")],
+                [InlineKeyboardButton("🎬 360p (MP4 + Audio)", callback_data=f"down_360|{url}")]
             ]
             await msg.edit_text(f"🎬 **{info.get('title', 'Video')}**\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
         except Exception as e:
             await msg.edit_text(f"❌ Xatolik: {e}")
+        finally:
+            if cookie_path and os.path.exists(cookie_path):
+                os.remove(cookie_path)
 
     # Callback for downloads
     @bot.on_callback_query(filters.regex(r"^down_"))
     async def download_callback(client, callback_query: CallbackQuery):
-        data = callback_query.data.split("|")
+        data = callback_query.data.split("|", maxsplit=1)
         action = data[0]
         url = data[1]
         
@@ -63,36 +74,62 @@ def load_super_features(bot: Client):
         os.makedirs("downloads", exist_ok=True)
         filename = f"downloads/vid_{random.randint(1000, 9999)}"
         
-        ydl_opts = {'outtmpl': filename + '.%(ext)s', 'quiet': True}
+        ydl_opts = {
+            'outtmpl': filename + '.%(ext)s', 
+            'quiet': True,
+            'merge_output_format': 'mp4'
+        }
+        
+        # Adding cookies support for download
+        from database import get_user_cookies
+        cookies_text = get_user_cookies(callback_query.from_user.id)
+        cookie_path = None
+        if cookies_text:
+            cookie_path = f"downloads/cookies_dl_{callback_query.from_user.id}.txt"
+            with open(cookie_path, "w", encoding="utf-8") as f:
+                f.write(cookies_text)
+            ydl_opts['cookiefile'] = cookie_path
         
         if action == "down_mp3":
             ydl_opts['format'] = 'bestaudio/best'
             ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
-        elif action == "down_360": ydl_opts['format'] = 'bestvideo[height<=360]+bestaudio/best'
-        elif action == "down_480": ydl_opts['format'] = 'bestvideo[height<=480]+bestaudio/best'
-        elif action == "down_720": ydl_opts['format'] = 'bestvideo[height<=720]+bestaudio/best'
-        elif action == "down_1080": ydl_opts['format'] = 'bestvideo[height<=1080]+bestaudio/best'
+            ydl_opts.pop('merge_output_format', None)
+        elif action == "down_360": ydl_opts['format'] = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]'
+        elif action == "down_480": ydl_opts['format'] = 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]'
+        elif action == "down_720": ydl_opts['format'] = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
+        elif action == "down_1080": ydl_opts['format'] = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-            
+                
             # Faylni topish
             sent = False
             for f in os.listdir("downloads"):
                 if f.startswith(filename.split("/")[1]):
                     filepath = os.path.join("downloads", f)
+                    
+                    await callback_query.message.edit_text("⏳ Telegramga yuklanmoqda...")
+                    
                     if action == "down_mp3":
                         await callback_query.message.reply_audio(filepath)
                     else:
                         await callback_query.message.reply_video(filepath)
+                        
                     os.remove(filepath)
                     sent = True
                     break
-            
-            await callback_query.message.delete()
+                    
+            if sent:
+                await callback_query.message.delete()
+            else:
+                await callback_query.message.edit_text("❌ Fayl topilmadi yoki yuklab olinmadi.")
+                
         except Exception as e:
             await callback_query.message.edit_text(f"❌ Yuklab olishda xatolik: {e}")
+        finally:
+            if cookie_path and os.path.exists(cookie_path):
+                os.remove(cookie_path)
 
     # 2. Summarize (AI)
     @bot.on_message(filters.command("summarize") & filters.private)

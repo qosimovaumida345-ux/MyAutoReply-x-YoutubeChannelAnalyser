@@ -662,7 +662,7 @@ def get_user_cookies(user_id):
     try:
         cur.execute("SELECT yt_cookies FROM user_settings WHERE tg_user_id = %s", (user_id,))
         res = cur.fetchone()
-        return res[0] if res else None
+        return res["yt_cookies"] if res else None
     except Exception as e:
         print(f"Error getting user cookies: {e}")
         return None
@@ -698,7 +698,7 @@ def get_autopilot(user_id):
         cur.execute("SELECT topics, interval_days, is_active, last_run FROM autopilot_settings WHERE tg_user_id = %s", (user_id,))
         res = cur.fetchone()
         if res:
-            return {"topics": res[0], "interval_days": res[1], "is_active": res[2], "last_run": res[3]}
+            return {"topics": res["topics"], "interval_days": res["interval_days"], "is_active": res["is_active"], "last_run": res["last_run"]}
         return None
     except Exception as e:
         print(f"Error getting autopilot: {e}")
@@ -732,10 +732,10 @@ def get_all_active_autopilots():
         result = []
         for r in rows:
             result.append({
-                "tg_user_id": r[0],
-                "topics": r[1],
-                "interval_days": r[2],
-                "last_run": r[3]
+                "tg_user_id": r["tg_user_id"],
+                "topics": r["topics"],
+                "interval_days": r["interval_days"],
+                "last_run": r["last_run"]
             })
         return result
     except Exception as e:
