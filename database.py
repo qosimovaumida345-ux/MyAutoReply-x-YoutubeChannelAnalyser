@@ -759,3 +759,13 @@ def update_autopilot_last_run(user_id):
     finally:
         cur.close()
         conn.close()
+
+def get_autopost_task_by_id(task_id):
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM autopost_tasks WHERE id = %s", (task_id,))
+        return cur.fetchone()
+    finally:
+        conn.close()

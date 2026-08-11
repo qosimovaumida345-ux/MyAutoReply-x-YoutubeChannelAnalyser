@@ -799,9 +799,16 @@ def create_ytbot():
             task_id = create_autopost_task(user_id, "my_channel", query, "video", count)
             if task_id:
                 increment_usage(user_id, count)
-                user_proxy = get_user_proxy(user_id) or DEFAULT_PROXY
-                await message.reply_text(f"✅ `Vazifa qabul qilindi. {count} ta video '{query}' bo'yicha qidirilmoqda...`", parse_mode=ParseMode.MARKDOWN)
-                asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, message.chat.id, proxy_url=user_proxy))
+                
+                buttons = [
+                    [InlineKeyboardButton("✅ Watermark bilan", callback_data=f"ap_wm|{task_id}")],
+                    [InlineKeyboardButton("❌ Aslidek (Watermarksiz)", callback_data=f"ap_nowm|{task_id}")]
+                ]
+                await message.reply_text(
+                    f"✅ Vazifa qabul qilindi: **{count}** ta video **'{query}'** bo'yicha.\n\nVideo ustiga YouTube kanalingiz nomi va rasmi (watermark) qo'yilsinmi?", 
+                    reply_markup=InlineKeyboardMarkup(buttons),
+                    parse_mode=ParseMode.MARKDOWN
+                )
             else:
                 await message.reply_text("❌ `Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
                 
@@ -1704,6 +1711,29 @@ def create_ytbot():
         await message.reply_text(f"**{v['snippet']['title'][:40]}**\n\n{desc}", parse_mode=ParseMode.MARKDOWN)
     
     # ==================== CALLBACK QUERY HANDLERS ====================
+    @bot.on_callback_query(filters.regex(r"^ap_"))
+    async def ap_watermark_callback(client, callback_query: CallbackQuery):
+        data = callback_query.data.split("|")
+        action = data[0]
+        task_id = int(data[1])
+        
+        user_id = callback_query.from_user.id
+        from database import get_autopost_task_by_id
+        task = get_autopost_task_by_id(task_id)
+        if not task:
+            await callback_query.message.edit_text("❌ Vazifa topilmadi!")
+            return
+            
+        query = task["search_query"]
+        count = task["total_count"]
+        user_proxy = get_user_proxy(user_id) or DEFAULT_PROXY
+        
+        apply_watermark = (action == "ap_wm")
+        
+        await callback_query.message.edit_text(f"🚀 `Auto-post boshlandi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}")
+        
+        asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, callback_query.message.chat.id, proxy_url=user_proxy, apply_watermark=apply_watermark))
+
     
     @bot.on_callback_query(filters.regex("^back_main$"))
     async def cb_back_main(client, cb: CallbackQuery):

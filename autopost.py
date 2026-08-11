@@ -133,7 +133,7 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
     print(f"{'='*60}\n")
     return results
 
-def download_video(video_id, proxy_url=None, user_id=None):
+def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False, channel_title="", channel_pfp=""):
     """yt-dlp orqali videoni yuklab olish (kengaytirilgan xatoliklar ushlagichi bilan)"""
     import os
     import yt_dlp
@@ -251,7 +251,7 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
 
 # ==================== AUTO-POST WORKER ====================
 
-async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat_id, proxy_url=None):
+async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat_id, proxy_url=None, apply_watermark=False):
     """Background task: videolarni qidiradi, yuklab oladi va kanalga post qiladi"""
     try:
         await client.send_message(chat_id, f"🔄 `Auto-post boshlandi: {count} ta video '{search_query}' bo'yicha...`")
@@ -262,6 +262,21 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             await client.send_message(chat_id, "❌ `Kanalingiz ulanmagan! Avval /ytlogin orqali kanalingizni ulang.`")
             update_autopost_task(task_id, status="failed")
             return
+            
+        # Get channel details
+        channel_title = conn_data.get("yt_channel_title", "AutoPost")
+        channel_pfp = ""
+        if apply_watermark:
+            try:
+                import urllib.request
+                yt_info = build("youtube", "v3", developerKey=get_youtube_key())
+                res = yt_info.channels().list(part="snippet", id=conn_data['yt_channel_id']).execute()
+                pfp_url = res['items'][0]['snippet']['thumbnails']['default']['url']
+                os.makedirs("downloads", exist_ok=True)
+                channel_pfp = f"downloads/pfp_{conn_data['yt_channel_id']}.jpg"
+                urllib.request.urlretrieve(pfp_url, channel_pfp)
+            except Exception as e:
+                print(f"PFP Error: {e}")
 
         # 2. Videolarni qidirish (YouTube API orqali)
         yt = build("youtube", "v3", developerKey=get_youtube_key())
