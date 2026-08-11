@@ -119,4 +119,4 @@ def load_super_features(bot: Client):
     @bot.on_message(filters.command("roast") & filters.private)
     async def roast_cmd(client, message):
         await message.reply_text("🔥 Yozilgan matn yoki kanalni kulgili 'roast' (tanqid) qilish funksiyasi. Gemini orqali ishlaydi!")
-
+        
