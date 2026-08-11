@@ -135,6 +135,10 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
 
 def download_video(video_id, proxy_url=None, user_id=None):
     """yt-dlp orqali videoni yuklab olish (kengaytirilgan xatoliklar ushlagichi bilan)"""
+    import os
+    import yt_dlp
+    from database import get_user_cookies
+    
     os.makedirs("downloads", exist_ok=True)
     raw_tmpl = f"downloads/{video_id}_raw.%(ext)s"
     url = f"https://www.youtube.com/watch?v={video_id}"
@@ -162,7 +166,6 @@ def download_video(video_id, proxy_url=None, user_id=None):
         ydl_opts['proxy'] = proxy_url
 
     # Per-video cookie file (prevents race condition with concurrent downloads)
-    from database import get_user_cookies
     cookies_text = get_user_cookies(user_id) if user_id else None
     cookie_path = f"downloads/cookies_{video_id}.txt"
     if cookies_text:
@@ -170,7 +173,6 @@ def download_video(video_id, proxy_url=None, user_id=None):
             f.write(cookies_text)
         ydl_opts['cookiefile'] = cookie_path
     
-    import yt_dlp
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
@@ -201,7 +203,6 @@ def download_video(video_id, proxy_url=None, user_id=None):
     # Unwatermark (crop edges) & Add WelfEdits Watermark
     if os.path.exists(raw_mp4):
         print(f"[{video_id}] Watermark qo'shilmoqda (WelfEdits)...")
-        import os
         os.system(f'''ffmpeg -y -i "{raw_mp4}" -vf "crop=in_w:in_h*0.8:0:in_h*0.1, drawtext=text=\'WelfEdits\':fontcolor=white:fontsize=h/15:x=w-tw-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
         try: os.remove(raw_mp4)
         except: pass
@@ -293,6 +294,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
             msg = await client.send_message(chat_id, f"⏳ `[{idx}/{len(videos)}] Yuklab olinmoqda: {title[:50].replace('`', '')}...`")
 
+            file_path = None
             try:
                 # Yuklab olish (proxy bilan)
                 file_path = await asyncio.to_thread(download_video, vid_id, proxy_url, tg_user_id)
@@ -323,7 +325,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 await msg.edit_text(f"❌ `[{idx}/{len(videos)}] Xatolik: {err_msg[:300]}`")
                 # Xatolikda ham faylni tozalash
                 try:
-                    if os.path.exists(file_path):
+                    if file_path and os.path.exists(file_path):
                         os.remove(file_path)
                 except:
                     pass
