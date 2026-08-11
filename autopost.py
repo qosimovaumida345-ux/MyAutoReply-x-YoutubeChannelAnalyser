@@ -144,15 +144,11 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     url = f"https://www.youtube.com/watch?v={video_id}"
 
     ydl_opts = {
-        'format': 'bv*+ba/b',
+        'format': 'bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': raw_tmpl,
         'quiet': False,
         'no_warnings': False,
         'merge_output_format': 'mp4',
-        'postprocessors': [{
-            'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',
-        }],
         'remote_components': 'ejs:github',
         'source_address': '0.0.0.0',
         'retries': 10,
@@ -181,7 +177,7 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         if "format" in error_msg or "not available" in error_msg or "sign in" in error_msg:
             print(f"[AUTOPOST] Default clients failed for {video_id}, trying android client as fallback...")
             ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
-            ydl_opts['format'] = 'b'
+            ydl_opts['format'] = 'best[ext=mp4][vcodec^=avc]/best'
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         else:
@@ -200,13 +196,27 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
 
     final_mp4 = f"downloads/{video_id}.mp4"
     
-    # Unwatermark (crop edges) & Add WelfEdits Watermark
+    # Unwatermark (crop edges) & Add Custom Watermark
     if os.path.exists(raw_mp4):
-        print(f"[{video_id}] Watermark qo'shilmoqda (WelfEdits)...")
-        os.system(f'''ffmpeg -y -i "{raw_mp4}" -vf "crop=in_w:in_h*0.8:0:in_h*0.1, drawtext=text=\'WelfEdits\':fontcolor=white:fontsize=h/15:x=w-tw-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
+        if not apply_watermark:
+            return raw_mp4
+            
+        print(f"[{video_id}] Watermark qo'shilmoqda ({channel_title})...")
+        safe_title = channel_title.replace("'", "\\'")
+        
+        if channel_pfp and os.path.exists(channel_pfp):
+            # Scale profile pic to a small circle or square, put it with text
+            os.system(f'''ffmpeg -y -i "{raw_mp4}" -i "{channel_pfp}" -filter_complex "[0:v]crop=in_w:in_h*0.8:0:in_h*0.1[vid];[1:v]scale=h/10:-1[logo];[vid][logo]overlay=W-w-10:H-h-10, drawtext=text=\'{safe_title}\':fontcolor=white:fontsize=h/15:x=w-tw-10-main_h/10-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
+        else:
+            os.system(f'''ffmpeg -y -i "{raw_mp4}" -vf "crop=in_w:in_h*0.8:0:in_h*0.1, drawtext=text=\'{safe_title}\':fontcolor=white:fontsize=h/15:x=w-tw-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
+            
         try: os.remove(raw_mp4)
         except: pass
-        return final_mp4
+        
+        if os.path.exists(final_mp4):
+            return final_mp4
+        else:
+            return raw_mp4
     
     return raw_mp4
 
