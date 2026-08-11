@@ -551,7 +551,22 @@ def get_pending_tasks():
 
 # ==================== AUTO-POST HISTORY ====================
 
+
+def has_video_been_posted(tg_user_id, source_video_id):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM autopost_history WHERE tg_user_id = %s AND source_video_id = %s AND status = 'uploaded'", (tg_user_id, source_video_id))
+        row = cur.fetchone()
+        return bool(row)
+    except:
+        return False
+    finally:
+        conn.close()
+
 def add_autopost_history(task_id, tg_user_id, source_video_id, source_title):
+
     conn = get_db()
     if not conn: return None
     try:

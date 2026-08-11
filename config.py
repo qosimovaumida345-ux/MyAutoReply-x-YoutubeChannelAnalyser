@@ -79,5 +79,5 @@ ADMIN_USERNAME = "WebDev999"  # Asosiy admin username
 DEFAULT_PROXY = os.getenv("DEFAULT_PROXY", "")  # masalan: socks5://user:pass@host:port
 
 # ==================== KUNLIK LIMITLAR ====================
-DAILY_LIMIT_USER = 3    # Oddiy foydalanuvchilar uchun kunlik limit
+DAILY_LIMIT_USER = 15    # Oddiy foydalanuvchilar uchun kunlik limit
 DAILY_LIMIT_ADMIN = 999  # Admin uchun (deyarli cheksiz)

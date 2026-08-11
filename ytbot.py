@@ -3042,9 +3042,9 @@ Javobingni FAQAT JSON formatida ber:
             print(f"AI routing xato: {e}")
         
         await message.reply_text("`Yordam uchun /help ni bosing.`", parse_mode=ParseMode.MARKDOWN)
-    
-    return bot
-
+        from super_features import load_super_features
+        load_super_features(bot)
+        return bot
 
 async def run_ytbot():
     bot = create_ytbot()

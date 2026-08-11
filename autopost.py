@@ -134,26 +134,22 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
     return results
 
 def download_video(video_id, proxy_url=None, user_id=None):
-    """yt-dlp orqali videoni yuklab olish (tv_embedded — n-challenge talab qilmaydi)"""
+    """yt-dlp orqali videoni yuklab olish (kengaytirilgan xatoliklar ushlagichi bilan)"""
     os.makedirs("downloads", exist_ok=True)
-    outtmpl = f"downloads/{video_id}.%(ext)s"
+    raw_tmpl = f"downloads/{video_id}_raw.%(ext)s"
     url = f"https://www.youtube.com/watch?v={video_id}"
 
     ydl_opts = {
-        # bv*+ba/b = best video + best audio, fallback to best combined
         'format': 'bv*+ba/b',
-        'outtmpl': outtmpl,
-        'quiet': False,        # IMPORTANT: False so errors are visible in Render logs
-        'no_warnings': False,  # IMPORTANT: False so warnings are visible in Render logs
+        'outtmpl': raw_tmpl,
+        'quiet': False,
+        'no_warnings': False,
         'merge_output_format': 'mp4',
         'postprocessors': [{
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',
         }],
-
-        # Default clients (web) will use deno to solve challenges natively
         'remote_components': 'ejs:github',
-
         'source_address': '0.0.0.0',
         'retries': 10,
         'fragment_retries': 10,
@@ -166,20 +162,21 @@ def download_video(video_id, proxy_url=None, user_id=None):
         ydl_opts['proxy'] = proxy_url
 
     # Per-video cookie file (prevents race condition with concurrent downloads)
+    from database import get_user_cookies
     cookies_text = get_user_cookies(user_id) if user_id else None
     cookie_path = f"downloads/cookies_{video_id}.txt"
     if cookies_text:
         with open(cookie_path, "w", encoding="utf-8") as f:
             f.write(cookies_text)
         ydl_opts['cookiefile'] = cookie_path
-
+    
+    import yt_dlp
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
     except yt_dlp.utils.DownloadError as e:
         error_msg = str(e).lower()
-        if "format" in error_msg or "not available" in error_msg:
-            # Fallback attempt with android client
+        if "format" in error_msg or "not available" in error_msg or "sign in" in error_msg:
             print(f"[AUTOPOST] Default clients failed for {video_id}, trying android client as fallback...")
             ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
             ydl_opts['format'] = 'b'
@@ -191,15 +188,26 @@ def download_video(video_id, proxy_url=None, user_id=None):
         if os.path.exists(cookie_path):
             os.remove(cookie_path)
 
-    # Find the actual downloaded file
-    final_path = f"downloads/{video_id}.mp4"
-    if os.path.exists(final_path):
-        return final_path
-    for f in os.listdir("downloads"):
-        if f.startswith(video_id):
-            return os.path.join("downloads", f)
-    return final_path
+    # Find the downloaded raw file
+    raw_mp4 = f"downloads/{video_id}_raw.mp4"
+    if not os.path.exists(raw_mp4):
+        for f in os.listdir("downloads"):
+            if f.startswith(f"{video_id}_raw"):
+                raw_mp4 = os.path.join("downloads", f)
+                break
 
+    final_mp4 = f"downloads/{video_id}.mp4"
+    
+    # Unwatermark (crop edges) & Add WelfEdits Watermark
+    if os.path.exists(raw_mp4):
+        print(f"[{video_id}] Watermark qo'shilmoqda (WelfEdits)...")
+        import os
+        os.system(f'''ffmpeg -y -i "{raw_mp4}" -vf "crop=in_w:in_h*0.8:0:in_h*0.1, drawtext=text=\'WelfEdits\':fontcolor=white:fontsize=h/15:x=w-tw-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
+        try: os.remove(raw_mp4)
+        except: pass
+        return final_mp4
+    
+    return raw_mp4
 
 # ==================== VIDEO UPLOAD ====================
 
@@ -271,11 +279,14 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
         success_count = 0
         update_autopost_task(task_id, status="running")
-
         for idx, item in enumerate(videos, 1):
             vid_id = item["id"]["videoId"]
             title = item["snippet"]["title"]
             desc = item["snippet"]["description"]
+            
+            if has_video_been_posted(tg_user_id, vid_id):
+                continue
+
 
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)
@@ -288,10 +299,10 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
                 safe_title = title[:50].replace('`', "'")
                 await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {safe_title}...`")
-
                 # Haqiqiy yuklash
+                await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] YouTube'ga yuklanmoqda...`")
                 new_vid_id = await asyncio.to_thread(upload_to_youtube, file_path, title, desc, conn_data)
-
+                
                 update_autopost_history(hist_id, status="uploaded", uploaded_video_id=new_vid_id, uploaded_title=title)
                 success_count += 1
 
@@ -299,7 +310,10 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-                await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {safe_title}`")
+                await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {safe_title}`\nYouTube ID: `{new_vid_id}`")
+
+
+
 
             except Exception as e:
                 err_msg = str(e).replace('`', "'")

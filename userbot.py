@@ -54,7 +54,8 @@ JAVOBNI FAQAT JSON formatida ber:
     "reply": "Javob matni shu yerda",
     "mood": "happy/sad/excited/angry/funny/neutral/love/surprised",
     "should_send_gif": true yoki false (faqat juda mos kelganda true),
-    "gif_keyword": "gif qidirish uchun kalit so'z (ingliz tilida)"
+    "gif_keyword": "gif qidirish uchun kalit so'z (ingliz tilida)",
+    "is_spam": true yoki false (agar xabar spam, reklama yoki bezorilik bo'lsa true, aks holda false)
 }
 
 FAQAT JSON qaytar, boshqa hech narsa yozma!"""
@@ -319,6 +320,7 @@ def create_userbot():
                     "mood": data.get("mood", "neutral"),
                     "should_send_gif": data.get("should_send_gif", False),
                     "gif_keyword": data.get("gif_keyword", ""),
+                    "is_spam": data.get("is_spam", False),
                 }
         except (json.JSONDecodeError, AttributeError):
             pass
@@ -390,6 +392,7 @@ FAQAT JSON formatida javob ber:"""
                 "mood": "neutral",
                 "should_send_gif": False,
                 "gif_keyword": "",
+                "is_spam": False,
             }
     
     # ==================== ASOSIY AUTO-REPLY HANDLER ====================
@@ -448,6 +451,10 @@ FAQAT JSON formatida javob ber:"""
             
             # AI dan javob olish
             ai_result = await get_ai_response(user_id, user_name, user_text)
+            
+            if ai_result.get("is_spam", False):
+                print(f"Spam filter: e'tiborsiz qoldirildi ({user_name})")
+                return
             
             reply_text = ai_result["reply"]
             ai_mood = ai_result["mood"]
