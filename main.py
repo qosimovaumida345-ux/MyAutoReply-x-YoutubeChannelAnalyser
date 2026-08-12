@@ -95,6 +95,7 @@ async def run_worker_queue():
     from ytbot import autopost_worker
     import asyncio
     from pyrogram import Client
+    from config import API_ID, API_HASH, BOT_TOKEN
     
     # Mock client for worker since it doesn't use telegram polling
     mock_client = Client("worker_mock", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
