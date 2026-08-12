@@ -1,50 +1,99 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium YouTube Analytics</title>
+    <title>Nexus Analytics | YouTube Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: #09090b;
-            color: #f8fafc;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #050505;
+            color: #ffffff;
             overflow-x: hidden;
         }
 
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 24px;
+        /* Glass & Neumorphic Effects */
+        .glass-panel {
+            background: rgba(20, 20, 22, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
-        .neon-glow {
-            box-shadow: 0 0 40px -10px rgba(78, 204, 163, 0.5);
+        .glass-panel:hover {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 12px 48px 0 rgba(0, 0, 0, 0.4);
         }
 
-        .text-gradient {
-            background: linear-gradient(135deg, #4ecca3, #3b82f6);
+        /* Dynamic Gradients */
+        .text-gradient-primary {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .animate-fade-in {
-            animation: fadeIn 0.8s ease-out forwards;
-            opacity: 0;
+        .text-gradient-alert {
+            background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .animate-slide-up {
-            animation: slideUp 0.8s ease-out forwards;
+        .text-gradient-success {
+            background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Ambient Glow */
+        .ambient-glow-1 {
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 40vw;
+            height: 40vw;
+            background: radial-gradient(circle, rgba(79, 172, 254, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .ambient-glow-2 {
+            position: absolute;
+            bottom: -20%;
+            right: -10%;
+            width: 50vw;
+            height: 50vw;
+            background: radial-gradient(circle, rgba(11, 163, 96, 0.05) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-up {
+            animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             opacity: 0;
-            transform: translateY(30px);
         }
 
         .delay-100 {
@@ -59,168 +108,275 @@
             animation-delay: 0.3s;
         }
 
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
+        .delay-400 {
+            animation-delay: 0.4s;
+        }
+
+        /* Pulse Dot */
+        .pulse-dot {
+            position: relative;
+            width: 8px;
+            height: 8px;
+            background-color: #0ba360;
+            border-radius: 50%;
+        }
+
+        .pulse-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            background-color: #0ba360;
+            border-radius: 50%;
+            animation: pulse 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.6;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            50% {
+                transform: scale(2);
+                opacity: 0;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0;
             }
         }
 
-        @keyframes slideUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Progress Bar Animation */
+        .progress-bar-fill {
+            transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
         }
     </style>
 </head>
 
-<body class="p-4 sm:p-8 min-h-screen relative">
+<body class="p-4 sm:p-6 lg:p-8 min-h-screen relative">
 
-    <!-- Background Accents -->
-    <div
-        class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none">
-    </div>
-    <div
-        class="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/20 rounded-full blur-[120px] pointer-events-none">
-    </div>
+    <div class="ambient-glow-1"></div>
+    <div class="ambient-glow-2"></div>
 
     <!-- Header -->
-    <header class="flex justify-between items-center mb-10 animate-fade-in">
+    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 animate-fade-up">
         <div>
-            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Channel <span
-                    class="text-gradient">Analytics</span></h1>
-            <p class="text-gray-400 mt-2 text-sm md:text-base">Real-time performance & audience retention.</p>
+            <div class="flex items-center gap-3 mb-1">
+                <div class="pulse-dot"></div>
+                <span class="text-xs font-semibold tracking-wider text-green-400 uppercase">Live Sync Active</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">Nexus <span
+                    class="text-gradient-primary">Analytics</span></h1>
+            <p class="text-gray-400 mt-2 text-sm">Real-time YouTube performance and audience retention telemetry.</p>
         </div>
-        <div
-            class="h-12 w-12 rounded-full bg-gradient-to-tr from-[#4ecca3] to-blue-500 flex items-center justify-center text-xl font-bold shadow-lg shadow-emerald-500/30">
-            YT
+        <div class="mt-4 sm:mt-0 flex items-center gap-4">
+            <button
+                class="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+                Export Report
+            </button>
+            <div
+                class="h-12 w-12 rounded-2xl bg-gradient-to-tr from-[#00f2fe] to-[#4facfe] flex items-center justify-center text-xl font-bold shadow-[0_0_20px_rgba(79,172,254,0.4)]">
+                YT
+            </div>
         </div>
     </header>
 
-    <!-- Top Stats Row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
-        <div class="glass-card p-6 animate-slide-up">
-            <p class="text-gray-400 text-sm font-medium mb-1">Total Views</p>
-            <h3 class="text-3xl font-bold text-white tracking-tight" id="views-stat">2.4M</h3>
-            <p class="text-emerald-400 text-xs mt-2 flex items-center">↑ 12% vs last month</p>
+    <!-- Top Metrics -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <!-- Metric 1 -->
+        <div class="glass-panel p-6 animate-fade-up delay-100 relative overflow-hidden group">
+            <div
+                class="absolute inset-0 bg-gradient-to-b from-[#00f2fe]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            </div>
+            <h3 class="text-gray-400 text-sm font-medium mb-2">Real-time Viewers</h3>
+            <div class="flex items-end gap-3">
+                <span class="text-4xl font-bold tracking-tight" id="live-views">4,281</span>
+                <span class="text-sm font-medium text-green-400 mb-1">+12/sec</span>
+            </div>
+            <div class="h-1 w-full bg-white/5 rounded-full mt-4 overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-[#00f2fe] to-[#4facfe] rounded-full w-[85%]"></div>
+            </div>
         </div>
-        <div class="glass-card p-6 animate-slide-up delay-100">
-            <p class="text-gray-400 text-sm font-medium mb-1">Watch Time (hrs)</p>
-            <h3 class="text-3xl font-bold text-white tracking-tight">84.2K</h3>
-            <p class="text-emerald-400 text-xs mt-2 flex items-center">↑ 8.4% vs last month</p>
+        <!-- Metric 2 -->
+        <div class="glass-panel p-6 animate-fade-up delay-200">
+            <h3 class="text-gray-400 text-sm font-medium mb-2">Avg. Hook Rate (3s)</h3>
+            <div class="flex items-end gap-3">
+                <span class="text-4xl font-bold tracking-tight">68.4%</span>
+                <span class="text-sm font-medium text-green-400 mb-1">↑ 4.2%</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Top 10% of creators in your niche.</p>
         </div>
-        <div class="glass-card p-6 animate-slide-up delay-200">
-            <p class="text-gray-400 text-sm font-medium mb-1">New Subs</p>
-            <h3 class="text-3xl font-bold text-white tracking-tight">14.1K</h3>
-            <p class="text-emerald-400 text-xs mt-2 flex items-center">↑ 22% vs last month</p>
+        <!-- Metric 3 -->
+        <div class="glass-panel p-6 animate-fade-up delay-300">
+            <h3 class="text-gray-400 text-sm font-medium mb-2">Watch Time (Hrs)</h3>
+            <div class="flex items-end gap-3">
+                <span class="text-4xl font-bold tracking-tight">12.4K</span>
+                <span class="text-sm font-medium text-red-400 mb-1">↓ 1.1%</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Slight drop due to recent Shorts.</p>
         </div>
-        <div class="glass-card p-6 animate-slide-up delay-300 relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-transparent"></div>
-            <p class="text-emerald-300 text-sm font-medium mb-1 relative z-10">Avg. Hook Rate</p>
-            <h3 class="text-3xl font-bold text-white tracking-tight relative z-10">68%</h3>
-            <p class="text-emerald-400 text-xs mt-2 relative z-10">Excellent retention</p>
+        <!-- Metric 4 -->
+        <div class="glass-panel p-6 animate-fade-up delay-400">
+            <h3 class="text-gray-400 text-sm font-medium mb-2">Conversion (Sub Rate)</h3>
+            <div class="flex items-end gap-3">
+                <span class="text-4xl font-bold tracking-tight">2.1%</span>
+                <span class="text-sm font-medium text-green-400 mb-1">↑ 0.8%</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Gained 840 subs today.</p>
         </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Main Charts Area -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 
-        <!-- Main Growth Chart -->
-        <div class="glass-card p-6 md:col-span-2 animate-slide-up delay-100 neon-glow">
+        <!-- Live Velocity Chart -->
+        <div class="glass-panel p-6 lg:col-span-2 animate-fade-up delay-200 flex flex-col">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">Audience Growth & Reach</h2>
-                <select
-                    class="bg-black/30 border border-gray-700 text-sm rounded-lg px-3 py-1 text-gray-300 outline-none">
-                    <option>Last 7 Days</option>
-                    <option selected>Last 28 Days</option>
-                    <option>Lifetime</option>
-                </select>
+                <div>
+                    <h2 class="text-lg font-bold">Velocity & Algorithm Push</h2>
+                    <p class="text-xs text-gray-400">Real-time impressions vs views (Last 60 mins)</p>
+                </div>
+                <div class="flex gap-2 bg-white/5 p-1 rounded-lg">
+                    <button class="px-3 py-1 rounded-md bg-white/10 text-xs font-medium">Live</button>
+                    <button class="px-3 py-1 rounded-md text-gray-400 hover:text-white text-xs font-medium">24h</button>
+                </div>
             </div>
-            <div class="relative h-64 w-full">
-                <canvas id="mainChart"></canvas>
+            <div class="relative flex-1 w-full min-h-[300px]">
+                <canvas id="velocityChart"></canvas>
             </div>
         </div>
 
         <!-- Retention Funnel -->
-        <div class="glass-card p-6 animate-slide-up delay-200">
-            <h2 class="text-xl font-bold mb-6">Viewer Retention Hook</h2>
-            <div class="relative h-64 w-full flex items-center justify-center">
-                <canvas id="doughnutChart"></canvas>
-                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
-                    <span class="text-3xl font-bold text-white">42%</span>
-                    <span class="text-xs text-gray-400">Watch to end</span>
+        <div class="glass-panel p-6 animate-fade-up delay-300 flex flex-col">
+            <h2 class="text-lg font-bold mb-1">Retention Funnel</h2>
+            <p class="text-xs text-gray-400 mb-6">Where viewers drop off (Global Avg)</p>
+
+            <div class="flex-1 flex flex-col justify-center gap-6">
+                <!-- Funnel Stage 1 -->
+                <div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-300">Hook (First 3s)</span>
+                        <span class="font-bold text-white">68%</span>
+                    </div>
+                    <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full progress-bar-fill"
+                            style="width: 0%" data-target="68%"></div>
+                    </div>
+                </div>
+                <!-- Funnel Stage 2 -->
+                <div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-300">Core Content (30s)</span>
+                        <span class="font-bold text-white">45%</span>
+                    </div>
+                    <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full progress-bar-fill"
+                            style="width: 0%" data-target="45%"></div>
+                    </div>
+                </div>
+                <!-- Funnel Stage 3 -->
+                <div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-300">Completion (End screen)</span>
+                        <span class="font-bold text-white">22%</span>
+                    </div>
+                    <div class="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-red-400 to-orange-500 rounded-full progress-bar-fill"
+                            style="width: 0%" data-target="22%"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Recent Videos Analysis -->
-    <div class="glass-card p-6 animate-slide-up delay-300 mb-8">
-        <h2 class="text-xl font-bold mb-6">Algorithm Performance & Hook Analysis</h2>
+    <!-- Deep Dive Analytics -->
+    <div class="glass-panel p-6 animate-fade-up delay-400">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold">Recent Uploads Telemetry</h2>
+            <button class="text-sm text-[#4facfe] hover:text-white transition-colors">View All</button>
+        </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full text-left border-collapse min-w-[700px]">
                 <thead>
-                    <tr class="border-b border-gray-800 text-gray-400 text-sm">
-                        <th class="pb-3 font-medium">Video Subject</th>
-                        <th class="pb-3 font-medium">Format</th>
-                        <th class="pb-3 font-medium">CTR</th>
-                        <th class="pb-3 font-medium">Hook (First 3s)</th>
-                        <th class="pb-3 font-medium">Status</th>
+                    <tr class="border-b border-white/5 text-gray-400 text-xs uppercase tracking-wider">
+                        <th class="pb-3 font-medium px-2">Video Title</th>
+                        <th class="pb-3 font-medium px-2">Format</th>
+                        <th class="pb-3 font-medium px-2">CTR</th>
+                        <th class="pb-3 font-medium px-2">Hook Rate</th>
+                        <th class="pb-3 font-medium px-2">Drop-off Point</th>
+                        <th class="pb-3 font-medium px-2">Status</th>
                     </tr>
                 </thead>
                 <tbody class="text-sm">
-                    <tr class="border-b border-gray-800/50">
-                        <td class="py-4 font-medium text-white flex items-center gap-3">
-                            <div class="w-10 h-6 bg-gray-700 rounded overflow-hidden relative">
-                                <div class="absolute inset-0 bg-emerald-500/30"></div>
+                    <!-- Row 1 -->
+                    <tr class="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                        <td class="py-4 px-2 font-medium text-white flex items-center gap-3">
+                            <div
+                                class="w-12 h-7 bg-gray-800 rounded flex items-center justify-center text-[10px] text-gray-500 overflow-hidden relative">
+                                <div class="absolute inset-0 bg-green-500/20"></div>
+                                THMB
                             </div>
-                            Cartoon Edits Compilation
+                            Cartoon Edits #shorts
                         </td>
-                        <td class="py-4 text-gray-400">Shorts</td>
-                        <td class="py-4 text-white font-bold">12.4%</td>
-                        <td class="py-4">
-                            <div class="w-full bg-gray-800 rounded-full h-2 max-w-[100px]">
-                                <div class="bg-emerald-400 h-2 rounded-full" style="width: 76%"></div>
+                        <td class="py-4 px-2 text-gray-400">Shorts</td>
+                        <td class="py-4 px-2 text-white font-bold">14.2%</td>
+                        <td class="py-4 px-2">
+                            <div class="w-full bg-white/10 rounded-full h-1.5 max-w-[120px]">
+                                <div class="bg-green-400 h-1.5 rounded-full" style="width: 82%"></div>
                             </div>
-                            <span class="text-xs text-emerald-400 mt-1 block">76% retained</span>
+                            <span class="text-xs text-green-400 mt-1 block">82% Retained</span>
                         </td>
-                        <td class="py-4"><span
-                                class="px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-md text-xs font-semibold">Viral
-                                Trend</span></td>
+                        <td class="py-4 px-2 text-gray-400">@ 0:14 (Outro)</td>
+                        <td class="py-4 px-2"><span
+                                class="px-2.5 py-1 bg-green-500/10 border border-green-500/20 text-green-400 rounded-lg text-xs font-semibold">Viral
+                                Push</span></td>
                     </tr>
-                    <tr class="border-b border-gray-800/50">
-                        <td class="py-4 font-medium text-white flex items-center gap-3">
-                            <div class="w-10 h-6 bg-gray-700 rounded"></div>
+                    <!-- Row 2 -->
+                    <tr class="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
+                        <td class="py-4 px-2 font-medium text-white flex items-center gap-3">
+                            <div
+                                class="w-12 h-7 bg-gray-800 rounded flex items-center justify-center text-[10px] text-gray-500">
+                                THMB</div>
                             Trending Anime AMV
                         </td>
-                        <td class="py-4 text-gray-400">Shorts</td>
-                        <td class="py-4 text-white font-bold">8.1%</td>
-                        <td class="py-4">
-                            <div class="w-full bg-gray-800 rounded-full h-2 max-w-[100px]">
-                                <div class="bg-blue-400 h-2 rounded-full" style="width: 54%"></div>
+                        <td class="py-4 px-2 text-gray-400">Shorts</td>
+                        <td class="py-4 px-2 text-white font-bold">6.8%</td>
+                        <td class="py-4 px-2">
+                            <div class="w-full bg-white/10 rounded-full h-1.5 max-w-[120px]">
+                                <div class="bg-yellow-400 h-1.5 rounded-full" style="width: 54%"></div>
                             </div>
-                            <span class="text-xs text-blue-400 mt-1 block">54% retained</span>
+                            <span class="text-xs text-yellow-400 mt-1 block">54% Retained</span>
                         </td>
-                        <td class="py-4"><span
-                                class="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-semibold">Stable</span>
+                        <td class="py-4 px-2 text-gray-400">@ 0:03 (Intro transition)</td>
+                        <td class="py-4 px-2"><span
+                                class="px-2.5 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg text-xs font-semibold">Flatlined</span>
                         </td>
                     </tr>
-                    <tr>
-                        <td class="py-4 font-medium text-white flex items-center gap-3">
-                            <div class="w-10 h-6 bg-gray-700 rounded"></div>
-                            Cinematic Vlog
+                    <!-- Row 3 -->
+                    <tr class="hover:bg-white/[0.02] transition-colors group">
+                        <td class="py-4 px-2 font-medium text-white flex items-center gap-3">
+                            <div
+                                class="w-12 h-7 bg-gray-800 rounded flex items-center justify-center text-[10px] text-gray-500">
+                                THMB</div>
+                            Vlog 004: City Lights
                         </td>
-                        <td class="py-4 text-gray-400">Long-form</td>
-                        <td class="py-4 text-white font-bold">4.2%</td>
-                        <td class="py-4">
-                            <div class="w-full bg-gray-800 rounded-full h-2 max-w-[100px]">
-                                <div class="bg-red-400 h-2 rounded-full" style="width: 28%"></div>
+                        <td class="py-4 px-2 text-gray-400">Long-form</td>
+                        <td class="py-4 px-2 text-white font-bold">3.1%</td>
+                        <td class="py-4 px-2">
+                            <div class="w-full bg-white/10 rounded-full h-1.5 max-w-[120px]">
+                                <div class="bg-red-400 h-1.5 rounded-full" style="width: 28%"></div>
                             </div>
-                            <span class="text-xs text-red-400 mt-1 block">28% retained</span>
+                            <span class="text-xs text-red-400 mt-1 block">28% Retained</span>
                         </td>
-                        <td class="py-4"><span
-                                class="px-2 py-1 bg-red-500/10 text-red-400 rounded-md text-xs font-semibold">Needs
-                                Hook</span></td>
+                        <td class="py-4 px-2 text-gray-400 text-red-300">@ 0:10 (Slow pacing)</td>
+                        <td class="py-4 px-2"><span
+                                class="px-2.5 py-1 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs font-semibold">Needs
+                                Hook Fix</span></td>
                     </tr>
                 </tbody>
             </table>
@@ -228,89 +384,158 @@
     </div>
 
     <script>
-        // Init Telegram WebApp
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
-        window.Telegram.WebApp.setHeaderColor('#09090b');
+        // Init Telegram WebApp seamlessly
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+            window.Telegram.WebApp.setHeaderColor('#050505');
+        }
 
-        // Dynamic Chart Configurations
-        Chart.defaults.color = '#94a3b8';
-        Chart.defaults.font.family = "'Outfit', sans-serif";
+        // --- Animations for Progress Bars ---
+        setTimeout(() => {
+            document.querySelectorAll('.progress-bar-fill').forEach(bar => {
+                bar.style.width = bar.getAttribute('data-target');
+            });
+        }, 500);
 
-        const ctxMain = document.getElementById('mainChart').getContext('2d');
+        // --- Chart.js Configuration ---
+        Chart.defaults.color = '#82829c';
+        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(10, 10, 12, 0.9)';
+        Chart.defaults.plugins.tooltip.titleColor = '#fff';
+        Chart.defaults.plugins.tooltip.bodyColor = '#a1a1aa';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255,255,255,0.1)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.cornerRadius = 12;
 
-        // Create gradient for line chart
-        const gradient = ctxMain.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(78, 204, 163, 0.4)');
-        gradient.addColorStop(1, 'rgba(78, 204, 163, 0.0)');
+        const ctx = document.getElementById('velocityChart').getContext('2d');
 
-        new Chart(ctxMain, {
+        // Beautiful Gradients
+        const gradientViews = ctx.createLinearGradient(0, 0, 0, 400);
+        gradientViews.addColorStop(0, 'rgba(0, 242, 254, 0.5)');
+        gradientViews.addColorStop(1, 'rgba(79, 172, 254, 0.0)');
+
+        const gradientImps = ctx.createLinearGradient(0, 0, 0, 400);
+        gradientImps.addColorStop(0, 'rgba(139, 92, 246, 0.3)');
+        gradientImps.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
+
+        // Initial Data Setup
+        const initialDataLength = 20;
+        const labels = Array.from({ length: initialDataLength }, (_, i) => `-${initialDataLength - i}m`);
+
+        let viewsData = [];
+        let impsData = [];
+
+        // Generate realistic looking initial curves
+        let baseView = 1200;
+        let baseImp = 3500;
+        for (let i = 0; i < initialDataLength; i++) {
+            baseView += (Math.random() - 0.3) * 150;
+            baseImp += (Math.random() - 0.3) * 400;
+            viewsData.push(Math.floor(baseView));
+            impsData.push(Math.floor(baseImp));
+        }
+
+        const velocityChart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: ['1st', '4th', '8th', '12th', '16th', '20th', '24th', '28th'],
-                datasets: [{
-                    label: 'Views',
-                    data: [12000, 19000, 15000, 25000, 22000, 38000, 31000, 45000],
-                    borderColor: '#4ecca3',
-                    backgroundColor: gradient,
-                    borderWidth: 3,
-                    tension: 0.4,
-                    fill: true,
-                    pointBackgroundColor: '#09090b',
-                    pointBorderColor: '#4ecca3',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                }]
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Impressions (Algorithm Push)',
+                        data: impsData,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: gradientImps,
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Real-time Views',
+                        data: viewsData,
+                        borderColor: '#00f2fe',
+                        backgroundColor: gradientViews,
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#050505',
+                        pointBorderColor: '#00f2fe',
+                        pointBorderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 8,
+                        yAxisID: 'y'
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
                 plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: 'rgba(0,0,0,0.8)',
-                        padding: 12,
-                        titleFont: { size: 14, weight: 'bold' },
-                        bodyFont: { size: 14 },
-                        displayColors: false,
-                        cornerRadius: 8,
+                    legend: {
+                        position: 'top',
+                        align: 'end',
+                        labels: { boxWidth: 12, usePointStyle: true, color: '#a1a1aa' }
                     }
                 },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-                        ticks: { callback: function (value) { return value / 1000 + 'k'; } }
-                    },
                     x: {
-                        grid: { display: false, drawBorder: false }
+                        grid: { display: false, drawBorder: false },
+                        ticks: { maxTicksLimit: 8 }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                        border: { display: false }
                     }
+                },
+                animation: {
+                    duration: 400,
+                    easing: 'linear'
                 }
             }
         });
 
-        const ctxDoughnut = document.getElementById('doughnutChart').getContext('2d');
-        new Chart(ctxDoughnut, {
-            type: 'doughnut',
-            data: {
-                labels: ['Hooked (Watched to end)', 'Dropped (First 3s)', 'Dropped (Middle)'],
-                datasets: [{
-                    data: [42, 23, 35],
-                    backgroundColor: ['#4ecca3', '#ef4444', '#3b82f6'],
-                    borderWidth: 0,
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '75%',
-                plugins: {
-                    legend: { position: 'bottom', labels: { boxWidth: 10, padding: 20 } }
-                }
-            }
-        });
+        // --- Real-time Data Simulation (The "Breathing" Effect) ---
+        const liveViewsEl = document.getElementById('live-views');
+        let currentTotalViews = 4281;
+
+        setInterval(() => {
+            // Update chart data
+            const lastView = velocityChart.data.datasets[1].data[initialDataLength - 1];
+            const lastImp = velocityChart.data.datasets[0].data[initialDataLength - 1];
+
+            // Generate next tick with realistic variance
+            const nextView = lastView + (Math.random() - 0.4) * 80;
+            const nextImp = lastImp + (Math.random() - 0.4) * 200;
+
+            // Shift array
+            velocityChart.data.labels.shift();
+            velocityChart.data.labels.push('Now');
+
+            velocityChart.data.datasets[0].data.shift();
+            velocityChart.data.datasets[0].data.push(Math.max(0, nextImp));
+
+            velocityChart.data.datasets[1].data.shift();
+            velocityChart.data.datasets[1].data.push(Math.max(0, nextView));
+
+            velocityChart.update('none'); // Update without full animation for smooth streaming
+
+            // Update Counter randomly
+            const addedViews = Math.floor(Math.random() * 5);
+            currentTotalViews += addedViews;
+            liveViewsEl.innerText = currentTotalViews.toLocaleString();
+
+        }, 2000); // Ticks every 2 seconds for real-time feel
+
     </script>
 </body>
 

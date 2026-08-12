@@ -7,7 +7,7 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection, get_config, get_user_cookies, has_video_been_posted
-from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
+from config import get_youtube_key, get_yt_client_id, get_yt_client_secret
 
 # Google qo'shimcha scope qaytarishini qabul qilish (scope mismatch xatosini oldini olish)
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
@@ -18,8 +18,8 @@ REDIRECT_URI = f"{RENDER_URL}/oauth/callback"
 
 CLIENT_CONFIG = {
     "web": {
-        "client_id": YT_CLIENT_ID,
-        "client_secret": YT_CLIENT_SECRET,
+        "client_id": get_yt_client_id(),
+        "client_secret": get_yt_client_secret(),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
         "token_uri": "https://oauth2.googleapis.com/token",
         "redirect_uris": [REDIRECT_URI]
@@ -228,8 +228,8 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
         token=credentials_dict['access_token'],
         refresh_token=credentials_dict['refresh_token'],
         token_uri="https://oauth2.googleapis.com/token",
-        client_id=YT_CLIENT_ID,
-        client_secret=YT_CLIENT_SECRET
+        client_id=get_yt_client_id(),
+        client_secret=get_yt_client_secret()
     )
 
     youtube = build("youtube", "v3", credentials=creds)

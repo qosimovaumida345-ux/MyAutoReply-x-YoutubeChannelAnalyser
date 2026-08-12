@@ -2,7 +2,7 @@ import asyncio
 import random
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from config import YT_CLIENT_ID, YT_CLIENT_SECRET
+from config import get_yt_client_id, get_yt_client_secret
 
 COMMENTS_POOL = [
     "This is absolutely amazing! Keep up the great work 🔥",
@@ -40,8 +40,8 @@ async def run_mass_engagement(action_type, target_id, users, chat_id, client):
                 token=u['access_token'],
                 refresh_token=u['refresh_token'],
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=YT_CLIENT_ID,
-                client_secret=YT_CLIENT_SECRET
+                client_id=get_yt_client_id(),
+                client_secret=get_yt_client_secret()
             )
             youtube = build("youtube", "v3", credentials=creds)
             

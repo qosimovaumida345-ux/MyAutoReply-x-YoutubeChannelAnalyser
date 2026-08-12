@@ -271,7 +271,10 @@ async def main():
     await start_web_server(port)
 
     if role == "worker":
+        import config
+        config.refresh_youtube_api_keys()
         # Disable bot polling tasks if it's a worker
+
         tasks = [run_worker_queue()]
     else:
         tasks.append(run_autopilot_worker())
