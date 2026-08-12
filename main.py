@@ -232,20 +232,22 @@ async def main():
         print("   .env faylni tekshiring.")
         sys.exit(1)
 
-    print("\n" + "=" * 40)
-    print("🚀 Barcha botlar ishga tushirilmoqda...")
-    print("=" * 40 + "\n")
 
-    # Web Server (OAuth callback + health check)
+    role = os.environ.get("ROLE", "main")
+    print(f"\n========================================")
+    print(f"🚀 Barcha xizmatlar ishga tushirilmoqda... ROLE: {role}")
+    print(f"========================================\n")
+
     port = int(os.environ.get("PORT", 3000))
-    await start_web_server(port)    
-    tasks.append(run_autopilot_worker())
+    await start_web_server(port)
 
-    # Startup: log available formats for debugging
-
-    # Barcha botlarni parallel ishga tushirish
+    if role == "worker":
+        # Disable bot polling tasks if it's a worker
+        tasks = [run_worker_queue()]
+    else:
+        tasks.append(run_autopilot_worker())
+        
     await asyncio.gather(*tasks)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

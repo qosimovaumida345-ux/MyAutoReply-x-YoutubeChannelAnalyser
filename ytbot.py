@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pyrogram import Client, filters, StopPropagation
 from pyrogram.enums import ParseMode, ChatAction
 from pyrogram.types import (
+    WebAppInfo,
     InlineKeyboardMarkup, InlineKeyboardButton,
     CallbackQuery, Message
 )
@@ -285,7 +286,10 @@ def get_categories(region="US"):
 # ==================== INLINE KEYBOARD BUILDERS ====================
 
 def main_menu_kb():
+    import os
+    web_url = os.environ.get("WEB_URL", "https://ais-dev-je2q2rhm6sgb6szzy23wmm-586447362988.asia-southeast1.run.app")
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌐 Open Dashboard", web_app=WebAppInfo(url=web_url))],
         [InlineKeyboardButton("📢 Kanal tahlili", callback_data="menu_channel"),
          InlineKeyboardButton("🎬 Video tahlili", callback_data="menu_video")],
         [InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics"),
@@ -798,6 +802,8 @@ def create_ytbot():
                 
             task_id = create_autopost_task(user_id, "my_channel", query, "video", count)
             if task_id:
+                from database import update_autopost_task
+                update_autopost_task(task_id, status="awaiting_choice")
                 increment_usage(user_id, count)
                 
                 buttons = [
@@ -1710,6 +1716,77 @@ def create_ytbot():
         desc = v["snippet"].get("description", "Tavsif yo'q")[:2000]
         await message.reply_text(f"**{v['snippet']['title'][:40]}**\n\n{desc}", parse_mode=ParseMode.MARKDOWN)
     
+    
+
+    # ==================== MASS ENGAGEMENT COMMANDS ====================
+    async def get_engagement_users(client, message):
+        from database import get_db
+        import psycopg2.extras
+        is_admin = check_is_admin(message.from_user)
+        conn = get_db()
+        users = []
+        if conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if hasattr(psycopg2, 'extras') else conn.cursor()
+            if is_admin:
+                cur.execute("SELECT * FROM yt_connections")
+            else:
+                cur.execute("SELECT * FROM yt_connections WHERE tg_user_id = %s", (message.from_user.id,))
+            users = cur.fetchall()
+            conn.close()
+        return users, is_admin
+
+    @bot.on_message(filters.command("mass_like"))
+    async def mass_like_cmd(client, message):
+        from mass_engagement import run_mass_engagement
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply_text("Foydalanish: `/mass_like <video_id>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        video_id = args[1]
+        users, is_admin = await get_engagement_users(client, message)
+        if not users:
+            await message.reply_text("❌ Hech qanday YouTube ulanish topilmadi. Avval /ytlogin qiling.")
+            return
+        msg = "👑 **Admin Mode:** Barcha" if is_admin else "👤 **User Mode:** Sizning"
+        await message.reply_text(f"👍 {msg} hisoblar orqali Like bosish boshlandi! (Topilgan hisoblar: {len(users)})\nVideo ID: `{video_id}`", parse_mode=ParseMode.MARKDOWN)
+        import asyncio
+        asyncio.create_task(run_mass_engagement("like", video_id, users, message.chat.id, client))
+
+    @bot.on_message(filters.command("mass_comment"))
+    async def mass_comment_cmd(client, message):
+        from mass_engagement import run_mass_engagement
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply_text("Foydalanish: `/mass_comment <video_id>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        video_id = args[1]
+        users, is_admin = await get_engagement_users(client, message)
+        if not users:
+            await message.reply_text("❌ Hech qanday YouTube ulanish topilmadi.")
+            return
+        msg = "👑 **Admin Mode:** Barcha" if is_admin else "👤 **User Mode:** Sizning"
+        await message.reply_text(f"💬 {msg} hisoblar orqali Comment yozish boshlandi! (Topilgan: {len(users)})\nVideo ID: `{video_id}`", parse_mode=ParseMode.MARKDOWN)
+        import asyncio
+        asyncio.create_task(run_mass_engagement("comment", video_id, users, message.chat.id, client))
+
+    @bot.on_message(filters.command("mass_sub"))
+    async def mass_sub_cmd(client, message):
+        from mass_engagement import run_mass_engagement
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply_text("Foydalanish: `/mass_sub <channel_id>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        channel_id = args[1]
+        users, is_admin = await get_engagement_users(client, message)
+        if not users:
+            await message.reply_text("❌ Hech qanday YouTube ulanish topilmadi.")
+            return
+        msg = "👑 **Admin Mode:** Barcha" if is_admin else "👤 **User Mode:** Sizning"
+        await message.reply_text(f"🔔 {msg} hisoblar orqali Obuna bo'lish boshlandi! (Topilgan: {len(users)})\nChannel ID: `{channel_id}`", parse_mode=ParseMode.MARKDOWN)
+        import asyncio
+        asyncio.create_task(run_mass_engagement("subscribe", channel_id, users, message.chat.id, client))
+
+    # ==================== CALLBACK QUERY HANDLERS ====================
     # ==================== CALLBACK QUERY HANDLERS ====================
     @bot.on_callback_query(filters.regex(r"^ap_"))
     async def ap_watermark_callback(client, callback_query: CallbackQuery):
@@ -1730,9 +1807,19 @@ def create_ytbot():
         
         apply_watermark = (action == "ap_wm")
         
-        await callback_query.message.edit_text(f"🚀 `Auto-post boshlandi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}")
-        
-        asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, callback_query.message.chat.id, proxy_url=user_proxy, apply_watermark=apply_watermark))
+        from database import update_autopost_task
+        update_autopost_task(task_id, status="pending")
+        # We need to update apply_watermark in DB
+        import psycopg2
+        from database import get_db
+        conn = get_db()
+        if conn:
+            cur = conn.cursor()
+            cur.execute("UPDATE autopost_tasks SET apply_watermark = %s WHERE id = %s", (apply_watermark, task_id))
+            conn.commit()
+            conn.close()
+
+        await callback_query.message.edit_text(f"⏳ `Navbatga qo'shildi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\nWorker tizimi tomonidan yuklash boshlanadi. Iltimos kuting!")
 
     
     @bot.on_callback_query(filters.regex("^back_main$"))

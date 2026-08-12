@@ -89,7 +89,7 @@ def init_db():
             completed_count INTEGER DEFAULT 0,
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW()
+            updated_at TIMESTAMP DEFAULT NOW(),\n            apply_watermark BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -124,7 +124,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS bot_config (
             key TEXT PRIMARY KEY,
             value TEXT,
-            updated_at TIMESTAMP DEFAULT NOW()
+            updated_at TIMESTAMP DEFAULT NOW(),\n            apply_watermark BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -480,15 +480,15 @@ def delete_yt_connection(tg_user_id, yt_channel_id):
 
 # ==================== AUTO-POST TASKS ====================
 
-def create_autopost_task(tg_user_id, yt_channel_id, search_query, video_type, total_count):
+def create_autopost_task(tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark=False):
     conn = get_db()
     if not conn: return None
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count)
-            VALUES (%s, %s, %s, %s, %s) RETURNING id
-        """, (tg_user_id, yt_channel_id, search_query, video_type, total_count))
+            INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark)
+            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+        """, (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark))
         task_id = cur.fetchone()["id"]
         conn.commit()
         return task_id
@@ -767,5 +767,32 @@ def get_autopost_task_by_id(task_id):
         cur = conn.cursor()
         cur.execute("SELECT * FROM autopost_tasks WHERE id = %s", (task_id,))
         return cur.fetchone()
+    finally:
+        conn.close()
+
+def claim_pending_autopost_task():
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if 'psycopg2.extras' in db else conn.cursor()
+        cur.execute('''
+            UPDATE autopost_tasks 
+            SET status = 'processing', updated_at = NOW() 
+            WHERE id = (
+                SELECT id FROM autopost_tasks 
+                WHERE status = 'pending' 
+                ORDER BY created_at ASC 
+                FOR UPDATE SKIP LOCKED 
+                LIMIT 1
+            ) 
+            RETURNING *
+        ''')
+        task = cur.fetchone()
+        conn.commit()
+        return task
+    except Exception as e:
+        print("Claim task error:", e)
+        conn.rollback()
+        return None
     finally:
         conn.close()

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Analytics Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #121212;
+            color: #fff;
+        }
+
+        .card {
+            background: #1e1e2e;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #4ecca3;
+        }
+
+        .stat {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .label {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        button {
+            background: #4ecca3;
+            color: #121212;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #3db892;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h2>Deep Analytics</h2>
+        <p class="label">Retention & Audience Hook Analysis</p>
+        <p>This is a placeholder for YouTube Analytics retention graphs (Requires YouTube Analytics API & Owner OAuth).
+        </p>
+    </div>
+    <div class="card">
+        <h2>Mass Engagement</h2>
+        <div style="display: flex; gap: 10px;">
+            <div style="flex:1;">
+                <div class="stat">0</div>
+                <div class="label">Connected Accounts</div>
+            </div>
+            <div style="flex:1;">
+                <div class="stat">100+</div>
+                <div class="label">Comments Pool</div>
+            </div>
+        </div>
+        <br>
+        <button onclick="copyOAuthLink()">Copy OAuth Link (For users to connect)</button>
+    </div>
+
+    <script>
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+
+        function copyOAuthLink() {
+            // This would normally be generated dynamically
+            const url = window.location.origin + "/ytlogin";
+            navigator.clipboard.writeText(url).then(() => {
+                window.Telegram.WebApp.showAlert("Link copied! Send this to users so they can connect their accounts for Mass Engagement.");
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -317,7 +317,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)
 
-            msg = await client.send_message(chat_id, f"⏳ `[{idx}/{len(videos)}] Yuklab olinmoqda: {title[:50].replace('`', '')}...`")
+            msg = await client.send_message(chat_id, f"⏳ `[{process_idx}/{count}] Yuklab olinmoqda: {title[:50].replace('`', '')}...`")
 
             file_path = None
             try:
@@ -325,9 +325,9 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 file_path = await asyncio.to_thread(download_video, vid_id, proxy_url, tg_user_id)
 
                 safe_title = title[:50].replace('`', "'")
-                await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] Kanalingizga yuklanmoqda: {safe_title}...`")
+                await msg.edit_text(f"⏳ `[{process_idx}/{count}] Kanalingizga yuklanmoqda: {safe_title}...`")
                 # Haqiqiy yuklash
-                await msg.edit_text(f"⏳ `[{idx}/{len(videos)}] YouTube'ga yuklanmoqda...`")
+                await msg.edit_text(f"⏳ `[{process_idx}/{count}] YouTube'ga yuklanmoqda...`")
                 new_vid_id = await asyncio.to_thread(upload_to_youtube, file_path, title, desc, conn_data)
                 
                 update_autopost_history(hist_id, status="uploaded", uploaded_video_id=new_vid_id, uploaded_title=title)
@@ -337,7 +337,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-                await msg.edit_text(f"✅ `[{idx}/{len(videos)}] Yuklandi: {safe_title}`\nYouTube ID: `{new_vid_id}`")
+                await msg.edit_text(f"✅ `[{process_idx}/{count}] Yuklandi: {safe_title}`\nYouTube ID: `{new_vid_id}`")
 
 
 
@@ -347,7 +347,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if "Sign in to confirm" in err_msg:
                     err_msg = "YouTube cookie lari yaroqsiz! Iltimos, ularni yangilang yoki qayta /setcookies qiling."
                 update_autopost_history(hist_id, status="failed", error_msg=err_msg)
-                await msg.edit_text(f"❌ `[{idx}/{len(videos)}] Xatolik: {err_msg[:300]}`")
+                await msg.edit_text(f"❌ `[{process_idx}/{count}] Xatolik: {err_msg[:300]}`")
                 # Xatolikda ham faylni tozalash
                 try:
                     if file_path and os.path.exists(file_path):
