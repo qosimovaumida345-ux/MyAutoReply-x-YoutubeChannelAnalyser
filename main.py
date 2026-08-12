@@ -89,10 +89,38 @@ async def run_autopilot_worker():
             
         await asyncio.sleep(60 * 60) # Check every hour
 
+
+async def run_worker_queue():
+    from database import claim_pending_autopost_task
+    from ytbot import autopost_worker
+    import asyncio
+    from pyrogram import Client
+    
+    # Mock client for worker since it doesn't use telegram polling
+    mock_client = Client("worker_mock", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+    await mock_client.start()
+    
+    print("👷 Worker poylamoqda...")
+    while True:
+        task = claim_pending_autopost_task()
+        if task:
+            print(f"📥 Yangi vazifa olindi: {task['id']} - {task['search_query']}")
+            from database import get_user_proxy
+            user_proxy = get_user_proxy(task['tg_user_id'])
+            # Run worker
+            await autopost_worker(task['id'], task['tg_user_id'], task['search_query'], task['total_count'], mock_client, task['tg_user_id'], proxy_url=user_proxy, apply_watermark=task.get('apply_watermark', False))
+        else:
+            await asyncio.sleep(5)
+
 # ==================== WEB SERVER (OAuth Callback + Health Check) ====================
 
 async def handle_health(request):
-    """Render health check uchun"""
+    """Render health check uchun va WebApp UI"""
+    import os
+    if os.path.exists("index.html"):
+        with open("index.html", "r") as f:
+            html = f.read()
+        return web.Response(text=html, content_type="text/html")
     return web.Response(text="Bot is running!", content_type="text/html")
 
 
