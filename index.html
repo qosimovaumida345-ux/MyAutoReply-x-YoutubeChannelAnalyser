@@ -1,92 +1,316 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Analytics Dashboard</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium YouTube Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+
         body {
-            font-family: sans-serif;
-            padding: 20px;
-            background: #121212;
-            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            background-color: #09090b;
+            color: #f8fafc;
+            overflow-x: hidden;
         }
 
-        .card {
-            background: #1e1e2e;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
         }
 
-        h2 {
-            margin-top: 0;
-            color: #4ecca3;
+        .neon-glow {
+            box-shadow: 0 0 40px -10px rgba(78, 204, 163, 0.5);
         }
 
-        .stat {
-            font-size: 24px;
-            font-weight: bold;
+        .text-gradient {
+            background: linear-gradient(135deg, #4ecca3, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .label {
-            color: #aaa;
-            font-size: 14px;
+        .animate-fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+            opacity: 0;
         }
 
-        button {
-            background: #4ecca3;
-            color: #121212;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            width: 100%;
+        .animate-slide-up {
+            animation: slideUp 0.8s ease-out forwards;
+            opacity: 0;
+            transform: translateY(30px);
         }
 
-        button:hover {
-            background: #3db892;
+        .delay-100 {
+            animation-delay: 0.1s;
+        }
+
+        .delay-200 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-300 {
+            animation-delay: 0.3s;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 
-<body>
-    <div class="card">
-        <h2>Deep Analytics</h2>
-        <p class="label">Retention & Audience Hook Analysis</p>
-        <p>This is a placeholder for YouTube Analytics retention graphs (Requires YouTube Analytics API & Owner OAuth).
-        </p>
+<body class="p-4 sm:p-8 min-h-screen relative">
+
+    <!-- Background Accents -->
+    <div
+        class="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none">
     </div>
-    <div class="card">
-        <h2>Mass Engagement</h2>
-        <div style="display: flex; gap: 10px;">
-            <div style="flex:1;">
-                <div class="stat">0</div>
-                <div class="label">Connected Accounts</div>
+    <div
+        class="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/20 rounded-full blur-[120px] pointer-events-none">
+    </div>
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-10 animate-fade-in">
+        <div>
+            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">Channel <span
+                    class="text-gradient">Analytics</span></h1>
+            <p class="text-gray-400 mt-2 text-sm md:text-base">Real-time performance & audience retention.</p>
+        </div>
+        <div
+            class="h-12 w-12 rounded-full bg-gradient-to-tr from-[#4ecca3] to-blue-500 flex items-center justify-center text-xl font-bold shadow-lg shadow-emerald-500/30">
+            YT
+        </div>
+    </header>
+
+    <!-- Top Stats Row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div class="glass-card p-6 animate-slide-up">
+            <p class="text-gray-400 text-sm font-medium mb-1">Total Views</p>
+            <h3 class="text-3xl font-bold text-white tracking-tight" id="views-stat">2.4M</h3>
+            <p class="text-emerald-400 text-xs mt-2 flex items-center">↑ 12% vs last month</p>
+        </div>
+        <div class="glass-card p-6 animate-slide-up delay-100">
+            <p class="text-gray-400 text-sm font-medium mb-1">Watch Time (hrs)</p>
+            <h3 class="text-3xl font-bold text-white tracking-tight">84.2K</h3>
+            <p class="text-emerald-400 text-xs mt-2 flex items-center">↑ 8.4% vs last month</p>
+        </div>
+        <div class="glass-card p-6 animate-slide-up delay-200">
+            <p class="text-gray-400 text-sm font-medium mb-1">New Subs</p>
+            <h3 class="text-3xl font-bold text-white tracking-tight">14.1K</h3>
+            <p class="text-emerald-400 text-xs mt-2 flex items-center">↑ 22% vs last month</p>
+        </div>
+        <div class="glass-card p-6 animate-slide-up delay-300 relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-transparent"></div>
+            <p class="text-emerald-300 text-sm font-medium mb-1 relative z-10">Avg. Hook Rate</p>
+            <h3 class="text-3xl font-bold text-white tracking-tight relative z-10">68%</h3>
+            <p class="text-emerald-400 text-xs mt-2 relative z-10">Excellent retention</p>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+        <!-- Main Growth Chart -->
+        <div class="glass-card p-6 md:col-span-2 animate-slide-up delay-100 neon-glow">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Audience Growth & Reach</h2>
+                <select
+                    class="bg-black/30 border border-gray-700 text-sm rounded-lg px-3 py-1 text-gray-300 outline-none">
+                    <option>Last 7 Days</option>
+                    <option selected>Last 28 Days</option>
+                    <option>Lifetime</option>
+                </select>
             </div>
-            <div style="flex:1;">
-                <div class="stat">100+</div>
-                <div class="label">Comments Pool</div>
+            <div class="relative h-64 w-full">
+                <canvas id="mainChart"></canvas>
             </div>
         </div>
-        <br>
-        <button onclick="copyOAuthLink()">Copy OAuth Link (For users to connect)</button>
+
+        <!-- Retention Funnel -->
+        <div class="glass-card p-6 animate-slide-up delay-200">
+            <h2 class="text-xl font-bold mb-6">Viewer Retention Hook</h2>
+            <div class="relative h-64 w-full flex items-center justify-center">
+                <canvas id="doughnutChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-4">
+                    <span class="text-3xl font-bold text-white">42%</span>
+                    <span class="text-xs text-gray-400">Watch to end</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Videos Analysis -->
+    <div class="glass-card p-6 animate-slide-up delay-300 mb-8">
+        <h2 class="text-xl font-bold mb-6">Algorithm Performance & Hook Analysis</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b border-gray-800 text-gray-400 text-sm">
+                        <th class="pb-3 font-medium">Video Subject</th>
+                        <th class="pb-3 font-medium">Format</th>
+                        <th class="pb-3 font-medium">CTR</th>
+                        <th class="pb-3 font-medium">Hook (First 3s)</th>
+                        <th class="pb-3 font-medium">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm">
+                    <tr class="border-b border-gray-800/50">
+                        <td class="py-4 font-medium text-white flex items-center gap-3">
+                            <div class="w-10 h-6 bg-gray-700 rounded overflow-hidden relative">
+                                <div class="absolute inset-0 bg-emerald-500/30"></div>
+                            </div>
+                            Cartoon Edits Compilation
+                        </td>
+                        <td class="py-4 text-gray-400">Shorts</td>
+                        <td class="py-4 text-white font-bold">12.4%</td>
+                        <td class="py-4">
+                            <div class="w-full bg-gray-800 rounded-full h-2 max-w-[100px]">
+                                <div class="bg-emerald-400 h-2 rounded-full" style="width: 76%"></div>
+                            </div>
+                            <span class="text-xs text-emerald-400 mt-1 block">76% retained</span>
+                        </td>
+                        <td class="py-4"><span
+                                class="px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-md text-xs font-semibold">Viral
+                                Trend</span></td>
+                    </tr>
+                    <tr class="border-b border-gray-800/50">
+                        <td class="py-4 font-medium text-white flex items-center gap-3">
+                            <div class="w-10 h-6 bg-gray-700 rounded"></div>
+                            Trending Anime AMV
+                        </td>
+                        <td class="py-4 text-gray-400">Shorts</td>
+                        <td class="py-4 text-white font-bold">8.1%</td>
+                        <td class="py-4">
+                            <div class="w-full bg-gray-800 rounded-full h-2 max-w-[100px]">
+                                <div class="bg-blue-400 h-2 rounded-full" style="width: 54%"></div>
+                            </div>
+                            <span class="text-xs text-blue-400 mt-1 block">54% retained</span>
+                        </td>
+                        <td class="py-4"><span
+                                class="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-semibold">Stable</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="py-4 font-medium text-white flex items-center gap-3">
+                            <div class="w-10 h-6 bg-gray-700 rounded"></div>
+                            Cinematic Vlog
+                        </td>
+                        <td class="py-4 text-gray-400">Long-form</td>
+                        <td class="py-4 text-white font-bold">4.2%</td>
+                        <td class="py-4">
+                            <div class="w-full bg-gray-800 rounded-full h-2 max-w-[100px]">
+                                <div class="bg-red-400 h-2 rounded-full" style="width: 28%"></div>
+                            </div>
+                            <span class="text-xs text-red-400 mt-1 block">28% retained</span>
+                        </td>
+                        <td class="py-4"><span
+                                class="px-2 py-1 bg-red-500/10 text-red-400 rounded-md text-xs font-semibold">Needs
+                                Hook</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
+        // Init Telegram WebApp
         window.Telegram.WebApp.ready();
         window.Telegram.WebApp.expand();
+        window.Telegram.WebApp.setHeaderColor('#09090b');
 
-        function copyOAuthLink() {
-            // This would normally be generated dynamically
-            const url = window.location.origin + "/ytlogin";
-            navigator.clipboard.writeText(url).then(() => {
-                window.Telegram.WebApp.showAlert("Link copied! Send this to users so they can connect their accounts for Mass Engagement.");
-            });
-        }
+        // Dynamic Chart Configurations
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.font.family = "'Outfit', sans-serif";
+
+        const ctxMain = document.getElementById('mainChart').getContext('2d');
+
+        // Create gradient for line chart
+        const gradient = ctxMain.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(78, 204, 163, 0.4)');
+        gradient.addColorStop(1, 'rgba(78, 204, 163, 0.0)');
+
+        new Chart(ctxMain, {
+            type: 'line',
+            data: {
+                labels: ['1st', '4th', '8th', '12th', '16th', '20th', '24th', '28th'],
+                datasets: [{
+                    label: 'Views',
+                    data: [12000, 19000, 15000, 25000, 22000, 38000, 31000, 45000],
+                    borderColor: '#4ecca3',
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#09090b',
+                    pointBorderColor: '#4ecca3',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 12,
+                        titleFont: { size: 14, weight: 'bold' },
+                        bodyFont: { size: 14 },
+                        displayColors: false,
+                        cornerRadius: 8,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                        ticks: { callback: function (value) { return value / 1000 + 'k'; } }
+                    },
+                    x: {
+                        grid: { display: false, drawBorder: false }
+                    }
+                }
+            }
+        });
+
+        const ctxDoughnut = document.getElementById('doughnutChart').getContext('2d');
+        new Chart(ctxDoughnut, {
+            type: 'doughnut',
+            data: {
+                labels: ['Hooked (Watched to end)', 'Dropped (First 3s)', 'Dropped (Middle)'],
+                datasets: [{
+                    data: [42, 23, 35],
+                    backgroundColor: ['#4ecca3', '#ef4444', '#3b82f6'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, padding: 20 } }
+                }
+            }
+        });
     </script>
 </body>
 

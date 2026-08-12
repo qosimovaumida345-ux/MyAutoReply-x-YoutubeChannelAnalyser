@@ -578,6 +578,11 @@ def create_ytbot():
             "`/start` - Botni boshlash\n"
             "`/help` - Yordam\n"
             "`/ytlogin` - YouTube kanalini ulash\n"
+            "`/login_status` - Ulangan kanallarni ko'rish\n"
+            "`/mass_like <video_id>` - Barcha akkauntlardan Like bosish\n"
+            "`/mass_comment <video_id>` - Barcha akkauntlardan Kommentariya yozish\n"
+            "`/mass_sub <channel_id>` - Barcha akkauntlardan Obuna bo'lish\n"
+            "`/setcookies` - YouTube Shorts yuklash uchun cookies.txt ni jo'natish (Admin)\n"
             "`/autopost <soni> <qidiruv>` - Auto-post (Kunlik limit: 3 ta)\n"
             "`/setproxy <ip:port>` - O'z proxy IP ingizni o'rnatish\n"
             "`/myproxy` - Hozirgi proxy sozlamasini ko'rish\n\n"
@@ -1734,6 +1739,39 @@ def create_ytbot():
             users = cur.fetchall()
             conn.close()
         return users, is_admin
+
+    @bot.on_message(filters.command("login_status"))
+    async def login_status_cmd(client, message):
+        from database import get_db
+        conn = get_db()
+        if not conn:
+            await message.reply_text("❌ Xatolik yuz berdi. DB ulanmagan.")
+            return
+            
+        is_admin = str(message.from_user.id) == OWNER_ID
+        cur = conn.cursor()
+        if is_admin:
+            cur.execute("SELECT tg_user_id, yt_channel_title, yt_channel_id FROM yt_connections")
+            users = cur.fetchall()
+            conn.close()
+            if not users:
+                await message.reply_text("Hech qanday kanal ulanmagan.")
+                return
+            text = "👨‍💻 **Barcha Ulangan Kanallar (Admin Panel):**\n\n"
+            for u in users:
+                text += f"👤 User: `{u['tg_user_id']}`\n📺 Kanal: **{u['yt_channel_title']}**\n🆔 ID: `{u['yt_channel_id']}`\n\n"
+            await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        else:
+            cur.execute("SELECT yt_channel_title, yt_channel_id FROM yt_connections WHERE tg_user_id = %s", (message.from_user.id,))
+            users = cur.fetchall()
+            conn.close()
+            if not users:
+                await message.reply_text("❌ Siz hali YouTube kanalingizni ulamagansiz. `/ytlogin` orqali ulang.")
+                return
+            text = "👤 **Sizning ulangan kanallaringiz:**\n\n"
+            for u in users:
+                text += f"📺 Kanal: **{u['yt_channel_title']}**\n🆔 ID: `{u['yt_channel_id']}`\n\n"
+            await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
     @bot.on_message(filters.command("mass_like"))
     async def mass_like_cmd(client, message):

@@ -11,9 +11,18 @@ def get_db():
     if not DATABASE_URL:
         print("DATABASE_URL topilmadi! Render PostgreSQL ni ulang.")
         return None
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    conn.autocommit = False
-    return conn
+        
+    url = DATABASE_URL
+    if "onrender.com" in url and "sslmode=" not in url:
+        url += "?sslmode=require" if "?" not in url else "&sslmode=require"
+        
+    try:
+        conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
+        conn.autocommit = False
+        return conn
+    except Exception as e:
+        print(f"DATABASE ERROR: {e}")
+        return None
 
 
 def init_db():
@@ -93,6 +102,11 @@ def init_db():
         )
     """)
     
+    # Check if apply_watermark column exists
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='autopost_tasks' AND column_name='apply_watermark'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE autopost_tasks ADD COLUMN apply_watermark BOOLEAN DEFAULT FALSE")
+
     # Auto-post tarixi (qaysi videolar yuklandi)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS autopost_history (
