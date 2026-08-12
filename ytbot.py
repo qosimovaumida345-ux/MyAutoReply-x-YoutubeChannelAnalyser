@@ -12,6 +12,7 @@ from pyrogram.types import (
 )
 from googleapiclient.discovery import build
 
+from config import OWNER_ID
 from config import (
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
     ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key
@@ -457,7 +458,7 @@ def create_ytbot():
     @bot.on_message(filters.command("apikeys") & filters.private)
     async def cmd_apikeys(client, message):
         """YouTube API kalitlari holatini tekshirish (Faqat admin uchun)"""
-        from config import ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
+        from config import OWNER_ID, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
         from googleapiclient.discovery import build
         from googleapiclient.errors import HttpError
         
@@ -1748,7 +1749,8 @@ def create_ytbot():
             await message.reply_text("❌ Xatolik yuz berdi. DB ulanmagan.")
             return
             
-        is_admin = str(message.from_user.id) == OWNER_ID
+        from config import OWNER_ID
+        is_admin = str(message.from_user.id) == str(OWNER_ID)
         cur = conn.cursor()
         if is_admin:
             cur.execute("SELECT tg_user_id, yt_channel_title, yt_channel_id FROM yt_connections")

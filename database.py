@@ -106,7 +106,8 @@ def init_db():
             completed_count INTEGER DEFAULT 0,
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT NOW(),
-            updated_at TIMESTAMP DEFAULT NOW(),\n            apply_watermark BOOLEAN DEFAULT FALSE
+            updated_at TIMESTAMP DEFAULT NOW(),
+            apply_watermark BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -146,7 +147,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS bot_config (
             key TEXT PRIMARY KEY,
             value TEXT,
-            updated_at TIMESTAMP DEFAULT NOW(),\n            apply_watermark BOOLEAN DEFAULT FALSE
+            updated_at TIMESTAMP DEFAULT NOW(),
+            apply_watermark BOOLEAN DEFAULT FALSE
         )
     """)
     
@@ -159,7 +161,8 @@ def init_db():
             last_usage_date DATE DEFAULT CURRENT_DATE
         )
     """)
-    cur.execute('''\n        CREATE TABLE IF NOT EXISTS autopilot_settings (
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS autopilot_settings (
             tg_user_id BIGINT PRIMARY KEY,
             topics TEXT,
             interval_days INTEGER DEFAULT 2,
