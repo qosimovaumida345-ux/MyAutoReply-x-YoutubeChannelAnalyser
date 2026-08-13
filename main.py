@@ -11,23 +11,38 @@ async def handle_api_stats(request):
         if not conn_data:
             return web.json_response({"error": "not_logged_in"}, status=403)
             
-        # Fetch real data from channel_snapshots or video_snapshots
-        conn = get_db()
         stats = {"channel_title": conn_data.get("yt_channel_title", "Unknown Channel"), "subscribers": 0, "total_views": 0, "total_videos": 0, "history": []}
-        if conn:
-            cur = conn.cursor()
-            cur.execute("SELECT subscribers, total_views, total_videos FROM channel_snapshots WHERE channel_id = %s ORDER BY snapshot_at DESC LIMIT 1", (conn_data['yt_channel_id'],))
-            row = cur.fetchone()
-            if row:
-                stats['subscribers'] = row['subscribers']
-                stats['total_views'] = row['total_views']
-                stats['total_videos'] = row['total_videos']
-            
-            # Fetch some mock history if no real history exists just for the chart to not be empty, or better, real history
-            cur.execute("SELECT total_views, snapshot_at FROM channel_snapshots WHERE channel_id = %s ORDER BY snapshot_at DESC LIMIT 20", (conn_data['yt_channel_id'],))
-            history = cur.fetchall()
-            stats['history'] = [{"views": h["total_views"], "time": h["snapshot_at"].isoformat()} for h in history]
-            conn.close()
+        
+        # Try fetching real live data from YouTube API
+        try:
+            from googleapiclient.discovery import build
+            from config import get_youtube_key
+            yt = build("youtube", "v3", developerKey=get_youtube_key())
+            res = yt.channels().list(part="statistics", id=conn_data['yt_channel_id']).execute()
+            if res.get('items'):
+                yt_stats = res['items'][0]['statistics']
+                stats['subscribers'] = int(yt_stats.get('subscriberCount', 0))
+                stats['total_views'] = int(yt_stats.get('viewCount', 0))
+                stats['total_videos'] = int(yt_stats.get('videoCount', 0))
+                
+                # Also save this snapshot to DB so history can build up over time
+                conn = get_db()
+                if conn:
+                    cur = conn.cursor()
+                    cur.execute('''INSERT INTO channel_snapshots (channel_id, subscribers, total_views, total_videos) 
+                                   VALUES (%s, %s, %s, %s)''', 
+                                (conn_data['yt_channel_id'], stats['subscribers'], stats['total_views'], stats['total_videos']))
+                    
+                    # Fetch history
+                    cur.execute("SELECT total_views, snapshot_at FROM channel_snapshots WHERE channel_id = %s ORDER BY snapshot_at DESC LIMIT 20", (conn_data['yt_channel_id'],))
+                    history = cur.fetchall()
+                    # Reverse so it goes old -> new
+                    stats['history'] = [{"views": h["total_views"], "time": h["snapshot_at"].isoformat()} for h in reversed(history)]
+                    
+                    conn.commit()
+                    conn.close()
+        except Exception as api_e:
+            print("YT API Error in stats:", api_e)
             
         return web.json_response(stats)
     except Exception as e:

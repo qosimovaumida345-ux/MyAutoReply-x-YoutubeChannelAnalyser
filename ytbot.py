@@ -1874,7 +1874,10 @@ def create_ytbot():
             finally:
                 conn.close()
 
-        await callback_query.message.edit_text(f"⏳ `Navbatga qo'shildi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\nWorker tizimi tomonidan yuklash boshlanadi. Iltimos kuting!")
+        await callback_query.message.edit_text(f"⏳ `Navbatga qo'shildi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\n✅ Yuklash jarayoni to'g'ridan-to'g'ri boshlandi. Bot xabar yuborishini kuting!")
+        from autopost import autopost_worker
+        import asyncio
+        asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, callback_query.message.chat.id, user_proxy, apply_watermark))
 
     
     @bot.on_callback_query(filters.regex("^back_main$"))

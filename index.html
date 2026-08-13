@@ -204,18 +204,18 @@
         </div>
         <!-- Metric 2 -->
         <div class="glass-panel p-6 animate-fade-up delay-200">
-            <h3 class="text-gray-400 text-sm font-medium mb-2">Avg. Hook Rate (3s)</h3>
+            <h3 class="text-gray-400 text-sm font-medium mb-2">Subscribers</h3>
             <div class="flex items-end gap-3">
-                <span class="text-4xl font-bold tracking-tight">68.4%</span>
+                <span class="text-4xl font-bold tracking-tight" id="subscribers-count">0</span>
                 <span class="text-sm font-medium text-green-400 mb-1">↑ 4.2%</span>
             </div>
             <p class="text-xs text-gray-500 mt-2">Top 10% of creators in your niche.</p>
         </div>
         <!-- Metric 3 -->
         <div class="glass-panel p-6 animate-fade-up delay-300">
-            <h3 class="text-gray-400 text-sm font-medium mb-2">Watch Time (Hrs)</h3>
+            <h3 class="text-gray-400 text-sm font-medium mb-2">Total Videos</h3>
             <div class="flex items-end gap-3">
-                <span class="text-4xl font-bold tracking-tight">12.4K</span>
+                <span class="text-4xl font-bold tracking-tight" id="videos-count">0</span>
                 <span class="text-sm font-medium text-red-400 mb-1">↓ 1.1%</span>
             </div>
             <p class="text-xs text-gray-500 mt-2">Slight drop due to recent Shorts.</p>
@@ -252,7 +252,7 @@
         </div>
 
         <!-- Retention Funnel -->
-        <div class="glass-panel p-6 animate-fade-up delay-300 flex flex-col">
+        <div class="glass-panel p-6 animate-fade-up delay-300 flex flex-col hidden">
             <h2 class="text-lg font-bold mb-1">Retention Funnel</h2>
             <p class="text-xs text-gray-400 mb-6">Where viewers drop off (Global Avg)</p>
 
@@ -295,7 +295,7 @@
     </div>
 
     <!-- Deep Dive Analytics -->
-    <div class="glass-panel p-6 animate-fade-up delay-400">
+    <div class="glass-panel p-6 animate-fade-up delay-400 hidden">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-lg font-bold">Recent Uploads Telemetry</h2>
             <button class="text-sm text-[#4facfe] hover:text-white transition-colors">View All</button>
@@ -410,11 +410,13 @@
                         const viewsEl = document.getElementById('live-views');
                         if (viewsEl) viewsEl.innerText = (data.total_views || 0).toLocaleString();
 
+                        initChart(data.history, data.total_views);
+
                         // We can try finding other elements to replace data:
-                        const totalVideosEl = document.evaluate("//div[text()='Total Published']/preceding-sibling::div", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        const totalVideosEl = document.getElementById('videos-count');
                         if (totalVideosEl) totalVideosEl.innerText = (data.total_videos || 0).toLocaleString();
 
-                        const subsEl = document.evaluate("//div[text()='Subscribers']/preceding-sibling::div", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        const subsEl = document.getElementById('subscribers-count');
                         if (subsEl) subsEl.innerText = (data.subscribers || 0).toLocaleString();
                     }
                 })
@@ -453,89 +455,73 @@
         gradientImps.addColorStop(0, 'rgba(139, 92, 246, 0.3)');
         gradientImps.addColorStop(1, 'rgba(139, 92, 246, 0.0)');
 
-        // Initial Data Setup
-        const initialDataLength = 20;
-        const labels = Array.from({ length: initialDataLength }, (_, i) => `-${initialDataLength - i}m`);
+        let velocityChart = null;
+        function initChart(historyData, currentViews) {
+            let labels = [];
+            let viewsData = [];
 
-        let viewsData = [];
-        let impsData = [];
-
-        // Generate realistic looking initial curves
-        let baseView = 1200;
-        let baseImp = 3500;
-        for (let i = 0; i < initialDataLength; i++) {
-            baseView += (Math.random() - 0.3) * 150;
-            baseImp += (Math.random() - 0.3) * 400;
-            viewsData.push(Math.floor(baseView));
-            impsData.push(Math.floor(baseImp));
-        }
-
-        const velocityChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Impressions (Algorithm Push)',
-                        data: impsData,
-                        borderColor: '#8b5cf6',
-                        backgroundColor: gradientImps,
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 0,
-                        pointHoverRadius: 6,
-                        yAxisID: 'y'
-                    },
-                    {
-                        label: 'Real-time Views',
-                        data: viewsData,
-                        borderColor: '#00f2fe',
-                        backgroundColor: gradientViews,
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: '#050505',
-                        pointBorderColor: '#00f2fe',
-                        pointBorderWidth: 2,
-                        pointRadius: 3,
-                        pointHoverRadius: 8,
-                        yAxisID: 'y'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false,
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        align: 'end',
-                        labels: { boxWidth: 12, usePointStyle: true, color: '#a1a1aa' }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false, drawBorder: false },
-                        ticks: { maxTicksLimit: 8 }
-                    },
-                    y: {
-                        beginAtZero: false,
-                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
-                        border: { display: false }
-                    }
-                },
-                animation: {
-                    duration: 400,
-                    easing: 'linear'
-                }
+            if (historyData && historyData.length > 0) {
+                labels = historyData.map((h, i) => i === historyData.length - 1 ? 'Now' : `-${historyData.length - i}t`);
+                viewsData = historyData.map(h => h.views);
+            } else {
+                labels = ['-2t', '-1t', 'Now'];
+                viewsData = [currentViews, currentViews, currentViews];
             }
-        });
+
+            velocityChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total Views',
+                            data: viewsData,
+                            borderColor: '#00f2fe',
+                            backgroundColor: gradientViews,
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: '#050505',
+                            pointBorderColor: '#00f2fe',
+                            pointBorderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 8,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            align: 'end',
+                            labels: { boxWidth: 12, usePointStyle: true, color: '#a1a1aa' }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false, drawBorder: false },
+                            ticks: { maxTicksLimit: 8 }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                            border: { display: false }
+                        }
+                    },
+                    animation: {
+                        duration: 400,
+                        easing: 'linear'
+                    }
+                }
+            });
+        }
 
         // --- Real-time Data Simulation (The "Breathing" Effect) ---
         const liveViewsEl = document.getElementById('live-views');
