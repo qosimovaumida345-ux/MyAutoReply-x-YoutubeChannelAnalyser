@@ -444,18 +444,46 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, access_token
     if not conn: return False
     try:
         cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO yt_connections (tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (tg_user_id, yt_channel_id)
-            DO UPDATE SET access_token = %s, refresh_token = %s, token_expiry = %s
-        """, (tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry,
-              access_token, refresh_token, token_expiry))
+
+        # ✅ FIX 1: Avval bu channel_id boshqa tg_user_id ga tegishli ekanini tekshir
+        cur.execute(
+            "SELECT tg_user_id FROM yt_connections WHERE yt_channel_id = %s",
+            (yt_channel_id,)
+        )
+        existing = cur.fetchone()
+
+        if existing and existing[0] != tg_user_id:
+            # Bir xil kanal, boshqa foydalanuvchi → eski yozuvni yangi foydalanuvchiga ko'chir
+            print(f"[DB] Kanal {yt_channel_id} allaqachon mavjud (tg={existing[0]}), tg={tg_user_id} ga yangilanmoqda")
+            cur.execute("""
+                UPDATE yt_connections
+                SET tg_user_id      = %s,
+                    yt_channel_title = %s,
+                    access_token    = %s,
+                    refresh_token   = %s,
+                    token_expiry    = %s,
+                    updated_at      = NOW()
+                WHERE yt_channel_id = %s
+            """, (tg_user_id, yt_channel_title, access_token, refresh_token, token_expiry, yt_channel_id))
+        else:
+            # ✅ FIX 2: ON CONFLICT → yt_channel_title ham yangilansin (avval yangilanmayotgan edi!)
+            cur.execute("""
+                INSERT INTO yt_connections
+                    (tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (tg_user_id, yt_channel_id)
+                DO UPDATE SET
+                    yt_channel_title = EXCLUDED.yt_channel_title,
+                    access_token     = EXCLUDED.access_token,
+                    refresh_token    = EXCLUDED.refresh_token,
+                    token_expiry     = EXCLUDED.token_expiry
+            """, (tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry))
+
         conn.commit()
         return True
     except Exception as e:
         conn.rollback()
-        print(f"DB xato: {e}")
+        print(f"[DB] save_yt_connection xato: {e}")
         return False
     finally:
         conn.close()

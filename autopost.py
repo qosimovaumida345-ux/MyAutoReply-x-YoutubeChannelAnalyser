@@ -134,7 +134,7 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
     return results
 
 def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False, channel_title="", channel_pfp=""):
-    """yt-dlp orqali videoni yuklab olish (kengaytirilgan xatoliklar ushlagichi bilan)"""
+    """yt-dlp orqali videoni yuklab olish"""
     import os
     import yt_dlp
     from database import get_user_cookies
@@ -143,13 +143,33 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     raw_tmpl = f"downloads/{video_id}_raw.%(ext)s"
     url = f"https://www.youtube.com/watch?v={video_id}"
 
+    # Cookies
+    cookies_text = get_user_cookies(user_id) if user_id else None
+    cookie_path = f"downloads/cookies_{video_id}.txt"
+    has_cookies = False
+    if cookies_text:
+        with open(cookie_path, "w", encoding="utf-8") as f:
+            f.write(cookies_text)
+        has_cookies = True
+
     ydl_opts = {
         'format': 'bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': raw_tmpl,
         'quiet': False,
         'no_warnings': False,
         'merge_output_format': 'mp4',
-        'remote_components': 'ejs:github',
+
+        # ✅ FIX 1: STRING EMAS, LIST bo'lishi kerak!
+        # Eski: 'remote_components': 'ejs:github'  → har harf alohida component deb o'qiladi
+        # Yangi: ['ejs:github'] → to'g'ri
+        'remote_components': ['ejs:github'],
+
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['tv_embedded', 'mweb'],
+                'player_skip': ['webpage'],
+            }
+        },
         'source_address': '0.0.0.0',
         'retries': 10,
         'fragment_retries': 10,
@@ -161,24 +181,30 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     if proxy_url:
         ydl_opts['proxy'] = proxy_url
 
-    # Per-video cookie file (prevents race condition with concurrent downloads)
-    cookies_text = get_user_cookies(user_id) if user_id else None
-    cookie_path = f"downloads/cookies_{video_id}.txt"
-    if cookies_text:
-        with open(cookie_path, "w", encoding="utf-8") as f:
-            f.write(cookies_text)
+    # Cookies faqat mweb/tv_embedded uchun (android qo'llab-quvvatlamaydi)
+    if has_cookies:
         ydl_opts['cookiefile'] = cookie_path
-    
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])
+
     except yt_dlp.utils.DownloadError as e:
         error_msg = str(e).lower()
         if "format" in error_msg or "not available" in error_msg or "sign in" in error_msg:
-            print(f"[AUTOPOST] Default clients failed for {video_id}, trying android client as fallback...")
-            ydl_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'mweb']}}
-            ydl_opts['format'] = 'best[ext=mp4][vcodec^=avc]/best'
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f"[AUTOPOST] tv_embedded/mweb failed for {video_id}, trying web_creator + ios...")
+
+            # ✅ FIX 2: android cookies qo'llab-quvvatlamaydi → cookiefile olib tashlash
+            fallback_opts = dict(ydl_opts)
+            fallback_opts['extractor_args'] = {
+                'youtube': {
+                    'player_client': ['web_creator', 'ios'],
+                    'player_skip': ['webpage'],
+                }
+            }
+            fallback_opts['format'] = 'best[ext=mp4]/best'
+            # ios va web_creator cookies qabul qiladi → saqlab qolamiz
+            with yt_dlp.YoutubeDL(fallback_opts) as ydl:
                 ydl.download([url])
         else:
             raise
@@ -186,7 +212,7 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         if os.path.exists(cookie_path):
             os.remove(cookie_path)
 
-    # Find the downloaded raw file
+    # Fayl topish
     raw_mp4 = f"downloads/{video_id}_raw.mp4"
     if not os.path.exists(raw_mp4):
         for f in os.listdir("downloads"):
