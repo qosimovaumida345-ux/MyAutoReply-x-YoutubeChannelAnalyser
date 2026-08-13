@@ -288,7 +288,7 @@ def get_categories(region="US"):
 
 def main_menu_kb():
     import os
-    web_url = os.environ.get("WEB_URL", "https://ais-dev-je2q2rhm6sgb6szzy23wmm-586447362988.asia-southeast1.run.app")
+    web_url = os.environ.get("WEB_URL", "https://botclient-d1jn.onrender.com")
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌐 Open Dashboard", web_app=WebAppInfo(url=web_url))],
         [InlineKeyboardButton("📢 Kanal tahlili", callback_data="menu_channel"),
