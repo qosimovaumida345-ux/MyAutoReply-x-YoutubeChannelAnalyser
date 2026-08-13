@@ -1857,29 +1857,12 @@ def create_ytbot():
         
         apply_watermark = (action == "ap_wm")
         
-        from database import update_autopost_task
-        update_autopost_task(task_id, status="pending")
-        # We need to update apply_watermark in DB
-        import psycopg2
-        from database import get_db
-        conn = get_db()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute("UPDATE autopost_tasks SET apply_watermark = %s WHERE id = %s", (apply_watermark, task_id))
-                conn.commit()
-            except Exception as e:
-                print("Watermark update error:", e)
-                conn.rollback()
-            finally:
-                conn.close()
-
-        await callback_query.message.edit_text(f"⏳ `Navbatga qo'shildi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\n✅ Yuklash jarayoni to'g'ridan-to'g'ri boshlandi. Bot xabar yuborishini kuting!")
+        await callback_query.message.edit_text(f"🚀 `Auto-post boshlandi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}")
+        
         from autopost import autopost_worker
         import asyncio
-        asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, callback_query.message.chat.id, user_proxy, apply_watermark))
+        asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, callback_query.message.chat.id, proxy_url=user_proxy, apply_watermark=apply_watermark))
 
-    
     @bot.on_callback_query(filters.regex("^back_main$"))
     async def cb_back_main(client, cb: CallbackQuery):
         await cb.message.edit_text("Asosiy menyu:", reply_markup=main_menu_kb())
