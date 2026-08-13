@@ -176,6 +176,140 @@ async def handle_health(request):
     return web.Response(text="Bot is running!", content_type="text/html")
 
 
+async def handle_api_stats(request):
+    """Dashboard uchun real YouTube kanal statistikasi"""
+    import json
+    tg_user_id = request.query.get("tg_user_id")
+    if not tg_user_id:
+        return web.Response(
+            text=json.dumps({"error": "tg_user_id kerak"}),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    try:
+        from database import get_yt_connection
+        from googleapiclient.discovery import build
+        from config import YT_CLIENT_ID, YT_CLIENT_SECRET
+        from google.oauth2.credentials import Credentials
+
+        conn_data = get_yt_connection(int(tg_user_id))
+        if not conn_data or not conn_data.get("access_token"):
+            return web.Response(
+                text=json.dumps({"error": "not_logged_in"}),
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+        creds = Credentials(
+            token=conn_data["access_token"],
+            refresh_token=conn_data["refresh_token"],
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=YT_CLIENT_ID,
+            client_secret=YT_CLIENT_SECRET
+        )
+        yt = build("youtube", "v3", credentials=creds)
+
+        # Kanal ma'lumotlari
+        ch_res = yt.channels().list(
+            part="statistics,snippet,contentDetails",
+            mine=True
+        ).execute()
+
+        if not ch_res.get("items"):
+            return web.Response(
+                text=json.dumps({"error": "Kanal topilmadi"}),
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+        ch      = ch_res["items"][0]
+        stats   = ch["statistics"]
+        snippet = ch["snippet"]
+
+        total_subs   = int(stats.get("subscriberCount", 0))
+        total_views  = int(stats.get("viewCount", 0))
+        total_videos = int(stats.get("videoCount", 0))
+
+        # Oxirgi 10 ta video
+        recent_videos = []
+        try:
+            uploads_id = ch.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads", "")
+            if uploads_id:
+                pl_items = yt.playlistItems().list(
+                    part="snippet", playlistId=uploads_id, maxResults=10
+                ).execute().get("items", [])
+                vid_ids = [i["snippet"]["resourceId"]["videoId"] for i in pl_items]
+                if vid_ids:
+                    vids = yt.videos().list(
+                        part="statistics,snippet", id=",".join(vid_ids)
+                    ).execute().get("items", [])
+                    for v in vids:
+                        recent_videos.append({
+                            "id":        v["id"],
+                            "title":     v["snippet"]["title"][:60],
+                            "thumbnail": v["snippet"]["thumbnails"].get("medium", {}).get("url", ""),
+                            "views":     int(v["statistics"].get("viewCount", 0)),
+                            "likes":     int(v["statistics"].get("likeCount", 0)),
+                            "comments":  int(v["statistics"].get("commentCount", 0)),
+                            "published": v["snippet"]["publishedAt"][:10],
+                        })
+        except Exception as e:
+            print(f"[api/stats] Video xato: {e}")
+
+        # O'rtacha ko'rsatkichlar
+        avg_views    = sum(v["views"]    for v in recent_videos) // max(len(recent_videos), 1)
+        avg_likes    = sum(v["likes"]    for v in recent_videos) // max(len(recent_videos), 1)
+        avg_comments = sum(v["comments"] for v in recent_videos) // max(len(recent_videos), 1)
+        engagement   = round((avg_likes + avg_comments) / max(avg_views, 1) * 100, 2)
+
+        # Autopost tarixi
+        autopost_stats = {"total": 0, "success": 0, "failed": 0}
+        try:
+            from database import get_db
+            import psycopg2.extras
+            conn_db = get_db()
+            if conn_db:
+                cur = conn_db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cur.execute(
+                    "SELECT status FROM autopost_history WHERE tg_user_id=%s ORDER BY created_at DESC LIMIT 100",
+                    (int(tg_user_id),)
+                )
+                rows = cur.fetchall()
+                conn_db.close()
+                autopost_stats["total"]   = len(rows)
+                autopost_stats["success"] = sum(1 for r in rows if r["status"] == "uploaded")
+                autopost_stats["failed"]  = sum(1 for r in rows if r["status"] == "failed")
+        except Exception as e:
+            print(f"[api/stats] Autopost tarixi xato: {e}")
+
+        return web.Response(
+            text=json.dumps({
+                "channel_title":    snippet.get("title", ""),
+                "channel_thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+                "channel_country":  snippet.get("country", ""),
+                "subscribers":      total_subs,
+                "total_views":      total_views,
+                "total_videos":     total_videos,
+                "avg_views":        avg_views,
+                "avg_likes":        avg_likes,
+                "avg_comments":     avg_comments,
+                "engagement_rate":  engagement,
+                "autopost":         autopost_stats,
+                "recent_videos":    recent_videos,
+            }, default=str),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    except Exception as e:
+        import traceback
+        print(f"[api/stats] Kritik xato: {traceback.format_exc()}")
+        return web.Response(
+            text=json.dumps({"error": str(e)[:300]}),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+
 async def handle_oauth_callback(request):
     """Google OAuth callback — foydalanuvchi ruxsat bergandan keyin Google shu yerga qaytaradi"""
     code = request.query.get("code")

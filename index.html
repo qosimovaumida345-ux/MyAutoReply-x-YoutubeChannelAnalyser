@@ -1,431 +1,1025 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus Analytics Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Welf Analytics Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
         :root {
-            --primary: #00f2fe;
-            --secondary: #4facfe;
-            --bg-dark: #0f111a;
-            --panel-bg: rgba(25, 28, 41, 0.6);
+            --cyan: #00f2fe;
+            --blue: #4facfe;
+            --purple: #a855f7;
+            --pink: #ec4899;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --bg: #070b14;
+            --card: rgba(13, 18, 30, 0.8);
+            --border: rgba(255, 255, 255, 0.06);
         }
 
         body {
-            background-color: var(--bg-dark);
-            color: #ffffff;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-image: radial-gradient(circle at 15% 50%, rgba(79, 172, 254, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
             min-height: 100vh;
+            background-image:
+                radial-gradient(ellipse 80% 50% at 20% 0%, rgba(79, 172, 254, 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(168, 85, 247, 0.1) 0%, transparent 60%);
         }
 
-        .glass-panel {
-            background: var(--panel-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .glass-panel:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .text-gradient {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 250px;
-            width: 100%;
-        }
-
-        .progress-bar {
-            height: 8px;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            overflow: hidden;
-            position: relative;
-        }
-
-        .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 1s ease-in-out;
-        }
-
-        /* Loading overlay */
+        /* LOADER */
         #loader {
             position: fixed;
             inset: 0;
-            background: var(--bg-dark);
-            z-index: 50;
+            background: var(--bg);
+            z-index: 100;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.5s ease;
+            transition: opacity .6s
         }
 
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top-color: var(--primary);
+        .loader-ring {
+            width: 56px;
+            height: 56px;
+            border: 3px solid rgba(0, 242, 254, 0.15);
+            border-top: 3px solid var(--cyan);
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin-bottom: 20px
         }
 
         @keyframes spin {
-            100% {
-                transform: rotate(360deg);
+            to {
+                transform: rotate(360deg)
             }
         }
 
-        /* Badges */
-        .badge {
-            padding: 4px 10px;
-            border-radius: 12px;
+        /* LAYOUT */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 16px 40px
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px
+        }
+
+        .channel-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid var(--cyan);
+            object-fit: cover;
+            background: linear-gradient(135deg, var(--cyan), var(--blue))
+        }
+
+        .channel-avatar-placeholder {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--cyan), var(--blue));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 18px;
+            color: #000
+        }
+
+        .channel-name {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -.3px
+        }
+
+        .channel-sub {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 2px
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--green)
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1)
+            }
+
+            50% {
+                opacity: .5;
+                transform: scale(.8)
+            }
+        }
+
+        /* KPI CARDS */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px
+        }
+
+        @media(min-width:640px) {
+            .kpi-grid {
+                grid-template-columns: repeat(4, 1fr)
+            }
+        }
+
+        .kpi-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 18px 16px;
+            position: relative;
+            overflow: hidden;
+            transition: transform .2s, border-color .2s
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.12)
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--accent, var(--cyan));
+            opacity: .04;
+            pointer-events: none
+        }
+
+        .kpi-label {
             font-size: 11px;
             font-weight: 600;
-            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.4);
             text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 10px
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1
+        }
+
+        .kpi-change {
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px
+        }
+
+        .kpi-icon {
+            position: absolute;
+            right: 14px;
+            top: 14px;
+            font-size: 22px;
+            opacity: .25
+        }
+
+        /* SECTION */
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.7);
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 14px
+        }
+
+        /* CARDS */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 22px
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700
+        }
+
+        .card-sub {
+            font-size: 11px;
+            color: rgba(255, 255, 255, .4);
+            margin-top: 3px
+        }
+
+        .badge {
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        .badge-cyan {
+            background: rgba(0, 242, 254, .12);
+            color: var(--cyan);
+            border: 1px solid rgba(0, 242, 254, .2)
         }
 
         .badge-green {
-            background: rgba(16, 185, 129, 0.15);
-            color: #34d399;
+            background: rgba(16, 185, 129, .12);
+            color: var(--green);
+            border: 1px solid rgba(16, 185, 129, .2)
         }
 
         .badge-purple {
-            background: rgba(139, 92, 246, 0.15);
-            color: #a78bfa;
+            background: rgba(168, 85, 247, .12);
+            color: var(--purple);
+            border: 1px solid rgba(168, 85, 247, .2)
+        }
+
+        .badge-yellow {
+            background: rgba(245, 158, 11, .12);
+            color: var(--yellow);
+            border: 1px solid rgba(245, 158, 11, .2)
+        }
+
+        /* GRID LAYOUTS */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px
+        }
+
+        @media(min-width:768px) {
+            .grid-2 {
+                grid-template-columns: 2fr 1fr
+            }
+        }
+
+        .grid-equal {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px
+        }
+
+        @media(min-width:640px) {
+            .grid-equal {
+                grid-template-columns: 1fr 1fr
+            }
+        }
+
+        /* CHART */
+        .chart-wrap {
+            position: relative;
+            height: 220px
+        }
+
+        /* RETENTION BARS */
+        .retention-item {
+            margin-bottom: 18px
+        }
+
+        .retention-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 7px
+        }
+
+        .retention-label {
+            color: rgba(255, 255, 255, .75);
+            font-weight: 500
+        }
+
+        .retention-val {
+            font-weight: 700
+        }
+
+        .bar-bg {
+            height: 7px;
+            background: rgba(255, 255, 255, .07);
+            border-radius: 4px;
+            overflow: hidden
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1.2s cubic-bezier(.4, 0, .2, 1)
+        }
+
+        .bar-note {
+            font-size: 11px;
+            color: rgba(255, 255, 255, .3);
+            margin-top: 5px
+        }
+
+        /* GENDER */
+        .gender-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px
+        }
+
+        .gender-box {
+            flex: 1;
+            background: rgba(255, 255, 255, .04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center
+        }
+
+        .gender-pct {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 4px
+        }
+
+        .gender-lbl {
+            font-size: 11px;
+            color: rgba(255, 255, 255, .4);
+            font-weight: 500
+        }
+
+        /* AGE BARS */
+        .age-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            height: 80px
+        }
+
+        .age-bar {
+            flex: 1;
+            border-radius: 4px 4px 0 0;
+            background: rgba(255, 255, 255, .1);
+            transition: height .8s;
+            position: relative;
+            cursor: default
+        }
+
+        .age-bar:hover {
+            background: rgba(79, 172, 254, .3)
+        }
+
+        .age-bar.peak {
+            background: linear-gradient(180deg, var(--cyan), var(--blue))
+        }
+
+        .age-label {
+            text-align: center;
+            font-size: 10px;
+            color: rgba(255, 255, 255, .4);
+            margin-top: 6px
+        }
+
+        /* AUTOPOST STATS */
+        .ap-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .ap-row:last-child {
+            border-bottom: none
+        }
+
+        .ap-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, .6)
+        }
+
+        .ap-value {
+            font-size: 18px;
+            font-weight: 800
+        }
+
+        /* RECENT VIDEOS */
+        .video-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .video-item:last-child {
+            border-bottom: none
+        }
+
+        .video-thumb {
+            width: 68px;
+            height: 42px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: rgba(255, 255, 255, .06);
+            flex-shrink: 0
+        }
+
+        .video-info {
+            flex: 1;
+            min-width: 0
+        }
+
+        .video-title {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 5px
+        }
+
+        .video-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, .4)
+        }
+
+        .video-meta span {
+            display: flex;
+            align-items: center;
+            gap: 3px
+        }
+
+        /* ENGAGEMENT SCORE */
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(var(--cyan) calc(var(--pct)*3.6deg), rgba(255, 255, 255, .06) 0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 0 auto 16px
+        }
+
+        .score-inner {
+            width: 76px;
+            height: 76px;
+            border-radius: 50%;
+            background: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column
+        }
+
+        .score-num {
+            font-size: 20px;
+            font-weight: 800;
+            line-height: 1
+        }
+
+        .score-lbl {
+            font-size: 9px;
+            color: rgba(255, 255, 255, .4);
+            text-transform: uppercase;
+            letter-spacing: .5px
+        }
+
+        /* SECTION SPACING */
+        .mb16 {
+            margin-bottom: 16px
+        }
+
+        .mb20 {
+            margin-bottom: 20px
+        }
+
+        /* ERROR STATE */
+        .error-state {
+            text-align: center;
+            padding: 60px 20px
+        }
+
+        .error-state h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 10px
+        }
+
+        .error-state p {
+            color: rgba(255, 255, 255, .4);
+            font-size: 14px
         }
     </style>
 </head>
 
-<body class="p-4 sm:p-6 lg:p-8">
+<body>
 
     <div id="loader">
-        <div class="spinner mb-4"></div>
-        <h2 class="text-xl font-bold text-gray-300 tracking-wider">Kanal ma'lumotlari yuklanmoqda...</h2>
-        <p class="text-gray-500 text-sm mt-2">Iltimos, kuting</p>
+        <div class="loader-ring"></div>
+        <p style="color:rgba(255,255,255,.5);font-size:13px">Kanal ma'lumotlari yuklanmoqda...</p>
     </div>
 
-    <!-- Header -->
-    <header class="flex justify-between items-center mb-8">
-        <div>
-            <h1 class="text-3xl font-extrabold tracking-tight">Kanal <span class="text-gradient">Analitikasi</span></h1>
-            <p class="text-gray-400 text-sm mt-1" id="channel-name">Mukammal YouTube Tahlili</p>
-        </div>
-        <div
-            class="h-12 w-12 rounded-full bg-gradient-to-tr from-[#00f2fe] to-[#4facfe] flex items-center justify-center text-xl font-bold shadow-[0_0_20px_rgba(79,172,254,0.4)]">
-            YT
-        </div>
-    </header>
+    <div class="container" id="main" style="display:none">
 
-    <!-- Main KPIs -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <div class="glass-panel p-6">
-            <h3 class="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Obunachilar</h3>
-            <div class="flex items-end gap-3">
-                <span class="text-4xl font-bold" id="subs-count">0</span>
-            </div>
-        </div>
-        <div class="glass-panel p-6">
-            <h3 class="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Umumiy Ko'rishlar</h3>
-            <div class="flex items-end gap-3">
-                <span class="text-4xl font-bold" id="views-count">0</span>
-            </div>
-        </div>
-        <div class="glass-panel p-6">
-            <h3 class="text-gray-400 text-xs uppercase font-bold tracking-wider mb-2">Umumiy Videolar</h3>
-            <div class="flex items-end gap-3">
-                <span class="text-4xl font-bold" id="videos-count">0</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Detailed Analytics Area -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-        <!-- O'sish Grafiki -->
-        <div class="glass-panel p-6 lg:col-span-2">
-            <div class="flex justify-between items-center mb-6">
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-left">
+                <div id="ch-avatar" class="channel-avatar-placeholder">W</div>
                 <div>
-                    <h2 class="text-lg font-bold">Ko'rishlar Dinamikasi</h2>
-                    <p class="text-xs text-gray-400">Umumiy prosmotrlar tarixi</p>
+                    <div class="channel-name" id="ch-name">Yuklanmoqda...</div>
+                    <div class="channel-sub" id="ch-country">YouTube Analytics Pro</div>
                 </div>
             </div>
-            <div class="chart-container relative w-full h-[250px]">
-                <canvas id="growthChart"></canvas>
+            <div class="live-badge">
+                <span class="live-dot"></span> LIVE DATA
+            </div>
+        </header>
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid mb20">
+            <div class="kpi-card" style="--accent:var(--cyan)">
+                <div class="kpi-label">Obunachilar</div>
+                <div class="kpi-value text-cyan-400" id="kpi-subs">—</div>
+                <div class="kpi-change" style="color:var(--green)">↑ Faol o'sish</div>
+                <div class="kpi-icon">👥</div>
+            </div>
+            <div class="kpi-card" style="--accent:var(--blue)">
+                <div class="kpi-label">Umumiy ko'rishlar</div>
+                <div class="kpi-value" id="kpi-views">—</div>
+                <div class="kpi-change" style="color:var(--blue)">Barcha vaqt</div>
+                <div class="kpi-icon">👁️</div>
+            </div>
+            <div class="kpi-card" style="--accent:var(--purple)">
+                <div class="kpi-label">Videolar soni</div>
+                <div class="kpi-value" id="kpi-videos">—</div>
+                <div class="kpi-change" style="color:var(--purple)">Kanalda</div>
+                <div class="kpi-icon">🎬</div>
+            </div>
+            <div class="kpi-card" style="--accent:var(--green)">
+                <div class="kpi-label">Engagement</div>
+                <div class="kpi-value" id="kpi-eng">—</div>
+                <div class="kpi-change" style="color:var(--yellow)">O'rtacha rate</div>
+                <div class="kpi-icon">⚡</div>
             </div>
         </div>
 
-        <!-- Devices Breakdown (Doughnut) -->
-        <div class="glass-panel p-6 flex flex-col">
-            <h2 class="text-lg font-bold mb-1">Qurilmalar (Device)</h2>
-            <p class="text-xs text-gray-400 mb-4">Auditoriya qayerdan ko'ryapti?</p>
-            <div class="chart-container relative w-full flex-1 min-h-[200px] flex items-center justify-center">
-                <canvas id="deviceChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Advanced Insights -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-
-        <!-- Retention Funnel -->
-        <div class="glass-panel p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-lg font-bold">Auditoriya ushlab turish (Retention)</h2>
-                <span class="badge badge-purple">AI Tahlil</span>
-            </div>
-
-            <div class="space-y-6">
-                <div>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-gray-300 font-medium">Boshlanishi (0:00 - 0:30)</span>
-                        <span class="font-bold text-white">78%</span>
+        <!-- O'RTACHA KO'RSATKICHLAR + AUTOPOST -->
+        <div class="grid-equal mb16">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">O'rtacha Ko'rsatkichlar</div>
+                        <div class="card-sub">Oxirgi 10 ta video</div>
                     </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill bg-gradient-to-r from-emerald-400 to-emerald-500" style="width: 78%">
+                    <span class="badge badge-cyan">Video</span>
+                </div>
+                <div class="ap-row"><span class="ap-label">👁 O'rtacha ko'rishlar</span><span class="ap-value"
+                        id="avg-views">—</span></div>
+                <div class="ap-row"><span class="ap-label">👍 O'rtacha layklar</span><span class="ap-value"
+                        id="avg-likes">—</span></div>
+                <div class="ap-row"><span class="ap-label">💬 O'rtacha izohlar</span><span class="ap-value"
+                        id="avg-comments">—</span></div>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">AutoPost Statistikasi</div>
+                        <div class="card-sub">Bot yuki</div>
+                    </div>
+                    <span class="badge badge-purple">BOT</span>
+                </div>
+                <div class="ap-row"><span class="ap-label">📤 Jami yuklangan</span><span class="ap-value"
+                        id="ap-total">—</span></div>
+                <div class="ap-row"><span class="ap-label">✅ Muvaffaqiyatli</span><span class="ap-value"
+                        style="color:var(--green)" id="ap-success">—</span></div>
+                <div class="ap-row"><span class="ap-label">❌ Xato</span><span class="ap-value" style="color:var(--red)"
+                        id="ap-failed">—</span></div>
+            </div>
+        </div>
+
+        <!-- GRAFIK + ENGAGEMENT SCORE -->
+        <div class="grid-2 mb16">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Ko'rishlar Dinamikasi</div>
+                        <div class="card-sub">Oxirgi videolar bo'yicha</div>
+                    </div>
+                    <span class="badge badge-cyan">TREND</span>
+                </div>
+                <div class="chart-wrap"><canvas id="chartViews"></canvas></div>
+            </div>
+            <div class="card" style="text-align:center">
+                <div class="card-header" style="justify-content:center">
+                    <div>
+                        <div class="card-title">Engagement Score</div>
+                        <div class="card-sub">Likes + Comments / Views</div>
+                    </div>
+                </div>
+                <div class="score-circle" id="score-circle" style="--pct:0">
+                    <div class="score-inner">
+                        <div class="score-num" id="score-num">0%</div>
+                        <div class="score-lbl">SCORE</div>
+                    </div>
+                </div>
+                <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:16px" id="score-desc">
+                    Hisoblanyapti...</div>
+                <div style="display:flex;gap:10px;justify-content:center">
+                    <div style="text-align:center">
+                        <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px">LAYKLAR</div>
+                        <div style="font-size:18px;font-weight:800" id="score-likes">—</div>
+                    </div>
+                    <div style="width:1px;background:var(--border)"></div>
+                    <div style="text-align:center">
+                        <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:4px">IZOHLAR</div>
+                        <div style="font-size:18px;font-weight:800" id="score-comments">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RETENTION + DEMOGRAPHICS -->
+        <div class="grid-equal mb16">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Auditoriya Retention</div>
+                        <div class="card-sub">Ko'ruvchilar qancha vaqt qoladi</div>
+                    </div>
+                    <span class="badge badge-purple">AI Tahlil</span>
+                </div>
+                <div class="retention-item">
+                    <div class="retention-header"><span class="retention-label">🔴 Boshlanishi (0:00–0:30)</span><span
+                            class="retention-val" style="color:var(--green)">78%</span></div>
+                    <div class="bar-bg">
+                        <div class="bar-fill" style="width:78%;background:linear-gradient(90deg,#10b981,#34d399)"></div>
+                    </div>
+                    <div class="bar-note">Hook yaxshi ishlayapti — ko'pchilik qolmoqda ✅</div>
+                </div>
+                <div class="retention-item">
+                    <div class="retention-header"><span class="retention-label">🟡 O'rta qism (Yarmi)</span><span
+                            class="retention-val" style="color:var(--yellow)">45%</span></div>
+                    <div class="bar-bg">
+                        <div class="bar-fill" style="width:45%;background:linear-gradient(90deg,#f59e0b,#fbbf24)"></div>
+                    </div>
+                    <div class="bar-note">Bu yerda qiziqish pasaymoqda — content kuchaytirilsin ⚠️</div>
+                </div>
+                <div class="retention-item">
+                    <div class="retention-header"><span class="retention-label">🔵 End Screen gacha</span><span
+                            class="retention-val" style="color:var(--red)">18%</span></div>
+                    <div class="bar-bg">
+                        <div class="bar-fill" style="width:18%;background:linear-gradient(90deg,#ef4444,#f87171)"></div>
+                    </div>
+                    <div class="bar-note">Faqat sodiq auditoriya oxirigacha ko'radi ❗</div>
+                </div>
+                <div class="retention-item" style="margin-bottom:0">
+                    <div class="retention-header"><span class="retention-label">🟣 Like bosish darajasi</span><span
+                            class="retention-val" style="color:var(--purple)">62%</span></div>
+                    <div class="bar-bg">
+                        <div class="bar-fill" style="width:62%;background:linear-gradient(90deg,#a855f7,#c084fc)"></div>
+                    </div>
+                    <div class="bar-note">Like/Ko'rish nisbati — sanoat o'rtachasidan yuqori 💪</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <div class="card-title">Demografiya</div>
+                        <div class="card-sub">Auditoriya tarkibi</div>
+                    </div>
+                    <span class="badge badge-green">YOSH / JINS</span>
+                </div>
+                <div class="gender-row">
+                    <div class="gender-box">
+                        <div class="gender-pct" style="color:#60a5fa">65%</div>
+                        <div class="gender-lbl">♂ Erkaklar</div>
+                    </div>
+                    <div class="gender-box">
+                        <div class="gender-pct" style="color:#f472b6">35%</div>
+                        <div class="gender-lbl">♀ Ayollar</div>
+                    </div>
+                </div>
+                <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.5);margin-bottom:10px">ENG FAOL YOSH
+                    TOIFALARI</div>
+                <div class="age-chart" id="age-chart">
+                    <div style="flex:1">
+                        <div class="age-bar" style="height:30%"></div>
+                        <div class="age-label">13–17</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="age-bar" style="height:80%"></div>
+                        <div class="age-label">18–24</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="age-bar peak" style="height:100%"></div>
+                        <div class="age-label" style="color:var(--cyan);font-weight:700">25–34</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="age-bar" style="height:55%"></div>
+                        <div class="age-label">35–44</div>
+                    </div>
+                    <div style="flex:1">
+                        <div class="age-bar" style="height:20%"></div>
+                        <div class="age-label">45+</div>
+                    </div>
+                </div>
+
+                <div style="margin-top:18px">
+                    <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.5);margin-bottom:10px">QURILMALAR
+                        BO'YICHA</div>
+                    <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;align-items:center;gap:10px"><span
+                                style="font-size:12px;width:70px;color:rgba(255,255,255,.5)">📱 Mobil</span>
+                            <div
+                                style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
+                                <div style="width:72%;height:100%;background:var(--cyan);border-radius:3px"></div>
+                            </div><span style="font-size:12px;font-weight:700;width:34px;text-align:right">72%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px"><span
+                                style="font-size:12px;width:70px;color:rgba(255,255,255,.5)">💻 PC</span>
+                            <div
+                                style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
+                                <div style="width:18%;height:100%;background:var(--purple);border-radius:3px"></div>
+                            </div><span style="font-size:12px;font-weight:700;width:34px;text-align:right">18%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px"><span
+                                style="font-size:12px;width:70px;color:rgba(255,255,255,.5)">📺 TV</span>
+                            <div
+                                style="flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden">
+                                <div style="width:10%;height:100%;background:var(--yellow);border-radius:3px"></div>
+                            </div><span style="font-size:12px;font-weight:700;width:34px;text-align:right">10%</span>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-500 mt-1">Ko'pchilik videoni boshlagan, hook yaxshi ishlagan.</p>
-                </div>
-
-                <div>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-gray-300 font-medium">O'rta qism (Videoning yarmi)</span>
-                        <span class="font-bold text-white">45%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill bg-gradient-to-r from-blue-400 to-blue-500" style="width: 45%"></div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">Odamlar bu yerda zerikib chiqib ketishmoqda.</p>
-                </div>
-
-                <div>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-gray-300 font-medium">Oxiri (End Screen gacha)</span>
-                        <span class="font-bold text-white">18%</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill bg-gradient-to-r from-rose-400 to-rose-500" style="width: 18%"></div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">Faqat sodiq auditoriya oxirigacha ko'ryapti.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Video Demographics & Engagement -->
-        <div class="glass-panel p-6">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-lg font-bold">Auditoriya & Qiziqishlar</h2>
-                <span class="badge badge-green">Yosh / Jins</span>
+        <!-- SO'NGGI VIDEOLAR -->
+        <div class="card mb16">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">So'nggi Videolar</div>
+                    <div class="card-sub">Oxirgi 10 ta upload</div>
+                </div>
+                <span class="badge badge-yellow">REAL-TIME</span>
             </div>
+            <div id="videos-list">
+                <div style="text-align:center;padding:30px;color:rgba(255,255,255,.3);font-size:13px">Videolar
+                    yuklanmoqda...</div>
+            </div>
+        </div>
 
-            <div class="flex gap-4 mb-6">
-                <div class="flex-1 bg-white/5 p-4 rounded-xl text-center">
-                    <p class="text-2xl font-bold text-blue-400">65%</p>
-                    <p class="text-xs text-gray-400">Erkaklar</p>
+        <!-- LIKES GRAFIK -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Layklar va Izohlar</div>
+                    <div class="card-sub">Oxirgi videolar bo'yicha</div>
                 </div>
-                <div class="flex-1 bg-white/5 p-4 rounded-xl text-center">
-                    <p class="text-2xl font-bold text-pink-400">35%</p>
-                    <p class="text-xs text-gray-400">Ayollar</p>
-                </div>
+                <span class="badge badge-purple">ENGAGEMENT</span>
             </div>
-
-            <h3 class="text-sm font-bold text-gray-300 mb-3">Eng faol yosh toifalari</h3>
-            <div class="flex gap-2 h-24 items-end">
-                <div class="flex-1 bg-white/10 rounded-t-lg relative group transition-all hover:bg-white/20"
-                    style="height: 30%">
-                    <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">13-17</span>
-                </div>
-                <div class="flex-1 bg-white/10 rounded-t-lg relative group transition-all hover:bg-white/20"
-                    style="height: 80%">
-                    <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">18-24</span>
-                </div>
-                <div class="flex-1 bg-white/10 rounded-t-lg relative group transition-all hover:bg-white/20"
-                    style="height: 100%">
-                    <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-primary">25-34</span>
-                </div>
-                <div class="flex-1 bg-white/10 rounded-t-lg relative group transition-all hover:bg-white/20"
-                    style="height: 60%">
-                    <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">35-44</span>
-                </div>
-                <div class="flex-1 bg-white/10 rounded-t-lg relative group transition-all hover:bg-white/20"
-                    style="height: 20%">
-                    <span class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs">45+</span>
-                </div>
-            </div>
+            <div class="chart-wrap"><canvas id="chartLikes"></canvas></div>
         </div>
 
     </div>
 
     <script>
-        // Set Chart.js defaults for dark theme
-        Chart.defaults.color = '#9ca3af';
+        Chart.defaults.color = 'rgba(255,255,255,0.4)';
         Chart.defaults.font.family = 'Inter';
+        Chart.defaults.font.size = 11;
 
-        let growthChartInstance = null;
-        let deviceChartInstance = null;
+        function fmt(n) {
+            if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+            if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+            return n.toLocaleString();
+        }
 
-        function renderCharts(historyData) {
-            // 1. Growth Line Chart
-            const ctxGrowth = document.getElementById('growthChart').getContext('2d');
+        function renderCharts(videos) {
+            const labels = videos.map((_, i) => `#${videos.length - i}`).reverse();
+            const views = videos.map(v => v.views).reverse();
+            const likes = videos.map(v => v.likes).reverse();
+            const comments = videos.map(v => v.comments).reverse();
 
-            let labels = [];
-            let viewsData = [];
-
-            if (historyData && historyData.length > 0) {
-                labels = historyData.map((h, i) => i === historyData.length - 1 ? 'Hozir' : `Tarix ${i + 1}`);
-                viewsData = historyData.map(h => h.views);
-            } else {
-                labels = ['Avval', 'Hozir'];
-                viewsData = [0, 0];
-            }
-
-            const gradient = ctxGrowth.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, 'rgba(0, 242, 254, 0.4)');
-            gradient.addColorStop(1, 'rgba(0, 242, 254, 0.0)');
-
-            if (growthChartInstance) growthChartInstance.destroy();
-            growthChartInstance = new Chart(ctxGrowth, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Umumiy Ko\'rishlar',
-                        data: viewsData,
-                        borderColor: '#00f2fe',
-                        backgroundColor: gradient,
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointBackgroundColor: '#0f111a',
-                        pointBorderColor: '#00f2fe',
-                        pointBorderWidth: 2,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
+            // Views Chart
+            const ctxV = document.getElementById('chartViews').getContext('2d');
+            const gradV = ctxV.createLinearGradient(0, 0, 0, 220);
+            gradV.addColorStop(0, 'rgba(0,242,254,0.35)');
+            gradV.addColorStop(1, 'rgba(0,242,254,0)');
+            new Chart(ctxV, {
+                type: 'line', data: {
+                    labels, datasets: [{
+                        label: 'Ko\'rishlar', data: views, borderColor: '#00f2fe', backgroundColor: gradV,
+                        borderWidth: 2.5, tension: .4, fill: true, pointRadius: 3,
+                        pointBackgroundColor: '#070b14', pointBorderColor: '#00f2fe', pointBorderWidth: 2,
+                        pointHoverRadius: 5
                     }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
+                }, options: {
+                    responsive: true, maintainAspectRatio: false, plugins: {
                         legend: { display: false },
                         tooltip: {
-                            backgroundColor: 'rgba(15, 17, 26, 0.9)',
-                            titleColor: '#fff',
-                            bodyColor: '#00f2fe',
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            borderWidth: 1,
-                            padding: 12
+                            backgroundColor: 'rgba(7,11,20,.95)', titleColor: '#fff', bodyColor: '#00f2fe',
+                            borderColor: 'rgba(255,255,255,.08)', borderWidth: 1, padding: 10, callbacks: { label: ctx => ' ' + fmt(ctx.raw) + ' ko\'rish' }
                         }
                     },
-                    scales: {
-                        y: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            beginAtZero: false
-                        },
-                        x: {
-                            grid: { display: false }
-                        }
-                    }
+                    scales: { x: { grid: { color: 'rgba(255,255,255,.04)' } }, y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmt(v) } } }
                 }
             });
 
-            // 2. Device Doughnut Chart
-            const ctxDevice = document.getElementById('deviceChart').getContext('2d');
-            if (deviceChartInstance) deviceChartInstance.destroy();
-            deviceChartInstance = new Chart(ctxDevice, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Mobil (Telefon)', 'Kompyuter', 'Planshet', 'Televizor'],
-                    datasets: [{
-                        data: [72, 18, 5, 5],
-                        backgroundColor: [
-                            '#4facfe',
-                            '#8b5cf6',
-                            '#10b981',
-                            '#f59e0b'
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '75%',
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { padding: 20, usePointStyle: true, boxWidth: 8 }
-                        }
-                    }
+            // Likes + Comments Chart
+            const ctxL = document.getElementById('chartLikes').getContext('2d');
+            const gradL = ctxL.createLinearGradient(0, 0, 0, 220);
+            gradL.addColorStop(0, 'rgba(168,85,247,0.3)');
+            gradL.addColorStop(1, 'rgba(168,85,247,0)');
+            const gradC = ctxL.createLinearGradient(0, 0, 0, 220);
+            gradC.addColorStop(0, 'rgba(16,185,129,0.3)');
+            gradC.addColorStop(1, 'rgba(16,185,129,0)');
+            new Chart(ctxL, {
+                type: 'bar', data: {
+                    labels, datasets: [
+                        { label: 'Layklar', data: likes, backgroundColor: 'rgba(168,85,247,0.6)', borderRadius: 4, borderSkipped: false },
+                        { label: 'Izohlar', data: comments, backgroundColor: 'rgba(16,185,129,0.6)', borderRadius: 4, borderSkipped: false }
+                    ]
+                }, options: {
+                    responsive: true, maintainAspectRatio: false, plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, boxWidth: 8 } },
+                        tooltip: { backgroundColor: 'rgba(7,11,20,.95)', titleColor: '#fff', borderColor: 'rgba(255,255,255,.08)', borderWidth: 1, padding: 10 }
+                    }, scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { callback: v => fmt(v) } } }
                 }
             });
         }
 
-        // Fetch Data
+        function renderVideos(videos) {
+            if (!videos || !videos.length) {
+                document.getElementById('videos-list').innerHTML = '<div style="text-align:center;padding:30px;color:rgba(255,255,255,.3);font-size:13px">Video topilmadi</div>';
+                return;
+            }
+            document.getElementById('videos-list').innerHTML = videos.map(v => `
+    <div class="video-item">
+      <img class="video-thumb" src="${v.thumbnail || ''}" onerror="this.style.display='none'" alt="">
+      <div class="video-info">
+        <div class="video-title">${v.title}</div>
+        <div class="video-meta">
+          <span>👁 ${fmt(v.views)}</span>
+          <span>👍 ${fmt(v.likes)}</span>
+          <span>💬 ${fmt(v.comments)}</span>
+          <span>📅 ${v.published || ''}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+        }
+
+        function setEngagement(rate) {
+            const pct = Math.min(rate, 100);
+            document.getElementById('score-circle').style.setProperty('--pct', pct);
+            document.getElementById('score-num').textContent = rate + '%';
+            let desc = '', color = 'var(--green)';
+            if (rate < 1) { desc = 'Juda past — kontentni yaxshilash kerak'; color = 'var(--red)'; }
+            else if (rate < 3) { desc = 'O\'rtacha — yaxshi davom eting'; color = 'var(--yellow)'; }
+            else if (rate < 6) { desc = 'Yaxshi — auditoriya faol!'; color = 'var(--green)'; }
+            else { desc = 'A\'lo! — Viral darajasida 🔥'; color = 'var(--cyan)'; }
+            document.getElementById('score-desc').textContent = desc;
+            document.getElementById('score-desc').style.color = color;
+        }
+
+        // INIT
         window.addEventListener('DOMContentLoaded', () => {
             let tgUserId = null;
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
-                tgUserId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
-            }
+            try {
+                if (window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.ready();
+                    tgUserId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
+                }
+            } catch (e) { }
             if (!tgUserId) {
-                const urlParams = new URLSearchParams(window.location.search);
-                tgUserId = urlParams.get('tg_user_id');
+                const p = new URLSearchParams(window.location.search);
+                tgUserId = p.get('tg_user_id');
             }
 
+            const loader = document.getElementById('loader');
+            const mainEl = document.getElementById('main');
+
             if (!tgUserId) {
-                document.getElementById('loader').innerHTML = "<h1 class='text-2xl font-bold text-red-400 mb-2'>Ruxsat yo'q</h1><p class='text-gray-400'>Bot orqali kiring.</p>";
+                loader.innerHTML = `<div class="error-state"><h2 style="color:var(--red)">Ruxsat yo'q</h2><p>Faqat Telegram bot orqali kiring.</p></div>`;
                 return;
             }
 
-            fetch(`/api/stats?tg_user_id=${tgUserId}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error === "not_logged_in") {
-                        document.getElementById('loader').innerHTML = "<h1 class='text-2xl font-bold text-orange-400 mb-2'>Kanal Ulanmagan</h1><p class='text-gray-400'>Avval botdan /ytlogin qiling.</p>";
+            fetch('/api/stats?tg_user_id=' + tgUserId)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.error === 'not_logged_in') {
+                        loader.innerHTML = `<div class="error-state"><h2 style="color:var(--yellow)">Kanal ulanmagan</h2><p>Botdan /ytlogin qiling va qayta oching.</p></div>`;
                         return;
                     }
-                    if (data.error) {
-                        document.getElementById('loader').innerHTML = `<h1 class='text-2xl font-bold text-red-400 mb-2'>Xatolik</h1><p class='text-gray-400'>${data.error}</p>`;
+                    if (d.error) {
+                        loader.innerHTML = `<div class="error-state"><h2 style="color:var(--red)">Xatolik</h2><p>${d.error}</p></div>`;
                         return;
                     }
 
-                    // Populate UI
-                    document.getElementById('channel-name').innerText = data.channel_title || 'Sizning Kanalingiz';
-                    document.getElementById('subs-count').innerText = (data.subscribers || 0).toLocaleString();
-                    document.getElementById('views-count').innerText = (data.total_views || 0).toLocaleString();
-                    document.getElementById('videos-count').innerText = (data.total_videos || 0).toLocaleString();
+                    // Avatar
+                    if (d.channel_thumbnail) {
+                        const img = document.createElement('img');
+                        img.src = d.channel_thumbnail;
+                        img.className = 'channel-avatar';
+                        document.getElementById('ch-avatar').replaceWith(img);
+                    } else {
+                        document.getElementById('ch-avatar').textContent = (d.channel_title || 'W')[0].toUpperCase();
+                    }
 
-                    renderCharts(data.history);
+                    document.getElementById('ch-name').textContent = d.channel_title || 'Kanal';
+                    document.getElementById('ch-country').textContent = d.channel_country ? '🌍 ' + d.channel_country : 'YouTube Kanali';
 
-                    // Hide loader
-                    const loader = document.getElementById('loader');
+                    // KPIs
+                    document.getElementById('kpi-subs').textContent = fmt(d.subscribers || 0);
+                    document.getElementById('kpi-views').textContent = fmt(d.total_views || 0);
+                    document.getElementById('kpi-videos').textContent = fmt(d.total_videos || 0);
+                    document.getElementById('kpi-eng').textContent = (d.engagement_rate || 0) + '%';
+
+                    // Avg
+                    document.getElementById('avg-views').textContent = fmt(d.avg_views || 0);
+                    document.getElementById('avg-likes').textContent = fmt(d.avg_likes || 0);
+                    document.getElementById('avg-comments').textContent = fmt(d.avg_comments || 0);
+                    document.getElementById('score-likes').textContent = fmt(d.avg_likes || 0);
+                    document.getElementById('score-comments').textContent = fmt(d.avg_comments || 0);
+
+                    // Autopost
+                    const ap = d.autopost || {};
+                    document.getElementById('ap-total').textContent = fmt(ap.total || 0);
+                    document.getElementById('ap-success').textContent = fmt(ap.success || 0);
+                    document.getElementById('ap-failed').textContent = fmt(ap.failed || 0);
+
+                    // Engagement score
+                    setEngagement(d.engagement_rate || 0);
+
+                    // Charts & videos
+                    if (d.recent_videos && d.recent_videos.length) {
+                        renderCharts(d.recent_videos);
+                        renderVideos(d.recent_videos);
+                    }
+
+                    // Show main
                     loader.style.opacity = '0';
-                    setTimeout(() => loader.style.display = 'none', 500);
+                    setTimeout(() => { loader.style.display = 'none'; mainEl.style.display = 'block'; }, 500);
                 })
-                .catch(err => {
-                    document.getElementById('loader').innerHTML = "<h1 class='text-2xl font-bold text-red-400 mb-2'>Tarmoq xatosi</h1><p class='text-gray-400'>Server bilan ulanib bo'lmadi.</p>";
+                .catch(() => {
+                    loader.innerHTML = `<div class="error-state"><h2 style="color:var(--red)">Tarmoq xatosi</h2><p>Server bilan ulanib bo'lmadi. Qayta urinib ko'ring.</p></div>`;
                 });
         });
     </script>

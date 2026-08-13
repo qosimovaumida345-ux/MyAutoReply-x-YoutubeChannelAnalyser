@@ -304,15 +304,19 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             return
 
         success_count = 0
+        process_idx = 0  # FIX: process_idx aniqlanmagan edi → NameError crash bo'lardi
         update_autopost_task(task_id, status="running")
         for idx, item in enumerate(videos, 1):
             vid_id = item["id"]["videoId"]
             title = item["snippet"]["title"]
             desc = item["snippet"]["description"]
-            
+
+            # Avval yuklangan videoni skip qilish
             if has_video_been_posted(tg_user_id, vid_id):
+                print(f"[autopost] Skip (allaqachon yuklangan): {vid_id}")
                 continue
 
+            process_idx += 1  # FIX: faqat haqiqiy yuklanadigan videolar uchun oshirish
 
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)
