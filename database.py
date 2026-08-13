@@ -503,11 +503,21 @@ def create_autopost_task(tg_user_id, yt_channel_id, search_query, video_type, to
     if not conn: return None
     try:
         cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark)
-            VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-        """, (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark))
-        task_id = cur.fetchone()["id"]
+        try:
+            cur.execute('''
+                INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark))
+        except Exception:
+            conn.rollback()
+            cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id
+            ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count))
+            
+        res = cur.fetchone()
+        task_id = res["id"] if isinstance(res, dict) else res[0]
         conn.commit()
         return task_id
     except Exception as e:

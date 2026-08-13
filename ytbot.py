@@ -789,6 +789,15 @@ def create_ytbot():
             )
             return
 
+        # Ulanish tekshiruvi
+        from database import get_yt_connection
+        conn_data = get_yt_connection(user_id)
+        if not conn_data or not conn_data.get("access_token"):
+            await message.reply_text("❌ `Siz hali YouTube kanalingizni ulamadingiz! Avval /ytlogin orqali ulang.`", parse_mode=ParseMode.MARKDOWN)
+            return
+
+        yt_channel_id = conn_data["yt_channel_id"]
+
         args = message.text.split(maxsplit=2)
         if len(args) < 3:
             await message.reply_text("`Buzilgan format!\nTo'g'ri foydalanish: /autopost <soni> <qidiruv so'zi>\nMasalan: /autopost 2 gaming shorts`", parse_mode=ParseMode.MARKDOWN)
@@ -806,7 +815,8 @@ def create_ytbot():
                 )
                 return
                 
-            task_id = create_autopost_task(user_id, "my_channel", query, "video", count)
+            task_id = create_autopost_task(user_id, yt_channel_id, query, "video", count)
+
             if task_id:
                 from database import update_autopost_task
                 update_autopost_task(task_id, status="awaiting_choice")
@@ -1854,10 +1864,15 @@ def create_ytbot():
         from database import get_db
         conn = get_db()
         if conn:
-            cur = conn.cursor()
-            cur.execute("UPDATE autopost_tasks SET apply_watermark = %s WHERE id = %s", (apply_watermark, task_id))
-            conn.commit()
-            conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute("UPDATE autopost_tasks SET apply_watermark = %s WHERE id = %s", (apply_watermark, task_id))
+                conn.commit()
+            except Exception as e:
+                print("Watermark update error:", e)
+                conn.rollback()
+            finally:
+                conn.close()
 
         await callback_query.message.edit_text(f"⏳ `Navbatga qo'shildi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\nWorker tizimi tomonidan yuklash boshlanadi. Iltimos kuting!")
 

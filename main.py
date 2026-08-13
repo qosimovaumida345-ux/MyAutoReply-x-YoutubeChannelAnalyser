@@ -1,3 +1,39 @@
+
+async def handle_api_stats(request):
+    try:
+        tg_user_id = request.query.get("tg_user_id")
+        if not tg_user_id:
+            return web.json_response({"error": "tg_user_id required"}, status=400)
+        
+        tg_user_id = int(tg_user_id)
+        from database import get_yt_connection, get_db
+        conn_data = get_yt_connection(tg_user_id)
+        if not conn_data:
+            return web.json_response({"error": "not_logged_in"}, status=403)
+            
+        # Fetch real data from channel_snapshots or video_snapshots
+        conn = get_db()
+        stats = {"channel_title": conn_data.get("yt_channel_title", "Unknown Channel"), "subscribers": 0, "total_views": 0, "total_videos": 0, "history": []}
+        if conn:
+            cur = conn.cursor()
+            cur.execute("SELECT subscribers, total_views, total_videos FROM channel_snapshots WHERE channel_id = %s ORDER BY snapshot_at DESC LIMIT 1", (conn_data['yt_channel_id'],))
+            row = cur.fetchone()
+            if row:
+                stats['subscribers'] = row['subscribers']
+                stats['total_views'] = row['total_views']
+                stats['total_videos'] = row['total_videos']
+            
+            # Fetch some mock history if no real history exists just for the chart to not be empty, or better, real history
+            cur.execute("SELECT total_views, snapshot_at FROM channel_snapshots WHERE channel_id = %s ORDER BY snapshot_at DESC LIMIT 20", (conn_data['yt_channel_id'],))
+            history = cur.fetchall()
+            stats['history'] = [{"views": h["total_views"], "time": h["snapshot_at"].isoformat()} for h in history]
+            conn.close()
+            
+        return web.json_response(stats)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
+
 import asyncio
 import sys
 import os
@@ -201,6 +237,7 @@ async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
     app.router.add_get("/", handle_health)
+    app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     
     runner = web.AppRunner(app)

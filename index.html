@@ -384,14 +384,47 @@
     </div>
 
     <script>
-        // Init Telegram WebApp seamlessly
+        let tgUserId = null;
         if (window.Telegram && window.Telegram.WebApp) {
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
             window.Telegram.WebApp.setHeaderColor('#050505');
+            tgUserId = window.Telegram.WebApp.initDataUnsafe?.user?.id;
+        }
+        if (!tgUserId) {
+            const urlParams = new URLSearchParams(window.location.search);
+            tgUserId = urlParams.get('tg_user_id');
+        }
+
+        if (!tgUserId) {
+            document.body.innerHTML = "<div style='color:white; text-align:center; padding-top: 20vh; font-family: sans-serif;'><h1>Ruxsat yo'q</h1><p>Iltimos, analitikani to'g'ridan-to'g'ri Telegram bot orqali oching.</p></div>";
+        } else {
+            fetch(`/api/stats?tg_user_id=${tgUserId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error === "not_logged_in") {
+                        document.body.innerHTML = "<div style='color:white; text-align:center; padding-top: 20vh; font-family: sans-serif;'><h1>Kanal ulanmagan</h1><p>Avval bot ichida /ytlogin komandasi orqali YouTube kanalingizni ulang!</p></div>";
+                    } else if (data.error) {
+                        document.body.innerHTML = `<div style='color:white; text-align:center; padding-top: 20vh; font-family: sans-serif;'><h1>Xatolik</h1><p>${data.error}</p></div>`;
+                    } else {
+                        const viewsEl = document.getElementById('live-views');
+                        if (viewsEl) viewsEl.innerText = (data.total_views || 0).toLocaleString();
+
+                        // We can try finding other elements to replace data:
+                        const totalVideosEl = document.evaluate("//div[text()='Total Published']/preceding-sibling::div", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (totalVideosEl) totalVideosEl.innerText = (data.total_videos || 0).toLocaleString();
+
+                        const subsEl = document.evaluate("//div[text()='Subscribers']/preceding-sibling::div", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                        if (subsEl) subsEl.innerText = (data.subscribers || 0).toLocaleString();
+                    }
+                })
+                .catch(err => {
+                    document.body.innerHTML = "<div style='color:white; text-align:center; padding-top: 20vh; font-family: sans-serif;'><h1>Xatolik</h1><p>Server bilan ulanishda xatolik yuz berdi.</p></div>";
+                });
         }
 
         // --- Animations for Progress Bars ---
+
         setTimeout(() => {
             document.querySelectorAll('.progress-bar-fill').forEach(bar => {
                 bar.style.width = bar.getAttribute('data-target');
@@ -534,7 +567,7 @@
             currentTotalViews += addedViews;
             liveViewsEl.innerText = currentTotalViews.toLocaleString();
 
-        }, 2000); // Ticks every 2 seconds for real-time feel
+        }, 2000);
 
     </script>
 </body>
