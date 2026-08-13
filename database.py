@@ -32,13 +32,6 @@ def init_db():
         print("Database ulanmadi. DATABASE_URL ni tekshiring.")
         return
     cur = conn.cursor()
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS global_settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT NOW()
-        )
-    ''')
 
     
     # YouTube kanal kuzatish jadvali
@@ -823,27 +816,3 @@ def claim_pending_autopost_task():
         conn.close()
 
 
-def get_global_setting(key):
-    conn = get_db()
-    if not conn: return None
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT value FROM global_settings WHERE key = %s", (key,))
-        res = cur.fetchone()
-        return res["value"] if res else None
-    finally:
-        conn.close()
-
-def set_global_setting(key, value):
-    conn = get_db()
-    if not conn: return
-    try:
-        cur = conn.cursor()
-        cur.execute('''
-            INSERT INTO global_settings (key, value, updated_at) 
-            VALUES (%s, %s, NOW()) 
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-        ''', (key, value))
-        conn.commit()
-    finally:
-        conn.close()

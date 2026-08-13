@@ -58,24 +58,6 @@ def reset_yt_keys():
 YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 
-def get_yt_client_id():
-    from database import get_global_setting
-    return YT_CLIENT_ID or get_global_setting("YT_CLIENT_ID") or ""
-
-def get_yt_client_secret():
-    from database import get_global_setting
-    return YT_CLIENT_SECRET or get_global_setting("YT_CLIENT_SECRET") or ""
-
-def refresh_youtube_api_keys():
-    from database import get_global_setting
-    global WORKING_YT_KEYS, YOUTUBE_API_KEYS
-    keys_str = os.getenv("YOUTUBE_API_KEYS", "") or get_global_setting("YOUTUBE_API_KEYS") or ""
-    keys = [k.strip() for k in keys_str.split(",") if k.strip()]
-    if keys:
-        YOUTUBE_API_KEYS = keys
-        WORKING_YT_KEYS = list(keys)
-
-
 # ==================== DATABASE ====================
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
