@@ -23,15 +23,18 @@ from database import (
     save_channel_snapshot, save_video_snapshot,
     get_channel_history, get_channel_growth,
     add_bot_admin, is_bot_admin, get_all_admins,
-    create_autopost_task,
+    create_autopost_task, reset_all_data, get_all_yt_connections,
     set_user_proxy, get_user_proxy, get_daily_usage, increment_usage, set_config, set_user_cookies
 )
 from autopost import autopost_worker, get_auth_url
-from custom_emojis import e
+from custom_emojis import EMOJI_MAP, e
 import google.generativeai as genai
+import uuid
 
-# ==================== EMOJI PATCH & AUTO MAP ====================
-AUTO_EMOJI_MAP = {}
+AUTOPOST_ARGS_MAP = {}
+
+# We'll create a reverse map: fallback_emoji -> custom_emoji_id
+FALLBACK_TO_ID = {val[1]: int(val[0]) for val in EMOJI_MAP.values()}
 
 def convert_md_to_html_and_emojis(text):
     if not isinstance(text, str): return text
@@ -47,9 +50,10 @@ def convert_md_to_html_and_emojis(text):
     text = re.sub(r'(?<![\w\\])_(.*?)_(?![\w\\])', r'<i>\1</i>', text, flags=re.DOTALL)
     
     # 5. Apply custom emojis
-    for std_emoji in sorted(AUTO_EMOJI_MAP.keys(), key=len, reverse=True):
-        if std_emoji in text:
-            text = text.replace(std_emoji, f'<emoji id="{AUTO_EMOJI_MAP[std_emoji]}">{std_emoji}</emoji>')
+    for fallback, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
+        if fallback in text:
+            # Replaces ALL occurrences of the fallback emoji
+            text = text.replace(fallback, f'<emoji id="{c_id}">{fallback}</emoji>')
             
     return text
 
@@ -58,7 +62,13 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, **kwargs):
     if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
-    return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, **kwargs)
+    try:
+        return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, **kwargs)
+    except Exception as e:
+        import logging
+        logging.error(f"send_message error in ytbot.py: {e} | Text: {text[:50]}...")
+        # Fallback to no parse mode if formatting fails
+        return await _orig_send_message(self, chat_id, text, parse_mode=None, **kwargs)
 Client.send_message = _patched_send_message
 
 _orig_edit_message_text = Client.edit_message_text
@@ -66,7 +76,12 @@ async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode
     if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
-    return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, **kwargs)
+    try:
+        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, **kwargs)
+    except Exception as e:
+        import logging
+        logging.error(f"edit_message_text error in ytbot.py: {e} | Text: {text[:50]}...")
+        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=None, **kwargs)
 Client.edit_message_text = _patched_edit_message_text
 
 _orig_send_photo = Client.send_photo
@@ -790,22 +805,29 @@ def create_ytbot():
             return
 
         # Ulanish tekshiruvi
-        from database import get_yt_connection
-        conn_data = get_yt_connection(user_id)
-        if not conn_data or not conn_data.get("access_token"):
+        from database import get_all_yt_connections
+        connections = get_all_yt_connections(user_id)
+        if not connections:
             await message.reply_text("❌ `Siz hali YouTube kanalingizni ulamadingiz! Avval /ytlogin orqali ulang.`", parse_mode=ParseMode.MARKDOWN)
             return
 
-        yt_channel_id = conn_data["yt_channel_id"]
-
         args = message.text.split(maxsplit=2)
         if len(args) < 3:
-            await message.reply_text("`Buzilgan format!\nTo'g'ri foydalanish: /autopost <soni> <qidiruv so'zi>\nMasalan: /autopost 2 gaming shorts`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(
+                "📋 **To'g'ri foydalanish:**\n\n"
+                "`/autopost <soni> <mavzu>`\n\n"
+                "**Masalan:**\n"
+                "• `/autopost 3 gaming`\n"
+                "• `/autopost 5 funny cats`\n"
+                "• `/autopost 2 cooking recipe`\n\n"
+                "⚡ Keyin bot sizdan **Shorts** yoki **Katta video** ekanligini so'raydi.",
+                parse_mode=ParseMode.MARKDOWN
+            )
             return
             
         try:
             count = int(args[1])
-            query = args[2]
+            topic = args[2]
 
             remaining = limit - daily_used
             if count > remaining:
@@ -814,25 +836,27 @@ def create_ytbot():
                     parse_mode=ParseMode.MARKDOWN
                 )
                 return
-                
-            task_id = create_autopost_task(user_id, yt_channel_id, query, "video", count)
-
-            if task_id:
-                from database import update_autopost_task
-                update_autopost_task(task_id, status="awaiting_choice")
-                increment_usage(user_id, count)
-                
-                buttons = [
-                    [InlineKeyboardButton("✅ Watermark bilan", callback_data=f"ap_wm|{task_id}")],
-                    [InlineKeyboardButton("❌ Aslidek (Watermarksiz)", callback_data=f"ap_nowm|{task_id}")]
-                ]
-                await message.reply_text(
-                    f"✅ Vazifa qabul qilindi: **{count}** ta video **'{query}'** bo'yicha.\n\nVideo ustiga YouTube kanalingiz nomi va rasmi (watermark) qo'yilsinmi?", 
-                    reply_markup=InlineKeyboardMarkup(buttons),
-                    parse_mode=ParseMode.MARKDOWN
-                )
-            else:
-                await message.reply_text("❌ `Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
+            
+            # Vaqtinchalik saqlash
+            short_id = str(uuid.uuid4())[:8]
+            AUTOPOST_ARGS_MAP[short_id] = {
+                "count": count, 
+                "topic": topic, 
+                "user_id": user_id,
+                "connections": connections
+            }
+            
+            # 1-qadam: Shorts yoki Video tanlash
+            buttons = [
+                [InlineKeyboardButton("🩳 Shorts (Qisqa videolar)", callback_data=f"ap_type|{short_id}|shorts")],
+                [InlineKeyboardButton("🎬 Katta Video (Uzun)", callback_data=f"ap_type|{short_id}|video")]
+            ]
+            await message.reply_text(
+                f"📺 **{count} ta video** mavzu: **'{topic}'**\n\n"
+                f"Qanday turdagi video qidiramiz?",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=ParseMode.MARKDOWN
+            )
                 
         except ValueError:
             await message.reply_text("❌ `Soni raqam bo'lishi kerak!`", parse_mode=ParseMode.MARKDOWN)
@@ -1836,9 +1860,126 @@ def create_ytbot():
         import asyncio
         asyncio.create_task(run_mass_engagement("subscribe", channel_id, users, message.chat.id, client))
 
-    # ==================== CALLBACK QUERY HANDLERS ====================
-    # ==================== CALLBACK QUERY HANDLERS ====================
-    @bot.on_callback_query(filters.regex(r"^ap_"))
+    # 2-qadam: Shorts yoki Video tanlangandan keyin
+    @bot.on_callback_query(filters.regex(r"^ap_type\|"))
+    async def autopost_type_select(client, callback_query: CallbackQuery):
+        data = callback_query.data.split("|")
+        short_id = data[1]
+        video_type = data[2]  # "shorts" yoki "video"
+        
+        args = AUTOPOST_ARGS_MAP.get(short_id)
+        if not args:
+            await callback_query.answer("❌ Muddati tugagan. Qaytadan /autopost yuboring.", show_alert=True)
+            return
+        
+        topic = args["topic"]
+        # Qidiruv so'zini to'g'ri shakllantirish
+        if video_type == "shorts":
+            query = f"{topic} shorts"
+        else:
+            query = topic
+        
+        args["query"] = query
+        args["video_type"] = video_type
+        
+        connections = args["connections"]
+        
+        if len(connections) > 1:
+            # Ko'p kanal bor — kanal tanlash menyusi
+            buttons = []
+            for c in connections:
+                ch_title = c.get('yt_channel_title', 'Noma\'lum')
+                buttons.append([InlineKeyboardButton(f"📺 {ch_title}", callback_data=f"ap_ch|{short_id}|{c['yt_channel_id']}")])
+                
+            type_text = "🩳 Shorts" if video_type == "shorts" else "🎬 Katta video"
+            await callback_query.message.edit_text(
+                f"✅ Tur: **{type_text}** | Mavzu: **'{topic}'**\n\n"
+                f"📺 **Qaysi kanalga video yuklaymiz?**",
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            # 1 ta kanal — darhol watermark so'rash
+            yt_channel_id = connections[0]["yt_channel_id"]
+            args["yt_channel_id"] = yt_channel_id
+            
+            user_id = args["user_id"]
+            count = args["count"]
+            
+            task_id = create_autopost_task(user_id, yt_channel_id, query, video_type, count)
+            if task_id:
+                from database import update_autopost_task
+                update_autopost_task(task_id, status="awaiting_choice")
+                increment_usage(user_id, count)
+                
+                type_text = "🩳 Shorts" if video_type == "shorts" else "🎬 Katta video"
+                buttons = [
+                    [InlineKeyboardButton("✅ Watermark bilan", callback_data=f"ap_wm|{task_id}")],
+                    [InlineKeyboardButton("❌ Aslidek (Watermarksiz)", callback_data=f"ap_nowm|{task_id}")]
+                ]
+                await callback_query.message.edit_text(
+                    f"✅ Tur: **{type_text}** | Mavzu: **'{topic}'** | Video soni: **{count}**\n\n"
+                    f"Video ustiga YouTube kanalingiz nomi va rasmi (watermark) qo'yilsinmi?", 
+                    reply_markup=InlineKeyboardMarkup(buttons),
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                await callback_query.message.edit_text("❌ `Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
+
+    # 3-qadam (multi-account): Kanal tanlangandan keyin
+    @bot.on_callback_query(filters.regex(r"^ap_ch\|"))
+    async def autopost_channel_select(client, callback_query: CallbackQuery):
+        data = callback_query.data.split("|")
+        short_id = data[1]
+        yt_channel_id = data[2]
+        
+        args = AUTOPOST_ARGS_MAP.get(short_id)
+        if not args:
+            await callback_query.answer("❌ Muddati tugagan. Qaytadan /autopost yuboring.", show_alert=True)
+            return
+            
+        user_id = args["user_id"]
+        count = args["count"]
+        query = args["query"]
+        topic = args["topic"]
+        video_type = args.get("video_type", "video")
+        
+        task_id = create_autopost_task(user_id, yt_channel_id, query, video_type, count)
+        
+        if task_id:
+            from database import update_autopost_task
+            update_autopost_task(task_id, status="awaiting_choice")
+            increment_usage(user_id, count)
+            
+            type_text = "🩳 Shorts" if video_type == "shorts" else "🎬 Katta video"
+            buttons = [
+                [InlineKeyboardButton("✅ Watermark bilan", callback_data=f"ap_wm|{task_id}")],
+                [InlineKeyboardButton("❌ Aslidek (Watermarksiz)", callback_data=f"ap_nowm|{task_id}")]
+            ]
+            await callback_query.message.edit_text(
+                f"✅ Tur: **{type_text}** | Mavzu: **'{topic}'** | Video soni: **{count}**\n\n"
+                f"Video ustiga YouTube kanalingiz nomi va rasmi (watermark) qo'yilsinmi?", 
+                reply_markup=InlineKeyboardMarkup(buttons),
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await callback_query.message.edit_text("❌ `Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
+
+    # ==================== /dbreset (Admin only) ====================
+    @bot.on_message(filters.command("dbreset"))
+    async def dbreset_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("❌ `Sizda huquq yo'q!`", parse_mode=ParseMode.MARKDOWN)
+            return
+        
+        from database import reset_all_data
+        success = reset_all_data()
+        if success:
+            await message.reply_text("✅ `Baza to'liq tozalandi (TRUNCATE)! Hamma yozuvlar, tokenlar, settings o'chdi.`", parse_mode=ParseMode.MARKDOWN)
+        else:
+            await message.reply_text("❌ `Xatolik yuz berdi, baza tozalanmadi!`", parse_mode=ParseMode.MARKDOWN)
+
+    @bot.on_callback_query(filters.regex(r"^ap_wm\|") | filters.regex(r"^ap_nowm\|"))
     async def ap_watermark_callback(client, callback_query: CallbackQuery):
         data = callback_query.data.split("|")
         action = data[0]

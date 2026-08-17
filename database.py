@@ -692,6 +692,39 @@ except Exception as e:
     print(f"Database init xatosi: {e}")
     print("DATABASE_URL ni tekshiring yoki Render PostgreSQL ni ulang.")
 
+def reset_all_data():
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        tables = [
+            "autopost_history", "autopost_tasks", "autopilot_settings", 
+            "channel_snapshots", "user_settings", "yt_connections"
+        ]
+        for table in tables:
+            cur.execute(f"TRUNCATE TABLE {table} CASCADE")
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error resetting database: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_all_yt_connections(tg_user_id):
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM yt_connections WHERE tg_user_id = %s", (tg_user_id,))
+        rows = cur.fetchall()
+        return rows
+    except Exception as e:
+        print(f"DB Error: {e}")
+        return []
+    finally:
+        conn.close()
+
 def set_user_cookies(user_id, cookies_text):
     conn = get_db()
     if not conn: return False
@@ -853,4 +886,27 @@ def claim_pending_autopost_task():
     finally:
         conn.close()
 
-
+def update_yt_tokens(tg_user_id, yt_channel_id, access_token, refresh_token=None):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        if refresh_token:
+            cur.execute("""
+                UPDATE yt_connections 
+                SET access_token = %s, refresh_token = %s
+                WHERE tg_user_id = %s AND yt_channel_id = %s
+            """, (access_token, refresh_token, tg_user_id, yt_channel_id))
+        else:
+            cur.execute("""
+                UPDATE yt_connections 
+                SET access_token = %s
+                WHERE tg_user_id = %s AND yt_channel_id = %s
+            """, (access_token, tg_user_id, yt_channel_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error updating yt_tokens: {e}")
+        return False
+    finally:
+        conn.close()

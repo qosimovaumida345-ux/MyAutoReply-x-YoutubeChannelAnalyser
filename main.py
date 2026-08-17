@@ -382,11 +382,296 @@ async def handle_oauth_callback(request):
         )
 
 
+async def handle_api_channels(request):
+    """Foydalanuvchining barcha ulangan kanallari"""
+    import json
+    tg_user_id = request.query.get("tg_user_id")
+    if not tg_user_id:
+        return web.Response(text=json.dumps({"error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        from database import get_all_yt_connections
+        connections = get_all_yt_connections(int(tg_user_id))
+        channels = []
+        for c in connections:
+            channels.append({
+                "channel_id": c.get("yt_channel_id", ""),
+                "channel_title": c.get("yt_channel_title", "Unknown"),
+            })
+        return web.Response(text=json.dumps({"channels": channels}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.Response(text=json.dumps({"error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
+async def handle_api_videos(request):
+    """YouTube'dan video qidirish"""
+    import json
+    q = request.query.get("q", "")
+    max_results = int(request.query.get("maxResults", "12"))
+    video_type = request.query.get("type", "")  # "short" or ""
+    
+    if not q:
+        return web.Response(text=json.dumps({"error": "q param kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        from googleapiclient.discovery import build
+        from config import get_youtube_key
+        yt = build("youtube", "v3", developerKey=get_youtube_key())
+        
+        search_params = {
+            "part": "snippet",
+            "q": q,
+            "type": "video",
+            "maxResults": min(max_results, 25),
+            "order": "relevance"
+        }
+        if video_type == "short":
+            search_params["videoDuration"] = "short"
+        
+        results = yt.search().list(**search_params).execute()
+        
+        video_ids = [item["id"]["videoId"] for item in results.get("items", []) if item["id"].get("videoId")]
+        
+        videos = []
+        if video_ids:
+            stats_res = yt.videos().list(part="statistics,snippet,contentDetails", id=",".join(video_ids)).execute()
+            for v in stats_res.get("items", []):
+                videos.append({
+                    "id": v["id"],
+                    "title": v["snippet"]["title"],
+                    "thumbnail": v["snippet"]["thumbnails"].get("medium", {}).get("url", ""),
+                    "channel": v["snippet"]["channelTitle"],
+                    "views": int(v["statistics"].get("viewCount", 0)),
+                    "likes": int(v["statistics"].get("likeCount", 0)),
+                    "comments": int(v["statistics"].get("commentCount", 0)),
+                    "published": v["snippet"]["publishedAt"][:10],
+                    "duration": v.get("contentDetails", {}).get("duration", ""),
+                })
+        
+        return web.Response(text=json.dumps({"videos": videos}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
+async def handle_api_trending(request):
+    """Trendagidagi videolar"""
+    import json
+    region = request.query.get("region", "UZ")
+    try:
+        from googleapiclient.discovery import build
+        from config import get_youtube_key
+        yt = build("youtube", "v3", developerKey=get_youtube_key())
+        
+        results = yt.videos().list(part="snippet,statistics", chart="mostPopular", regionCode=region, maxResults=12).execute()
+        videos = []
+        for v in results.get("items", []):
+            videos.append({
+                "id": v["id"],
+                "title": v["snippet"]["title"],
+                "thumbnail": v["snippet"]["thumbnails"].get("medium", {}).get("url", ""),
+                "channel": v["snippet"]["channelTitle"],
+                "views": int(v["statistics"].get("viewCount", 0)),
+                "likes": int(v["statistics"].get("likeCount", 0)),
+                "published": v["snippet"]["publishedAt"][:10],
+            })
+        return web.Response(text=json.dumps({"videos": videos}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
+async def handle_api_health_score(request):
+    """Channel Health Score (100 ballik)"""
+    import json
+    tg_user_id = request.query.get("tg_user_id")
+    if not tg_user_id:
+        return web.Response(text=json.dumps({"error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        from database import get_yt_connection
+        from googleapiclient.discovery import build
+        from config import YT_CLIENT_ID, YT_CLIENT_SECRET
+        from google.oauth2.credentials import Credentials
+
+        conn_data = get_yt_connection(int(tg_user_id))
+        if not conn_data:
+            return web.Response(text=json.dumps({"error": "not_logged_in"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=403)
+
+        creds = Credentials(token=conn_data["access_token"], refresh_token=conn_data["refresh_token"], token_uri="https://oauth2.googleapis.com/token", client_id=YT_CLIENT_ID, client_secret=YT_CLIENT_SECRET)
+        yt = build("youtube", "v3", credentials=creds)
+
+        ch_res = yt.channels().list(part="statistics,snippet,contentDetails,brandingSettings", mine=True).execute()
+        if not ch_res.get("items"):
+            return web.Response(text=json.dumps({"error": "Kanal topilmadi"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+
+        ch = ch_res["items"][0]
+        stats = ch["statistics"]
+        snippet = ch["snippet"]
+        
+        total_subs = int(stats.get("subscriberCount", 0))
+        total_views = int(stats.get("viewCount", 0))
+        total_videos = int(stats.get("videoCount", 0))
+
+        # Oxirgi 20 ta video analizi
+        recent_videos = []
+        uploads_id = ch.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads", "")
+        if uploads_id:
+            pl_items = yt.playlistItems().list(part="snippet", playlistId=uploads_id, maxResults=20).execute().get("items", [])
+            vid_ids = [i["snippet"]["resourceId"]["videoId"] for i in pl_items]
+            if vid_ids:
+                vids = yt.videos().list(part="statistics,snippet,contentDetails", id=",".join(vid_ids)).execute().get("items", [])
+                for v in vids:
+                    recent_videos.append({
+                        "views": int(v["statistics"].get("viewCount", 0)),
+                        "likes": int(v["statistics"].get("likeCount", 0)),
+                        "comments": int(v["statistics"].get("commentCount", 0)),
+                        "title": v["snippet"]["title"],
+                        "description": v["snippet"].get("description", ""),
+                        "tags": v["snippet"].get("tags", []),
+                        "published": v["snippet"]["publishedAt"],
+                    })
+
+        # Health Score hisoblash
+        scores = {}
+        
+        # 1. SEO Score (title, description, tags)
+        seo_total = 0
+        for v in recent_videos:
+            s = 0
+            if len(v["title"]) > 20: s += 3
+            if len(v["title"]) < 70: s += 2
+            if len(v.get("description", "")) > 100: s += 3
+            if v.get("tags") and len(v["tags"]) >= 5: s += 2
+            seo_total += s
+        scores["seo"] = min(round(seo_total / max(len(recent_videos), 1) * 10), 100) if recent_videos else 0
+        
+        # 2. Engagement Score
+        avg_views = sum(v["views"] for v in recent_videos) / max(len(recent_videos), 1)
+        avg_likes = sum(v["likes"] for v in recent_videos) / max(len(recent_videos), 1)
+        avg_comments = sum(v["comments"] for v in recent_videos) / max(len(recent_videos), 1)
+        engagement_rate = (avg_likes + avg_comments) / max(avg_views, 1) * 100
+        scores["engagement"] = min(round(engagement_rate * 10), 100)
+        
+        # 3. Consistency Score (yuklash muntazamligi)
+        from datetime import datetime
+        if len(recent_videos) >= 2:
+            dates = sorted([datetime.fromisoformat(v["published"].replace("Z", "+00:00")) for v in recent_videos])
+            gaps = [(dates[i+1] - dates[i]).days for i in range(len(dates)-1)]
+            avg_gap = sum(gaps) / len(gaps)
+            if avg_gap <= 2: scores["consistency"] = 100
+            elif avg_gap <= 7: scores["consistency"] = 80
+            elif avg_gap <= 14: scores["consistency"] = 60
+            elif avg_gap <= 30: scores["consistency"] = 40
+            else: scores["consistency"] = 20
+        else:
+            scores["consistency"] = 10
+        
+        # 4. Growth Score
+        if total_subs > 0:
+            views_per_sub = total_views / total_subs
+            if views_per_sub > 100: scores["growth"] = 90
+            elif views_per_sub > 50: scores["growth"] = 70
+            elif views_per_sub > 20: scores["growth"] = 50
+            else: scores["growth"] = 30
+        else:
+            scores["growth"] = 10
+        
+        # 5. Thumbnail/Brand Score (avatar, banner bor/yo'q)
+        brand_score = 50
+        if snippet.get("thumbnails", {}).get("high"): brand_score += 20
+        branding = ch.get("brandingSettings", {}).get("image", {})
+        if branding.get("bannerExternalUrl"): brand_score += 30
+        scores["branding"] = min(brand_score, 100)
+        
+        # Umumiy ball
+        overall = round((scores["seo"] + scores["engagement"] + scores["consistency"] + scores["growth"] + scores["branding"]) / 5)
+        
+        # Tavsiyalar
+        tips = []
+        if scores["seo"] < 60: tips.append("🏷 SEO yaxshilang: Har bir videoga 10+ tag qo'shing, sarlavhani 40-65 belgi qiling")
+        if scores["engagement"] < 50: tips.append("💬 Engagement oshiring: CTA (Call to Action) qo'shing va izohchilar bilan muloqot qiling")
+        if scores["consistency"] < 60: tips.append("📅 Muntazam yuklang: Haftada kamida 2-3 ta video yuklashga harakat qiling")
+        if scores["growth"] < 50: tips.append("📈 O'sish: SEO va trending mavzularga ko'proq e'tibor bering")
+        if scores["branding"] < 70: tips.append("🖼 Branding: Professional banner va avatar qo'ying")
+        
+        return web.Response(text=json.dumps({
+            "overall": overall,
+            "scores": scores,
+            "tips": tips,
+            "channel_title": snippet.get("title", ""),
+            "subscribers": total_subs,
+            "total_views": total_views,
+            "total_videos": total_videos,
+            "engagement_rate": round(engagement_rate, 2),
+        }, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        import traceback
+        print(f"Health Score Error: {traceback.format_exc()}")
+        return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
+async def handle_api_best_time(request):
+    """Eng yaxshi yuklash vaqti"""
+    import json
+    tg_user_id = request.query.get("tg_user_id")
+    if not tg_user_id:
+        return web.Response(text=json.dumps({"error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        from database import get_yt_connection
+        from googleapiclient.discovery import build
+        from config import YT_CLIENT_ID, YT_CLIENT_SECRET
+        from google.oauth2.credentials import Credentials
+        from datetime import datetime
+        from collections import defaultdict
+
+        conn_data = get_yt_connection(int(tg_user_id))
+        if not conn_data:
+            return web.Response(text=json.dumps({"error": "not_logged_in"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+
+        creds = Credentials(token=conn_data["access_token"], refresh_token=conn_data["refresh_token"], token_uri="https://oauth2.googleapis.com/token", client_id=YT_CLIENT_ID, client_secret=YT_CLIENT_SECRET)
+        yt = build("youtube", "v3", credentials=creds)
+
+        ch_res = yt.channels().list(part="contentDetails", mine=True).execute()
+        if not ch_res.get("items"):
+            return web.Response(text=json.dumps({"error": "Kanal topilmadi"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+
+        uploads_id = ch_res["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+        pl_items = yt.playlistItems().list(part="snippet", playlistId=uploads_id, maxResults=50).execute().get("items", [])
+        vid_ids = [i["snippet"]["resourceId"]["videoId"] for i in pl_items]
+        
+        hour_views = defaultdict(list)
+        day_views = defaultdict(list)
+        
+        if vid_ids:
+            vids = yt.videos().list(part="statistics,snippet", id=",".join(vid_ids[:50])).execute().get("items", [])
+            for v in vids:
+                pub = datetime.fromisoformat(v["snippet"]["publishedAt"].replace("Z", "+00:00"))
+                views = int(v["statistics"].get("viewCount", 0))
+                hour_views[pub.hour].append(views)
+                day_views[pub.strftime("%A")].append(views)
+        
+        best_hours = sorted(hour_views.items(), key=lambda x: sum(x[1])/len(x[1]) if x[1] else 0, reverse=True)[:5]
+        best_days = sorted(day_views.items(), key=lambda x: sum(x[1])/len(x[1]) if x[1] else 0, reverse=True)
+
+        return web.Response(text=json.dumps({
+            "best_hours": [{"hour": h, "avg_views": round(sum(v)/len(v))} for h, v in best_hours],
+            "best_days": [{"day": d, "avg_views": round(sum(v)/len(v))} for d, v in best_days],
+            "total_analyzed": len(vid_ids),
+        }), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
+async def handle_api_reset_db(request):
+    """Admin: Bazani tozalash"""
+    import json
+    from database import reset_all_data
+    success = reset_all_data()
+    return web.Response(text=json.dumps({"success": success}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
     app.router.add_get("/", handle_health)
     app.router.add_get("/api/stats", handle_api_stats)
+    app.router.add_get("/api/channels", handle_api_channels)
+    app.router.add_get("/api/videos", handle_api_videos)
+    app.router.add_get("/api/trending", handle_api_trending)
+    app.router.add_get("/api/health-score", handle_api_health_score)
+    app.router.add_get("/api/best-time", handle_api_best_time)
+    app.router.add_post("/api/reset-db", handle_api_reset_db)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     
     runner = web.AppRunner(app)

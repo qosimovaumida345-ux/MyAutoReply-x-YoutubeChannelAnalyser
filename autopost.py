@@ -27,7 +27,9 @@ CLIENT_CONFIG = {
 }
 
 SCOPES = [
+    "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
     "https://www.googleapis.com/auth/youtube.readonly"
 ]
 
@@ -198,7 +200,7 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
             fallback_opts = dict(ydl_opts)
             fallback_opts['extractor_args'] = {
                 'youtube': {
-                    'player_client': ['web_creator', 'ios'],
+                    'player_client': ['ios', 'web', 'android', 'mweb', 'web_creator'],
                     'player_skip': ['webpage'],
                 }
             }

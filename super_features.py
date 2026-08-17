@@ -7,6 +7,9 @@ import google.generativeai as genai
 from config import get_gemini_key
 import random
 import asyncio
+import uuid
+
+DL_URL_MAP = {}
 
 # ==================== SUPER FEATURES ====================
 def load_super_features(bot: Client):
@@ -31,9 +34,19 @@ def load_super_features(bot: Client):
         url = message.text.split(maxsplit=1)[1]
         msg = await message.reply_text("⏳ Formatlar tekshirilmoqda...")
         
-        ydl_opts = {'quiet': True}
+        short_id = str(uuid.uuid4())[:8]
+        DL_URL_MAP[short_id] = url
         
-        # Try to use cookies to prevent bot detection
+        ydl_opts = {
+            'quiet': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_skip': ['webpage'],
+                }
+            }
+        }
+        
         from database import get_user_cookies
         cookies_text = get_user_cookies(message.from_user.id)
         cookie_path = None
@@ -45,15 +58,19 @@ def load_super_features(bot: Client):
             ydl_opts['cookiefile'] = cookie_path
             
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
+            def _extract():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    return ydl.extract_info(url, download=False)
+            
+            info = await asyncio.to_thread(_extract)
                 
             buttons = [
-                [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{url}")],
-                [InlineKeyboardButton("🎬 1080p (MP4 + Audio)", callback_data=f"down_1080|{url}")],
-                [InlineKeyboardButton("🎬 720p (MP4 + Audio)", callback_data=f"down_720|{url}")],
-                [InlineKeyboardButton("🎬 480p (MP4 + Audio)", callback_data=f"down_480|{url}")],
-                [InlineKeyboardButton("🎬 360p (MP4 + Audio)", callback_data=f"down_360|{url}")]
+                [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{short_id}")],
+                [InlineKeyboardButton("🎬 1080p (MP4 + Audio)", callback_data=f"down_1080|{short_id}")],
+                [InlineKeyboardButton("🎬 720p (MP4 + Audio)", callback_data=f"down_720|{short_id}")],
+                [InlineKeyboardButton("🎬 480p (MP4 + Audio)", callback_data=f"down_480|{short_id}")],
+                [InlineKeyboardButton("🎬 360p (MP4 + Audio)", callback_data=f"down_360|{short_id}")],
+                [InlineKeyboardButton("🚀 Eng yaxshisi (Avto)", callback_data=f"down_best|{short_id}")]
             ]
             await msg.edit_text(f"🎬 **{info.get('title', 'Video')}**\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
         except Exception as e:
@@ -67,7 +84,12 @@ def load_super_features(bot: Client):
     async def download_callback(client, callback_query: CallbackQuery):
         data = callback_query.data.split("|", maxsplit=1)
         action = data[0]
-        url = data[1]
+        short_id = data[1]
+        
+        url = DL_URL_MAP.get(short_id)
+        if not url:
+            await callback_query.answer("❌ URL muddati tugagan yoki topilmadi.", show_alert=True)
+            return
         
         await callback_query.message.edit_text("⏳ Yuklab olinmoqda... Iltimos kuting.")
         
@@ -77,10 +99,14 @@ def load_super_features(bot: Client):
         ydl_opts = {
             'outtmpl': filename + '.%(ext)s', 
             'quiet': True,
-            'merge_output_format': 'mp4'
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_skip': ['webpage'],
+                }
+            }
         }
         
-        # Adding cookies support for download
         from database import get_user_cookies
         cookies_text = get_user_cookies(callback_query.from_user.id)
         cookie_path = None
@@ -93,17 +119,19 @@ def load_super_features(bot: Client):
         if action == "down_mp3":
             ydl_opts['format'] = 'bestaudio/best'
             ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
-            ydl_opts.pop('merge_output_format', None)
-        elif action == "down_360": ydl_opts['format'] = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]'
-        elif action == "down_480": ydl_opts['format'] = 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]'
-        elif action == "down_720": ydl_opts['format'] = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]'
-        elif action == "down_1080": ydl_opts['format'] = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]'
+        elif action == "down_360": ydl_opts['format'] = 'bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]/best'
+        elif action == "down_480": ydl_opts['format'] = 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]/best'
+        elif action == "down_720": ydl_opts['format'] = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best'
+        elif action == "down_1080": ydl_opts['format'] = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best'
+        elif action == "down_best": ydl_opts['format'] = 'best'
         
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+            def _download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([url])
+            
+            await asyncio.to_thread(_download)
                 
-            # Faylni topish
             sent = False
             for f in os.listdir("downloads"):
                 if f.startswith(filename.split("/")[1]):
