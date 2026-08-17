@@ -169,12 +169,9 @@ def init_db():
         )
     ''')
     # Check and add yt_cookies column if it doesn't exist
-    try:
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='user_settings' AND column_name='yt_cookies'")
+    if not cur.fetchone():
         cur.execute("ALTER TABLE user_settings ADD COLUMN yt_cookies TEXT;")
-    except Exception:
-        conn.rollback()
-    else:
-        conn.commit()
     
     conn.commit()
     cur.close()
@@ -457,9 +454,9 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_u
         )
         existing = cur.fetchone()
 
-        if existing and existing[0] != tg_user_id:
+        if existing and existing['tg_user_id'] != tg_user_id:
             # Bir xil kanal, boshqa foydalanuvchi -> eski yozuvni yangi foydalanuvchiga ko'chir
-            print(f"[DB] Kanal {yt_channel_id} allaqachon mavjud (tg={existing[0]}), tg={tg_user_id} ga yangilanmoqda")
+            print(f"[DB] Kanal {yt_channel_id} allaqachon mavjud (tg={existing['tg_user_id']}), tg={tg_user_id} ga yangilanmoqda")
             cur.execute("""
                 UPDATE yt_connections
                 SET tg_user_id      = %s,
