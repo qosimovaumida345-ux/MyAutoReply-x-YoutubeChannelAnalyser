@@ -79,6 +79,7 @@ def init_db():
             tg_user_id BIGINT NOT NULL,
             yt_channel_id TEXT NOT NULL,
             yt_channel_title TEXT,
+            yt_channel_username TEXT,
             access_token TEXT,
             refresh_token TEXT,
             token_expiry TIMESTAMP,
@@ -86,6 +87,10 @@ def init_db():
             UNIQUE(tg_user_id, yt_channel_id)
         )
     """)
+    
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='yt_channel_username'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE yt_connections ADD COLUMN yt_channel_username TEXT")
     
     # Auto-post vazifalar (topshiriqlar)
     cur.execute("""
@@ -439,13 +444,13 @@ def save_video_snapshot(video_id, channel_id, title, views, likes, comments):
 
 # ==================== YT CONNECTIONS (Auto-Post uchun) ====================
 
-def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry=None):
+def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry=None):
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
 
-        # ✅ FIX 1: Avval bu channel_id boshqa tg_user_id ga tegishli ekanini tekshir
+        # ? FIX 1: Avval bu channel_id boshqa tg_user_id ga tegishli ekanini tekshir
         cur.execute(
             "SELECT tg_user_id FROM yt_connections WHERE yt_channel_id = %s",
             (yt_channel_id,)
@@ -453,32 +458,36 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, access_token
         existing = cur.fetchone()
 
         if existing and existing[0] != tg_user_id:
-            # Bir xil kanal, boshqa foydalanuvchi → eski yozuvni yangi foydalanuvchiga ko'chir
+            # Bir xil kanal, boshqa foydalanuvchi -> eski yozuvni yangi foydalanuvchiga ko'chir
             print(f"[DB] Kanal {yt_channel_id} allaqachon mavjud (tg={existing[0]}), tg={tg_user_id} ga yangilanmoqda")
             cur.execute("""
                 UPDATE yt_connections
                 SET tg_user_id      = %s,
                     yt_channel_title = %s,
+                    yt_channel_username = %s,
                     access_token    = %s,
                     refresh_token   = %s,
                     token_expiry    = %s,
                     updated_at      = NOW()
                 WHERE yt_channel_id = %s
-            """, (tg_user_id, yt_channel_title, access_token, refresh_token, token_expiry, yt_channel_id))
+            """, (tg_user_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry, yt_channel_id))
         else:
-            # ✅ FIX 2: ON CONFLICT → yt_channel_title ham yangilansin (avval yangilanmayotgan edi!)
+            # ? FIX 2: ON CONFLICT -> yt_channel_title ham yangilansin (avval yangilanmayotgan edi!)
             cur.execute("""
                 INSERT INTO yt_connections
-                    (tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry)
+                VALUES
+                    (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (tg_user_id, yt_channel_id)
                 DO UPDATE SET
                     yt_channel_title = EXCLUDED.yt_channel_title,
-                    access_token     = EXCLUDED.access_token,
-                    refresh_token    = EXCLUDED.refresh_token,
-                    token_expiry     = EXCLUDED.token_expiry
-            """, (tg_user_id, yt_channel_id, yt_channel_title, access_token, refresh_token, token_expiry))
-
+                    yt_channel_username = EXCLUDED.yt_channel_username,
+                    access_token    = EXCLUDED.access_token,
+                    refresh_token   = EXCLUDED.refresh_token,
+                    token_expiry    = EXCLUDED.token_expiry,
+                    updated_at      = NOW()
+            """, (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry))
+        
         conn.commit()
         return True
     except Exception as e:

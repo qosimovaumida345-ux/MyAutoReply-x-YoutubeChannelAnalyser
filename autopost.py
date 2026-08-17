@@ -70,9 +70,11 @@ def exchange_code_with_redirect(code, state=None):
 
     channel_title = "Unknown"
     channel_id = "unknown"
+    channel_username = ""
     if r.get("items"):
         channel_title = r["items"][0]["snippet"]["title"]
         channel_id = r["items"][0]["id"]
+        channel_username = r["items"][0]["snippet"].get("customUrl", "")
 
     # Telegram user ID ni state orqali topish
     tg_user_id = pending_oauth.pop(state, None) if state else None
@@ -80,10 +82,11 @@ def exchange_code_with_redirect(code, state=None):
     return {
         "tg_user_id": tg_user_id,
         "channel_title": channel_title,
+        "channel_username": channel_username,
         "channel_id": channel_id,
         "access_token": creds.token,
         "refresh_token": creds.refresh_token,
-        "token_expiry": creds.expiry,
+        "token_expiry": creds.expiry
     }
 
 
@@ -292,12 +295,23 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
 async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat_id, proxy_url=None, apply_watermark=False):
     """Background task: videolarni qidiradi, yuklab oladi va kanalga post qiladi"""
     try:
-        await client.send_message(chat_id, f"🔄 `Auto-post boshlandi: {count} ta video '{search_query}' bo'yicha...`")
+        async def safe_send(text):
+            if client:
+                try: return await client.send_message(chat_id, text)
+                except: pass
+            return None
+
+        async def safe_edit(msg_obj, text):
+            if msg_obj:
+                try: await msg_obj.edit_text(text)
+                except: pass
+
+        await safe_send(f"🔄 `Auto-post boshlandi: {count} ta video '{search_query}' bo'yicha...`")
 
         # 1. Credentials tekshirish
         conn_data = get_yt_connection(tg_user_id)
         if not conn_data or not conn_data.get("access_token"):
-            await client.send_message(chat_id, "❌ `Kanalingiz ulanmagan! Avval /ytlogin orqali kanalingizni ulang.`")
+            await safe_send("❌ `Kanalingiz ulanmagan! Avval /ytlogin orqali kanalingizni ulang.`")
             update_autopost_task(task_id, status="failed")
             return
             
@@ -327,7 +341,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
         videos = search_res.get("items", [])
         if not videos:
-            await client.send_message(chat_id, "❌ `Videolar topilmadi.`")
+            await safe_send("❌ `Videolar topilmadi.`")
             update_autopost_task(task_id, status="failed")
             return
 
@@ -349,7 +363,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)
 
-            msg = await client.send_message(chat_id, f"⏳ `[{process_idx}/{count}] Yuklab olinmoqda: {title[:50].replace('`', '')}...`")
+            msg = await safe_send(f"⏳ `[{process_idx}/{count}] Yuklab olinmoqda: {title[:50].replace('`', '')}...`")
 
             file_path = None
             try:
@@ -357,9 +371,9 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 file_path = await asyncio.to_thread(download_video, vid_id, proxy_url, tg_user_id)
 
                 safe_title = title[:50].replace('`', "'")
-                await msg.edit_text(f"⏳ `[{process_idx}/{count}] Kanalingizga yuklanmoqda: {safe_title}...`")
+                await safe_edit(msg, f"⏳ `[{process_idx}/{count}] Kanalingizga yuklanmoqda: {safe_title}...`")
                 # Haqiqiy yuklash
-                await msg.edit_text(f"⏳ `[{process_idx}/{count}] YouTube'ga yuklanmoqda...`")
+                await safe_edit(msg, f"⏳ `[{process_idx}/{count}] YouTube'ga yuklanmoqda...`")
                 new_vid_id = await asyncio.to_thread(upload_to_youtube, file_path, title, desc, conn_data)
                 
                 update_autopost_history(hist_id, status="uploaded", uploaded_video_id=new_vid_id, uploaded_title=title)
@@ -369,7 +383,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
-                await msg.edit_text(f"✅ `[{process_idx}/{count}] Yuklandi: {safe_title}`\nYouTube ID: `{new_vid_id}`")
+                await safe_edit(msg, f"✅ `[{process_idx}/{count}] Yuklandi: {safe_title}`\nYouTube ID: `{new_vid_id}`")
 
 
 
@@ -379,7 +393,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
                 if "Sign in to confirm" in err_msg:
                     err_msg = "YouTube cookie lari yaroqsiz! Iltimos, ularni yangilang yoki qayta /setcookies qiling."
                 update_autopost_history(hist_id, status="failed", error_msg=err_msg)
-                await msg.edit_text(f"❌ `[{process_idx}/{count}] Xatolik: {err_msg[:300]}`")
+                await safe_edit(msg, f"❌ `[{process_idx}/{count}] Xatolik: {err_msg[:300]}`")
                 # Xatolikda ham faylni tozalash
                 try:
                     if file_path and os.path.exists(file_path):
@@ -393,9 +407,9 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             await asyncio.sleep(10)
 
         update_autopost_task(task_id, status="completed")
-        await client.send_message(chat_id, f"🎉 `Auto-post yakunlandi! {success_count}/{len(videos)} video yuklandi.`")
+        await safe_send(f"🎉 `Auto-post yakunlandi! {success_count}/{len(videos)} video yuklandi.`")
 
     except Exception as e:
         update_autopost_task(task_id, status="failed")
-        await client.send_message(chat_id, f"❌ `Dastur xatosi: {str(e)[:300].replace('`', '')}`")
+        await safe_send(f"❌ `Dastur xatosi: {str(e)[:300].replace('`', '')}`")
         

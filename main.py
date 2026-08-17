@@ -279,12 +279,28 @@ async def handle_api_stats(request):
                 autopost_stats["total"]   = len(rows)
                 autopost_stats["success"] = sum(1 for r in rows if r["status"] == "uploaded")
                 autopost_stats["failed"]  = sum(1 for r in rows if r["status"] == "failed")
+                
+                # Fetch active task progress
+                cur.execute(
+                    "SELECT id, search_query, total_count, completed_count, status FROM autopost_tasks WHERE tg_user_id=%s ORDER BY id DESC LIMIT 1",
+                    (int(tg_user_id),)
+                )
+                active_task = cur.fetchone()
+                if active_task:
+                    autopost_stats["active_task"] = {
+                        "id": active_task["id"],
+                        "query": active_task["search_query"],
+                        "total": active_task["total_count"],
+                        "completed": active_task["completed_count"],
+                        "status": active_task["status"]
+                    }
         except Exception as e:
             print(f"[api/stats] Autopost tarixi xato: {e}")
 
         return web.Response(
             text=json.dumps({
                 "channel_title":    snippet.get("title", ""),
+                "channel_username": conn_data.get("yt_channel_username", ""),
                 "channel_thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
                 "channel_country":  snippet.get("country", ""),
                 "subscribers":      total_subs,
@@ -343,6 +359,7 @@ async def handle_oauth_callback(request):
                 tg_user_id=tg_user_id,
                 yt_channel_id=channel_id,
                 yt_channel_title=channel_title,
+                yt_channel_username=result.get("channel_username", ""),
                 access_token=result["access_token"],
                 refresh_token=result["refresh_token"],
                 token_expiry=result["token_expiry"]

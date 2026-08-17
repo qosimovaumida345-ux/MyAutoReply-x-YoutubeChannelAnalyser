@@ -1376,6 +1376,18 @@ function exportToPDF(elementId, filename) {
     const element = document.getElementById(elementId);
     if (!element) return;
     
+    // Asl stilni saqlash
+    const originalDisplay = element.style.display;
+    const isHidden = window.getComputedStyle(element).display === 'none';
+    
+    // Agar element yashirin bo'lsa, uni vaqtinchalik ko'rsatish (orqa fonda)
+    if (isHidden) {
+        element.style.display = 'block';
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
+        element.style.top = '-9999px';
+    }
+    
     // Add a temporary class to fix colors for PDF if needed
     element.style.backgroundColor = "#111128"; 
     element.style.padding = "20px";
@@ -1391,6 +1403,13 @@ function exportToPDF(elementId, filename) {
     html2pdf().set(opt).from(element).save().then(() => {
         element.style.backgroundColor = ""; 
         element.style.padding = "";
+        // Asl holatiga qaytarish
+        if (isHidden) {
+            element.style.display = originalDisplay;
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+        }
     });
 }
 
@@ -1439,7 +1458,27 @@ async function loadDashboard() {
         // Render Autopost Stats
         if (data.autopost) {
             const ap = data.autopost;
-            document.getElementById('autopostStats').innerHTML = `
+            let activeTaskHtml = '';
+            if (ap.active_task && ap.active_task.status === 'running') {
+                const progress = Math.round((ap.active_task.completed / ap.active_task.total) * 100);
+                activeTaskHtml = `
+                    <div style="margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--glass-border)">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px">
+                            <span style="font-size:14px; color:var(--primary); font-weight:bold;">⏳ Jarayonda...</span>
+                            <span style="font-size:14px; font-weight:bold; color:var(--text-bright)">${progress}%</span>
+                        </div>
+                        <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px; display:flex; justify-content:space-between">
+                            <span>Qidiruv: "${ap.active_task.query}"</span>
+                            <span>${ap.active_task.completed}/${ap.active_task.total}</span>
+                        </div>
+                        <div style="width:100%; height:8px; background:var(--glass-border); border-radius:4px; overflow:hidden">
+                            <div style="width:${progress}%; height:100%; background:var(--primary); border-radius:4px; transition: width 0.5s"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            document.getElementById('autopostStats').innerHTML = activeTaskHtml + `
                 <div style="display:flex;flex-direction:column;gap:16px">
                     <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--glass-border)">
                         <span style="color:var(--text-dim);font-size:14px">Jami postlar (bot orqali)</span>
@@ -1765,7 +1804,7 @@ async function loadHealthScore() {
                 </div>
                 
                 <div style="font-size:18px; font-weight:700; color:var(--text-bright); margin-bottom:8px;">${statusText}</div>
-                <p style="color:var(--text-dim); font-size:14px; margin-bottom:4px;"><b>${data.channel_title}</b></p>
+                <p style="color:var(--text-dim); font-size:14px; margin-bottom:4px;"><b>${data.channel_title}</b> <span style="font-size:12px; color:var(--primary)">${data.channel_username ? data.channel_username : ''}</span></p>
                 <p style="color:var(--text-dim); font-size:12px; background:var(--glass); padding:4px 12px; border-radius:20px;">
                     👥 ${fmt(data.subscribers)} Subs • 👁 ${fmt(data.total_views)} Views
                 </p>
