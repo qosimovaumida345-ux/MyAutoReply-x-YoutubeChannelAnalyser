@@ -720,19 +720,6 @@ def reset_all_data():
     finally:
         conn.close()
 
-def get_all_yt_connections(tg_user_id):
-    conn = get_db()
-    if not conn: return []
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM yt_connections WHERE tg_user_id = %s", (tg_user_id,))
-        rows = cur.fetchall()
-        return rows
-    except Exception as e:
-        print(f"DB Error: {e}")
-        return []
-    finally:
-        conn.close()
 
 def set_user_cookies(user_id, cookies_text):
     conn = get_db()

@@ -355,7 +355,7 @@ async def handle_oauth_callback(request):
         channel_id = result["channel_id"]
 
         if tg_user_id:
-            save_yt_connection(
+            saved = save_yt_connection(
                 tg_user_id=tg_user_id,
                 yt_channel_id=channel_id,
                 yt_channel_title=channel_title,
@@ -365,18 +365,34 @@ async def handle_oauth_callback(request):
                 token_expiry=result["token_expiry"]
             )
 
-            # Telegram orqali xabar yuborish
-            if ytbot_instance:
-                try:
-                    await ytbot_instance.send_message(
-                        tg_user_id,
-                        f"✅ YouTube kanalingiz muvaffaqiyatli ulandi!\n\n"
-                        f"📺 Kanal: **{channel_title}**\n"
-                        f"🆔 ID: `{channel_id}`\n\n"
-                        f"Endi `/autopost` orqali video yuklashingiz mumkin!"
-                    )
-                except Exception as e:
-                    print(f"Telegram xabar yuborish xatosi: {e}")
+            if saved:
+                # Telegram orqali xabar yuborish
+                if ytbot_instance:
+                    try:
+                        await ytbot_instance.send_message(
+                            tg_user_id,
+                            f"✅ YouTube kanalingiz muvaffaqiyatli ulandi!\n\n"
+                            f"📺 Kanal: **{channel_title}**\n"
+                            f"🆔 ID: `{channel_id}`\n\n"
+                            f"Endi `/autopost` orqali video yuklashingiz mumkin!"
+                        )
+                    except Exception as e:
+                        print(f"Telegram xabar yuborish xatosi: {e}")
+            else:
+                if ytbot_instance:
+                    try:
+                        await ytbot_instance.send_message(
+                            tg_user_id,
+                            f"❌ Xatolik: Kanalingiz ma'lumotlar bazasiga saqlanmadi. Iltimos qaytadan `/ytlogin` qilib ko'ring."
+                        )
+                    except Exception as e:
+                        pass
+                return web.Response(
+                    text="<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#1a1a2e;color:#fff;'>"
+                         "<h1 style='color:#e74c3c;'>❌ Saqlashda xatolik</h1>"
+                         "<p>Ma'lumotlar bazasiga saqlanmadi. Qaytadan /ytlogin qiling.</p></body></html>",
+                    content_type="text/html"
+                )
 
         html = (
             f"<html><body style='font-family:sans-serif;text-align:center;padding:50px;"
