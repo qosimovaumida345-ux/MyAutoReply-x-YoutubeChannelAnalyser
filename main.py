@@ -170,7 +170,7 @@ async def handle_health(request):
     """Render health check uchun va WebApp UI"""
     import os
     if os.path.exists("index.html"):
-        with open("index.html", "r") as f:
+        with open("index.html", "r", encoding="utf-8") as f:
             html = f.read()
         return web.Response(text=html, content_type="text/html")
     return web.Response(text="Bot is running!", content_type="text/html")

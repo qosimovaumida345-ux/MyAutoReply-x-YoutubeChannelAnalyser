@@ -71,11 +71,10 @@ def _do_subscribe(youtube, channel_id):
 
 
 async def generate_gemini_comment(video_title):
+    from config import generate_with_fallback_async
     try:
-        genai.configure(api_key=get_gemini_key())
-        model = genai.GenerativeModel('gemini-1.5-flash')
         prompt = f"Write a short, engaging, and highly relevant YouTube comment for a video titled '{video_title}'. Do not use quotes or introductory text, just return the comment itself. Include a relevant emoji."
-        response = await asyncio.to_thread(model.generate_content, prompt)
+        response = await generate_with_fallback_async(prompt)
         text = response.text.strip()
         # Clean up any surrounding quotes if generated
         text = text.strip('"\'')

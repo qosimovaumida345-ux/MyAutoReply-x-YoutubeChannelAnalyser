@@ -6,6 +6,9 @@
     <title>YT Creator Studio — Premium Dashboard</title>
     <meta name="description" content="YouTube Creator Studio — Kanallaringizni boshqaring, videolarni toping, analytics va health score ko'ring">
     
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1274,8 +1277,26 @@ let selectedVideos = [];
 let currentFeedType = '';
 let myChart = null; // Chart.js instance
 
-// ===== INITIALIZATION =====
+// ===== INITIALIZATION & AUTH =====
 document.addEventListener('DOMContentLoaded', () => {
+    // Try to auto-login with Telegram WebApp SDK if available
+    try {
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            const initData = window.Telegram.WebApp.initDataUnsafe;
+            if (initData && initData.user && initData.user.id) {
+                TG_USER_ID = initData.user.id;
+                localStorage.setItem('tg_user_id', TG_USER_ID);
+                showApp();
+                return;
+            }
+        }
+    } catch (e) {
+        console.log("Telegram WebApp not available");
+    }
+    
+    // Otherwise check localstorage
+    TG_USER_ID = localStorage.getItem('tg_user_id');
     if (TG_USER_ID) {
         showApp();
     } else {
@@ -1283,7 +1304,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ===== AUTH =====
 function doLogin() {
     const id = document.getElementById('loginInput').value.trim();
     if (!id || isNaN(id)) {

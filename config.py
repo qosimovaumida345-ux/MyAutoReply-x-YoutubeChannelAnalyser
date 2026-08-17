@@ -25,6 +25,38 @@ def get_gemini_key():
     _gemini_index += 1
     return key
 
+def generate_with_fallback(prompt):
+    """Fallback zanjiri bilan Gemini AI orqali kontent yaratish"""
+    import google.generativeai as genai
+    import asyncio
+    
+    models_to_try = [
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-pro"
+    ]
+    
+    last_error = None
+    genai.configure(api_key=get_gemini_key())
+    
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            res = model.generate_content(prompt)
+            if res and res.text:
+                return res
+        except Exception as e:
+            last_error = e
+            print(f"[{model_name}] xato: {e}. Keyingi modelga o'tilmoqda...")
+            continue
+            
+    raise Exception(f"Barcha Gemini modellari ishlamay qoldi. Oxirgi xato: {last_error}")
+
+async def generate_with_fallback_async(prompt):
+    import asyncio
+    return await asyncio.to_thread(generate_with_fallback, prompt)
+
 # ==================== YOUTUBE DATA API ====================
 YOUTUBE_API_KEYS = [k.strip() for k in os.getenv("YOUTUBE_API_KEYS", "").split(",") if k.strip()]
 # Backward compatibility

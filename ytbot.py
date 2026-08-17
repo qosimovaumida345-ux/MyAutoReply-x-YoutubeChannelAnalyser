@@ -14,6 +14,7 @@ from googleapiclient.discovery import build
 
 from config import OWNER_ID
 from config import (
+    generate_with_fallback_async, generate_with_fallback,
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
     ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key
 )
@@ -593,6 +594,7 @@ def create_ytbot():
             "📌 `Asosiy buyruqlar:`\n"
             "`/start` - Botni boshlash\n"
             "`/help` - Yordam\n"
+            "`/myid` - Telegram ID'ni olish\n"
             "`/ytlogin` - YouTube kanalini ulash\n"
             "`/login_status` - Ulangan kanallarni ko'rish\n"
             "`/mass_like <video_id>` - Barcha akkauntlardan Like bosish\n"
@@ -638,6 +640,18 @@ def create_ytbot():
         )
             
         await message.reply_text(help_text, reply_markup=help_menu_kb(), parse_mode=ParseMode.MARKDOWN)
+    
+    # ==================== /myid ====================
+    @bot.on_message(filters.command("myid"))
+    async def myid_cmd(client, message):
+        user_id = message.from_user.id
+        await message.reply_text(
+            f"{e('PIN')} **Sizning Telegram ID raqamingiz:**\n\n"
+            f"`{user_id}`\n\n"
+            f"Buni Web Dashboard tizimiga kirish uchun ishlating.",
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=main_menu_kb()
+        )
     
     # ==================== /menu ====================
     @bot.on_message(filters.command("menu"))
@@ -2513,9 +2527,6 @@ def create_ytbot():
         
         try:
             import google.generativeai as genai
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Siz professional YouTube SEO mutaxassisisiz. Qisqa va lo'nda javob bering.\n"
@@ -2526,7 +2537,7 @@ def create_ytbot():
                 f"3. 15-20 ta qidiruvbop taglar (vergul bilan ajratilgan)."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text.replace('**', '') if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"📊 **SEO Natijasi:**\n\n{res_text[:4000]}")
             
@@ -2549,16 +2560,13 @@ def create_ytbot():
         
         try:
             import google.generativeai as genai
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Mavzu: '{topic}'.\n"
                 f"Shu mavzu bo'yicha YouTube'da ko'p ko'riladigan, qiziqarli va kreativ 5 ta aniq video g'oyasini o'zbek tilida qisqa yozib bering."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text.replace('**', '') if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"💡 **Video G'oyalar:**\n\n{res_text[:4000]}")
             
@@ -2593,9 +2601,6 @@ def create_ytbot():
             desc = video['snippet'].get('description', '')[:500]
             
             import google.generativeai as genai
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Quyidagi YouTube video sarlavhasi va ta'rifini o'zbek tiliga professional tarjima qilib ber.\n\n"
@@ -2603,7 +2608,7 @@ def create_ytbot():
                 f"Ta'rif: {desc}"
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"🇺🇿 **Tarjima:**\n\n{res_text[:4000]}")
             
@@ -2626,9 +2631,6 @@ def create_ytbot():
         
         try:
             import google.generativeai as genai
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Mavzu: '{topic}'.\n"
@@ -2637,7 +2639,7 @@ def create_ytbot():
                 f"Juda uzun bo'lmasin, taxminan 3 daqiqalik video uchun."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"📝 **Video Ssenariysi:**\n\n{res_text[:4000]}")
             
@@ -2672,9 +2674,6 @@ def create_ytbot():
             desc = video['snippet'].get('description', '')[:1000]
             
             import google.generativeai as genai
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Quyidagi YouTube video (Sarlavha: {title}, Ta'rif: {desc}) asosida "
@@ -2682,7 +2681,7 @@ def create_ytbot():
                 f"yozib bering (O'zbek tilida)."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"📱 **Shorts G'oyalar:**\n\n{res_text[:4000]}")
             
@@ -2719,9 +2718,6 @@ def create_ytbot():
             await wait_msg.edit_text("🤖 AI kanal ma'lumotlarini o'rganmoqda...")
             
             import google.generativeai as genai
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Sen professional YouTube audit mutaxassisisan.\n"
@@ -2731,7 +2727,7 @@ def create_ytbot():
                 f"Shu ma'lumotlar asosida ushbu kanalga o'zbek tilida qisqa baho va rivojlanish uchun 3 ta maslahat ber."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"📈 **Kanal Auditi: {title}**\n\n{res_text[:4000]}")
             
@@ -2828,9 +2824,6 @@ def create_ytbot():
             import google.generativeai as genai
             from config import get_gemini_key
             import asyncio
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Sen qattiqqo'l, lekin kulgili YouTube tanqidchisisan (roaster). "
@@ -2840,7 +2833,7 @@ def create_ytbot():
                 f"Ta'rif: {desc}"
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"🔥 **{title} ROAST:**\n\n{res_text[:4000]}")
             
@@ -2905,16 +2898,13 @@ def create_ytbot():
             import google.generativeai as genai
             from config import get_gemini_key
             import asyncio
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Siz YouTube SEO mutaxassisisiz. '{topic}' mavzusidagi video uchun eng ko'p qidiriladigan, "
                 f"trenddagi 30 ta teglarni (tags) vergul bilan ajratilgan holda o'zbek, rus va ingliz tillarida yozib bering. Faqat teglarni qaytaring."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"🏷 **'{topic}' uchun teglar:**\n\n`{res_text[:4000]}`")
             
@@ -2937,9 +2927,6 @@ def create_ytbot():
             import google.generativeai as genai
             from config import get_gemini_key
             import asyncio
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Siz professional YouTube dizaynerisiz. '{topic}' mavzusidagi video uchun CTR ni "
@@ -2947,7 +2934,7 @@ def create_ytbot():
                 f"Rasmning fonida nima bo'lishi kerak, qanday matn bo'lishi kerakligini o'zbek tilida yozing."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"🖼 **Thumbnail G'oyalari:**\n\n{res_text[:4000]}")
             
@@ -2970,16 +2957,13 @@ def create_ytbot():
             import google.generativeai as genai
             from config import get_gemini_key
             import asyncio
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Siz mashhur YouTube ijodkorisiz. Videongizga kelgan izoh: '{comment}'. "
                 f"Unga chiroyli va qiziqarli (minnatdorchilik, hazil) javob yozing. O'zbek tilida."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"💬 **Izoh:** {comment}\n\n🤖 **AI Javobi:**\n`{res_text[:4000]}`")
             
@@ -3002,16 +2986,13 @@ def create_ytbot():
             import google.generativeai as genai
             from config import get_gemini_key
             import asyncio
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"'{topic}' mavzusida YouTube uchun 5 ta juda jozibador, odamlarni bosishga majbur qiladigan "
                 f"(clickbait, lekin aldamchi bo'lmagan) sarlavha variantlarini o'zbek tilida yozib ber."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"🎣 **Clickbait Sarlavhalar:**\n\n{res_text[:4000]}")
             
@@ -3046,9 +3027,6 @@ def create_ytbot():
             import google.generativeai as genai
             from config import get_gemini_key
             import asyncio
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = (
                 f"Siz professional yordamchisiz. Quyidagi YouTube video haqida ma'lumot asosida uning qisqacha mazmunini (xulosasini) o'zbek tilida yozib bering.\n\n"
@@ -3057,7 +3035,7 @@ def create_ytbot():
                 f"Iltimos, asosiy g'oyalarni ajratib, o'qishli qilib yozing."
             )
             
-            response = await asyncio.to_thread(model.generate_content, prompt)
+            response = await generate_with_fallback_async(prompt)
             res_text = response.text if response.text else "Natija topilmadi."
             await wait_msg.edit_text(f"📝 **Video Xulosasi:**\n\n{res_text[:4000]}")
             
@@ -3277,9 +3255,6 @@ def create_ytbot():
             return
             
         try:
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-pro")
             
             prompt = f"""Foydalanuvchi Telegram botga quyidagi matnni yozdi:
 "{user_text}"
@@ -3299,7 +3274,7 @@ Javobingni FAQAT JSON formatida ber:
     "action": "command" yoki "text",
     "result": "buyruq matni (masalan /compare ch1 ch2) YOKI foydalanuvchiga do'stona javob"
 }}"""
-            res = model.generate_content(prompt)
+            res = generate_with_fallback(prompt)
             if res and res.text:
                 json_match = re.search(r'\{[\s\S]*\}', res.text)
                 if json_match:

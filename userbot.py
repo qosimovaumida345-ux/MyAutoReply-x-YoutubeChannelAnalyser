@@ -334,13 +334,8 @@ def create_userbot():
         }
     
     async def get_ai_response(user_id, user_name, user_text):
-        """Gemini AI dan hissiyotli javob olish"""
+        from config import generate_with_fallback_async
         try:
-            # API kalitini olish (rotation)
-            api_key = get_gemini_key()
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            
             # Suhbat tarixini olish
             if user_id not in chat_history:
                 chat_history[user_id] = []
@@ -361,7 +356,7 @@ Suhbatdoshning so'nggi xabari: {user_text}
 
 FAQAT JSON formatida javob ber:"""
             
-            response = model.generate_content(prompt)
+            response = await generate_with_fallback_async(prompt)
             
             if not response or not response.text:
                 raise Exception("Bo'sh javob")

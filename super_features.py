@@ -172,10 +172,9 @@ def load_super_features(bot: Client):
             return
         keyword = message.text.split(maxsplit=1)[1]
         msg = await message.reply_text("⏳ Yaratilmoqda...")
+        from config import generate_with_fallback_async
         try:
-            genai.configure(api_key=get_gemini_key())
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            res = model.generate_content(f"'{keyword}' mavzusidagi YouTube video uchun eng zo'r, qidiruvda yuqoriga olib chiqadigan 20 ta vergul bilan ajratilgan SEO taglar va hashtaglarni yozib ber.")
+            res = await generate_with_fallback_async(f"'{keyword}' mavzusidagi YouTube video uchun eng zo'r, qidiruvda yuqoriga olib chiqadigan 20 ta vergul bilan ajratilgan SEO taglar va hashtaglarni yozib ber.")
             await msg.edit_text(f"🎯 **SEO Taglar:**\n\n`{res.text}`")
         except Exception as e:
             await msg.edit_text(f"❌ Xatolik: {e}")
