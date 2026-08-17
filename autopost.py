@@ -141,6 +141,7 @@ def test_available_formats(video_id="dQw4w9WgXcQ"):
 def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False, channel_title="", channel_pfp=""):
     """yt-dlp orqali videoni yuklab olish"""
     import os
+    import glob
     import yt_dlp
     from database import get_user_cookies
     
@@ -163,12 +164,10 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         'quiet': False,
         'no_warnings': False,
         'merge_output_format': 'mp4',
-
-        # ✅ FIX 1: STRING EMAS, LIST bo'lishi kerak!
-        # Eski: 'remote_components': 'ejs:github'  → har harf alohida component deb o'qiladi
-        # Yangi: ['ejs:github'] → to'g'ri
-        'remote_components': ['ejs:github'],
-
+        'postprocessors': [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',
+        }],
         'extractor_args': {
             'youtube': {
                 'player_client': ['tv_embedded', 'mweb'],
@@ -186,7 +185,6 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     if proxy_url:
         ydl_opts['proxy'] = proxy_url
 
-    # Cookies faqat mweb/tv_embedded uchun (android qo'llab-quvvatlamaydi)
     if has_cookies:
         ydl_opts['cookiefile'] = cookie_path
 
@@ -197,9 +195,8 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     except yt_dlp.utils.DownloadError as e:
         error_msg = str(e).lower()
         if "format" in error_msg or "not available" in error_msg or "sign in" in error_msg:
-            print(f"[AUTOPOST] tv_embedded/mweb failed for {video_id}, trying web_creator + ios...")
+            print(f"[AUTOPOST] tv_embedded/mweb failed for {video_id}, trying fallback clients...")
 
-            # ✅ FIX 2: android cookies qo'llab-quvvatlamaydi → cookiefile olib tashlash
             fallback_opts = dict(ydl_opts)
             fallback_opts['extractor_args'] = {
                 'youtube': {
@@ -208,7 +205,6 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
                 }
             }
             fallback_opts['format'] = 'best[ext=mp4]/best'
-            # ios va web_creator cookies qabul qiladi → saqlab qolamiz
             with yt_dlp.YoutubeDL(fallback_opts) as ydl:
                 ydl.download([url])
         else:
@@ -217,26 +213,32 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         if os.path.exists(cookie_path):
             os.remove(cookie_path)
 
-    # Fayl topish
+    # Fayl topish — glob bilan barcha mumkin bo'lgan extensionlarni tekshirish
     raw_mp4 = f"downloads/{video_id}_raw.mp4"
     if not os.path.exists(raw_mp4):
-        for f in os.listdir("downloads"):
-            if f.startswith(f"{video_id}_raw"):
-                raw_mp4 = os.path.join("downloads", f)
-                break
+        candidates = glob.glob(f"downloads/{video_id}_raw.*")
+        if candidates:
+            raw_mp4 = candidates[0]
+            print(f"[AUTOPOST] Fayl topildi (mp4 emas): {raw_mp4}")
+
+    if not os.path.exists(raw_mp4):
+        # Oxirgi tekshiruv — downloads papkasida bor narsalarni log qilish
+        all_files = os.listdir("downloads")
+        matching = [f for f in all_files if video_id in f]
+        print(f"[AUTOPOST] downloads/ papkasida {video_id} ga tegishli fayllar: {matching}")
+        if matching:
+            raw_mp4 = os.path.join("downloads", matching[0])
+        else:
+            raise Exception(f"Video yuklab olinmadi: {video_id} — fayl topilmadi. downloads/ ichida: {all_files[:10]}")
 
     final_mp4 = f"downloads/{video_id}.mp4"
     
-    # Unwatermark (crop edges) & Add Custom Watermark
-    if os.path.exists(raw_mp4):
-        if not apply_watermark:
-            return raw_mp4
-            
+    # Watermark qo'shish (ixtiyoriy)
+    if apply_watermark:
         print(f"[{video_id}] Watermark qo'shilmoqda ({channel_title})...")
         safe_title = channel_title.replace("'", "\\'")
         
         if channel_pfp and os.path.exists(channel_pfp):
-            # Scale profile pic to a small circle or square, put it with text
             os.system(f'''ffmpeg -y -i "{raw_mp4}" -i "{channel_pfp}" -filter_complex "[0:v]crop=in_w:in_h*0.8:0:in_h*0.1[vid];[1:v]scale=h/10:-1[logo];[vid][logo]overlay=W-w-10:H-h-10, drawtext=text=\'{safe_title}\':fontcolor=white:fontsize=h/15:x=w-tw-10-main_h/10-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
         else:
             os.system(f'''ffmpeg -y -i "{raw_mp4}" -vf "crop=in_w:in_h*0.8:0:in_h*0.1, drawtext=text=\'{safe_title}\':fontcolor=white:fontsize=h/15:x=w-tw-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
@@ -246,10 +248,8 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         
         if os.path.exists(final_mp4):
             return final_mp4
-        else:
-            return raw_mp4
-            
-    raise Exception(f"Video yuklab olinmadi: {video_id} (Format yoki cheklov sababli yt-dlp xatosi bo'lishi mumkin)")
+    
+    return raw_mp4
 
 # ==================== VIDEO UPLOAD ====================
 
