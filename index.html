@@ -1257,10 +1257,10 @@
                     <button class="btn btn-secondary" onclick="doLogout()">🚪 Tizimdan Chiqish</button>
                 </div>
                 
-                <div class="card">
-                    <div class="card-title" style="color: var(--red);">🗑️ Xavfli Hudud</div>
+                <div class="card" id="resetDbCard" style="display:none;">
+                    <div class="card-title" style="color: var(--red);">🧨 Xavfli Hudud</div>
                     <p style="font-size: 14px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5;">Barcha jadvallarni (TRUNCATE) tozalash. <b>Faqat Admin huquqiga ega foydalanuvchilar</b> uchun ruxsat etiladi.</p>
-                    <button class="btn btn-danger" onclick="resetDB()">🗑️ Ma'lumotlarni Qayta Tiklash (Reset)</button>
+                    <button class="btn btn-danger" onclick="resetDB()">💣 Ma'lumotlarni Qayta Tiklash (Reset)</button>
                 </div>
             </div>
         </div>
@@ -1448,6 +1448,12 @@ async function loadDashboard() {
         document.getElementById('kpiViews').textContent = fmt(data.total_views);
         document.getElementById('kpiVideos').textContent = fmt(data.total_videos);
         document.getElementById('kpiEngagement').textContent = (data.engagement_rate || 0) + '%';
+        
+        // Show Reset DB if owner
+        if (data.is_owner) {
+            const resetCard = document.getElementById('resetDbCard');
+            if (resetCard) resetCard.style.display = 'block';
+        }
         
         // Render Recent Videos Table
         if (data.recent_videos && data.recent_videos.length) {
@@ -1720,9 +1726,28 @@ function clearBatch() {
     document.getElementById('batchBar').classList.remove('visible');
 }
 
-function batchRepost() {
-    alert(`🚀 AJOYIB!\n${selectedVideos.length} ta video tanlandi va repost uchun navbatga qo'yildi.\n\nSiz bu jarayonni Telegram botdagi /autopost buyrug'i orqali ham to'liq kuzatib borishingiz mumkin.`);
-    clearBatch();
+async function batchRepost() {
+    if (selectedVideos.length === 0) return;
+    try {
+        const res = await fetch(API + '/api/autopost-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tg_user_id: TG_USER_ID,
+                video_ids: selectedVideos
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`🚀 AJOYIB!\n${selectedVideos.length} ta video tanlandi va repost uchun navbatga qo'yildi.\n\nSiz bu jarayonni Telegram botdagi /autopost yoki web-dagi "Autopost Holati" sahifasida kuzatishingiz mumkin.`);
+            clearBatch();
+            switchPage('autopost');
+        } else {
+            alert('❌ Xatolik: ' + data.error);
+        }
+    } catch (e) {
+        alert('❌ Tarmoq xatosi: ' + e.message);
+    }
 }
 
 function downloadVideo(id, e) {
@@ -1730,9 +1755,27 @@ function downloadVideo(id, e) {
     window.open('https://www.youtube.com/watch?v=' + id, '_blank');
 }
 
-function repostVideo(id, title, e) {
+async function repostVideo(id, title, e) {
     if (e) e.stopPropagation();
-    alert(`🚀 YAKKA REPOST BOSHULANDI:\n${title}\n\nTelegram botga vazifa yuborildi.`);
+    try {
+        const res = await fetch(API + '/api/autopost-create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tg_user_id: TG_USER_ID,
+                video_ids: [id]
+            })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`🚀 YAKKA REPOST BOSHULANDI:\n${title}\n\nTelegram botga vazifa yuborildi.`);
+            switchPage('autopost');
+        } else {
+            alert('❌ Xatolik: ' + data.error);
+        }
+    } catch (err) {
+        alert('❌ Tarmoq xatosi: ' + err.message);
+    }
 }
 
 // ==========================================
@@ -1982,13 +2025,17 @@ async function resetDB() {
     }
     
     try {
-        const res = await fetch(API + '/api/reset-db', { method: 'POST' });
+        const res = await fetch(API + '/api/reset-db', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tg_user_id: TG_USER_ID })
+        });
         const data = await res.json();
         if (data.success) {
             alert('✅ Baza to\'liq tozalandi! Iltimos, tizimga qayta kiring.');
             doLogout();
         } else {
-            alert('❌ Xatolik yuz berdi.');
+            alert('❌ Xatolik yuz berdi: ' + (data.error || 'Noma\'lum xato'));
         }
     } catch (e) {
         alert('❌ Tarmoq xatosi: ' + e.message);

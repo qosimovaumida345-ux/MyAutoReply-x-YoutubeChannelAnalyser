@@ -246,6 +246,9 @@ async def handle_api_stats(request):
         except Exception as e:
             print(f"[api/stats] Autopost tarixi xato: {e}")
 
+        from config import OWNER_ID
+        is_owner = (int(tg_user_id) == OWNER_ID)
+
         return web.Response(
             text=json.dumps({
                 "channel_title":    snippet.get("title", ""),
@@ -261,6 +264,7 @@ async def handle_api_stats(request):
                 "engagement_rate":  engagement,
                 "autopost":         autopost_stats,
                 "recent_videos":    recent_videos,
+                "is_owner":         is_owner,
             }, default=str),
             content_type="application/json",
             headers={"Access-Control-Allow-Origin": "*"}
@@ -660,12 +664,56 @@ async def handle_api_best_time(request):
     except Exception as e:
         return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
+async def handle_api_autopost_create(request):
+    """Tanlangan videolarni autopost_tasks ga qo'shish"""
+    import json
+    try:
+        data = await request.json()
+        tg_user_id = data.get("tg_user_id")
+        video_ids = data.get("video_ids", [])
+        
+        if not tg_user_id or not video_ids:
+            return web.json_response({"error": "Ma'lumot to'liq emas"}, status=400)
+            
+        tg_user_id = int(tg_user_id)
+        from database import get_yt_connection, create_autopost_task
+        conn_data = get_yt_connection(tg_user_id)
+        
+        if not conn_data:
+            return web.json_response({"error": "Kanal ulanmagan"}, status=403)
+            
+        channel_id = conn_data['yt_channel_id']
+        
+        # Maxsus format: __IDS__:vid1,vid2
+        search_query = "__IDS__:" + ",".join(video_ids)
+        task_id = create_autopost_task(tg_user_id, channel_id, search_query, "shorts", len(video_ids))
+        
+        # Trigger background worker instantly
+        from autopost import autopost_worker
+        import asyncio
+        # We don't have direct access to the Telegram client in the web app, so we pass None
+        asyncio.create_task(autopost_worker(task_id, tg_user_id, search_query, len(video_ids), ytbot_instance, tg_user_id))
+        
+        return web.json_response({"success": True, "task_id": task_id})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
+
 async def handle_api_reset_db(request):
     """Admin: Bazani tozalash"""
     import json
-    from database import reset_all_data
-    success = reset_all_data()
-    return web.Response(text=json.dumps({"success": success}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        data = await request.json()
+        tg_user_id = int(data.get("tg_user_id", 0))
+        
+        from config import OWNER_ID
+        if tg_user_id != OWNER_ID:
+            return web.json_response({"error": "Siz admin emassiz!"}, status=403)
+            
+        from database import reset_all_data
+        success = reset_all_data()
+        return web.json_response({"success": success})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 
 async def start_web_server(port):
@@ -679,6 +727,7 @@ async def start_web_server(port):
     app.router.add_get("/api/trending", handle_api_trending)
     app.router.add_get("/api/health-score", handle_api_health_score)
     app.router.add_get("/api/best-time", handle_api_best_time)
+    app.router.add_post("/api/autopost-create", handle_api_autopost_create)
     app.router.add_post("/api/reset-db", handle_api_reset_db)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     
