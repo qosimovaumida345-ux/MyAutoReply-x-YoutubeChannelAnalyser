@@ -332,12 +332,20 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
         # 2. Videolarni qidirish (YouTube API orqali)
         yt = build("youtube", "v3", developerKey=get_youtube_key())
-        search_res = yt.search().list(
-            q=search_query,
-            part="snippet",
-            maxResults=min(count, 50),  # YouTube API max 50
-            type="video"
-        ).execute()
+        
+        if search_query.startswith("__IDS__:"):
+            vid_ids = search_query.replace("__IDS__:", "").split(",")
+            search_res = yt.videos().list(
+                part="snippet",
+                id=",".join(vid_ids)
+            ).execute()
+        else:
+            search_res = yt.search().list(
+                q=search_query,
+                part="snippet",
+                maxResults=min(count, 50),  # YouTube API max 50
+                type="video"
+            ).execute()
 
         videos = search_res.get("items", [])
         if not videos:
@@ -349,7 +357,13 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
         process_idx = 0  # FIX: process_idx aniqlanmagan edi → NameError crash bo'lardi
         update_autopost_task(task_id, status="running")
         for idx, item in enumerate(videos, 1):
-            vid_id = item["id"]["videoId"]
+            if isinstance(item["id"], dict):
+                vid_id = item["id"].get("videoId", "")
+            else:
+                vid_id = item["id"]
+                
+            if not vid_id: continue
+                
             title = item["snippet"]["title"]
             desc = item["snippet"]["description"]
 
