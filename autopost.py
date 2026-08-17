@@ -368,7 +368,10 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             file_path = None
             try:
                 # Yuklab olish (proxy bilan)
-                file_path = await asyncio.to_thread(download_video, vid_id, proxy_url, tg_user_id)
+                file_path = await asyncio.to_thread(
+                    download_video, vid_id, proxy_url, tg_user_id,
+                    apply_watermark, channel_title, channel_pfp
+                )
 
                 safe_title = title[:50].replace('`', "'")
                 await safe_edit(msg, f"⏳ `[{process_idx}/{count}] Kanalingizga yuklanmoqda: {safe_title}...`")

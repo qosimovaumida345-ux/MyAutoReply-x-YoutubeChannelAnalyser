@@ -468,7 +468,7 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_u
                     access_token    = %s,
                     refresh_token   = %s,
                     token_expiry    = %s,
-                    updated_at      = NOW()
+                    connected_at    = NOW()
                 WHERE yt_channel_id = %s
             """, (tg_user_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry, yt_channel_id))
         else:
@@ -485,7 +485,7 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_u
                     access_token    = EXCLUDED.access_token,
                     refresh_token   = EXCLUDED.refresh_token,
                     token_expiry    = EXCLUDED.token_expiry,
-                    updated_at      = NOW()
+                    connected_at    = NOW()
             """, (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry))
         
         conn.commit()
