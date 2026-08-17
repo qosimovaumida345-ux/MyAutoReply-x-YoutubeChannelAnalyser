@@ -248,8 +248,8 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
             return final_mp4
         else:
             return raw_mp4
-    
-    return raw_mp4
+            
+    raise Exception(f"Video yuklab olinmadi: {video_id} (Format yoki cheklov sababli yt-dlp xatosi bo'lishi mumkin)")
 
 # ==================== VIDEO UPLOAD ====================
 

@@ -434,6 +434,31 @@ async def handle_api_channels(request):
     except Exception as e:
         return web.Response(text=json.dumps({"error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
+async def handle_api_autopost_tasks(request):
+    """Foydalanuvchining barcha autopost vazifalari"""
+    import json
+    tg_user_id = request.query.get("tg_user_id")
+    if not tg_user_id:
+        return web.Response(text=json.dumps({"error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    try:
+        from database import get_autopost_tasks
+        tasks = get_autopost_tasks(int(tg_user_id))
+        result = []
+        for t in tasks:
+            result.append({
+                "id": t.get("id"),
+                "channel_id": t.get("yt_channel_id"),
+                "search_query": t.get("search_query"),
+                "video_type": t.get("video_type"),
+                "total_count": t.get("total_count"),
+                "completed_count": t.get("completed_count"),
+                "status": t.get("status"),
+                "created_at": str(t.get("created_at"))
+            })
+        return web.Response(text=json.dumps({"tasks": result}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.Response(text=json.dumps({"error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
 async def handle_api_videos(request):
     """YouTube'dan video qidirish"""
     import json
@@ -700,6 +725,7 @@ async def start_web_server(port):
     app.router.add_get("/", handle_health)
     app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/api/channels", handle_api_channels)
+    app.router.add_get("/api/autopost-tasks", handle_api_autopost_tasks)
     app.router.add_get("/api/videos", handle_api_videos)
     app.router.add_get("/api/trending", handle_api_trending)
     app.router.add_get("/api/health-score", handle_api_health_score)

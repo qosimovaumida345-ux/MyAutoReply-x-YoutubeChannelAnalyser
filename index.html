@@ -945,12 +945,12 @@
         <div class="sidebar-logo">
             <div class="logo-icon">▶</div>
             <span>YT Studio</span>
-        </div>
         
         <nav class="sidebar-nav">
             <div class="nav-section">Asosiy Boshqaruv</div>
             <div class="nav-item active" data-page="dashboard" onclick="switchPage('dashboard')">📊 Dashboard</div>
-            <div class="nav-item" data-page="feed" onclick="switchPage('feed')">🎬 Video Feed & Repost</div>
+            <div class="nav-item" data-page="feed" onclick="switchPage('feed')">🎥 Video Feed & Repost</div>
+            <div class="nav-item" data-page="autopost" onclick="switchPage('autopost')">🚀 Autopost Holati</div>
             <div class="nav-item" data-page="trending" onclick="switchPage('trending')">🔥 YouTube Trending</div>
             
             <div class="nav-section">Kanal Tahlillari</div>
@@ -1074,6 +1074,21 @@
                     <div style="font-size: 18px; font-weight: 600; color: var(--text-bright);">Nimani qidiramiz?</div>
                     <div style="margin-top: 8px;">Mavzuni yozing va qidiruv tugmasini bosing.</div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             PAGE 2.5: AUTOPOST TASKS
+             ========================================== -->
+        <div class="page" id="page-autopost">
+            <div class="page-header">
+                <div>
+                    <h1>🚀 Autopost Holati</h1>
+                    <p>Bot orqali amalga oshirilgan barcha avtomatlashtirilgan qidiruv va yuklash topshiriqlari.</p>
+                </div>
+            </div>
+            <div id="autopost-list">
+                <div class="spinner"></div>
             </div>
         </div>
 
@@ -1351,6 +1366,7 @@ function switchPage(page) {
     if (page === 'dashboard') loadDashboard();
     else if (page === 'trending') loadTrending('UZ');
     else if (page === 'channels') loadChannels();
+    else if (page === 'autopost') loadAutopostTasks();
 }
 
 // ===== UTILS =====
@@ -1740,8 +1756,8 @@ async function loadChannels() {
         list.innerHTML = data.channels.map(c => `
             <div class="card" style="margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
                 <div style="display:flex; align-items:center; gap:20px;">
-                    <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, var(--accent), var(--green)); display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                        📺
+                    <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, var(--accent), var(--green)); display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow:hidden;">
+                        <img src="https://unavatar.io/youtube/${c.channel_id}" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${c.channel_title}')+'&background=random&color=fff'" style="width:100%;height:100%;object-fit:cover;">
                     </div>
                     <div>
                         <div style="font-weight:800; font-size:18px; color:var(--text-bright); margin-bottom:4px;">${c.channel_title}</div>
@@ -1975,6 +1991,61 @@ async function resetDB() {
         }
     } catch (e) {
         alert('❌ Tarmoq xatosi: ' + e.message);
+    }
+}
+// ==========================================
+// AUTOPOST TASKS
+// ==========================================
+async function loadAutopostTasks() {
+    const list = document.getElementById('autopost-list');
+    if (!list) return;
+    list.innerHTML = '<div class="spinner"></div>';
+    try {
+        const data = await api(`/api/autopost-tasks?tg_user_id=${TG_USER_ID}`);
+        if (data.error) throw new Error(data.error);
+        if (!data.tasks || data.tasks.length === 0) {
+            list.innerHTML = `
+            <div class="card" style="text-align:center; padding: 40px;">
+                <p style="color:var(--text-dim); margin-bottom:16px;">Sizda faol yoki yakunlangan autopost topshiriqlari yo'q.</p>
+                <p style="font-size:14px;">Telegram botga o'tib <b>/autopost</b> buyrug'idan foydalaning.</p>
+            </div>`;
+            return;
+        }
+        
+        list.innerHTML = data.tasks.map(t => {
+            let statusColor = "var(--text-dim)";
+            let statusIcon = "⏳";
+            if (t.status === "pending" || t.status === "processing") { statusColor = "var(--accent)"; statusIcon = "🔄"; }
+            else if (t.status === "completed") { statusColor = "var(--green)"; statusIcon = "✅"; }
+            else if (t.status.startsWith("error") || t.status === "failed") { statusColor = "var(--red)"; statusIcon = "❌"; }
+
+            return `
+            <div class="card" style="margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                    <div>
+                        <div style="font-weight:700; font-size:18px; color:var(--text-bright); margin-bottom:4px;">
+                            Qidiruv so'rovi: <span style="color:var(--accent2);">${t.search_query}</span>
+                        </div>
+                        <div style="font-size:13px; color:var(--text-dim);">
+                            Turi: <b>${t.video_type}</b> • ID: #${t.id} • Sana: ${new Date(t.created_at).toLocaleString()}
+                        </div>
+                    </div>
+                    <div style="background:var(--glass); padding:6px 12px; border-radius:20px; font-size:13px; font-weight:bold; color:${statusColor}; display:flex; align-items:center; gap:6px;">
+                        ${statusIcon} ${t.status.toUpperCase()}
+                    </div>
+                </div>
+                
+                <div style="background:rgba(0,0,0,0.2); height:8px; border-radius:4px; overflow:hidden; margin-bottom:8px;">
+                    <div style="height:100%; width:${(t.completed_count / t.total_count) * 100}%; background:linear-gradient(90deg, var(--accent), var(--green)); transition:width 0.3s;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-dim);">
+                    <span>Bajarildi: <b style="color:var(--text-bright)">${t.completed_count}</b> ta</span>
+                    <span>Jami maqsad: <b style="color:var(--text-bright)">${t.total_count}</b> ta</span>
+                </div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = `<p style="color:var(--red)">Xatolik: ${e.message}</p>`;
     }
 }
 </script>
