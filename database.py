@@ -172,6 +172,11 @@ def init_db():
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='user_settings' AND column_name='yt_cookies'")
     if not cur.fetchone():
         cur.execute("ALTER TABLE user_settings ADD COLUMN yt_cookies TEXT;")
+        
+    # Check and add default_yt_channel_id column if it doesn't exist
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='user_settings' AND column_name='default_yt_channel_id'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE user_settings ADD COLUMN default_yt_channel_id TEXT;")
     
     conn.commit()
     cur.close()
@@ -239,6 +244,35 @@ def get_user_proxy(tg_user_id):
         cur.execute("SELECT proxy_ip FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
         return row["proxy_ip"] if row else None
+    finally:
+        conn.close()
+
+def set_default_account(tg_user_id, channel_id):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO user_settings (tg_user_id, default_yt_channel_id) VALUES (%s, %s) ON CONFLICT (tg_user_id) DO UPDATE SET default_yt_channel_id = %s",
+            (tg_user_id, channel_id, channel_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"DB xato default account saqlashda: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_default_account(tg_user_id):
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        return row["default_yt_channel_id"] if row else None
     finally:
         conn.close()
 
@@ -500,6 +534,19 @@ def get_yt_connection(tg_user_id):
     if not conn: return None
     try:
         cur = conn.cursor()
+        
+        # Default account ni tekshiramiz
+        cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        default_ch_id = row["default_yt_channel_id"] if row else None
+        
+        if default_ch_id:
+            cur.execute("SELECT * FROM yt_connections WHERE tg_user_id = %s AND yt_channel_id = %s", (tg_user_id, default_ch_id))
+            conn_data = cur.fetchone()
+            if conn_data:
+                return conn_data
+                
+        # Agar default yo'q bo'lsa yoki topilmasa, eng oxirgi ulanganini olamiz
         cur.execute("SELECT * FROM yt_connections WHERE tg_user_id = %s ORDER BY connected_at DESC LIMIT 1", (tg_user_id,))
         return cur.fetchone()
     finally:

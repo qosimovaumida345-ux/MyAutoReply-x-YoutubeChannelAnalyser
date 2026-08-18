@@ -1873,6 +1873,57 @@ def create_ytbot():
     async def cb_delcancel(client, cb: CallbackQuery):
         await cb.message.edit_text("❌ Bekor qilindi.")
 
+    # ==================== /save_def ====================
+    @bot.on_message(filters.command("save_def"))
+    async def save_def_cmd(client, message):
+        from database import get_all_yt_connections, get_default_account
+        tg_user_id = message.from_user.id
+        accounts = get_all_yt_connections(tg_user_id)
+        
+        if not accounts:
+            await message.reply_text("❌ Sizda ulangan YouTube akkauntlar yo'q.\n`/ytlogin` orqali ulang.", parse_mode=ParseMode.MARKDOWN)
+            return
+        
+        current_default = get_default_account(tg_user_id)
+        
+        buttons = []
+        for acc in accounts:
+            title = acc.get('yt_channel_title', 'Unknown')
+            ch_id = acc.get('yt_channel_id', '')
+            marker = " ✅" if ch_id == current_default else ""
+            buttons.append([InlineKeyboardButton(f"📺 {title}{marker}", callback_data=f"setdef_{ch_id}")])
+        
+        text = "⚙️ **Default akkauntni tanlang:**\n\n"
+        text += "Bu akkaunt autopost, mass action va boshqa amallarda avtomatik ishlatiladi.\n"
+        if current_default:
+            def_name = next((a.get('yt_channel_title', '?') for a in accounts if a.get('yt_channel_id') == current_default), "?")
+            text += f"\n🟢 Hozirgi default: **{def_name}**"
+        else:
+            text += "\n🔴 Hozirda default akkaunt belgilanmagan."
+        
+        await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons), parse_mode=ParseMode.MARKDOWN)
+    
+    @bot.on_callback_query(filters.regex(r"^setdef_"))
+    async def cb_setdef(client, cb: CallbackQuery):
+        ch_id = cb.data.replace("setdef_", "")
+        tg_user_id = cb.from_user.id
+        
+        from database import set_default_account, get_all_yt_connections
+        
+        accounts = get_all_yt_connections(tg_user_id)
+        acc_name = next((a.get('yt_channel_title', '?') for a in accounts if a.get('yt_channel_id') == ch_id), ch_id)
+        
+        success = set_default_account(tg_user_id, ch_id)
+        if success:
+            await cb.message.edit_text(
+                f"✅ **Default akkaunt saqlandi!**\n\n"
+                f"📺 **{acc_name}**\n\n"
+                f"Endi `/autopost` va `/mass` buyruqlarida bu akkaunt avtomatik ishlatiladi.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        else:
+            await cb.message.edit_text("❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+
     @bot.on_message(filters.command("mass_like"))
     async def mass_like_cmd(client, message):
         from mass_engagement import run_mass_engagement
@@ -1948,8 +1999,44 @@ def create_ytbot():
         
         connections = args["connections"]
         
-        if len(connections) > 1:
-            # Ko'p kanal bor — kanal tanlash menyusi
+        # Default akkaunt tekshirish
+        from database import get_default_account
+        default_ch_id = get_default_account(callback_query.from_user.id)
+        
+        # Agar default akkaunt belgilangan va u connections ichida bo'lsa, darhol ishlatish
+        default_conn = None
+        if default_ch_id:
+            default_conn = next((c for c in connections if c.get('yt_channel_id') == default_ch_id), None)
+        
+        if default_conn:
+            # Default akkaunt topildi — darhol watermark so'rash
+            yt_channel_id = default_ch_id
+            args["yt_channel_id"] = yt_channel_id
+            
+            user_id = args["user_id"]
+            count = args["count"]
+            
+            task_id = create_autopost_task(user_id, yt_channel_id, query, video_type, count)
+            if task_id:
+                from database import update_autopost_task
+                update_autopost_task(task_id, status="awaiting_choice")
+                increment_usage(user_id, count)
+                
+                type_text = "🩳 Shorts" if video_type == "shorts" else "🎬 Katta video"
+                buttons = [
+                    [InlineKeyboardButton("✅ Watermark bilan", callback_data=f"ap_wm|{task_id}")],
+                    [InlineKeyboardButton("❌ Aslidek (Watermarksiz)", callback_data=f"ap_nowm|{task_id}")]
+                ]
+                await callback_query.message.edit_text(
+                    f"✅ Tur: **{type_text}** | Mavzu: **'{topic}'** | Video soni: **{count}**\n\n"
+                    f"Video ustiga YouTube kanalingiz nomi va rasmi (watermark) qo'yilsinmi?", 
+                    reply_markup=InlineKeyboardMarkup(buttons),
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            else:
+                await callback_query.message.edit_text("❌ `Xatolik yuz berdi. DB ni tekshiring.`", parse_mode=ParseMode.MARKDOWN)
+        elif len(connections) > 1:
+            # Ko'p kanal bor, default belgilanmagan — kanal tanlash menyusi
             buttons = []
             for c in connections:
                 ch_title = c.get('yt_channel_title', 'Noma\'lum')
@@ -1958,12 +2045,13 @@ def create_ytbot():
             type_text = "🩳 Shorts" if video_type == "shorts" else "🎬 Katta video"
             await callback_query.message.edit_text(
                 f"✅ Tur: **{type_text}** | Mavzu: **'{topic}'**\n\n"
-                f"📺 **Qaysi kanalga video yuklaymiz?**",
+                f"📺 **Qaysi kanalga video yuklaymiz?**\n\n"
+                f"💡 _Default akkaunt saqlash uchun /save\\_def yozing._",
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=ParseMode.MARKDOWN
             )
         else:
-            # 1 ta kanal — darhol watermark so'rash
+            # 1 ta kanal, default belgilanmagan — yagona kanalni ishlatish
             yt_channel_id = connections[0]["yt_channel_id"]
             args["yt_channel_id"] = yt_channel_id
             

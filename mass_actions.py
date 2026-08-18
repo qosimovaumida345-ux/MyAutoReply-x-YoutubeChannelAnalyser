@@ -24,6 +24,18 @@ def resolve_channel_from_url(url):
     """
     url = url.strip()
     
+    # Agar to'g'ridan-to'g'ri channel ID berilgan bo'lsa (UC bilan boshlanadi)
+    if url.startswith("UC") and len(url) >= 20 and "/" not in url:
+        try:
+            yt = build_youtube_api()
+            res = yt.channels().list(part="snippet", id=url).execute()
+            items = res.get("items", [])
+            if items:
+                return items[0]["id"], items[0]["snippet"]["title"]
+        except:
+            pass
+        return url, None
+    
     # Agar faqat @username bo'lsa
     if url.startswith("@"):
         handle = url

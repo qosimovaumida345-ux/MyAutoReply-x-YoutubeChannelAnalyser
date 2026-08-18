@@ -375,15 +375,18 @@ async def handle_api_channels(request):
     if not tg_user_id:
         return web.Response(text=json.dumps({"error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     try:
-        from database import get_all_yt_connections
-        connections = get_all_yt_connections(int(tg_user_id))
+        from database import get_all_yt_connections, get_default_account
+        tg_id = int(tg_user_id)
+        connections = get_all_yt_connections(tg_id)
+        default_ch_id = get_default_account(tg_id)
+        
         channels = []
         for c in connections:
             channels.append({
                 "channel_id": c.get("yt_channel_id", ""),
                 "channel_title": c.get("yt_channel_title", "Unknown"),
             })
-        return web.Response(text=json.dumps({"channels": channels}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        return web.Response(text=json.dumps({"channels": channels, "default_channel_id": default_ch_id}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.Response(text=json.dumps({"error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 

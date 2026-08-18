@@ -1901,14 +1901,19 @@ async function loadChannels() {
             return;
         }
         
-        list.innerHTML = data.channels.map(c => `
-            <div class="card" style="margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
+        const defaultId = data.default_channel_id;
+        
+        list.innerHTML = data.channels.map(c => {
+            const isDefault = (c.channel_id === defaultId);
+            const defaultBadge = isDefault ? `<span style="font-size:10px; background:var(--green); color:black; padding:2px 6px; border-radius:4px; font-weight:bold; margin-left:8px;">DEFAULT</span>` : '';
+            return `
+            <div class="card" style="margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; ${isDefault ? 'border-color: var(--green);' : ''}">
                 <div style="display:flex; align-items:center; gap:20px;">
                     <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg, var(--accent), var(--green)); display:flex; align-items:center; justify-content:center; font-size:24px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow:hidden;">
                         <img src="https://unavatar.io/youtube/${c.channel_id}" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${c.channel_title}')+'&background=random&color=fff'" style="width:100%;height:100%;object-fit:cover;">
                     </div>
                     <div>
-                        <div style="font-weight:800; font-size:18px; color:var(--text-bright); margin-bottom:4px;">${c.channel_title}</div>
+                        <div style="font-weight:800; font-size:18px; color:var(--text-bright); margin-bottom:4px;">${c.channel_title}${defaultBadge}</div>
                         <div style="font-size:12px; color:var(--text-dim); font-family:monospace; background:var(--glass); padding:4px 8px; border-radius:4px; display:inline-block;">ID: ${c.channel_id}</div>
                     </div>
                 </div>
@@ -1916,7 +1921,7 @@ async function loadChannels() {
                     <button class="btn btn-secondary btn-sm" onclick="switchPage('audit'); setTimeout(()=>loadHealthScore(), 500)">Audit Qilish</button>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
         
     } catch (e) {
         list.innerHTML = `<p style="color:var(--red)">Xatolik: ${e.message}</p>`;

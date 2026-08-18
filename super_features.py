@@ -201,6 +201,8 @@ def load_super_features(bot: Client):
           /mass @WelfEdits like
           /mass @WelfEdits sub
           /mass @WelfEdits Ajoyib content!
+          /mass  (default kanalga like + sub)
+          /mass like (default kanalga faqat like)
         
         Agar faqat "like" yozilsa — faqat like
         Agar faqat "sub" yozilsa — faqat subscribe
@@ -209,34 +211,72 @@ def load_super_features(bot: Client):
         """
         args = message.text.split(maxsplit=2)
         
+        # Default akkauntdan channel URL ni olish
+        from database import get_default_account, get_all_yt_connections
+        tg_user_id = message.from_user.id
+        default_ch_id = get_default_account(tg_user_id)
+        
         if len(args) < 2:
-            await message.reply_text(
-                "⚡ **Mass Action — Foydalanish:**\n\n"
-                "`/mass <kanal URL> [comment matni]`\n\n"
-                "**Misollar:**\n"
-                "• `/mass @WelfEdits` — Like + Subscribe\n"
-                "• `/mass @WelfEdits like` — Faqat Like\n"
-                "• `/mass @WelfEdits sub` — Faqat Subscribe\n"
-                "• `/mass @WelfEdits Zo'r video!` — Like + Sub + Comment\n\n"
-                "📌 Barcha ulangan akkauntlar ishlatiladi."
-            )
-            return
-        
-        channel_url = args[1].strip()
-        comment_text = args[2].strip() if len(args) > 2 else ""
-        
-        # Action turini aniqlash
-        if comment_text.lower() == "like":
-            action_type = "like"
+            # Hech narsa yozilmagan — default channel
+            if not default_ch_id:
+                await message.reply_text(
+                    "⚡ **Mass Action — Foydalanish:**\n\n"
+                    "`/mass <kanal URL> [comment matni]`\n\n"
+                    "**Misollar:**\n"
+                    "• `/mass @WelfEdits` — Like + Subscribe\n"
+                    "• `/mass @WelfEdits like` — Faqat Like\n"
+                    "• `/mass @WelfEdits sub` — Faqat Subscribe\n"
+                    "• `/mass @WelfEdits Zo'r video!` — Like + Sub + Comment\n"
+                    "• `/mass` — Default kanalga Like + Sub\n\n"
+                    "📌 Barcha ulangan akkauntlar ishlatiladi.\n\n"
+                    "🔴 _Default akkaunt belgilanmagan. /save\\_def orqali belgilang yoki kanal URL yozing._"
+                )
+                return
+            # Default kanal bilan ishlash
+            channel_url = default_ch_id
             comment_text = ""
-        elif comment_text.lower() == "sub":
-            action_type = "subscribe"
-            comment_text = ""
-        elif comment_text:
             action_type = "all"
+        elif len(args) == 2:
+            first_arg = args[1].strip()
+            # Tekshirish: bu kanal URL mi yoki action type mi?
+            if first_arg.lower() in ("like", "sub", "subscribe", "comment"):
+                # Bu action type — default kanalni ishlatish
+                if not default_ch_id:
+                    await message.reply_text(
+                        "🔴 Default akkaunt belgilanmagan.\n\n"
+                        "`/save_def` orqali default akkaunt belgilang yoki kanal URL yozing.\n"
+                        "Masalan: `/mass @WelfEdits like`"
+                    )
+                    return
+                channel_url = default_ch_id
+                if first_arg.lower() == "like":
+                    action_type = "like"
+                elif first_arg.lower() in ("sub", "subscribe"):
+                    action_type = "subscribe"
+                elif first_arg.lower() == "comment":
+                    action_type = "all"
+                comment_text = ""
+            else:
+                # Bu kanal URL
+                channel_url = first_arg
+                comment_text = ""
+                action_type = "all"
         else:
-            action_type = "all"
-            comment_text = ""  # Like + Sub, commentsiz
+            channel_url = args[1].strip()
+            comment_text = args[2].strip() if len(args) > 2 else ""
+            
+            # Action turini aniqlash
+            if comment_text.lower() == "like":
+                action_type = "like"
+                comment_text = ""
+            elif comment_text.lower() == "sub":
+                action_type = "subscribe"
+                comment_text = ""
+            elif comment_text:
+                action_type = "all"
+            else:
+                action_type = "all"
+                comment_text = ""
         
         from mass_actions import mass_action_worker
         asyncio.create_task(
