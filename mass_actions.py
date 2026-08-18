@@ -58,8 +58,8 @@ def resolve_channel_from_url(url):
         return None, f"Kanal qidirishda xato: {str(e)[:200]}"
 
 
-def get_channel_videos(channel_id, max_videos=50):
-    """Kanal ID orqali barcha videolarning ID va sarlavhalarini olish"""
+def get_channel_videos(channel_id):
+    """Kanal ID orqali barcha videolarning ID va sarlavhalarini olish (limitsiz)"""
     try:
         yt = build_youtube_api()
         
@@ -74,11 +74,11 @@ def get_channel_videos(channel_id, max_videos=50):
         # Playlistdagi videolarni olish
         videos = []
         next_page = None
-        while len(videos) < max_videos:
+        while True:
             pl_res = yt.playlistItems().list(
                 part="snippet",
                 playlistId=uploads_id,
-                maxResults=min(50, max_videos - len(videos)),
+                maxResults=50,
                 pageToken=next_page
             ).execute()
             
@@ -165,7 +165,8 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
     total_videos = len(videos)
     
     do_like = action_type in ("all", "like")
-    do_comment = action_type in ("all", "comment") and comment_text
+    # Agar faqat like yoki sub bo'lmasa, doim comment yozadi (AI orqali)
+    do_comment = action_type in ("all", "comment")
     do_subscribe = action_type in ("all", "subscribe")
     
     actions = []
@@ -205,7 +206,13 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
         # Subscribe
         if do_subscribe:
             try:
-                def _subscribe():
+                def _check_and_subscribe():
+                    # Obuna qilinganmi yo'qmi tekshirish
+                    subs_res = yt.subscriptions().list(part="snippet", forChannelId=channel_id, mine=True).execute()
+                    if subs_res.get("items"):
+                        return False # Allaqachon obuna
+                    
+                    # Obuna bo'lmasa, qo'shamiz
                     yt.subscriptions().insert(
                         part="snippet",
                         body={
@@ -217,21 +224,21 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
                             }
                         }
                     ).execute()
+                    return True
                 
-                await asyncio.to_thread(_subscribe)
+                newly_subbed = await asyncio.to_thread(_check_and_subscribe)
                 total_subs += 1
-                print(f"[mass] ✅ {acc_name} -> Subscribed to {channel_name}")
+                if newly_subbed:
+                    print(f"[mass] ✅ {acc_name} -> Subscribed to {channel_name}")
+                else:
+                    print(f"[mass] ℹ️ {acc_name} -> Already subscribed to {channel_name}")
             except Exception as e:
                 err_str = str(e)
-                if "subscriptionDuplicate" in err_str:
-                    total_subs += 1  # Allaqachon obuna
-                    print(f"[mass] ℹ️ {acc_name} -> Already subscribed")
-                else:
-                    print(f"[mass] ❌ Subscribe error ({acc_name}): {err_str[:100]}")
-                    errors += 1
+                print(f"[mass] ❌ Subscribe error ({acc_name}): {err_str[:100]}")
+                errors += 1
             
-            # Random delay (15-45 soniya)
-            await asyncio.sleep(random.uniform(15, 45))
+            # Kichik pauza
+            await asyncio.sleep(1)
         
         # Like + Comment har bir video uchun
         for vid_idx, video in enumerate(videos, 1):
@@ -251,13 +258,21 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
                     print(f"[mass] ❌ Like error ({acc_name}, {vid_id}): {str(e)[:80]}")
                     errors += 1
                 
-                # Random delay (5-15 soniya)
-                await asyncio.sleep(random.uniform(5, 15))
+                await asyncio.sleep(0.5)
             
-            # Comment
+            # Comment (AI orqali har xil gap)
             if do_comment:
                 try:
-                    def _comment(video_id=vid_id, text=comment_text):
+                    from config import generate_with_fallback
+                    
+                    # AI ga prompt berish (user text bergan bo'lsa uni mavzu sifatida olish)
+                    topic_hint = f" mavzu: {comment_text}" if comment_text else ""
+                    prompt = f"Mana bu YouTube videoga: '{vid_title}'{topic_hint}. Faqat bitta qisqa, tabiiy, odamdek pozitiv (yoki mavzuga mos) izoh yoz. Hech qanday boshqa matn, qavslar qo'shma, to'g'ridan to'g'ri izohni qaytar."
+                    
+                    ai_res = await asyncio.to_thread(generate_with_fallback, prompt)
+                    ai_text = ai_res.text.strip() if (ai_res and ai_res.text) else "Zo'r video!"
+                    
+                    def _comment(video_id=vid_id, text=ai_text):
                         yt.commentThreads().insert(
                             part="snippet",
                             body={
@@ -274,7 +289,7 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
                     
                     await asyncio.to_thread(_comment)
                     total_comments += 1
-                    print(f"[mass] 💬 {acc_name} -> Commented on: {vid_title}")
+                    print(f"[mass] 💬 {acc_name} -> Commented on: {vid_title} (AI: {ai_text[:30]}...)")
                 except Exception as e:
                     err_str = str(e)
                     if "commentsDisabled" in err_str:
@@ -283,8 +298,7 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
                         print(f"[mass] ❌ Comment error ({acc_name}, {vid_id}): {err_str[:80]}")
                         errors += 1
                 
-                # Random delay (30-90 soniya) — comment uchun uzunroq kutish
-                await asyncio.sleep(random.uniform(30, 90))
+                await asyncio.sleep(0.5)
             
             # Har 10 ta videodan keyin progress xabar
             if vid_idx % 10 == 0:
@@ -293,14 +307,13 @@ async def mass_action_worker(channel_url, comment_text, action_type, client, cha
                     f"📊 `Video: {vid_idx}/{total_videos} | 👍{total_likes} 💬{total_comments} 🔔{total_subs}`"
                 )
         
-        # Akkauntlar orasida uzunroq pauza (2-5 daqiqa)
+        # Akkauntlar orasida pauza (Max 15 soniya)
         if acc_idx < total_accounts:
-            wait_mins = random.uniform(2, 5)
             await safe_edit(progress_msg,
                 f"✅ `{acc_name} tugadi!`\n"
-                f"⏳ `Keyingi akkauntga {wait_mins:.1f} daqiqada o'tiladi...`"
+                f"⏳ `Keyingi akkauntga o'tilmoqda...`"
             )
-            await asyncio.sleep(wait_mins * 60)
+            await asyncio.sleep(random.uniform(3, 5))
     
     # 5. Yakuniy hisobot
     await safe_send(

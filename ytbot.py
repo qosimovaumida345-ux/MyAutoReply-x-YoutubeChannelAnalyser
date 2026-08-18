@@ -1812,6 +1812,8 @@ def create_ytbot():
             for u in users:
                 text += f"👤 User: `{u['tg_user_id']}`\n📺 Kanal: **{u['yt_channel_title']}**\n🆔 ID: `{u['yt_channel_id']}`\n\n"
             await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+
         else:
             cur.execute("SELECT yt_channel_title, yt_channel_id FROM yt_connections WHERE tg_user_id = %s", (message.from_user.id,))
             users = cur.fetchall()
@@ -1823,6 +1825,53 @@ def create_ytbot():
             for u in users:
                 text += f"📺 Kanal: **{u['yt_channel_title']}**\n🆔 ID: `{u['yt_channel_id']}`\n\n"
             await message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+    @bot.on_message(filters.command("delaccount"))
+    async def delaccount_cmd(client, message):
+        from database import get_all_yt_connections
+        tg_user_id = message.from_user.id
+        accounts = get_all_yt_connections(tg_user_id)
+        
+        if not accounts:
+            await message.reply_text("Sizda ulanishlar mavjud emas.")
+            return
+            
+        buttons = []
+        for acc in accounts:
+            title = acc.get('yt_channel_title', 'Unknown')
+            ch_id = acc.get('yt_channel_id', '')
+            buttons.append([InlineKeyboardButton(f"🗑 {title}", callback_data=f"delacc_{ch_id}")])
+            
+        await message.reply_text(
+            "O'chirmoqchi bo'lgan akkauntingizni tanlang:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        
+    @bot.on_callback_query(filters.regex(r"^delacc_"))
+    async def cb_delacc(client, cb: CallbackQuery):
+        ch_id = cb.data.replace("delacc_", "")
+        buttons = [
+            [
+                InlineKeyboardButton("✅ Ha, o'chirish", callback_data=f"delconf_{ch_id}"),
+                InlineKeyboardButton("❌ Yo'q", callback_data="delcancel")
+            ]
+        ]
+        await cb.message.edit_text(
+            "⚠️ **Siz ishonchingiz komilmi?**\nBu akkaunt orqali boshqa autopost va mass action amallari bajarilmaydi.",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+        
+    @bot.on_callback_query(filters.regex(r"^delconf_"))
+    async def cb_delconf(client, cb: CallbackQuery):
+        ch_id = cb.data.replace("delconf_", "")
+        tg_user_id = cb.from_user.id
+        from database import delete_yt_connection
+        delete_yt_connection(tg_user_id, ch_id)
+        await cb.message.edit_text("✅ Akkaunt muvaffaqiyatli o'chirildi!")
+        
+    @bot.on_callback_query(filters.regex(r"^delcancel$"))
+    async def cb_delcancel(client, cb: CallbackQuery):
+        await cb.message.edit_text("❌ Bekor qilindi.")
 
     @bot.on_message(filters.command("mass_like"))
     async def mass_like_cmd(client, message):
