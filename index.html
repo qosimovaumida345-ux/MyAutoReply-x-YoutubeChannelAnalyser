@@ -1808,7 +1808,7 @@ async function openDlModal(id, title, e) {
     formatsDiv.innerHTML = '<div class="spinner"></div>';
     
     try {
-        const res = await fetch(API + `/api/video-formats?video_id=${id}`);
+        const res = await fetch(API + `/api/video-formats?video_id=${id}&tg_user_id=${TG_USER_ID}`);
         const data = await res.json();
         
         if (data.error) {
@@ -1850,7 +1850,7 @@ function startDownload(id, res, btn) {
         document.body.appendChild(iframe);
     }
     
-    iframe.src = API + `/api/download-file?video_id=${id}&resolution=${res}`;
+    iframe.src = API + `/api/download-file?video_id=${id}&resolution=${res}&tg_user_id=${TG_USER_ID}`;
     
     // Reset button after a few seconds assuming download started
     setTimeout(() => {

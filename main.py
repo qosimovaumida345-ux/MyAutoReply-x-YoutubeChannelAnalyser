@@ -666,12 +666,15 @@ async def handle_api_video_formats(request):
     """Video uchun mavjud formatlarni olish"""
     import json
     video_id = request.query.get("video_id")
+    tg_user_id = request.query.get("tg_user_id")
+    
     if not video_id:
         return web.json_response({"error": "video_id kerak"}, status=400)
     
     try:
         import yt_dlp
         import asyncio
+        import os
         
         url = f"https://www.youtube.com/watch?v={video_id}"
         ydl_opts = {
@@ -684,11 +687,26 @@ async def handle_api_video_formats(request):
             }
         }
         
+        cookie_path = None
+        if tg_user_id:
+            from database import get_user_cookies
+            cookies_text = get_user_cookies(int(tg_user_id))
+            if cookies_text:
+                os.makedirs("downloads", exist_ok=True)
+                cookie_path = f"downloads/cookies_fmt_{tg_user_id}.txt"
+                with open(cookie_path, "w", encoding="utf-8") as f:
+                    f.write(cookies_text)
+                ydl_opts['cookiefile'] = cookie_path
+        
         def _extract():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
         
-        info = await asyncio.to_thread(_extract)
+        try:
+            info = await asyncio.to_thread(_extract)
+        finally:
+            if cookie_path and os.path.exists(cookie_path):
+                os.remove(cookie_path)
         
         # Collect available resolutions
         available = set()
@@ -723,9 +741,11 @@ async def handle_api_download_file(request):
     import json
     import asyncio
     import glob
+    import os
     
     video_id = request.query.get("video_id")
     resolution = request.query.get("resolution", "720")
+    tg_user_id = request.query.get("tg_user_id")
     
     if not video_id:
         return web.json_response({"error": "video_id kerak"}, status=400)
@@ -749,6 +769,16 @@ async def handle_api_download_file(request):
             }
         }
         
+        cookie_path = None
+        if tg_user_id:
+            from database import get_user_cookies
+            cookies_text = get_user_cookies(int(tg_user_id))
+            if cookies_text:
+                cookie_path = f"downloads/cookies_dl_{tg_user_id}.txt"
+                with open(cookie_path, "w", encoding="utf-8") as f:
+                    f.write(cookies_text)
+                ydl_opts['cookiefile'] = cookie_path
+        
         if resolution == "mp3":
             ydl_opts['format'] = 'bestaudio/best'
             ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
@@ -760,7 +790,11 @@ async def handle_api_download_file(request):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         
-        await asyncio.to_thread(_download)
+        try:
+            await asyncio.to_thread(_download)
+        finally:
+            if cookie_path and os.path.exists(cookie_path):
+                os.remove(cookie_path)
         
         # Find downloaded file
         base = os.path.basename(filename)
