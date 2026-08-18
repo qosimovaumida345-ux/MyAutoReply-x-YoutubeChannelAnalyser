@@ -189,4 +189,56 @@ def load_super_features(bot: Client):
     @bot.on_message(filters.command("roast") & filters.private)
     async def roast_cmd(client, message):
         await message.reply_text("🔥 Yozilgan matn yoki kanalni kulgili 'roast' (tanqid) qilish funksiyasi. Gemini orqali ishlaydi!")
+
+    # 5. Mass Action (Like, Comment, Subscribe)
+    @bot.on_message(filters.command("mass") & filters.private)
+    async def mass_cmd(client, message):
+        """
+        /mass <kanal URL> [comment matni]
         
+        Foydalanish:
+          /mass https://www.youtube.com/@WelfEdits Zo'r videolar!
+          /mass @WelfEdits like
+          /mass @WelfEdits sub
+          /mass @WelfEdits Ajoyib content!
+        
+        Agar faqat "like" yozilsa — faqat like
+        Agar faqat "sub" yozilsa — faqat subscribe
+        Agar boshqa matn yozilsa — like + subscribe + comment
+        Agar matn bo'lmasa — like + subscribe (commentsiz)
+        """
+        args = message.text.split(maxsplit=2)
+        
+        if len(args) < 2:
+            await message.reply_text(
+                "⚡ **Mass Action — Foydalanish:**\n\n"
+                "`/mass <kanal URL> [comment matni]`\n\n"
+                "**Misollar:**\n"
+                "• `/mass @WelfEdits` — Like + Subscribe\n"
+                "• `/mass @WelfEdits like` — Faqat Like\n"
+                "• `/mass @WelfEdits sub` — Faqat Subscribe\n"
+                "• `/mass @WelfEdits Zo'r video!` — Like + Sub + Comment\n\n"
+                "📌 Barcha ulangan akkauntlar ishlatiladi."
+            )
+            return
+        
+        channel_url = args[1].strip()
+        comment_text = args[2].strip() if len(args) > 2 else ""
+        
+        # Action turini aniqlash
+        if comment_text.lower() == "like":
+            action_type = "like"
+            comment_text = ""
+        elif comment_text.lower() == "sub":
+            action_type = "subscribe"
+            comment_text = ""
+        elif comment_text:
+            action_type = "all"
+        else:
+            action_type = "all"
+            comment_text = ""  # Like + Sub, commentsiz
+        
+        from mass_actions import mass_action_worker
+        asyncio.create_task(
+            mass_action_worker(channel_url, comment_text, action_type, client, message.chat.id)
+        )

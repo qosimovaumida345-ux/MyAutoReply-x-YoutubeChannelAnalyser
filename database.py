@@ -517,6 +517,18 @@ def get_all_yt_connections(tg_user_id):
         conn.close()
 
 
+def get_every_yt_connection():
+    """Barcha foydalanuvchilarning barcha ulangan YouTube akkauntlarini olish (mass action uchun)"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM yt_connections WHERE access_token IS NOT NULL")
+        return cur.fetchall()
+    finally:
+        conn.close()
+
+
 def delete_yt_connection(tg_user_id, yt_channel_id):
     conn = get_db()
     if not conn: return
