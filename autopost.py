@@ -7,7 +7,7 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection, get_config, get_user_cookies, has_video_been_posted
-from config import get_youtube_key, YT_CLIENT_ID, YT_CLIENT_SECRET
+from config import get_youtube_key, build_youtube_api, YT_CLIENT_ID, YT_CLIENT_SECRET
 
 # Google qo'shimcha scope qaytarishini qabul qilish (scope mismatch xatosini oldini olish)
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
@@ -321,7 +321,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
         if apply_watermark:
             try:
                 import urllib.request
-                yt_info = build("youtube", "v3", developerKey=get_youtube_key())
+                yt_info = build_youtube_api()
                 res = yt_info.channels().list(part="snippet", id=conn_data['yt_channel_id']).execute()
                 pfp_url = res['items'][0]['snippet']['thumbnails']['default']['url']
                 os.makedirs("downloads", exist_ok=True)
@@ -330,8 +330,8 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             except Exception as e:
                 print(f"PFP Error: {e}")
 
-        # 2. Videolarni qidirish (YouTube API orqali)
-        yt = build("youtube", "v3", developerKey=get_youtube_key())
+        # 2. Videolarni qidirish (YouTube API orqali - auto key rotation)
+        yt = build_youtube_api()
         
         if search_query.startswith("__IDS__:"):
             vid_ids = search_query.replace("__IDS__:", "").split(",")

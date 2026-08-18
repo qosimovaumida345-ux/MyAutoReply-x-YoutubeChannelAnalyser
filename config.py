@@ -34,7 +34,6 @@ def generate_with_fallback(prompt):
         "gemini-2.0-flash",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
-        "gemini-pro"
     ]
     
     last_error = None
@@ -79,7 +78,31 @@ def get_youtube_key():
 def remove_bad_yt_key(key):
     if key in WORKING_YT_KEYS:
         WORKING_YT_KEYS.remove(key)
-        print(f"Xato kalit olib tashlandi. Qolgan kalitlar: {len(WORKING_YT_KEYS)}")
+        print(f"⚠️ Xato kalit olib tashlandi. Qolgan kalitlar: {len(WORKING_YT_KEYS)}")
+
+def build_youtube_api():
+    """YouTube API clientini yaratish (403 quota error bo'lsa keyingi kalitga o'tadi)"""
+    from googleapiclient.discovery import build as yt_build
+    keys_to_try = list(WORKING_YT_KEYS if WORKING_YT_KEYS else YOUTUBE_API_KEYS)
+    last_error = None
+    for key in keys_to_try:
+        try:
+            service = yt_build("youtube", "v3", developerKey=key)
+            # Test the key with a lightweight call
+            service.videos().list(part="id", id="dQw4w9WgXcQ").execute()
+            return service
+        except Exception as e:
+            err_str = str(e)
+            if "quota" in err_str.lower() or "403" in err_str:
+                print(f"⚠️ YouTube API Key quota tugadi, keyingi kalitga o'tilmoqda...")
+                remove_bad_yt_key(key)
+                last_error = e
+                continue
+            else:
+                # Not a quota error - return this service anyway
+                return yt_build("youtube", "v3", developerKey=key)
+    # All keys exhausted
+    raise Exception(f"Barcha YouTube API kalitlarining kvotasi tugagan! Kalitlar soni: {len(YOUTUBE_API_KEYS)}. Oxirgi xato: {last_error}")
 
 def reset_yt_keys():
     global WORKING_YT_KEYS

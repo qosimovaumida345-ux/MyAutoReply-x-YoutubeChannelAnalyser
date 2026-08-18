@@ -913,6 +913,37 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        /* Download Modal */
+        .dl-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            z-index: 10000; display: none; align-items: center; justify-content: center;
+        }
+        .dl-overlay.active { display: flex; }
+        .dl-modal {
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 32px; width: 90%; max-width: 480px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+        }
+        .dl-modal h3 { margin: 0 0 8px; font-size: 18px; }
+        .dl-modal .dl-subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+        .dl-formats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .dl-format-btn {
+            padding: 12px 16px; border-radius: 12px; border: 1px solid var(--glass-border);
+            background: rgba(255,255,255,0.04); color: var(--text); cursor: pointer;
+            font-size: 14px; font-weight: 600; text-align: center;
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .dl-format-btn:hover { background: var(--accent); border-color: var(--accent); transform: scale(1.03); }
+        .dl-format-btn.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+        .dl-format-btn.downloading { background: var(--accent); animation: pulse 1.5s infinite; }
+        .dl-close {
+            width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--glass-border);
+            background: transparent; color: var(--text-dim); cursor: pointer; font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        .dl-close:hover { background: rgba(255,255,255,0.06); }
     </style>
 </head>
 <body>
@@ -1272,12 +1303,24 @@
          ========================================== -->
     <div class="batch-bar" id="batchBar">
         <div class="batch-count">
-            <span style="font-size: 24px;">📑</span> 
+            <span style="font-size: 24px;">📦</span> 
             <span><b id="batchCount" style="font-size: 18px;">0</b> ta video tanlandi</span>
         </div>
         <div style="width: 1px; height: 24px; background: var(--glass-border);"></div>
         <button class="btn btn-success" onclick="batchRepost()">🚀 Barchasini Repost Qilish</button>
-        <button class="btn btn-secondary btn-sm" onclick="clearBatch()">✖ Bekor qilish</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearBatch()">✕ Bekor qilish</button>
+    </div>
+
+    <!-- Download Modal -->
+    <div class="dl-overlay" id="dlOverlay" onclick="if(event.target===this) closeDlModal()">
+        <div class="dl-modal">
+            <h3>📥 <span id="dlTitle">Video</span></h3>
+            <div class="dl-subtitle" id="dlSubtitle">Format tanlang...</div>
+            <div class="dl-formats" id="dlFormats">
+                <div class="spinner"></div>
+            </div>
+            <button class="dl-close" onclick="closeDlModal()">✕ Yopish</button>
+        </div>
     </div>
 
 </div><!-- #appShell -->
@@ -1661,8 +1704,8 @@ function renderVideoGrid(videos, containerId) {
             </div>
             
             <div class="video-actions">
-                <div class="video-action-btn" title="YouTube'da ko'rish" onclick="downloadVideo('${v.id}', event)">
-                    ▶
+                <div class="video-action-btn" title="Format tanlab yuklash" onclick="openDlModal('${v.id}', '${safeTitle}', event)">
+                    📥
                 </div>
                 <div class="video-action-btn" title="Kanalga avto-repost" onclick="repostVideo('${v.id}', '${safeTitle}', event)" style="background:var(--accent);border-color:var(--accent)">
                     🚀
@@ -1753,6 +1796,67 @@ async function batchRepost() {
 function downloadVideo(id, e) {
     if (e) e.stopPropagation();
     window.open('https://www.youtube.com/watch?v=' + id, '_blank');
+}
+
+// ===== DOWNLOAD MODAL =====
+async function openDlModal(id, title, e) {
+    if (e) e.stopPropagation();
+    document.getElementById('dlTitle').textContent = title;
+    document.getElementById('dlOverlay').classList.add('active');
+    
+    const formatsDiv = document.getElementById('dlFormats');
+    formatsDiv.innerHTML = '<div class="spinner"></div>';
+    
+    try {
+        const res = await fetch(API + `/api/video-formats?video_id=${id}`);
+        const data = await res.json();
+        
+        if (data.error) {
+            formatsDiv.innerHTML = `<p style="color:var(--red)">Xatolik: ${data.error}</p>`;
+            return;
+        }
+        
+        let html = '';
+        data.formats.forEach(f => {
+            if (f.available) {
+                html += `<button class="dl-format-btn" onclick="startDownload('${id}', '${f.value}', this)">${f.label}</button>`;
+            } else {
+                html += `<button class="dl-format-btn disabled">${f.label} (Yo'q)</button>`;
+            }
+        });
+        formatsDiv.innerHTML = html;
+        
+    } catch (err) {
+        formatsDiv.innerHTML = `<p style="color:var(--red)">Tarmoq xatosi: ${err.message}</p>`;
+    }
+}
+
+function closeDlModal() {
+    document.getElementById('dlOverlay').classList.remove('active');
+}
+
+function startDownload(id, res, btn) {
+    // Show feedback
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Yuklanmoqda...';
+    btn.classList.add('downloading');
+    
+    // Create an invisible iframe to trigger the download prompt without leaving the page
+    let iframe = document.getElementById('dl_iframe');
+    if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'dl_iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+    }
+    
+    iframe.src = API + `/api/download-file?video_id=${id}&resolution=${res}`;
+    
+    // Reset button after a few seconds assuming download started
+    setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.classList.remove('downloading');
+    }, 5000);
 }
 
 async function repostVideo(id, title, e) {

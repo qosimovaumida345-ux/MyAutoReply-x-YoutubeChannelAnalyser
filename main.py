@@ -422,9 +422,8 @@ async def handle_api_videos(request):
     if not q:
         return web.Response(text=json.dumps({"error": "q param kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     try:
-        from googleapiclient.discovery import build
-        from config import get_youtube_key
-        yt = build("youtube", "v3", developerKey=get_youtube_key())
+        from config import build_youtube_api
+        yt = build_youtube_api()
         
         search_params = {
             "part": "snippet",
@@ -465,9 +464,8 @@ async def handle_api_trending(request):
     import json
     region = request.query.get("region", "UZ")
     try:
-        from googleapiclient.discovery import build
-        from config import get_youtube_key
-        yt = build("youtube", "v3", developerKey=get_youtube_key())
+        from config import build_youtube_api
+        yt = build_youtube_api()
         
         results = yt.videos().list(part="snippet,statistics", chart="mostPopular", regionCode=region, maxResults=12).execute()
         videos = []
@@ -664,6 +662,140 @@ async def handle_api_best_time(request):
     except Exception as e:
         return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
+async def handle_api_video_formats(request):
+    """Video uchun mavjud formatlarni olish"""
+    import json
+    video_id = request.query.get("video_id")
+    if not video_id:
+        return web.json_response({"error": "video_id kerak"}, status=400)
+    
+    try:
+        import yt_dlp
+        import asyncio
+        
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {
+            'quiet': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_skip': ['webpage'],
+                }
+            }
+        }
+        
+        def _extract():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                return ydl.extract_info(url, download=False)
+        
+        info = await asyncio.to_thread(_extract)
+        
+        # Collect available resolutions
+        available = set()
+        for f in info.get("formats", []):
+            h = f.get("height")
+            if h:
+                available.add(h)
+        
+        # Map standard resolutions
+        all_resolutions = [
+            {"label": "360p", "value": "360", "available": 360 in available},
+            {"label": "480p", "value": "480", "available": 480 in available},
+            {"label": "720p (HD)", "value": "720", "available": 720 in available},
+            {"label": "1080p (FHD)", "value": "1080", "available": 1080 in available},
+            {"label": "1440p (2K)", "value": "1440", "available": 1440 in available},
+            {"label": "2160p (4K)", "value": "2160", "available": 2160 in available},
+            {"label": "4320p (8K)", "value": "4320", "available": 4320 in available},
+            {"label": "🎵 MP3 (Audio)", "value": "mp3", "available": True},
+        ]
+        
+        return web.json_response({
+            "title": info.get("title", "Video"),
+            "duration": info.get("duration", 0),
+            "thumbnail": info.get("thumbnail", ""),
+            "formats": all_resolutions,
+        })
+    except Exception as e:
+        return web.json_response({"error": str(e)[:300]}, status=500)
+
+async def handle_api_download_file(request):
+    """Video yuklab olish va stream qilish"""
+    import json
+    import asyncio
+    import glob
+    
+    video_id = request.query.get("video_id")
+    resolution = request.query.get("resolution", "720")
+    
+    if not video_id:
+        return web.json_response({"error": "video_id kerak"}, status=400)
+    
+    try:
+        import yt_dlp
+        import random
+        
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        os.makedirs("downloads", exist_ok=True)
+        filename = f"downloads/webdl_{random.randint(10000, 99999)}"
+        
+        ydl_opts = {
+            'outtmpl': filename + '.%(ext)s',
+            'quiet': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_skip': ['webpage'],
+                }
+            }
+        }
+        
+        if resolution == "mp3":
+            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
+        else:
+            h = int(resolution)
+            ydl_opts['format'] = f'bestvideo[height<={h}]+bestaudio/best[height<={h}]/best'
+        
+        def _download():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+        
+        await asyncio.to_thread(_download)
+        
+        # Find downloaded file
+        base = os.path.basename(filename)
+        found = None
+        for f in os.listdir("downloads"):
+            if f.startswith(base):
+                found = os.path.join("downloads", f)
+                break
+        
+        if not found or not os.path.exists(found):
+            return web.json_response({"error": "Fayl topilmadi"}, status=500)
+        
+        # Stream the file
+        content_type = "audio/mpeg" if resolution == "mp3" else "video/mp4"
+        dl_name = f"video_{video_id}_{resolution}.{'mp3' if resolution == 'mp3' else 'mp4'}"
+        
+        response = web.FileResponse(found, headers={
+            "Content-Disposition": f'attachment; filename="{dl_name}"',
+            "Access-Control-Allow-Origin": "*",
+        })
+        
+        # Cleanup after response (schedule deletion)
+        async def cleanup_later():
+            await asyncio.sleep(60)
+            try:
+                if os.path.exists(found):
+                    os.remove(found)
+            except:
+                pass
+        asyncio.create_task(cleanup_later())
+        
+        return response
+    except Exception as e:
+        return web.json_response({"error": str(e)[:300]}, status=500)
+
 async def handle_api_autopost_create(request):
     """Tanlangan videolarni autopost_tasks ga qo'shish"""
     import json
@@ -728,6 +860,8 @@ async def start_web_server(port):
     app.router.add_get("/api/health-score", handle_api_health_score)
     app.router.add_get("/api/best-time", handle_api_best_time)
     app.router.add_post("/api/autopost-create", handle_api_autopost_create)
+    app.router.add_get("/api/video-formats", handle_api_video_formats)
+    app.router.add_get("/api/download-file", handle_api_download_file)
     app.router.add_post("/api/reset-db", handle_api_reset_db)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     

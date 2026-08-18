@@ -66,11 +66,14 @@ def load_super_features(bot: Client):
                 
             buttons = [
                 [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{short_id}")],
-                [InlineKeyboardButton("🎬 1080p (MP4 + Audio)", callback_data=f"down_1080|{short_id}")],
-                [InlineKeyboardButton("🎬 720p (MP4 + Audio)", callback_data=f"down_720|{short_id}")],
-                [InlineKeyboardButton("🎬 480p (MP4 + Audio)", callback_data=f"down_480|{short_id}")],
-                [InlineKeyboardButton("🎬 360p (MP4 + Audio)", callback_data=f"down_360|{short_id}")],
-                [InlineKeyboardButton("🚀 Eng yaxshisi (Avto)", callback_data=f"down_best|{short_id}")]
+                [InlineKeyboardButton("🎥 8K (4320p)", callback_data=f"down_8k|{short_id}"),
+                 InlineKeyboardButton("🎥 4K (2160p)", callback_data=f"down_4k|{short_id}")],
+                [InlineKeyboardButton("🎥 1440p (2K)", callback_data=f"down_1440|{short_id}"),
+                 InlineKeyboardButton("🎬 1080p (FHD)", callback_data=f"down_1080|{short_id}")],
+                [InlineKeyboardButton("🎬 720p (HD)", callback_data=f"down_720|{short_id}"),
+                 InlineKeyboardButton("🎬 480p", callback_data=f"down_480|{short_id}")],
+                [InlineKeyboardButton("🎬 360p", callback_data=f"down_360|{short_id}"),
+                 InlineKeyboardButton("🚀 Eng yaxshisi", callback_data=f"down_best|{short_id}")]
             ]
             await msg.edit_text(f"🎬 **{info.get('title', 'Video')}**\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
         except Exception as e:
@@ -123,7 +126,10 @@ def load_super_features(bot: Client):
         elif action == "down_480": ydl_opts['format'] = 'bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]/best'
         elif action == "down_720": ydl_opts['format'] = 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best'
         elif action == "down_1080": ydl_opts['format'] = 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best'
-        elif action == "down_best": ydl_opts['format'] = 'best'
+        elif action == "down_1440": ydl_opts['format'] = 'bestvideo[height<=1440]+bestaudio/best[height<=1440]/best'
+        elif action == "down_4k": ydl_opts['format'] = 'bestvideo[height<=2160]+bestaudio/best[height<=2160]/best'
+        elif action == "down_8k": ydl_opts['format'] = 'bestvideo[height<=4320]+bestaudio/best[height<=4320]/best'
+        elif action == "down_best": ydl_opts['format'] = 'bestvideo+bestaudio/best'
         
         try:
             def _download():
