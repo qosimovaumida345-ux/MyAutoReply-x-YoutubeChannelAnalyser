@@ -25,6 +25,19 @@ MAX_HISTORY = 20
 message_counter = {}     # {user_id: count} — har bir userning xabar sanagichi
 reply_threshold = {}     # {user_id: threshold} — nechta xabardan keyin javob berish (3-4 random)
 
+# Whisper modeli (bir marta yuklanadi, xotirada saqlanadi)
+_whisper_model = None
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        import os
+        from faster_whisper import WhisperModel
+        size = os.getenv("WHISPER_MODEL", "base")
+        print(f"Whisper modeli yuklanmoqda: {size}...")
+        _whisper_model = WhisperModel(size, device="cpu", compute_type="int8")
+        print("Whisper modeli tayyor!")
+    return _whisper_model
+
 # Reaksiya uchun emojilar
 POSITIVE_REACTIONS = ["❤️", "🔥", "👍", "😍", "🎉", "👏", "💯", "⚡"]
 NEUTRAL_REACTIONS = ["👀", "🤔", "💬", "✍️"]
@@ -191,6 +204,63 @@ def create_userbot():
         else:
             await message.edit_text("Foydalanish: .arsetprompt <yangi prompt>")
     
+    @app.on_message(filters.me & filters.command("arstyle", prefixes="."))
+    async def clone_style_command(client, message):
+        """Chat tarixidan foydalanib yozish uslubini klonlash"""
+        await message.edit_text("Yozish uslubingiz tahlil qilinmoqda (oxirgi 500 ta xabaringiz qidirilmoqda)...")
+        try:
+            my_messages = []
+            async for msg in client.get_chat_history(message.chat.id, limit=2000):
+                if msg.from_user and msg.from_user.is_self and msg.text:
+                    # Buyruqlarni o'tkazib yuborish
+                    if not msg.text.startswith("."):
+                        my_messages.append(msg.text)
+                if len(my_messages) >= 300:
+                    break
+            
+            if len(my_messages) < 20:
+                await message.edit_text("Uslubni o'rganish uchun bu chatda yetarli xabaringiz yo'q (kamida 20 ta).")
+                return
+                
+            await message.edit_text(f"Topildi: {len(my_messages)} ta xabar. AI uslubingizni o'rganmoqda...")
+            
+            combined_text = "\n".join(reversed(my_messages))
+            
+            prompt = f"""Quyida mening Telegram'dagi yozishmalarim keltirilgan.
+Mening yozish uslubimni (Style) chuqur tahlil qil va menga AI uchun qanday javob berish kerakligi haqida QISQA VA ANIQ yo'riqnoma (Prompt) yozib ber. 
+Yo'riqnoma quyidagilarni o'z ichiga olsin:
+1. Men so'zlarni qanday qisqartiraman (masalan, 'salom' o'rniga 'slm')?
+2. Gap qurilishim, tinish belgilari va emojilardan foydalanishim qanday?
+3. Men asosan qanday so'zlarni ishlataman?
+Natijada sen butunlay mening yozish uslubimni ta'riflab berishing kerak. (Faqat qoidalarni ro'yxat qilib yoz).
+
+Mening xabarlarim:
+{combined_text[:15000]}  # Token limitini saqlash uchun
+"""
+            from config import generate_with_fallback_async
+            response = await generate_with_fallback_async(prompt)
+            
+            if response and response.text:
+                from database import set_config
+                set_config("ai_cloned_style", response.text)
+                await message.edit_text(f"Uslubingiz muvaffaqiyatli klonlandi va saqlandi! Endi AI xuddi sizdek yozadi.\n\nAI tahlili:\n{response.text[:500]}...")
+            else:
+                await message.edit_text("AI tahlilida xatolik yuz berdi.")
+        except Exception as e:
+            await message.edit_text(f"Xatolik: {e}")
+
+    @app.on_message(filters.me & filters.command("arvoice", prefixes="."))
+    async def set_voice_id_command(client, message):
+        """ElevenLabs Voice ID o'rnatish"""
+        args = message.text.split(maxsplit=1)
+        if len(args) > 1:
+            from database import set_config
+            voice_id = args[1].strip()
+            set_config("ai_voice_id", voice_id)
+            await message.edit_text(f"Voice ID saqlandi: {voice_id}")
+        else:
+            await message.edit_text("Foydalanish: .arvoice <elevenlabs_voice_id>")
+
     @app.on_message(filters.me & filters.command("arhelp", prefixes="."))
     async def help_command(client, message):
         help_text = (
@@ -203,6 +273,8 @@ def create_userbot():
             ".arclear [id] - Tarixni tozalash\n"
             ".arstatus - Holat\n"
             ".arsetprompt <text> - Prompt o'zgartirish\n"
+            ".arstyle - Yozish uslubingizni AI ga o'rgatish (shu chat orqali)\n"
+            ".arvoice <id> - ElevenLabs Voice ID o'rnatish\n"
             ".arhelp - Yordam"
         )
         await message.edit_text(help_text)
@@ -346,7 +418,14 @@ def create_userbot():
                 role = "Suhbatdosh" if msg["role"] == "user" else "Men"
                 history_text += f"{role}: {msg['text']}\n"
             
-            prompt = f"""{EMOTIONAL_PROMPT}
+            from database import get_config
+            cloned_style = get_config("ai_cloned_style")
+            
+            style_instruction = ""
+            if cloned_style:
+                style_instruction = f"\nMUHIM: Sen quyidagi yozish uslubini (STYLE) 100% nusxalashing shart. Hech qachon o'zingdan so'z qo'shma, aynan shu uslubda yoz:\n{cloned_style}\n"
+            
+            prompt = f"""{EMOTIONAL_PROMPT}{style_instruction}
 
 Suhbatdoshning ismi: {user_name}
 Suhbat tarixi:
@@ -537,11 +616,11 @@ FAQAT JSON formatida javob ber:"""
         except Exception as e:
             print(f"Media reply xatosi: {e}")
     
-    # ==================== VOICE XABARLAR UCHUN ====================
+    # ==================== VOICE XABARLAR UCHUN (STT) ====================
     
     @app.on_message(filters.private & ~filters.me & ~filters.bot & filters.voice)
     async def voice_reply_handler(client, message):
-        """Ovozli xabarga javob"""
+        """Ovozli xabarga Whisper STT + AI orqali javob berish"""
         if not auto_reply_enabled:
             return
         
@@ -550,22 +629,126 @@ FAQAT JSON formatida javob ber:"""
             return
         
         try:
-            if random.random() < 0.6:
+            user_name = message.from_user.first_name or "Do'stim"
+            
+            # Reaksiya qo'yish — ovoz eshitayotgandek ko'rsatish
+            if random.random() < 0.7:
                 await send_reaction(client, message.chat.id, message.id, "neutral")
             
+            # "Audio eshitilmoqda" statusini ko'rsatish
+            await client.send_chat_action(message.chat.id, ChatAction.RECORD_AUDIO)
+            
+            # Ovoz faylini yuklab olish
+            voice_path = await client.download_media(message, file_name=f"/tmp/voice_{user_id}_{message.id}.ogg")
+            
+            transcribed_text = None
+            try:
+                # Whisper orqali ovozni matnga aylantirish (cached model ishlatiladi)
+                def transcribe_audio(path):
+                    model = get_whisper_model()
+                    segments, info = model.transcribe(path, beam_size=5)
+                    text = " ".join([seg.text for seg in segments]).strip()
+                    return text, info.language
+                
+                transcribed_text, detected_lang = await asyncio.to_thread(transcribe_audio, voice_path)
+                print(f"STT: {user_name} -> '{transcribed_text}' (til: {detected_lang})")
+                
+            except Exception as stt_err:
+                print(f"STT xatosi: {stt_err}")
+            finally:
+                # Vaqtinchalik faylni o'chirish
+                try:
+                    import os
+                    if voice_path and os.path.exists(voice_path):
+                        os.remove(voice_path)
+                except:
+                    pass
+            
             await client.send_chat_action(message.chat.id, ChatAction.TYPING)
-            await asyncio.sleep(random.uniform(2, 4))
             
-            responses = [
-                "Voice eshitdim! Hozir bandman, keyinroq eshitaman yaxshilab 🎧",
-                "Ovozli xabar yuboribsiz! Biroz kutib turing, hozir tinglayolmayapman 😅",
-                "Voice ni ko'rdim! Imkonim bo'lganda eshitaman 🎤👍",
-                "Audio keldi! Keyinroq javob beraman bunga 😊🎧",
-            ]
-            await message.reply_text(random.choice(responses))
-            
+            if transcribed_text and len(transcribed_text.strip()) > 1:
+                # Muvaffaqiyatli transkripsiya — AI ga berish
+                # Promptga ovoz haqida ma'lumot qo'shish
+                voice_user_text = f"[Ovozli xabar yubordi, mazmuni: {transcribed_text}]"
+                ai_result = await get_ai_response(user_id, user_name, voice_user_text)
+                
+                if ai_result.get("is_spam", False):
+                    return
+                
+                reply_text = ai_result["reply"]
+                ai_mood = ai_result["mood"]
+                should_gif = ai_result["should_send_gif"]
+                gif_keyword = ai_result["gif_keyword"]
+                
+                # Tabiiy kutish
+                await asyncio.sleep(random.uniform(2, 5))
+                
+                # Ovoz klonini tekshirish
+                from database import get_config
+                import os
+                voice_id = get_config("ai_voice_id")
+                eleven_key = os.getenv("ELEVENLABS_API_KEY")
+                
+                if eleven_key and voice_id:
+                    try:
+                        await client.send_chat_action(message.chat.id, ChatAction.RECORD_AUDIO)
+                        
+                        def generate_tts():
+                            from elevenlabs.client import ElevenLabs
+                            eleven_client = ElevenLabs(api_key=eleven_key)
+                            # Remove emojis for TTS
+                            import re
+                            clean_text = re.sub(r'[^\w\s.,!?\'"]', '', reply_text)
+                            
+                            audio_gen = eleven_client.generate(
+                                text=clean_text,
+                                voice=voice_id,
+                                model="eleven_multilingual_v2"
+                            )
+                            # audio_gen is a generator yielding bytes
+                            audio_bytes = b"".join(audio_gen)
+                            
+                            out_path = f"/tmp/out_voice_{user_id}_{message.id}.ogg"
+                            with open(out_path, "wb") as f:
+                                f.write(audio_bytes)
+                            return out_path
+                        
+                        out_voice_path = await asyncio.to_thread(generate_tts)
+                        
+                        await message.reply_voice(out_voice_path, caption=reply_text)
+                        print(f"Voice javob (ElevenLabs) -> {user_name}: {reply_text}")
+                        
+                        try:
+                            if os.path.exists(out_voice_path):
+                                os.remove(out_voice_path)
+                        except:
+                            pass
+                            
+                    except Exception as tts_err:
+                        print(f"ElevenLabs TTS xatosi: {tts_err}")
+                        await message.reply_text(reply_text)
+                        print(f"Voice javob (Text fallback) -> {user_name}: {reply_text}")
+                else:
+                    await message.reply_text(reply_text)
+                    print(f"Voice javob (Matn) -> {user_name}: {reply_text}")
+                
+                # GIF yuborish (agar kerak bo'lsa)
+                if gif_enabled and should_gif and gif_keyword:
+                    await asyncio.sleep(random.uniform(1.0, 2.5))
+                    await send_gif_by_keyword(client, message.chat.id, gif_keyword)
+            else:
+                # Transkripsiya muvaffaqiyatsiz — tabiiy fallback
+                await asyncio.sleep(random.uniform(2, 4))
+                responses = [
+                    f"Ovozli xabarni eshitdim {user_name}! Aniq eshitmadim, qaytadan yozsang bo'ladimi? 🎧😅",
+                    f"Voice keldi! Bir oz shovqin bor edi, matn yozib yuborsang yaxshiroq bo'lardi 🎤",
+                    f"Tinglashga harakat qildim, ammo aniq eshitmadim. Yozib yubor 😊",
+                ]
+                await message.reply_text(random.choice(responses))
+                
         except Exception as e:
             print(f"Voice reply xatosi: {e}")
+
     
     return app
 

@@ -233,23 +233,25 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
 
     final_mp4 = f"downloads/{video_id}.mp4"
     
-    # Watermark qo'shish (ixtiyoriy)
-    if apply_watermark:
-        print(f"[{video_id}] Watermark qo'shilmoqda ({channel_title})...")
-        safe_title = channel_title.replace("'", "\\'")
+    # Kengaytirilgan video qayta ishlash (Watermark, Captions, Branding)
+    from video_processor import process_video_advanced
+    try:
+        processed_mp4 = process_video_advanced(raw_mp4, channel_title, channel_pfp)
         
-        if channel_pfp and os.path.exists(channel_pfp):
-            os.system(f'''ffmpeg -y -i "{raw_mp4}" -i "{channel_pfp}" -filter_complex "[0:v]crop=in_w:in_h*0.8:0:in_h*0.1[vid];[1:v]scale=h/10:-1[logo];[vid][logo]overlay=W-w-10:H-h-10, drawtext=text=\'{safe_title}\':fontcolor=white:fontsize=h/15:x=w-tw-10-main_h/10-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
-        else:
-            os.system(f'''ffmpeg -y -i "{raw_mp4}" -vf "crop=in_w:in_h*0.8:0:in_h*0.1, drawtext=text=\'{safe_title}\':fontcolor=white:fontsize=h/15:x=w-tw-10:y=h-th-10:box=1:boxcolor=black@0.5:boxborderw=5" -c:v libx264 -preset veryfast -crf 28 -c:a copy "{final_mp4}"''')
-            
-        try: os.remove(raw_mp4)
-        except: pass
-        
-        if os.path.exists(final_mp4):
+        # Agar fayl o'zgargan bo'lsa uni final nomiga ko'chiramiz
+        if processed_mp4 != raw_mp4 and os.path.exists(processed_mp4):
+            os.rename(processed_mp4, final_mp4)
+            try: os.remove(raw_mp4)
+            except: pass
             return final_mp4
-    
-    return raw_mp4
+        else:
+            # Agar o'zgarmagan bo'lsa, xom faylni qaytaramiz
+            os.rename(raw_mp4, final_mp4)
+            return final_mp4
+    except Exception as e:
+        print(f"[AUTOPOST] Video ishlash xatosi: {e}")
+        os.rename(raw_mp4, final_mp4)
+        return final_mp4
 
 # ==================== VIDEO UPLOAD ====================
 
