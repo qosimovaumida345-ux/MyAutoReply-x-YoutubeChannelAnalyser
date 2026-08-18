@@ -709,21 +709,19 @@ async def handle_api_video_formats(request):
                 os.remove(cookie_path)
         
         # Collect available resolutions
-        available = set()
-        for f in info.get("formats", []):
-            h = f.get("height")
-            if h:
-                available.add(h)
+        # yt-dlp dynamically handles formats and gracefully falls back to the max available if requested height is missing
+        # So we can enable all options by default.
+        available = True
         
         # Map standard resolutions
         all_resolutions = [
-            {"label": "360p", "value": "360", "available": 360 in available},
-            {"label": "480p", "value": "480", "available": 480 in available},
-            {"label": "720p (HD)", "value": "720", "available": 720 in available},
-            {"label": "1080p (FHD)", "value": "1080", "available": 1080 in available},
-            {"label": "1440p (2K)", "value": "1440", "available": 1440 in available},
-            {"label": "2160p (4K)", "value": "2160", "available": 2160 in available},
-            {"label": "4320p (8K)", "value": "4320", "available": 4320 in available},
+            {"label": "360p", "value": "360", "available": True},
+            {"label": "480p", "value": "480", "available": True},
+            {"label": "720p (HD)", "value": "720", "available": True},
+            {"label": "1080p (FHD)", "value": "1080", "available": True},
+            {"label": "1440p (2K)", "value": "1440", "available": True},
+            {"label": "2160p (4K)", "value": "2160", "available": True},
+            {"label": "4320p (8K)", "value": "4320", "available": True},
             {"label": "🎵 MP3 (Audio)", "value": "mp3", "available": True},
         ]
         
