@@ -224,7 +224,6 @@ async def handle_api_stats(request):
                     (int(tg_user_id),)
                 )
                 rows = cur.fetchall()
-                conn_db.close()
                 autopost_stats["total"]   = len(rows)
                 autopost_stats["success"] = sum(1 for r in rows if r["status"] == "uploaded")
                 autopost_stats["failed"]  = sum(1 for r in rows if r["status"] == "failed")
@@ -243,8 +242,11 @@ async def handle_api_stats(request):
                         "completed": active_task["completed_count"],
                         "status": active_task["status"]
                     }
+                conn_db.close()
         except Exception as e:
             print(f"[api/stats] Autopost tarixi xato: {e}")
+            try: conn_db.close()
+            except: pass
 
         from config import OWNER_ID
         is_owner = (int(tg_user_id) == OWNER_ID)

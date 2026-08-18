@@ -1480,9 +1480,17 @@ async function loadDashboard() {
     try {
         const data = await api(`/api/stats?tg_user_id=${TG_USER_ID}`);
         
-        if (data.error === 'not_logged_in') {
+        if (data.error) {
             document.getElementById('kpiSubs').textContent = '—';
-            document.getElementById('recentVideosList').innerHTML = '<p style="color:var(--text-dim)">Kanal ulanmagan. Avval Telegram botdan /ytlogin qiling</p>';
+            document.getElementById('kpiViews').textContent = '—';
+            document.getElementById('kpiVideos').textContent = '—';
+            document.getElementById('kpiEngagement').textContent = '—';
+            
+            let errMsg = data.error === 'not_logged_in' 
+                ? 'Kanal ulanmagan. Avval Telegram botdan /ytlogin qiling' 
+                : `Xatolik: ${data.error}`;
+                
+            document.getElementById('recentVideosList').innerHTML = `<p style="color:var(--red)">${errMsg}</p>`;
             return;
         }
         
