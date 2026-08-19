@@ -251,15 +251,25 @@ Mening xabarlarim:
 
     @app.on_message(filters.me & filters.command("arvoice", prefixes="."))
     async def set_voice_id_command(client, message):
-        """ElevenLabs Voice ID o'rnatish"""
+        """edge-tts ovoz nomini o'rnatish"""
         args = message.text.split(maxsplit=1)
         if len(args) > 1:
             from database import set_config
-            voice_id = args[1].strip()
-            set_config("ai_voice_id", voice_id)
-            await message.edit_text(f"Voice ID saqlandi: {voice_id}")
+            voice_name = args[1].strip()
+            set_config("ai_voice_id", voice_name)
+            await message.edit_text(f"Ovoz saqlandi: {voice_name}")
         else:
-            await message.edit_text("Foydalanish: .arvoice <elevenlabs_voice_id>")
+            await message.edit_text(
+                "Foydalanish: .arvoice <edge-tts ovoz nomi>\n\n"
+                "Masalan:\n"
+                "  .arvoice uz-UZ-SardorNeural (O'zbek erkak)\n"
+                "  .arvoice uz-UZ-MadinaNeural (O'zbek ayol)\n"
+                "  .arvoice ru-RU-DmitryNeural (Ruscha erkak)\n"
+                "  .arvoice en-US-GuyNeural (Inglizcha erkak)\n"
+                "  .arvoice en-US-JennyNeural (Inglizcha ayol)\n"
+                "  .arvoice tr-TR-AhmetNeural (Turkcha erkak)\n\n"
+                "Hozirgi default: uz-UZ-SardorNeural"
+            )
 
     @app.on_message(filters.me & filters.command("arhelp", prefixes="."))
     async def help_command(client, message):
@@ -273,8 +283,8 @@ Mening xabarlarim:
             ".arclear [id] - Tarixni tozalash\n"
             ".arstatus - Holat\n"
             ".arsetprompt <text> - Prompt o'zgartirish\n"
-            ".arstyle - Yozish uslubingizni AI ga o'rgatish (shu chat orqali)\n"
-            ".arvoice <id> - ElevenLabs Voice ID o'rnatish\n"
+            ".arstyle - Yozish uslubingizni AI ga o'rgatish\n"
+            ".arvoice <ovoz> - Ovozli javob uchun ovoz tanlash (edge-tts, tekin)\n"
             ".arhelp - Yordam"
         )
         await message.edit_text(help_text)
@@ -683,54 +693,42 @@ FAQAT JSON formatida javob ber:"""
                 # Tabiiy kutish
                 await asyncio.sleep(random.uniform(2, 5))
                 
-                # Ovoz klonini tekshirish
+                # Ovozli javob (edge-tts — tekin)
                 from database import get_config
                 import os
-                voice_id = get_config("ai_voice_id")
-                eleven_key = os.getenv("ELEVENLABS_API_KEY")
+                voice_name = get_config("ai_voice_id") or "uz-UZ-SardorNeural"
                 
-                if eleven_key and voice_id:
-                    try:
-                        await client.send_chat_action(message.chat.id, ChatAction.RECORD_AUDIO)
+                try:
+                    await client.send_chat_action(message.chat.id, ChatAction.RECORD_AUDIO)
+                    
+                    import re
+                    clean_text = re.sub(r'[^\w\s.,!?\'"()-]', '', reply_text)
+                    
+                    if clean_text.strip():
+                        import edge_tts
+                        out_path = f"/tmp/out_voice_{user_id}_{message.id}.mp3"
                         
-                        def generate_tts():
-                            from elevenlabs.client import ElevenLabs
-                            eleven_client = ElevenLabs(api_key=eleven_key)
-                            # Remove emojis for TTS
-                            import re
-                            clean_text = re.sub(r'[^\w\s.,!?\'"]', '', reply_text)
-                            
-                            audio_gen = eleven_client.generate(
-                                text=clean_text,
-                                voice=voice_id,
-                                model="eleven_multilingual_v2"
-                            )
-                            # audio_gen is a generator yielding bytes
-                            audio_bytes = b"".join(audio_gen)
-                            
-                            out_path = f"/tmp/out_voice_{user_id}_{message.id}.ogg"
-                            with open(out_path, "wb") as f:
-                                f.write(audio_bytes)
-                            return out_path
+                        communicate = edge_tts.Communicate(clean_text, voice_name)
+                        await communicate.save(out_path)
                         
-                        out_voice_path = await asyncio.to_thread(generate_tts)
-                        
-                        await message.reply_voice(out_voice_path, caption=reply_text)
-                        print(f"Voice javob (ElevenLabs) -> {user_name}: {reply_text}")
-                        
-                        try:
-                            if os.path.exists(out_voice_path):
-                                os.remove(out_voice_path)
-                        except:
-                            pass
-                            
-                    except Exception as tts_err:
-                        print(f"ElevenLabs TTS xatosi: {tts_err}")
+                        if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                            await message.reply_voice(out_path)
+                            print(f"Voice javob (edge-tts) -> {user_name}: {reply_text}")
+                            try:
+                                os.remove(out_path)
+                            except:
+                                pass
+                        else:
+                            await message.reply_text(reply_text)
+                            print(f"Voice javob (fallback text) -> {user_name}: {reply_text}")
+                    else:
                         await message.reply_text(reply_text)
-                        print(f"Voice javob (Text fallback) -> {user_name}: {reply_text}")
-                else:
+                        print(f"Voice javob (empty clean) -> {user_name}: {reply_text}")
+                        
+                except Exception as tts_err:
+                    print(f"edge-tts xatosi: {tts_err}")
                     await message.reply_text(reply_text)
-                    print(f"Voice javob (Matn) -> {user_name}: {reply_text}")
+                    print(f"Voice javob (Text fallback) -> {user_name}: {reply_text}")
                 
                 # GIF yuborish (agar kerak bo'lsa)
                 if gif_enabled and should_gif and gif_keyword:

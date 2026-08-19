@@ -125,9 +125,15 @@ async def handle_health(request):
     return web.Response(text="Bot is running!", content_type="text/html")
 
 
+# ==================== STATS CACHE (YouTube API quota tejash uchun) ====================
+import time as _time
+_stats_cache = {}  # {tg_user_id: {"data": ..., "ts": time}}
+_CACHE_TTL = 600  # 10 daqiqa
+
 async def handle_api_stats(request):
-    """Dashboard uchun real YouTube kanal statistikasi"""
+    """Dashboard uchun real YouTube kanal statistikasi (cached)"""
     import json
+    global _stats_cache
     tg_user_id = request.query.get("tg_user_id")
     if not tg_user_id:
         return web.Response(
@@ -135,6 +141,16 @@ async def handle_api_stats(request):
             content_type="application/json",
             headers={"Access-Control-Allow-Origin": "*"}
         )
+    
+    # Cache tekshirish — agar 10 daqiqa ichida so'ralgan bo'lsa, qayta API chaqirmaslik
+    cached = _stats_cache.get(tg_user_id)
+    if cached and (_time.time() - cached["ts"]) < _CACHE_TTL:
+        return web.Response(
+            text=json.dumps(cached["data"], default=str),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    
     try:
         from database import get_yt_connection
         from googleapiclient.discovery import build
@@ -251,23 +267,31 @@ async def handle_api_stats(request):
         from config import OWNER_ID
         is_owner = (int(tg_user_id) == OWNER_ID)
 
+        response_data = {
+            "channel_title":    snippet.get("title", ""),
+            "channel_username": conn_data.get("yt_channel_username", ""),
+            "channel_thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+            "channel_country":  snippet.get("country", ""),
+            "subscribers":      total_subs,
+            "total_views":      total_views,
+            "total_videos":     total_videos,
+            "avg_views":        avg_views,
+            "avg_likes":        avg_likes,
+            "avg_comments":     avg_comments,
+            "engagement_rate":  engagement,
+            "autopost":         autopost_stats,
+            "recent_videos":    recent_videos,
+            "is_owner":         is_owner,
+        }
+        
+        # Cache'ga saqlash
+        _stats_cache[tg_user_id] = {
+            "data": response_data,
+            "ts": _time.time()
+        }
+
         return web.Response(
-            text=json.dumps({
-                "channel_title":    snippet.get("title", ""),
-                "channel_username": conn_data.get("yt_channel_username", ""),
-                "channel_thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
-                "channel_country":  snippet.get("country", ""),
-                "subscribers":      total_subs,
-                "total_views":      total_views,
-                "total_videos":     total_videos,
-                "avg_views":        avg_views,
-                "avg_likes":        avg_likes,
-                "avg_comments":     avg_comments,
-                "engagement_rate":  engagement,
-                "autopost":         autopost_stats,
-                "recent_videos":    recent_videos,
-                "is_owner":         is_owner,
-            }, default=str),
+            text=json.dumps(response_data, default=str),
             content_type="application/json",
             headers={"Access-Control-Allow-Origin": "*"}
         )

@@ -12,4 +12,3 @@ faster-whisper
 Pillow
 opencv-python-headless
 edge-tts
-elevenlabs
