@@ -150,7 +150,7 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     url = f"https://www.youtube.com/watch?v={video_id}"
 
     # Cookies
-    cookies_text = get_user_cookies(user_id) if user_id else None
+    cookies_text = get_user_cookies(user_id)
     cookie_path = f"downloads/cookies_{video_id}.txt"
     has_cookies = False
     if cookies_text:
@@ -170,8 +170,8 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         }],
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv_embedded', 'mweb'],
-                'player_skip': ['webpage'],
+                'player_client': ['ios', 'android', 'mweb', 'web'],
+                'player_skip': ['webpage', 'configs'],
             }
         },
         'source_address': '0.0.0.0',
@@ -194,13 +194,13 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
 
     except yt_dlp.utils.DownloadError as e:
         error_msg = str(e).lower()
-        if "format" in error_msg or "not available" in error_msg or "sign in" in error_msg:
-            print(f"[AUTOPOST] tv_embedded/mweb failed for {video_id}, trying fallback clients...")
+        if "format" in error_msg or "not available" in error_msg or "sign in" in error_msg or "429" in error_msg:
+            print(f"[AUTOPOST] Primary clients failed for {video_id}, trying android/ios fallback...")
 
             fallback_opts = dict(ydl_opts)
             fallback_opts['extractor_args'] = {
                 'youtube': {
-                    'player_client': ['ios', 'web', 'android', 'mweb', 'web_creator'],
+                    'player_client': ['android', 'ios', 'web_creator', 'mweb'],
                     'player_skip': ['webpage'],
                 }
             }
@@ -211,7 +211,8 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
             raise
     finally:
         if os.path.exists(cookie_path):
-            os.remove(cookie_path)
+            try: os.remove(cookie_path)
+            except: pass
 
     # Fayl topish — glob bilan barcha mumkin bo'lgan extensionlarni tekshirish
     raw_mp4 = f"downloads/{video_id}_raw.mp4"

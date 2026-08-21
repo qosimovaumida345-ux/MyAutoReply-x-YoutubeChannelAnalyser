@@ -804,20 +804,41 @@ def set_user_cookies(user_id, cookies_text):
         cur.close()
         conn.close()
 
-def get_user_cookies(user_id):
+def get_user_cookies(user_id=None):
+    import os
     conn = get_db()
-    if not conn: return None
-    cur = conn.cursor()
-    try:
-        cur.execute("SELECT yt_cookies FROM user_settings WHERE tg_user_id = %s", (user_id,))
-        res = cur.fetchone()
-        return res["yt_cookies"] if res else None
-    except Exception as e:
-        print(f"Error getting user cookies: {e}")
-        return None
-    finally:
-        cur.close()
-        conn.close()
+    if conn:
+        cur = conn.cursor()
+        try:
+            if user_id:
+                cur.execute("SELECT yt_cookies FROM user_settings WHERE tg_user_id = %s", (user_id,))
+                res = cur.fetchone()
+                if res and res.get("yt_cookies") and len(res["yt_cookies"].strip()) > 20:
+                    return res["yt_cookies"].strip()
+            
+            # Fallback: Agar bu userda bo'lmasa, bazadagi istalgan cookie ni olish
+            cur.execute("SELECT yt_cookies FROM user_settings WHERE yt_cookies IS NOT NULL AND length(yt_cookies) > 20 ORDER BY tg_user_id ASC LIMIT 1")
+            res = cur.fetchone()
+            if res and res.get("yt_cookies") and len(res["yt_cookies"].strip()) > 20:
+                return res["yt_cookies"].strip()
+        except Exception as e:
+            print(f"Error getting user cookies: {e}")
+        finally:
+            cur.close()
+            conn.close()
+
+    # Fallback 2: Fayl tizimidagi cookies.txt ni tekshirish
+    for path in ["cookies.txt", "downloads/cookies.txt", "/tmp/cookies.txt"]:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if len(content) > 20:
+                        return content
+            except Exception as e:
+                print(f"Error reading {path}: {e}")
+
+    return None
 
 # ==================== AUTOPILOT CONFIG ====================
 def set_autopilot(user_id, topics, interval_days):

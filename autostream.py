@@ -6,31 +6,47 @@ from database import get_stream_key
 # Memory dict to store ffmpeg process for each user
 autostream_tasks = {}
 
-async def download_videos(search_query, chat_id, limit=5):
+async def download_videos(search_query, chat_id, tg_user_id=None, limit=5):
     """
     Search and download videos using yt-dlp.
     We download them to a temporary directory.
     Returns list of downloaded video paths.
     """
     import yt_dlp
+    from database import get_user_cookies
+    
     download_dir = f"/tmp/autostream_{chat_id}"
     os.makedirs(download_dir, exist_ok=True)
     
+    cookies_text = get_user_cookies(tg_user_id)
+    cookie_path = f"{download_dir}/cookies.txt"
+    has_cookies = False
+    if cookies_text:
+        with open(cookie_path, "w", encoding="utf-8") as f:
+            f.write(cookies_text)
+        has_cookies = True
+    
     # We want to download the best mp4 format or anything that ffmpeg can easily concat
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         'outtmpl': f'{download_dir}/%(id)s.%(ext)s',
         'max_downloads': limit,
-        'quiet': True,
+        'quiet': False,
         'noplaylist': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['tv_embedded', 'mweb'],
-                'player_skip': ['js']
+                'player_client': ['ios', 'android', 'mweb', 'web'],
+                'player_skip': ['webpage', 'configs']
             }
         },
-        'compat_opts': ['no-youtube-unavailable-videos']
+        'compat_opts': ['no-youtube-unavailable-videos'],
+        'retries': 5,
+        'fragment_retries': 5,
+        'skip_unavailable_fragments': True
     }
+    
+    if has_cookies:
+        ydl_opts['cookiefile'] = cookie_path
     
     # If the query is just a single URL, process it. Otherwise, ytsearch
     if search_query.startswith("http"):
@@ -48,10 +64,15 @@ async def download_videos(search_query, chat_id, limit=5):
                 else:
                     return [ydl.prepare_filename(info)]
         except Exception as e:
-            print(f"yt-dlp download error: {e}")
+            print(f"yt-dlp autostream download error: {e}")
             return []
             
-    paths = await asyncio.to_thread(_run_ydl)
+    try:
+        paths = await asyncio.to_thread(_run_ydl)
+    finally:
+        if os.path.exists(cookie_path):
+            try: os.remove(cookie_path)
+            except: pass
     
     # Verify files exist
     valid_paths = [p for p in paths if os.path.exists(p)]
@@ -75,7 +96,7 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
 
     msg = await client.send_message(chat_id, f"🔍 Kuting, '{search_query}' bo'yicha videolar qidirilyapti va yuklanyapti...")
     
-    video_paths = await download_videos(search_query, chat_id, limit=5)
+    video_paths = await download_videos(search_query, chat_id, tg_user_id=tg_user_id, limit=5)
     
     if not video_paths:
         await msg.edit_text("❌ Hech qanday video topilmadi yoki yuklashda xatolik yuz berdi.")

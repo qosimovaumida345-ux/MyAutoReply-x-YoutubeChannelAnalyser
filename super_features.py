@@ -306,22 +306,37 @@ def load_super_features(bot: Client):
         import yt_dlp
         import os
         from video_processor import create_reaction_video
+        from database import get_user_cookies
         
         download_dir = f"/tmp/reaction_{message.from_user.id}"
         os.makedirs(download_dir, exist_ok=True)
         
+        cookies_text = get_user_cookies(message.from_user.id)
+        cookie_path = f"{download_dir}/cookies.txt"
+        has_cookies = False
+        if cookies_text:
+            with open(cookie_path, "w", encoding="utf-8") as f:
+                f.write(cookies_text)
+            has_cookies = True
+        
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'outtmpl': f'{download_dir}/%(id)s.%(ext)s',
-            'quiet': True,
+            'quiet': False,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['tv_embedded', 'mweb'],
-                    'player_skip': ['js']
+                    'player_client': ['ios', 'android', 'mweb', 'web'],
+                    'player_skip': ['webpage', 'configs']
                 }
             },
-            'compat_opts': ['no-youtube-unavailable-videos']
+            'compat_opts': ['no-youtube-unavailable-videos'],
+            'retries': 5,
+            'fragment_retries': 5,
+            'skip_unavailable_fragments': True
         }
+        
+        if has_cookies:
+            ydl_opts['cookiefile'] = cookie_path
         
         def _download(url):
             try:
@@ -333,8 +348,13 @@ def load_super_features(bot: Client):
                 return None
                 
         # 1. Yuklash
-        main_path = await asyncio.to_thread(_download, main_url)
-        reactor_path = await asyncio.to_thread(_download, reactor_url)
+        try:
+            main_path = await asyncio.to_thread(_download, main_url)
+            reactor_path = await asyncio.to_thread(_download, reactor_url)
+        finally:
+            if os.path.exists(cookie_path):
+                try: os.remove(cookie_path)
+                except: pass
         
         if not main_path or not reactor_path:
             await msg.edit_text("❌ Videolarni yuklashda xatolik yuz berdi. URLlarni tekshiring.")
