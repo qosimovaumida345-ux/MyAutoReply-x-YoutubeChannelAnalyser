@@ -73,8 +73,10 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=6):
         # Duration aniqlanmagan va live emas bo'lsa ham bloklash (ehtiyot uchun)
         if dur is None and not incomplete:
             return "Duration aniqlanmadi — o'tkazib yuborildi"
-        if dur and dur > 65:
-            return "Video 65s dan uzun — faqat Shorts kerak"
+        if info_dict.get('is_live') or info_dict.get('live_status') == 'is_live':
+            return "Live stream — skip"
+        if dur and dur > 180:
+            return "3 daqiqadan uzun — skip"    
         return None
 
     ydl_opts = {
