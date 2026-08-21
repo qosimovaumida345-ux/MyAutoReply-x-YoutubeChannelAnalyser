@@ -91,6 +91,14 @@ def init_db():
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='yt_channel_username'")
     if not cur.fetchone():
         cur.execute("ALTER TABLE yt_connections ADD COLUMN yt_channel_username TEXT")
+        
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='stream_key'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE yt_connections ADD COLUMN stream_key TEXT")
+        
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='stream_active'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE yt_connections ADD COLUMN stream_active BOOLEAN DEFAULT FALSE")
     
     # Auto-post vazifalar (topshiriqlar)
     cur.execute("""
@@ -960,5 +968,53 @@ def update_yt_tokens(tg_user_id, yt_channel_id, access_token, refresh_token=None
     except Exception as e:
         print(f"Error updating yt_tokens: {e}")
         return False
+    finally:
+        conn.close()
+
+def set_stream_key(tg_user_id, stream_key):
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        # Ensure a record exists, we will update the default yt_connection or create a placeholder if it doesn't exist
+        # Wait, the prompt says "In database.py — add these columns to yt_connections table".
+        # But a user might have multiple yt_connections. The easiest is to update all or just the default one.
+        # Actually, let's just update the most recently connected one or the default one.
+        cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        default_ch_id = row["default_yt_channel_id"] if row else None
+        
+        if default_ch_id:
+            cur.execute("UPDATE yt_connections SET stream_key = %s WHERE tg_user_id = %s AND yt_channel_id = %s", (stream_key, tg_user_id, default_ch_id))
+        else:
+            cur.execute("UPDATE yt_connections SET stream_key = %s WHERE tg_user_id = %s", (stream_key, tg_user_id))
+            
+        conn.commit()
+        return True
+    except Exception as e:
+        print("set_stream_key error:", e)
+        return False
+    finally:
+        conn.close()
+
+def get_stream_key(tg_user_id):
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        default_ch_id = row["default_yt_channel_id"] if row else None
+        
+        if default_ch_id:
+            cur.execute("SELECT stream_key FROM yt_connections WHERE tg_user_id = %s AND yt_channel_id = %s", (tg_user_id, default_ch_id))
+        else:
+            cur.execute("SELECT stream_key FROM yt_connections WHERE tg_user_id = %s ORDER BY connected_at DESC LIMIT 1", (tg_user_id,))
+            
+        res = cur.fetchone()
+        return res["stream_key"] if res else None
+    except Exception as e:
+        print("get_stream_key error:", e)
+        return None
     finally:
         conn.close()

@@ -689,7 +689,14 @@ def create_ytbot():
             "`.arunblock <id>` - Blokdan chiqarish\n"
             "`.arclear [id]` - Tarix tozalash\n"
             "`.arstatus` - Holat\n"
-            "`.arhelp` - Userbot yordam"
+            "`.arhelp` - Userbot yordam\n\n"
+            
+            "🎥 `Video Strim & Reaksiya:`\n"
+            "`/setstreamkey <key>` - Stream Key kiritish\n"
+            "`/autostream start <qidiruv>` - 24/7 jonli efir\n"
+            "`/autostream stop` - Efirni to'xtatish\n"
+            "`/autostream status` - Efir holati\n"
+            "`/reaction <asosiy_video> <reactor_video>` - Reaksiya videoni yaratish (PiP)"
         )
             
         await message.reply_text(help_text, reply_markup=help_menu_kb(), parse_mode=ParseMode.MARKDOWN)
@@ -718,6 +725,47 @@ def create_ytbot():
         msg = await message.reply_text("Pong!")
         diff = (datetime.now() - start).microseconds / 1000
         await msg.edit_text(f"Pong! `{diff:.0f}ms`", parse_mode=ParseMode.MARKDOWN)
+
+    # ==================== /setstreamkey ====================
+    @bot.on_message(filters.command("setstreamkey"))
+    async def setstreamkey_cmd(client, message):
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            await message.reply_text("Foydalanish: `/setstreamkey <YouTube Stream Key>`")
+            return
+        
+        from database import set_stream_key
+        key = args[1].strip()
+        if set_stream_key(message.from_user.id, key):
+            await message.reply_text("✅ Stream Key muvaffaqiyatli saqlandi! Endi `/autostream start` buyrug'idan foydalanishingiz mumkin.")
+        else:
+            await message.reply_text("❌ Stream Keyni saqlashda xatolik yuz berdi. (Avval /ytlogin orqali ulaning).")
+
+    # ==================== /autostream ====================
+    @bot.on_message(filters.command("autostream"))
+    async def autostream_cmd(client, message):
+        args = message.text.split(maxsplit=2)
+        if len(args) < 2:
+            await message.reply_text("Foydalanish:\n`/autostream start <qidiruv so'zi>`\n`/autostream stop`\n`/autostream status`")
+            return
+            
+        action = args[1].lower()
+        tg_user_id = message.from_user.id
+        
+        from autostream import start_autostream, stop_autostream, get_autostream_status
+        
+        if action == "start":
+            if len(args) < 3:
+                await message.reply_text("Iltimos, qidiruv so'zini ham yozing.\nMisol: `/autostream start lofi hip hop`")
+                return
+            await start_autostream(tg_user_id, args[2], client, message.chat.id)
+        elif action == "stop":
+            await stop_autostream(tg_user_id, client, message.chat.id)
+        elif action == "status":
+            status = get_autostream_status(tg_user_id)
+            await message.reply_text(f"📊 Jonli efir holati: {status}")
+        else:
+            await message.reply_text("Noma'lum komanda. Foydalanish: start, stop, status.")
     
     # ==================== /channel ====================
     @bot.on_message(filters.command("channel"))

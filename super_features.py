@@ -281,4 +281,92 @@ def load_super_features(bot: Client):
         from mass_actions import mass_action_worker
         asyncio.create_task(
             mass_action_worker(channel_url, comment_text, action_type, client, message.chat.id)
-        )
+        )
+
+
+    # ==========================================
+    # /reaction - Picture in Picture video
+    # ==========================================
+    @bot.on_message(filters.command("reaction") & filters.private)
+    async def reaction_cmd(client, message):
+        """
+        /reaction <main_url> <reactor_url>
+        Ikkita videoni birlashtirib PiP effektini yaratadi.
+        """
+        args = message.text.split()
+        if len(args) != 3:
+            await message.reply_text("❌ Noto'g'ri format. Foydalanish:\n`/reaction <asosiy_video_url> <reaksiya_video_url>`")
+            return
+            
+        main_url = args[1]
+        reactor_url = args[2]
+        
+        msg = await message.reply_text("⏳ Videolar yuklanmoqda... (1/3)")
+        
+        import yt_dlp
+        import os
+        from video_processor import create_reaction_video
+        
+        download_dir = f"/tmp/reaction_{message.from_user.id}"
+        os.makedirs(download_dir, exist_ok=True)
+        
+        ydl_opts = {
+            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
+            'outtmpl': f'{download_dir}/%(id)s.%(ext)s',
+            'quiet': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['tv_embedded', 'mweb'],
+                    'player_skip': ['js']
+                }
+            },
+            'compat_opts': ['no-youtube-unavailable-videos']
+        }
+        
+        def _download(url):
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    return ydl.prepare_filename(info)
+            except Exception as e:
+                print(f"Reaction download xato: {e}")
+                return None
+                
+        # 1. Yuklash
+        main_path = await asyncio.to_thread(_download, main_url)
+        reactor_path = await asyncio.to_thread(_download, reactor_url)
+        
+        if not main_path or not reactor_path:
+            await msg.edit_text("❌ Videolarni yuklashda xatolik yuz berdi. URLlarni tekshiring.")
+            return
+            
+        await msg.edit_text("⏳ Reaksiya videosi yaratilmoqda... (2/3)\nBu biroz vaqt oladi.")
+        
+        # 2. Birlashtirish
+        output_path = f"{download_dir}/final_reaction.mp4"
+        result_path = await asyncio.to_thread(create_reaction_video, main_path, reactor_path, output_path)
+        
+        if not result_path or not os.path.exists(result_path):
+            await msg.edit_text("❌ Videoni render qilishda xatolik yuz berdi.")
+            return
+            
+        await msg.edit_text("📤 Telegramga yuklanmoqda... (3/3)")
+        
+        # 3. Yuborish
+        try:
+            await client.send_video(
+                chat_id=message.chat.id,
+                video=result_path,
+                caption="Yangi Reaction Videongiz tayyor! 🎉",
+                supports_streaming=True
+            )
+            await msg.delete()
+        except Exception as e:
+            await msg.edit_text(f"❌ Videoni yuborishda xatolik: {e}")
+            
+        # 4. Tozalash
+        import shutil
+        try:
+            shutil.rmtree(download_dir, ignore_errors=True)
+        except: pass
+

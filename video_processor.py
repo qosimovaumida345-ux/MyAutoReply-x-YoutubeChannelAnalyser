@@ -252,3 +252,45 @@ def process_video_advanced(input_mp4, channel_title="", channel_pfp=""):
             final_output = branded
         
     return final_output
+
+
+# ==========================================
+# 4. REACTION VIDEO (PiP)
+# ==========================================
+def create_reaction_video(main_video_path, reactor_video_path, output_path, reactor_size=0.3):
+    """
+    Combine two videos: main video fills the screen,
+    reactor video appears as picture-in-picture in bottom-right corner.
+    
+    Uses FFmpeg overlay filter:
+    ffmpeg -i main_video.mp4 -i reactor_video.mp4 \
+           -filter_complex "[1:v]scale=iw*0.3:-1[reactor]; \
+                            [0:v][reactor]overlay=W-w-20:H-h-20" \
+           -c:v libx264 -preset veryfast -crf 23 \
+           -c:a copy output.mp4
+    
+    - reactor_size: 0.3 means reactor is 30% of main video width
+    - Position: bottom-right corner with 20px padding
+    - Audio: keep main video audio only
+    """
+    import subprocess
+    print(f"[REACTION] Asosiy: {main_video_path}, Reaktor: {reactor_video_path}")
+    
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", main_video_path,
+        "-i", reactor_video_path,
+        "-filter_complex", f"[1:v]scale=iw*{reactor_size}:-1[reactor]; [0:v][reactor]overlay=W-w-20:H-h-20",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-c:a", "copy",
+        output_path
+    ]
+    
+    try:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return output_path
+    except subprocess.CalledProcessError as e:
+        print(f"Reaction video yaratishda xato: {e}")
+        return None
