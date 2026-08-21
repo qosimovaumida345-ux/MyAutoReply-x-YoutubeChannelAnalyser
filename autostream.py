@@ -6,10 +6,10 @@ from database import get_stream_key
 # Memory dict to store ffmpeg process for each user
 autostream_tasks = {}
 
-async def download_videos(search_query, chat_id, tg_user_id=None, limit=5):
+async def download_videos(search_query, chat_id, tg_user_id=None, limit=4):
     """
-    Search and download videos using yt-dlp.
-    We download them to a temporary directory.
+    Search and download ONLY YouTube Shorts (duration <= 60s) using yt-dlp.
+    We download them to a temporary directory with strict RAM/disk limits.
     Returns list of downloaded video paths.
     """
     import yt_dlp
@@ -26,13 +26,22 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=5):
             f.write(cookies_text)
         has_cookies = True
     
-    # We want to download the best mp4 format or anything that ffmpeg can easily concat
+    # Filter function: faqat 65 soniyadan qisqa (Shorts) videolarni olish
+    def shorts_filter(info_dict, *, incomplete):
+        dur = info_dict.get('duration')
+        if dur and dur > 65:
+            return 'Video davomiyligi 60s dan ko\'p (faqat shorts kerak)'
+        return None
+    
+    # Render RAM tejash uchun formatni 720p yoki undan past qilib cheklaymiz
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best',
         'outtmpl': f'{download_dir}/%(id)s.%(ext)s',
         'max_downloads': limit,
         'quiet': False,
         'noplaylist': True,
+        'match_filter': shorts_filter,
+        'max_filesize': 20 * 1024 * 1024, # Maksimal 20MB har bir video
         'extractor_args': {
             'youtube': {
                 'player_client': ['ios', 'android', 'mweb', 'web'],
@@ -48,21 +57,30 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=5):
     if has_cookies:
         ydl_opts['cookiefile'] = cookie_path
     
-    # If the query is just a single URL, process it. Otherwise, ytsearch
+    # Agar URL bo'lsa to'g'ridan-to'g'ri, aks holda #shorts qo'shib qidirish
     if search_query.startswith("http"):
         url = search_query
     else:
-        url = f"ytsearch{limit}:{search_query}"
+        # Shorts qidiruvini kuchaytirish
+        clean_q = search_query.replace("#shorts", "").replace("shorts", "").strip()
+        url = f"ytsearch20:{clean_q} shorts #shorts"
         
     def _run_ydl():
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if 'entries' in info:
-                    # It was a search
-                    return [ydl.prepare_filename(e) for e in info['entries'] if e]
+                    # Qidiruv natijalaridan faqat muvaffaqiyatli yuklanganlarini olish
+                    res = []
+                    for e in info['entries']:
+                        if e:
+                            fn = ydl.prepare_filename(e)
+                            if os.path.exists(fn):
+                                res.append(fn)
+                    return res
                 else:
-                    return [ydl.prepare_filename(info)]
+                    fn = ydl.prepare_filename(info)
+                    return [fn] if os.path.exists(fn) else []
         except Exception as e:
             print(f"yt-dlp autostream download error: {e}")
             return []
@@ -81,9 +99,9 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=5):
 async def start_autostream(tg_user_id, search_query, client, chat_id):
     """
     1. Check stream key
-    2. Download videos
+    2. Download shorts videos
     3. Create concat list
-    4. Start FFmpeg
+    4. Start FFmpeg in 9:16 Vertical Shorts format
     """
     if tg_user_id in autostream_tasks:
         await client.send_message(chat_id, "Sizda allaqachon bitta translatsiya ketyapti! Avval uni to'xtating (/autostream stop).")
@@ -94,15 +112,15 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
         await client.send_message(chat_id, "❌ Sizda Stream Key o'rnatilmagan! Iltimos, `/setstreamkey <key>` orqali YouTube jonli efir kodingizni kiriting.")
         return
 
-    msg = await client.send_message(chat_id, f"🔍 Kuting, '{search_query}' bo'yicha videolar qidirilyapti va yuklanyapti...")
+    msg = await client.send_message(chat_id, f"🔍 Kuting, '{search_query}' bo'yicha **YouTube Shorts** videolari qidirilyapti va yuklanyapti...")
     
-    video_paths = await download_videos(search_query, chat_id, tg_user_id=tg_user_id, limit=5)
+    video_paths = await download_videos(search_query, chat_id, tg_user_id=tg_user_id, limit=4)
     
     if not video_paths:
-        await msg.edit_text("❌ Hech qanday video topilmadi yoki yuklashda xatolik yuz berdi.")
+        await msg.edit_text("❌ Hech qanday mos Shorts video topilmadi yoki yuklashda xatolik yuz berdi.")
         return
         
-    await msg.edit_text(f"✅ {len(video_paths)} ta video yuklandi. Endi Live Stream boshlanmoqda...")
+    await msg.edit_text(f"✅ {len(video_paths)} ta Shorts video tayyorlandi.\n📱 **9:16 Vertical Shorts Live Stream** boshlanmoqda...")
     
     # Create filelist.txt
     list_path = f"/tmp/autostream_{chat_id}/filelist.txt"
@@ -112,7 +130,7 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
             safe_path = p.replace("'", "'\\''")
             f.write(f"file '{safe_path}'\n")
             
-    # Start FFmpeg subprocess
+    # Start FFmpeg subprocess in 9:16 Vertical format (YouTube Shorts Live)
     rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
     
     cmd = [
@@ -121,12 +139,18 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
         "-safe", "0",
         "-stream_loop", "-1",
         "-i", list_path,
-        "-vf", "scale=1280:720",
+        "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1",
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-b:v", "2500k",
+        "-preset", "ultrafast",
+        "-tune", "zerolatency",
+        "-b:v", "1500k",
+        "-maxrate", "1800k",
+        "-bufsize", "3000k",
+        "-pix_fmt", "yuv420p",
+        "-g", "60",
         "-c:a", "aac",
         "-b:a", "128k",
+        "-ar", "44100",
         "-f", "flv",
         rtmp_url
     ]
@@ -134,7 +158,7 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
     try:
         process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         autostream_tasks[tg_user_id] = process
-        await msg.edit_text("📺 **Jonli efir muvaffaqiyatli boshlandi!**\n\nBu 24/7 ketaveradi. To'xtatish uchun: `/autostream stop`")
+        await msg.edit_text("📱 **YouTube Shorts Jonli efir muvaffaqiyatli boshlandi!**\n\nBu 24/7 vertikal (9:16) formatda ketaveradi.\nTo'xtatish uchun: `/autostream stop`")
     except Exception as e:
         await msg.edit_text(f"❌ Translatsiyani boshlashda xatolik: {e}")
 
