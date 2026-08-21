@@ -2,16 +2,45 @@ import os
 import asyncio
 import subprocess
 import glob
+import shutil
 from database import get_stream_key
 
-# Memory dict to store ffmpeg process for each user
+# Har bir user uchun ffmpeg process saqlanadi
 autostream_tasks = {}
 
 
-async def download_videos(search_query, chat_id, tg_user_id=None, limit=4):
+def resolve_url(query: str) -> str:
     """
-    Search and download ONLY YouTube Shorts (duration <= 60s) using yt-dlp.
-    Returns list of downloaded video paths.
+    @username yoki kanal nomi → YouTube Shorts playlist URL ga aylantirish.
+    Aks holda matn qidiruv URLi qaytaradi.
+    """
+    q = query.strip()
+
+    # --- Kanal username yoki URL bo'lsa ---
+    # /autostream start @HisYTStory  →  https://www.youtube.com/@HisYTStory/shorts
+    # /autostream start HisYTStory   →  ytsearch20 orqali qidirish
+    # /autostream start https://...  →  to'g'ridan-to'g'ri
+    if q.startswith("http://") or q.startswith("https://"):
+        # Kanal URL → /shorts qo'shamiz
+        if "/shorts" not in q:
+            q = q.rstrip("/") + "/shorts"
+        return q
+
+    if q.startswith("@"):
+        # @Username → kanal Shorts sahifasi
+        username = q  # @ belgisi saqlanadi
+        return f"https://www.youtube.com/{username}/shorts"
+
+    # Oddiy matn qidiruv
+    clean_q = q.replace("#shorts", "").replace("shorts", "").strip()
+    return f"ytsearch20:{clean_q} #shorts"
+
+
+async def download_videos(search_query, chat_id, tg_user_id=None, limit=6):
+    """
+    Berilgan query bo'yicha YouTube Shorts videolarini yuklab oladi.
+    @username yoki kanal URL berilsa o'sha kanalning Shorts videolarini oladi.
+    Live stream videolarni o'tkazib yuboradi.
     """
     import yt_dlp
     from database import get_user_cookies
@@ -27,105 +56,113 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=4):
             f.write(cookies_text)
         has_cookies = True
 
-    # Filter: faqat 65 soniyadan qisqa (Shorts) videolarni olish
+    url = resolve_url(search_query)
+    is_channel = search_query.strip().startswith("@") or \
+                 "youtube.com/@" in search_query or \
+                 "youtube.com/c/" in search_query or \
+                 "youtube.com/channel/" in search_query
+
+    print(f"[autostream] URL: {url} | is_channel: {is_channel}")
+
+    # Shorts filter — live streamlarni va uzun videolarni bloklash
     def shorts_filter(info_dict, *, incomplete):
+        # Live streamni bloklash
+        if info_dict.get('is_live') or info_dict.get('live_status') in ('is_live', 'is_upcoming'):
+            return "Bu live stream — o'tkazib yuborildi"
         dur = info_dict.get('duration')
+        # Duration aniqlanmagan va live emas bo'lsa ham bloklash (ehtiyot uchun)
+        if dur is None and not incomplete:
+            return "Duration aniqlanmadi — o'tkazib yuborildi"
         if dur and dur > 65:
-            return "Video davomiyligi 60s dan ko'p (faqat shorts kerak)"
+            return "Video 65s dan uzun — faqat Shorts kerak"
         return None
 
     ydl_opts = {
-        # BUG FIX 1: format — webm ham qabul qilinsin (mp4 bo'lmasa fallback)
-        'format': 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+        'format': (
+            'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]'
+            '/bestvideo[height<=720]+bestaudio'
+            '/best[height<=720]'
+            '/best'
+        ),
         'outtmpl': f'{download_dir}/%(id)s.%(ext)s',
         'max_downloads': limit,
         'quiet': False,
         'no_warnings': False,
-        'noplaylist': True,
+        'noplaylist': False,       # kanal playlist uchun True emas
         'match_filter': shorts_filter,
-        'max_filesize': 50 * 1024 * 1024,  # 50MB (20MB juda kichik edi, ko'p short yuklanmay qolardi)
+        'max_filesize': 50 * 1024 * 1024,  # 50MB
         'extractor_args': {
             'youtube': {
                 'player_client': ['ios', 'android', 'mweb', 'web'],
                 'player_skip': ['webpage', 'configs'],
             }
         },
-        # BUG FIX 2: compat_opts list emas SET bo'lishi kerak edi — o'chirildi (eski versiyalarda crash qilardi)
         'retries': 5,
         'fragment_retries': 5,
         'skip_unavailable_fragments': True,
         'merge_output_format': 'mp4',
+        'ignoreerrors': True,       # bitta video xato bo'lsa davom etsin
     }
+
+    # Kanal URL bo'lsa playlist sifatida yuklaymiz
+    if is_channel:
+        ydl_opts['playlistend'] = limit
+        ydl_opts.pop('max_downloads', None)
 
     if has_cookies:
         ydl_opts['cookiefile'] = cookie_path
 
-    if search_query.startswith("http"):
-        url = search_query
-    else:
-        clean_q = search_query.replace("#shorts", "").replace("shorts", "").strip()
-        url = f"ytsearch20:{clean_q} shorts #shorts"
-
     def _run_ydl():
+        collected = []
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-
-                # BUG FIX 3: info None bo'lishi mumkin edi — crash oldini olish
                 if not info:
-                    print("[autostream] yt-dlp extract_info None qaytardi")
+                    print("[autostream] extract_info None qaytardi")
                     return []
 
-                if 'entries' in info:
-                    res = []
-                    for e in info.get('entries') or []:
-                        if not e:
+                entries = info.get('entries') if 'entries' in info else [info]
+
+                for e in (entries or []):
+                    if not e:
+                        continue
+                    vid_id = e.get('id', '')
+                    if not vid_id:
+                        continue
+                    # Fayl izlash
+                    try:
+                        fn = ydl.prepare_filename(e)
+                        fn_mp4 = os.path.splitext(fn)[0] + '.mp4'
+                        if os.path.exists(fn_mp4) and os.path.getsize(fn_mp4) > 5000:
+                            collected.append(fn_mp4)
                             continue
-                        try:
-                            fn = ydl.prepare_filename(e)
-                            # .mp4 ga o'zgartirish (merge bo'lgan bo'lsa)
-                            fn_mp4 = os.path.splitext(fn)[0] + '.mp4'
-                            if os.path.exists(fn_mp4):
-                                res.append(fn_mp4)
-                            elif os.path.exists(fn):
-                                res.append(fn)
-                            else:
-                                # glob bilan qidirish
-                                vid_id = e.get('id', '')
-                                if vid_id:
-                                    found = glob.glob(f"{download_dir}/{vid_id}.*")
-                                    if found:
-                                        res.append(found[0])
-                        except Exception as ex:
-                            print(f"[autostream] entry filename error: {ex}")
-                    return res
-                else:
-                    fn = ydl.prepare_filename(info)
-                    fn_mp4 = os.path.splitext(fn)[0] + '.mp4'
-                    if os.path.exists(fn_mp4):
-                        return [fn_mp4]
-                    elif os.path.exists(fn):
-                        return [fn]
-                    else:
-                        vid_id = info.get('id', '')
-                        if vid_id:
-                            found = glob.glob(f"{download_dir}/{vid_id}.*")
-                            return found if found else []
-                    return []
+                        if os.path.exists(fn) and os.path.getsize(fn) > 5000:
+                            collected.append(fn)
+                            continue
+                    except Exception:
+                        pass
+                    # glob bilan qidirish
+                    found = glob.glob(f"{download_dir}/{vid_id}.*")
+                    for f in found:
+                        if os.path.getsize(f) > 5000:
+                            collected.append(f)
+                            break
 
         except yt_dlp.utils.MaxDownloadsReached:
-            # Bu normal — limit ga yetdi
-            pass
-        except Exception as e:
-            print(f"[autostream] yt-dlp download error: {e}")
-            return []
+            pass  # normal — limitga yetdi
+        except Exception as ex:
+            print(f"[autostream] yt-dlp error: {ex}")
 
-        # Agar MaxDownloadsReached bo'lsa, papkadagi fayllarni qaytarish
-        try:
-            all_files = glob.glob(f"{download_dir}/*.mp4") + glob.glob(f"{download_dir}/*.webm")
-            return all_files[:limit]
-        except Exception:
-            return []
+        # Agar yuqorida hech narsa topilmasa — papkani skan qilamiz
+        if not collected:
+            all_files = glob.glob(f"{download_dir}/*.mp4") + \
+                        glob.glob(f"{download_dir}/*.webm") + \
+                        glob.glob(f"{download_dir}/*.mkv")
+            collected = [f for f in all_files
+                         if os.path.getsize(f) > 5000 and 'cookies' not in f]
+
+        print(f"[autostream] Yuklangan fayllar: {len(collected)} ta")
+        return collected[:limit]
 
     try:
         paths = await asyncio.to_thread(_run_ydl)
@@ -133,71 +170,76 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=4):
         if has_cookies and os.path.exists(cookie_path):
             try:
                 os.remove(cookie_path)
-            except:
+            except Exception:
                 pass
 
-    # Verify files exist va bo'sh emasligini tekshirish
-    valid_paths = [p for p in (paths or []) if os.path.exists(p) and os.path.getsize(p) > 1000]
-    print(f"[autostream] Topilgan valid fayllar: {len(valid_paths)} ta — {valid_paths}")
-    return valid_paths
+    valid = [p for p in (paths or []) if os.path.exists(p) and os.path.getsize(p) > 5000]
+    print(f"[autostream] Valid fayllar: {valid}")
+    return valid
 
 
 async def start_autostream(tg_user_id, search_query, client, chat_id):
     """
     1. Stream key tekshirish
-    2. Shorts videolarni yuklab olish
-    3. concat list yaratish
-    4. FFmpeg ni 9:16 Vertical Shorts formatda ishga tushirish
+    2. Shorts videolarni yuklab olish (@username yoki kanal URL yoki matn)
+    3. FFmpeg loop stream → YouTube RTMP
     """
+    # O'lik process ni tozalash
     if tg_user_id in autostream_tasks:
         proc = autostream_tasks[tg_user_id]
-        # BUG FIX 4: o'lik process bo'lsa tozalash
         if proc.poll() is not None:
             del autostream_tasks[tg_user_id]
         else:
-            await client.send_message(chat_id, "⚠️ Sizda allaqachon bitta translatsiya ketyapti! Avval uni to'xtating: `/autostream stop`")
+            await client.send_message(
+                chat_id,
+                "⚠️ Sizda allaqachon bitta translatsiya ketyapti!\n"
+                "Avval to'xtating: `/autostream stop`"
+            )
             return
 
     stream_key = get_stream_key(tg_user_id)
     if not stream_key:
         await client.send_message(
             chat_id,
-            "❌ Sizda Stream Key o'rnatilmagan!\n\n"
-            "YouTube Studio → Go Live → Stream Settings dan Stream Key ni oling va:\n"
-            "`/setstreamkey <key>` orqali kiriting."
+            "❌ Stream Key o'rnatilmagan!\n\n"
+            "YouTube Studio → Go Live → Stream Settings → Stream Key\n"
+            "Keyin: `/setstreamkey <key>`"
         )
         return
 
-    msg = await client.send_message(
-        chat_id,
-        f"🔍 Kuting, '{search_query}' bo'yicha **YouTube Shorts** videolari qidirilyapti va yuklanyapti..."
-    )
+    q = search_query.strip()
+    if q.startswith("@"):
+        info_msg = f"🔍 **{q}** kanalining Shorts videolari yuklanmoqda..."
+    else:
+        info_msg = f"🔍 **'{q}'** bo'yicha Shorts videolari qidirilyapti..."
 
-    video_paths = await download_videos(search_query, chat_id, tg_user_id=tg_user_id, limit=4)
+    msg = await client.send_message(chat_id, info_msg)
+
+    video_paths = await download_videos(q, chat_id, tg_user_id=tg_user_id, limit=6)
 
     if not video_paths:
         await msg.edit_text(
-            "❌ Hech qanday mos Shorts video topilmadi yoki yuklashda xatolik yuz berdi.\n\n"
-            "Maslahat: Boshqa qidiruv so'zi bilan urinib ko'ring yoki /setcookies orqali cookies qo'shing."
+            "❌ Hech qanday Shorts video topilmadi!\n\n"
+            "Maslahatlar:\n"
+            "• `@Username` to'g'riligini tekshiring\n"
+            "• Kaналda Shorts videolar borligini tekshiring\n"
+            "• `/setcookies` orqali cookie qo'shing"
         )
         return
 
     await msg.edit_text(
         f"✅ {len(video_paths)} ta Shorts video tayyorlandi.\n"
-        f"📱 **9:16 Vertical Shorts Live Stream** boshlanmoqda..."
+        f"📡 YouTube Live Stream boshlanmoqda..."
     )
 
-    # filelist.txt yaratish
+    # filelist.txt yaratish (FFmpeg concat uchun)
     list_path = f"/tmp/autostream_{chat_id}/filelist.txt"
     with open(list_path, "w", encoding="utf-8") as f:
         for p in video_paths:
-            # FFmpeg uchun path escape
-            safe_path = p.replace("\\", "/").replace("'", "\\'")
-            f.write(f"file '{safe_path}'\n")
+            safe = p.replace("\\", "/").replace("'", "\\'")
+            f.write(f"file '{safe}'\n")
 
     rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
-
-    # BUG FIX 5: log fayl — FFmpeg xatolarini ko'rish uchun
     log_path = f"/tmp/autostream_{chat_id}/ffmpeg.log"
 
     cmd = [
@@ -206,7 +248,7 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
         "-safe", "0",
         "-stream_loop", "-1",
         "-i", list_path,
-        # 9:16 vertical format (YouTube Shorts)
+        # 9:16 vertical (YouTube Shorts)
         "-vf", (
             "scale=720:1280:force_original_aspect_ratio=decrease,"
             "pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,"
@@ -226,60 +268,55 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
         "-b:a", "128k",
         "-ar", "44100",
         "-ac", "2",
-        # BUG FIX 6: flv format RTMP uchun to'g'ri
         "-f", "flv",
         rtmp_url
     ]
 
     try:
         log_file = open(log_path, "w")
-        process = subprocess.Popen(
-            cmd,
-            stdout=log_file,
-            stderr=log_file  # BUG FIX 7: DEVNULL emas — log faylga yozilsin
-        )
+        process = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
 
-        # BUG FIX 8: FFmpeg darhol o'lganini tekshirish (3 soniya kuting)
+        # 3 soniya kuting — FFmpeg darhol o'lganini bilish uchun
         await asyncio.sleep(3)
         if process.poll() is not None:
             log_file.close()
-            # Log faylni o'qib xatoni ko'rish
-            error_text = ""
+            err = ""
             try:
                 with open(log_path, "r") as lf:
                     lines = lf.readlines()
-                    # Oxirgi 10 qator
-                    error_text = "".join(lines[-10:])
-            except:
+                    err = "".join(lines[-15:])
+            except Exception:
                 pass
             await msg.edit_text(
                 f"❌ FFmpeg ishga tushmadi!\n\n"
-                f"Xato:\n`{error_text[-300:] if error_text else 'Log topilmadi'}`\n\n"
+                f"```\n{err[-400:] if err else 'Log topilmadi'}\n```\n\n"
                 f"Stream Key to'g'riligini tekshiring."
             )
             return
 
         autostream_tasks[tg_user_id] = process
         await msg.edit_text(
-            "📱 **YouTube Shorts Jonli efir muvaffaqiyatli boshlandi!**\n\n"
-            "✅ 9:16 vertikal format\n"
-            "✅ 24/7 davomli (loop)\n\n"
-            "To'xtatish uchun: `/autostream stop`\n"
-            "Holat tekshirish: `/autostream status`"
+            "📱 **Jonli efir muvaffaqiyatli boshlandi!**\n\n"
+            f"📺 Manba: `{q}`\n"
+            f"🎬 {len(video_paths)} ta video loop qilinmoqda\n"
+            f"📐 Format: 9:16 vertikal (Shorts)\n\n"
+            "To'xtatish: `/autostream stop`\n"
+            "Holat: `/autostream status`"
         )
+
     except FileNotFoundError:
         await msg.edit_text(
-            "❌ FFmpeg topilmadi! Render serverida ffmpeg o'rnatilgan ekanligini tekshiring.\n"
-            "Dockerfile ga `RUN apt-get install -y ffmpeg` qo'shing."
+            "❌ FFmpeg topilmadi!\n"
+            "Dockerfile ga qo'shing:\n"
+            "`RUN apt-get install -y ffmpeg`"
         )
-    except Exception as e:
-        await msg.edit_text(f"❌ Translatsiyani boshlashda xatolik: {e}")
+    except Exception as ex:
+        await msg.edit_text(f"❌ Xatolik: {ex}")
 
 
 async def stop_autostream(tg_user_id, client, chat_id):
-    """FFmpeg jarayonini to'xtatish"""
     if tg_user_id not in autostream_tasks:
-        await client.send_message(chat_id, "❌ Sizda hozir hech qanday translatsiya ketmayapti.")
+        await client.send_message(chat_id, "❌ Hozir hech qanday translatsiya ketmayapti.")
         return
 
     process = autostream_tasks[tg_user_id]
@@ -290,29 +327,24 @@ async def stop_autostream(tg_user_id, client, chat_id):
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
-    except Exception as e:
-        print(f"[autostream] stop error: {e}")
+    except Exception as ex:
+        print(f"[autostream] stop error: {ex}")
 
     del autostream_tasks[tg_user_id]
 
-    # Vaqtinchalik fayllarni tozalash
-    import shutil
     try:
         shutil.rmtree(f"/tmp/autostream_{chat_id}", ignore_errors=True)
-    except:
+    except Exception:
         pass
 
-    await client.send_message(chat_id, "🛑 Translatsiya to'xtatildi va vaqtinchalik fayllar tozalandi.")
+    await client.send_message(chat_id, "🛑 Translatsiya to'xtatildi. Fayllar tozalandi.")
 
 
 def get_autostream_status(tg_user_id):
     if tg_user_id not in autostream_tasks:
         return "To'xtagan 🔴"
-
     process = autostream_tasks[tg_user_id]
-    ret = process.poll()
-    if ret is None:
+    if process.poll() is None:
         return "Ketyapti 🟢"
-    else:
-        del autostream_tasks[tg_user_id]
-        return f"To'xtagan 🔴 (Jarayon o'z-o'zidan yopilgan, exit code: {ret})"
+    del autostream_tasks[tg_user_id]
+    return f"To'xtagan 🔴 (exit code: {process.returncode})"

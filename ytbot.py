@@ -746,26 +746,39 @@ def create_ytbot():
     async def autostream_cmd(client, message):
         args = message.text.split(maxsplit=2)
         if len(args) < 2:
-            await message.reply_text("Foydalanish:\n`/autostream start <qidiruv so'zi>`\n`/autostream stop`\n`/autostream status`")
+            await message.reply_text(
+                "📡 **Autostream buyruqlari:**\n\n"
+                "`/autostream start @Username` — kanal Shorts videolaridan stream\n"
+                "`/autostream start lofi music` — mavzu bo'yicha stream\n"
+                "`/autostream stop` — to'xtatish\n"
+                "`/autostream status` — holat tekshirish\n\n"
+                "**Misol:**\n"
+                "`/autostream start @HisYTStory`"
+            )
             return
-            
+
         action = args[1].lower()
         tg_user_id = message.from_user.id
-        
+
         from autostream import start_autostream, stop_autostream, get_autostream_status
-        
+
         if action == "start":
             if len(args) < 3:
-                await message.reply_text("Iltimos, qidiruv so'zini ham yozing.\nMisol: `/autostream start lofi hip hop`")
+                await message.reply_text(
+                    "❌ Manba kiriting!\n\n"
+                    "Kanal: `/autostream start @Username`\n"
+                    "Mavzu: `/autostream start lofi music`"
+                )
                 return
-            await start_autostream(tg_user_id, args[2], client, message.chat.id)
+            query = args[2].strip()
+            await start_autostream(tg_user_id, query, client, message.chat.id)
         elif action == "stop":
             await stop_autostream(tg_user_id, client, message.chat.id)
         elif action == "status":
             status = get_autostream_status(tg_user_id)
             await message.reply_text(f"📊 Jonli efir holati: {status}")
         else:
-            await message.reply_text("Noma'lum komanda. Foydalanish: start, stop, status.")
+            await message.reply_text("Noma'lum komanda. Foydalanish: `start`, `stop`, `status`")
     
     # ==================== /channel ====================
     @bot.on_message(filters.command("channel"))
