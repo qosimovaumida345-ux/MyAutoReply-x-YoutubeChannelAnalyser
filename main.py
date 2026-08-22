@@ -937,8 +937,168 @@ async def start_web_server(port):
 # ==================== MAIN ====================
 
 async def main():
-    """Ikkala botni bir vaqtda ishga tushirish"""
+    """
+    ROLE env o'zgaruvchisiga qarab ishga tushirish:
+
+      ROLE=main        → TG bot (userbot + ytbot) + web server + autopilot worker
+      ROLE=worker      → Faqat autopost worker queue (bot polling yo'q)
+      ROLE=streamer    → Faqat autostream HTTP API server (FFmpeg manager)
+      ROLE=downloader  → Faqat download HTTP API server (yt-dlp)
+      ROLE=autoposter  → Faqat autopost worker queue (worker bilan bir xil)
+    """
     global ytbot_instance
+
+    role = os.environ.get("ROLE", "main")
+    port = int(os.environ.get("PORT", 3000))
+
+    print(f"\n========================================")
+    print(f"🚀 Ishga tushirilmoqda... ROLE: {role}")
+    print(f"========================================\n")
+
+    # ------------------------------------------------------------------ #
+    #  ROLE = streamer                                                     #
+    #  Faqat FFmpeg autostream HTTP API — bot yo'q, download yo'q         #
+    # ------------------------------------------------------------------ #
+    if role == "streamer":
+        from aiohttp import web as _web
+
+        async def _handle_stream_start(request):
+            import json
+            try:
+                data = await request.json()
+                tg_user_id = int(data["tg_user_id"])
+                stream_key  = data["stream_key"]
+                video_paths = data["video_paths"]   # main dan keladi
+
+                if not video_paths:
+                    return _web.json_response({"error": "video_paths bo'sh"}, status=400)
+
+                # filelist.txt
+                import tempfile, subprocess, asyncio as _aio
+                tmpdir = f"/tmp/stream_{tg_user_id}"
+                os.makedirs(tmpdir, exist_ok=True)
+                list_path = f"{tmpdir}/filelist.txt"
+                with open(list_path, "w") as f:
+                    for p in video_paths:
+                        f.write(f"file '{p}'\n")
+
+                log_path = f"{tmpdir}/ffmpeg.log"
+                rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
+
+                cmd = [
+                    "ffmpeg", "-y", "-re",
+                    "-f", "concat", "-safe", "0",
+                    "-stream_loop", "-1", "-i", list_path,
+                    "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1",
+                    "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+                    "-b:v", "1500k", "-maxrate", "1800k", "-bufsize", "3000k",
+                    "-pix_fmt", "yuv420p", "-g", "60", "-keyint_min", "60", "-sc_threshold", "0",
+                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
+                    "-f", "flv", rtmp_url
+                ]
+                log_file = open(log_path, "w")
+                proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
+
+                await _aio.sleep(3)
+                if proc.poll() is not None:
+                    log_file.close()
+                    err = open(log_path).read()[-400:]
+                    return _web.json_response({"error": f"FFmpeg ishga tushmadi: {err}"}, status=500)
+
+                # Process ni xotirada saqlash
+                from autostream import autostream_tasks
+                autostream_tasks[tg_user_id] = proc
+                return _web.json_response({"ok": True, "pid": proc.pid})
+            except Exception as e:
+                return _web.json_response({"error": str(e)}, status=500)
+
+        async def _handle_stream_stop(request):
+            import json, subprocess
+            try:
+                data = await request.json()
+                tg_user_id = int(data["tg_user_id"])
+                from autostream import autostream_tasks, stop_autostream
+
+                class _FakeClient:
+                    async def send_message(self, *a, **k): pass
+
+                await stop_autostream(tg_user_id, _FakeClient(), tg_user_id)
+                return _web.json_response({"ok": True})
+            except Exception as e:
+                return _web.json_response({"error": str(e)}, status=500)
+
+        async def _handle_stream_status(request):
+            tg_user_id = int(request.query.get("tg_user_id", 0))
+            from autostream import get_autostream_status
+            return _web.json_response({"status": get_autostream_status(tg_user_id)})
+
+        async def _handle_health_simple(request):
+            return _web.Response(text="streamer ok")
+
+        app = _web.Application()
+        app.router.add_get("/", _handle_health_simple)
+        app.router.add_post("/stream/start", _handle_stream_start)
+        app.router.add_post("/stream/stop",  _handle_stream_stop)
+        app.router.add_get("/stream/status", _handle_stream_status)
+
+        runner = _web.AppRunner(app)
+        await runner.setup()
+        site = _web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        print(f"📡 Streamer service {port}-portda tayyor")
+        await asyncio.Event().wait()
+        return
+
+    # ------------------------------------------------------------------ #
+    #  ROLE = downloader                                                   #
+    #  Faqat yt-dlp download HTTP API — bot yo'q, FFmpeg yo'q             #
+    # ------------------------------------------------------------------ #
+    if role == "downloader":
+        from aiohttp import web as _web
+
+        async def _handle_download(request):
+            try:
+                data = await request.json()
+                search_query = data["query"]
+                tg_user_id   = int(data.get("tg_user_id", 0))
+                limit        = int(data.get("limit", 6))
+                chat_id      = data.get("chat_id", tg_user_id)
+
+                from autostream import download_videos
+                paths = await download_videos(search_query, chat_id, tg_user_id=tg_user_id, limit=limit)
+                return _web.json_response({"ok": True, "paths": paths})
+            except Exception as e:
+                return _web.json_response({"error": str(e)}, status=500)
+
+        async def _handle_health_dl(request):
+            return _web.Response(text="downloader ok")
+
+        app = _web.Application()
+        app.router.add_get("/", _handle_health_dl)
+        app.router.add_post("/download", _handle_download)
+
+        runner = _web.AppRunner(app)
+        await runner.setup()
+        site = _web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        print(f"📥 Downloader service {port}-portda tayyor")
+        await asyncio.Event().wait()
+        return
+
+    # ------------------------------------------------------------------ #
+    #  ROLE = worker  yoki  ROLE = autoposter                             #
+    #  Faqat autopost worker queue — bot polling yo'q                     #
+    # ------------------------------------------------------------------ #
+    if role in ("worker", "autoposter"):
+        await start_web_server(port)   # health check uchun
+        print(f"👷 {role.upper()} queue worker ishga tushdi")
+        await run_worker_queue()
+        return
+
+    # ------------------------------------------------------------------ #
+    #  ROLE = main  (default)                                             #
+    #  TG bot + web server + autopilot worker                             #
+    # ------------------------------------------------------------------ #
     tasks = []
 
     # 1. Auto-Reply Userbot
@@ -948,7 +1108,6 @@ async def main():
         print("🤖 Auto-Reply Userbot qo'shildi")
     else:
         print("⚠️  SESSION_STRING topilmadi — Userbot o'chirilgan")
-        print("   ➡️  Avval session_generator.py ni ishga tushiring")
 
     # 2. YouTube Analytics Bot
     if BOT_TOKEN:
@@ -959,8 +1118,6 @@ async def main():
             async def run_bot():
                 await bot.start()
                 print("🎬 YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
-                
-                # Fetch custom emoji fallbacks to map them accurately
                 try:
                     from ytbot import AUTO_EMOJI_MAP
                     from custom_emojis import CUSTOM_EMOJI_POOL
@@ -972,7 +1129,6 @@ async def main():
                     print(f"🌟 Yuklangan maxsus emojilar soni: {len(AUTO_EMOJI_MAP)}")
                 except Exception as e:
                     print(f"Maxsus emojilarni yuklashda xatolik: {e}")
-
                 await asyncio.Event().wait()
             tasks.append(run_bot())
             print("🎬 YouTube Analytics Bot qo'shildi")
@@ -980,28 +1136,13 @@ async def main():
         print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
 
     if not tasks:
-        print("\n❌ Hech qanday bot ishga tushirilmadi!")
-        print("   .env faylni tekshiring.")
+        print("\n❌ Hech qanday bot ishga tushirilmadi! .env faylni tekshiring.")
         sys.exit(1)
 
-
-    role = os.environ.get("ROLE", "main")
-    print(f"\n========================================")
-    print(f"🚀 Barcha xizmatlar ishga tushirilmoqda... ROLE: {role}")
-    print(f"========================================\n")
-
-    port = int(os.environ.get("PORT", 3000))
     await start_web_server(port)
-
-    if role == "worker":
-        import config
-        # Disable bot polling tasks if it's a worker
-
-        tasks = [run_worker_queue()]
-    else:
-        tasks.append(run_autopilot_worker())
-        
+    tasks.append(run_autopilot_worker())
     await asyncio.gather(*tasks)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
