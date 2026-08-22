@@ -760,8 +760,6 @@ def create_ytbot():
         action = args[1].lower()
         tg_user_id = message.from_user.id
 
-        from autostream import start_autostream, stop_autostream, get_autostream_status
-
         if action == "start":
             if len(args) < 3:
                 await message.reply_text(
@@ -771,12 +769,56 @@ def create_ytbot():
                 )
                 return
             query = args[2].strip()
-            await start_autostream(tg_user_id, query, client, message.chat.id)
+
+            # ROLE=main — to'g'ridan chaqirmasdan DB queue ga yozamiz
+            from database import get_stream_key, create_stream_task, get_user_stream_status
+            stream_key = get_stream_key(tg_user_id)
+            if not stream_key:
+                await message.reply_text(
+                    "❌ Stream Key o'rnatilmagan!\n\n"
+                    "YouTube Studio → Go Live → Stream Settings → Stream Key\n"
+                    "Keyin: `/setstreamkey <key>`"
+                )
+                return
+
+            # Avvalgi aktiv stream bormi?
+            existing = get_user_stream_status(tg_user_id)
+            if existing:
+                await message.reply_text(
+                    "⚠️ Sizda allaqachon bitta translatsiya jarayonda!\n"
+                    "Avval to'xtating: `/autostream stop`"
+                )
+                return
+
+            task_id = create_stream_task(tg_user_id, message.chat.id, query, stream_key)
+            if task_id:
+                await message.reply_text(
+                    f"📡 **Stream navbatga qo'shildi!**\n\n"
+                    f"🔍 Manba: `{query}`\n"
+                    f"🆔 Task ID: `{task_id}`\n\n"
+                    "Bo'sh streamer worker vazifani olib ishlaydi.\n"
+                    "Holat: `/autostream status`"
+                )
+            else:
+                await message.reply_text("❌ Stream task yaratishda xatolik yuz berdi.")
+
         elif action == "stop":
-            await stop_autostream(tg_user_id, client, message.chat.id)
+            from database import cancel_user_stream_tasks, get_user_stream_status
+            task = get_user_stream_status(tg_user_id)
+            cancel_user_stream_tasks(tg_user_id)
+            await message.reply_text("🛑 Stream to'xtatish buyrug'i yuborildi. Streamer worker uni to'xtatadi.")
+
         elif action == "status":
-            status = get_autostream_status(tg_user_id)
-            await message.reply_text(f"📊 Jonli efir holati: {status}")
+            from database import get_user_stream_status
+            task = get_user_stream_status(tg_user_id)
+            if task:
+                await message.reply_text(
+                    f"📊 **Stream holati:** `{task['status']}`\n"
+                    f"🔍 Manba: `{task['search_query']}`\n"
+                    f"🕐 Boshlangan: `{task['created_at']}`"
+                )
+            else:
+                await message.reply_text("🔴 Hozir hech qanday stream ketmayapti.")
         else:
             await message.reply_text("Noma'lum komanda. Foydalanish: `start`, `stop`, `status`")
     
@@ -2262,12 +2304,37 @@ def create_ytbot():
         user_proxy = get_user_proxy(user_id) or DEFAULT_PROXY
         
         apply_watermark = (action == "ap_wm")
-        
-        await callback_query.message.edit_text(f"🚀 `Auto-post boshlandi: {count} ta video '{query}' bo'yicha...`\nWatermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}")
-        
-        from autopost import autopost_worker
-        import asyncio
-        asyncio.create_task(autopost_worker(task_id, user_id, query, count, client, callback_query.message.chat.id, proxy_url=user_proxy, apply_watermark=apply_watermark))
+
+        # apply_watermark ni DB ga saqlaymiz
+        from database import update_autopost_task
+        update_autopost_task(task_id, status="pending")
+
+        # Watermark flagni DB ga yozish (worker o'qiydi)
+        conn_db = None
+        try:
+            from database import get_db
+            conn_db = get_db()
+            if conn_db:
+                cur_db = conn_db.cursor()
+                cur_db.execute(
+                    "UPDATE autopost_tasks SET apply_watermark=%s WHERE id=%s",
+                    (apply_watermark, task_id)
+                )
+                conn_db.commit()
+        except Exception as _e:
+            print(f"watermark update error: {_e}")
+        finally:
+            if conn_db:
+                try: conn_db.close()
+                except: pass
+
+        # ROLE=main: worker/autoposter service DB dan o'z-o'zidan oladi
+        await callback_query.message.edit_text(
+            f"✅ `Auto-post navbatga qo'shildi!`\n"
+            f"📋 `{count}` ta video · `{query}`\n"
+            f"Watermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\n"
+            "Worker/Autoposter service vazifani olib bajaradi."
+        )
 
     @bot.on_callback_query(filters.regex("^back_main$"))
     async def cb_back_main(client, cb: CallbackQuery):

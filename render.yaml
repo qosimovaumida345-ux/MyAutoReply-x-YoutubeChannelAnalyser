@@ -1,10 +1,16 @@
 services:
+  # ============================================================
+  # MAIN — Telegram bot + Web server + OAuth + Autopilot checker
+  # Faqat bot va web endpointlari — og'ir ishlar qilmaydi
+  # ============================================================
   - type: web
-    name: auto-reply-bot
+    name: autoreply-main
     runtime: docker
     dockerfilePath: ./Dockerfile
     startCommand: python main.py
     envVars:
+      - key: ROLE
+        value: main
       - key: API_ID
         sync: false
       - key: API_HASH
@@ -24,6 +30,107 @@ services:
       - key: OWNER_ID
         sync: false
       - key: AI_SYSTEM_PROMPT
+        sync: false
+      - key: YT_CLIENT_ID
+        sync: false
+      - key: YT_CLIENT_SECRET
+        sync: false
+      - key: RENDER_EXTERNAL_URL
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autoreply-db
+          property: connectionString
+
+  # ============================================================
+  # WORKER — Autopost vazifalarini DB dan olib bajaradi
+  # Download + YouTube upload (og'ir ish)
+  # ============================================================
+  - type: worker
+    name: autoreply-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: python main.py
+    envVars:
+      - key: ROLE
+        value: worker
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: GEMINI_KEYS
+        sync: false
+      - key: YOUTUBE_API_KEYS
+        sync: false
+      - key: YT_CLIENT_ID
+        sync: false
+      - key: YT_CLIENT_SECRET
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autoreply-db
+          property: connectionString
+
+  # ============================================================
+  # AUTOPOSTER — Qo'shimcha autopost worker (parallel ishlaydi)
+  # Worker band bo'lsa, bu ham tasklar oladi
+  # ============================================================
+  - type: worker
+    name: autoreply-autoposter
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: python main.py
+    envVars:
+      - key: ROLE
+        value: autoposter
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: GEMINI_KEYS
+        sync: false
+      - key: YOUTUBE_API_KEYS
+        sync: false
+      - key: YT_CLIENT_ID
+        sync: false
+      - key: YT_CLIENT_SECRET
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: autoreply-db
+          property: connectionString
+
+  # ============================================================
+  # STREAMER — Stream vazifalarini DB dan olib FFmpeg bilan bajaradi
+  # Agar 2 ta odam stream qilsa — 2 ta streamer bo'lsa parallel ishlaydi
+  # ============================================================
+  - type: worker
+    name: autoreply-streamer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    startCommand: python main.py
+    envVars:
+      - key: ROLE
+        value: streamer
+      - key: PORT
+        value: "3001"
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: YOUTUBE_API_KEYS
+        sync: false
+      - key: OWNER_ID
         sync: false
       - key: DATABASE_URL
         fromDatabase:

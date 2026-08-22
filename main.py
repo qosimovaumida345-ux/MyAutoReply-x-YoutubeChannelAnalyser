@@ -29,7 +29,6 @@ ytbot_instance = None
 async def run_autopilot_worker():
     import asyncio
     from database import get_all_active_autopilots, update_autopilot_last_run
-    from autopost import autopost_worker
     from datetime import datetime, timedelta
     
     print("🤖 Autopilot worker started")
@@ -74,12 +73,12 @@ async def run_autopilot_worker():
                             # Start search and autopost for 1 video
                             from database import create_autopost_task
                             task_id = create_autopost_task(user_id, channel_id, topic, "shorts", 1)
-                            
+
                             # Update last run right away so it doesn't run again if it fails
                             update_autopilot_last_run(user_id)
-                            
-                            # Add to background worker
-                            asyncio.create_task(autopost_worker(task_id, user_id, topic, 1, ytbot_instance, user_id))
+
+                            # ROLE=main: DB ga yozib qo'yamiz, worker/autoposter o'zi oladi
+                            print(f"[autopilot] Task {task_id} navbatga qo'shildi (worker oladi)")
                             
                         except Exception as e:
                             print(f"Autopilot task error: {e}")
@@ -91,27 +90,68 @@ async def run_autopilot_worker():
 
 
 async def run_worker_queue():
-    from database import claim_pending_autopost_task
-    from ytbot import autopost_worker
+    """
+    ROLE=worker / ROLE=autoposter uchun:
+    DB dagi 'pending' autopost tasklerini oladi va bajaradi.
+    Bir vaqtda bir task. Tugatgach keyingisini oladi.
+    """
+    from database import claim_pending_autopost_task, get_user_proxy
+    from autopost import autopost_worker
     import asyncio
-    from pyrogram import Client
-    from config import API_ID, API_HASH, BOT_TOKEN
-    
-    # Mock client for worker since it doesn't use telegram polling
-    mock_client = Client("worker_mock", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-    await mock_client.start()
-    
-    print("👷 Worker poylamoqda...")
+    import os
+
+    worker_id = f"worker_{os.getpid()}"
+    print(f"👷 [{worker_id}] Autopost queue worker poylamoqda...")
+
+    # Lightweight mock client (faqat xabar yuborish uchun)
+    # Agar BOT_TOKEN bo'lsa — real bot orqali xabar yuboramiz
+    bot_client = None
+    try:
+        from pyrogram import Client
+        from config import API_ID, API_HASH, BOT_TOKEN
+        if BOT_TOKEN and API_ID and API_HASH:
+            bot_client = Client(
+                f"worker_bot_{os.getpid()}",
+                api_id=API_ID,
+                api_hash=API_HASH,
+                bot_token=BOT_TOKEN,
+                in_memory=True
+            )
+            await bot_client.start()
+            print(f"✅ [{worker_id}] Bot client tayyor")
+    except Exception as e:
+        print(f"⚠️ [{worker_id}] Bot client ishga tushmadi (xabarsiz ishlaydi): {e}")
+        bot_client = None
+
     while True:
-        task = claim_pending_autopost_task()
-        if task:
-            print(f"📥 Yangi vazifa olindi: {task['id']} - {task['search_query']}")
-            from database import get_user_proxy
-            user_proxy = get_user_proxy(task['tg_user_id'])
-            # Run worker
-            await autopost_worker(task['id'], task['tg_user_id'], task['search_query'], task['total_count'], mock_client, task['tg_user_id'], proxy_url=user_proxy, apply_watermark=task.get('apply_watermark', False))
-        else:
-            await asyncio.sleep(5)
+        try:
+            task = claim_pending_autopost_task()
+            if task:
+                task_id      = task['id']
+                tg_user_id   = task['tg_user_id']
+                search_query = task['search_query']
+                total_count  = task['total_count']
+                apply_wm     = task.get('apply_watermark', False)
+                user_proxy   = get_user_proxy(tg_user_id)
+
+                print(f"📥 [{worker_id}] Task #{task_id} olindi: '{search_query}' ({total_count} ta)")
+
+                try:
+                    await autopost_worker(
+                        task_id, tg_user_id, search_query, total_count,
+                        bot_client, tg_user_id,
+                        proxy_url=user_proxy,
+                        apply_watermark=apply_wm
+                    )
+                except Exception as e:
+                    print(f"❌ [{worker_id}] Task #{task_id} xatosi: {e}")
+                    from database import update_autopost_task
+                    update_autopost_task(task_id, status="failed")
+            else:
+                await asyncio.sleep(5)
+        except Exception as e:
+            print(f"❌ [{worker_id}] Queue loop xatosi: {e}")
+            await asyncio.sleep(10)
 
 # ==================== WEB SERVER (OAuth Callback + Health Check) ====================
 
@@ -880,13 +920,9 @@ async def handle_api_autopost_create(request):
         # Maxsus format: __IDS__:vid1,vid2
         search_query = "__IDS__:" + ",".join(video_ids)
         task_id = create_autopost_task(tg_user_id, channel_id, search_query, "shorts", len(video_ids))
-        
-        # Trigger background worker instantly
-        from autopost import autopost_worker
-        import asyncio
-        # We don't have direct access to the Telegram client in the web app, so we pass None
-        asyncio.create_task(autopost_worker(task_id, tg_user_id, search_query, len(video_ids), ytbot_instance, tg_user_id))
-        
+
+        # ROLE=main: faqat DB ga yozamiz — worker/autoposter o'zi oladi
+        # (to'g'ridan autopost_worker chaqirmaymiz — main qotib qoladi)
         return web.json_response({"success": True, "task_id": task_id})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -957,96 +993,26 @@ async def main():
 
     # ------------------------------------------------------------------ #
     #  ROLE = streamer                                                     #
-    #  Faqat FFmpeg autostream HTTP API — bot yo'q, download yo'q         #
+    #  DB queue dan stream tasklerini olib FFmpeg bilan ishga tushiradi   #
+    #  Agar 2 ta odam stream qilsa — 2 ta streamer instance parallel ishl #
     # ------------------------------------------------------------------ #
     if role == "streamer":
         from aiohttp import web as _web
-
-        async def _handle_stream_start(request):
-            import json
-            try:
-                data = await request.json()
-                tg_user_id = int(data["tg_user_id"])
-                stream_key  = data["stream_key"]
-                video_paths = data["video_paths"]   # main dan keladi
-
-                if not video_paths:
-                    return _web.json_response({"error": "video_paths bo'sh"}, status=400)
-
-                # filelist.txt
-                import tempfile, subprocess, asyncio as _aio
-                tmpdir = f"/tmp/stream_{tg_user_id}"
-                os.makedirs(tmpdir, exist_ok=True)
-                list_path = f"{tmpdir}/filelist.txt"
-                with open(list_path, "w") as f:
-                    for p in video_paths:
-                        f.write(f"file '{p}'\n")
-
-                log_path = f"{tmpdir}/ffmpeg.log"
-                rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
-
-                cmd = [
-                    "ffmpeg", "-y", "-re",
-                    "-f", "concat", "-safe", "0",
-                    "-stream_loop", "-1", "-i", list_path,
-                    "-vf", "scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1",
-                    "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
-                    "-b:v", "1500k", "-maxrate", "1800k", "-bufsize", "3000k",
-                    "-pix_fmt", "yuv420p", "-g", "60", "-keyint_min", "60", "-sc_threshold", "0",
-                    "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
-                    "-f", "flv", rtmp_url
-                ]
-                log_file = open(log_path, "w")
-                proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
-
-                await _aio.sleep(3)
-                if proc.poll() is not None:
-                    log_file.close()
-                    err = open(log_path).read()[-400:]
-                    return _web.json_response({"error": f"FFmpeg ishga tushmadi: {err}"}, status=500)
-
-                # Process ni xotirada saqlash
-                from autostream import autostream_tasks
-                autostream_tasks[tg_user_id] = proc
-                return _web.json_response({"ok": True, "pid": proc.pid})
-            except Exception as e:
-                return _web.json_response({"error": str(e)}, status=500)
-
-        async def _handle_stream_stop(request):
-            import json, subprocess
-            try:
-                data = await request.json()
-                tg_user_id = int(data["tg_user_id"])
-                from autostream import autostream_tasks, stop_autostream
-
-                class _FakeClient:
-                    async def send_message(self, *a, **k): pass
-
-                await stop_autostream(tg_user_id, _FakeClient(), tg_user_id)
-                return _web.json_response({"ok": True})
-            except Exception as e:
-                return _web.json_response({"error": str(e)}, status=500)
-
-        async def _handle_stream_status(request):
-            tg_user_id = int(request.query.get("tg_user_id", 0))
-            from autostream import get_autostream_status
-            return _web.json_response({"status": get_autostream_status(tg_user_id)})
 
         async def _handle_health_simple(request):
             return _web.Response(text="streamer ok")
 
         app = _web.Application()
         app.router.add_get("/", _handle_health_simple)
-        app.router.add_post("/stream/start", _handle_stream_start)
-        app.router.add_post("/stream/stop",  _handle_stream_stop)
-        app.router.add_get("/stream/status", _handle_stream_status)
 
         runner = _web.AppRunner(app)
         await runner.setup()
         site = _web.TCPSite(runner, "0.0.0.0", port)
         await site.start()
-        print(f"📡 Streamer service {port}-portda tayyor")
-        await asyncio.Event().wait()
+        print(f"📡 Streamer service {port}-portda tayyor (DB queue mode)")
+
+        from autostream import run_streamer_queue
+        await run_streamer_queue(port)
         return
 
     # ------------------------------------------------------------------ #

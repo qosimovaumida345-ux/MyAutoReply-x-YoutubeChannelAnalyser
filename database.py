@@ -138,6 +138,21 @@ def init_db():
         )
     """)
     
+    # Stream vazifalar (streamer worker uchun queue)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stream_tasks (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            chat_id BIGINT NOT NULL,
+            search_query TEXT NOT NULL,
+            stream_key TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            worker_id TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # Bot adminlari (avtorizatsiyadan o'tganlar)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS bot_admins (
@@ -1036,6 +1051,119 @@ def get_stream_key(tg_user_id):
         return res["stream_key"] if res else None
     except Exception as e:
         print("get_stream_key error:", e)
+        return None
+    finally:
+        conn.close()
+
+
+# ==================== STREAM TASK QUEUE ====================
+
+def create_stream_task(tg_user_id, chat_id, search_query, stream_key):
+    """Stream vazifasini DB ga qo'shish (streamer worker uchun)"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        # Bitta foydalanuvchi uchun bir vaqtda bitta aktiv task bo'lishi kerak
+        cur.execute(
+            "UPDATE stream_tasks SET status='cancelled' WHERE tg_user_id=%s AND status IN ('pending','running')",
+            (tg_user_id,)
+        )
+        cur.execute(
+            """INSERT INTO stream_tasks (tg_user_id, chat_id, search_query, stream_key, status)
+               VALUES (%s, %s, %s, %s, 'pending') RETURNING id""",
+            (tg_user_id, chat_id, search_query, stream_key)
+        )
+        task_id = cur.fetchone()[0]
+        conn.commit()
+        return task_id
+    except Exception as e:
+        print("create_stream_task error:", e)
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+
+def claim_pending_stream_task(worker_id):
+    """Bo'sh streamer worker tomonidan vazifa olish (atomic)"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            UPDATE stream_tasks
+            SET status = 'running', worker_id = %s, updated_at = NOW()
+            WHERE id = (
+                SELECT id FROM stream_tasks
+                WHERE status = 'pending'
+                ORDER BY created_at ASC
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+            )
+            RETURNING *
+        """, (worker_id,))
+        task = cur.fetchone()
+        conn.commit()
+        return dict(task) if task else None
+    except Exception as e:
+        print("claim_pending_stream_task error:", e)
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+
+def update_stream_task(task_id, status):
+    """Stream vazifasi statusini yangilash"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE stream_tasks SET status=%s, updated_at=NOW() WHERE id=%s",
+            (status, task_id)
+        )
+        conn.commit()
+    except Exception as e:
+        print("update_stream_task error:", e)
+    finally:
+        conn.close()
+
+
+def cancel_user_stream_tasks(tg_user_id):
+    """Foydalanuvchining barcha aktiv stream tasklerini bekor qilish"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE stream_tasks SET status='cancelled', updated_at=NOW() WHERE tg_user_id=%s AND status IN ('pending','running')",
+            (tg_user_id,)
+        )
+        conn.commit()
+    except Exception as e:
+        print("cancel_user_stream_tasks error:", e)
+    finally:
+        conn.close()
+
+
+def get_user_stream_status(tg_user_id):
+    """Foydalanuvchining joriy stream task statusini olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT * FROM stream_tasks WHERE tg_user_id=%s AND status IN ('pending','running') ORDER BY created_at DESC LIMIT 1",
+            (tg_user_id,)
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print("get_user_stream_status error:", e)
         return None
     finally:
         conn.close()
