@@ -1011,20 +1011,17 @@ def set_stream_key(tg_user_id, stream_key):
     conn = get_db()
     if not conn: return False
     try:
-        cur = conn.cursor()
-        # Ensure a record exists, we will update the default yt_connection or create a placeholder if it doesn't exist
-        # Wait, the prompt says "In database.py — add these columns to yt_connections table".
-        # But a user might have multiple yt_connections. The easiest is to update all or just the default one.
-        # Actually, let's just update the most recently connected one or the default one.
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
         default_ch_id = row["default_yt_channel_id"] if row else None
-        
+
         if default_ch_id:
             cur.execute("UPDATE yt_connections SET stream_key = %s WHERE tg_user_id = %s AND yt_channel_id = %s", (stream_key, tg_user_id, default_ch_id))
         else:
             cur.execute("UPDATE yt_connections SET stream_key = %s WHERE tg_user_id = %s", (stream_key, tg_user_id))
-            
+
         conn.commit()
         return True
     except Exception as e:
@@ -1037,16 +1034,17 @@ def get_stream_key(tg_user_id):
     conn = get_db()
     if not conn: return None
     try:
-        cur = conn.cursor()
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
         default_ch_id = row["default_yt_channel_id"] if row else None
-        
+
         if default_ch_id:
             cur.execute("SELECT stream_key FROM yt_connections WHERE tg_user_id = %s AND yt_channel_id = %s", (tg_user_id, default_ch_id))
         else:
             cur.execute("SELECT stream_key FROM yt_connections WHERE tg_user_id = %s ORDER BY connected_at DESC LIMIT 1", (tg_user_id,))
-            
+
         res = cur.fetchone()
         return res["stream_key"] if res else None
     except Exception as e:
@@ -1064,6 +1062,22 @@ def create_stream_task(tg_user_id, chat_id, search_query, stream_key):
     if not conn: return None
     try:
         cur = conn.cursor()
+        # Jadval yo'q bo'lsa yaratish (init_db ishlamagan bo'lsa ham ishlaydi)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS stream_tasks (
+                id SERIAL PRIMARY KEY,
+                tg_user_id BIGINT NOT NULL,
+                chat_id BIGINT NOT NULL,
+                search_query TEXT NOT NULL,
+                stream_key TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                worker_id TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+
         # Bitta foydalanuvchi uchun bir vaqtda bitta aktiv task bo'lishi kerak
         cur.execute(
             "UPDATE stream_tasks SET status='cancelled' WHERE tg_user_id=%s AND status IN ('pending','running')",
@@ -1085,6 +1099,24 @@ def create_stream_task(tg_user_id, chat_id, search_query, stream_key):
         conn.close()
 
 
+def _ensure_stream_tasks_table(cur, conn):
+    """stream_tasks jadvali yo'q bo'lsa yaratish (har doim xavfsiz)"""
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stream_tasks (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            chat_id BIGINT NOT NULL,
+            search_query TEXT NOT NULL,
+            stream_key TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            worker_id TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    conn.commit()
+
+
 def claim_pending_stream_task(worker_id):
     """Bo'sh streamer worker tomonidan vazifa olish (atomic)"""
     conn = get_db()
@@ -1092,6 +1124,7 @@ def claim_pending_stream_task(worker_id):
     try:
         import psycopg2.extras
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        _ensure_stream_tasks_table(cur, conn)
         cur.execute("""
             UPDATE stream_tasks
             SET status = 'running', worker_id = %s, updated_at = NOW()
@@ -1156,6 +1189,7 @@ def get_user_stream_status(tg_user_id):
     try:
         import psycopg2.extras
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        _ensure_stream_tasks_table(cur, conn)
         cur.execute(
             "SELECT * FROM stream_tasks WHERE tg_user_id=%s AND status IN ('pending','running') ORDER BY created_at DESC LIMIT 1",
             (tg_user_id,)
