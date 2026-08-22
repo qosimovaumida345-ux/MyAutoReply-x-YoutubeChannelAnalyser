@@ -1410,7 +1410,8 @@ async def main():
         print("🤖 Auto-Reply Userbot qo'shildi")
     else:
         print("⚠️  SESSION_STRING topilmadi — Userbot o'chirilgan")
-
+    
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
     # 2. YouTube Analytics Bot
     if BOT_TOKEN:
         from ytbot import create_ytbot
