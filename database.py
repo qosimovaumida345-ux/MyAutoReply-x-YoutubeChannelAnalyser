@@ -959,7 +959,7 @@ def claim_pending_autopost_task():
     conn = get_db()
     if not conn: return None
     try:
-        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if 'psycopg2.extras' in db else conn.cursor()
+        cur = conn.cursor()
         cur.execute('''
             UPDATE autopost_tasks 
             SET status = 'processing', updated_at = NOW() 
@@ -977,6 +977,38 @@ def claim_pending_autopost_task():
         return task
     except Exception as e:
         print("Claim task error:", e)
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+def claim_autopost_task_by_id(task_id):
+    """
+    Masofaviy worker (HTTP orqali push qilingan) aniq bitta task_id ni oladi.
+    claim_pending_autopost_task bilan bir xil, faqat tasodifiy pending emas —
+    main tomonidan tanlangan ID. FOR UPDATE SKIP LOCKED tufayli hali ham
+    xavfsiz — agar boshqa worker allaqachon shu taskni olgan bo'lsa, None qaytadi.
+    """
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute('''
+            UPDATE autopost_tasks
+            SET status = 'processing', updated_at = NOW()
+            WHERE id = (
+                SELECT id FROM autopost_tasks
+                WHERE id = %s AND status = 'pending'
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+            )
+            RETURNING *
+        ''', (task_id,))
+        task = cur.fetchone()
+        conn.commit()
+        return task
+    except Exception as e:
+        print("claim_autopost_task_by_id error:", e)
         conn.rollback()
         return None
     finally:
@@ -1088,7 +1120,7 @@ def create_stream_task(tg_user_id, chat_id, search_query, stream_key):
                VALUES (%s, %s, %s, %s, 'pending') RETURNING id""",
             (tg_user_id, chat_id, search_query, stream_key)
         )
-        task_id = cur.fetchone()[0]
+        task_id = cur.fetchone()["id"]
         conn.commit()
         return task_id
     except Exception as e:
@@ -1142,6 +1174,40 @@ def claim_pending_stream_task(worker_id):
         return dict(task) if task else None
     except Exception as e:
         print("claim_pending_stream_task error:", e)
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+
+def claim_stream_task_by_id(task_id, worker_id):
+    """
+    Masofaviy streamer (HTTP orqali push qilingan) aniq bitta stream task_id
+    ni oladi. claim_pending_stream_task bilan bir xil mantiq, faqat main
+    tomonidan tanlangan ID. FOR UPDATE SKIP LOCKED bilan xavfsiz.
+    """
+    conn = get_db()
+    if not conn: return None
+    try:
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        _ensure_stream_tasks_table(cur, conn)
+        cur.execute("""
+            UPDATE stream_tasks
+            SET status = 'running', worker_id = %s, updated_at = NOW()
+            WHERE id = (
+                SELECT id FROM stream_tasks
+                WHERE id = %s AND status = 'pending'
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+            )
+            RETURNING *
+        """, (worker_id, task_id))
+        task = cur.fetchone()
+        conn.commit()
+        return dict(task) if task else None
+    except Exception as e:
+        print("claim_stream_task_by_id error:", e)
         conn.rollback()
         return None
     finally:

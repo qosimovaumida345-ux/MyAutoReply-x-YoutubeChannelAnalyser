@@ -796,9 +796,19 @@ def create_ytbot():
                     f"📡 **Stream navbatga qo'shildi!**\n\n"
                     f"🔍 Manba: `{query}`\n"
                     f"🆔 Task ID: `{task_id}`\n\n"
-                    "Bo'sh streamer worker vazifani olib ishlaydi.\n"
+                    "Bo'sh streamer qidirilmoqda...\n"
                     "Holat: `/autostream status`"
                 )
+                # ROLE=main: avval tashqi STREAMER_URLS dagi bo'sh serverga push
+                # qilishga urinamiz; hech kim bo'sh bo'lmasa RAM limiti ichida
+                # main o'zi bajaradi; aks holda task DB da 'pending' qoladi va
+                # istalgan streamer (poll orqali) yoki keyingi dispatch uni oladi.
+                try:
+                    from main import dispatch_or_run_stream
+                    import asyncio as _asyncio
+                    _asyncio.create_task(dispatch_or_run_stream(task_id))
+                except Exception as _dispatch_err:
+                    print(f"[stream dispatch] xato: {_dispatch_err}")
             else:
                 await message.reply_text("❌ Stream task yaratishda xatolik yuz berdi.")
 
@@ -2328,13 +2338,25 @@ def create_ytbot():
                 try: conn_db.close()
                 except: pass
 
-        # ROLE=main: worker/autoposter service DB dan o'z-o'zidan oladi
         await callback_query.message.edit_text(
             f"✅ `Auto-post navbatga qo'shildi!`\n"
             f"📋 `{count}` ta video · `{query}`\n"
             f"Watermark: {'Yoqilgan ✅' if apply_watermark else 'O`chirilgan ❌'}\n\n"
-            "Worker/Autoposter service vazifani olib bajaradi."
+            "Bo'sh worker qidirilmoqda..."
         )
+
+        # ROLE=main: avval tashqi WORKER_URLS dagi bo'sh serverga push qilishga
+        # urinamiz; hech kim bo'sh bo'lmasa RAM limiti ichida main o'zi bajaradi;
+        # aks holda task DB da 'pending' qoladi va istalgan worker/autoposter
+        # (poll orqali) yoki keyingi dispatch uni oladi. Fon vazifasiga o'ramiz —
+        # aks holda bu callback handler boshqa foydalanuvchilarning callback
+        # so'rovlarini tashqi /status javobini kutib turib kechiktirib qo'yadi.
+        try:
+            from main import dispatch_or_run_autopost
+            import asyncio as _asyncio
+            _asyncio.create_task(dispatch_or_run_autopost(task_id))
+        except Exception as _dispatch_err:
+            print(f"[autopost dispatch] xato: {_dispatch_err}")
 
     @bot.on_callback_query(filters.regex("^back_main$"))
     async def cb_back_main(client, cb: CallbackQuery):

@@ -23,6 +23,63 @@ from database import save_yt_connection
 # ytbot instance ni saqlash (callback dan xabar yuborish uchun)
 ytbot_instance = None
 
+# ==================== SHARED BUSY-STATE (ROLE=worker/autoposter/streamer/main) ====================
+# Ham poll-loop, ham tashqidan HTTP orqali push qilingan /claim-task shu holatga qaraydi,
+# shunda ikkalasi bir vaqtda ikkita ishni boshlab qo'ymaydi (bitta process — bitta og'ir ish).
+_autopost_busy_state = {"busy": False, "task_id": None}
+_stream_busy_state = {"busy": False, "task_id": None}
+
+# ROLE=main o'zi hozir nechta og'ir vazifani (RAM chegarasi ichida) bajarayotgani.
+# MAIN_MAX_CONCURRENT_TASKS dan oshsa, main o'zi yangi ish olmaydi — faqat DB navbatiga yozadi.
+_main_running_tasks = {"count": 0}
+
+
+async def _dispatch_task_to_remote(urls, task_id, label):
+    """
+    Berilgan URL ro'yxatidagi serverlarni birma-bir /status orqali tekshiradi,
+    birinchi bo'sh topilganiga /claim-task bilan task_id ni push qiladi.
+
+    Qaytaradi: True — muvaffaqiyatli boshqa serverga topshirildi (main bu
+    task bilan endi ishi yo'q, DB status'ni o'sha server yangilaydi).
+    False — hech kim bo'sh emas yoki hech kim javob bermadi (chaqiruvchi
+    o'zi bajarish yoki DB navbatida qoldirishni hal qiladi).
+    """
+    if not urls:
+        return False
+
+    import aiohttp
+    from config import DISPATCH_HTTP_TIMEOUT
+    timeout = aiohttp.ClientTimeout(total=DISPATCH_HTTP_TIMEOUT)
+
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for url in urls:
+            try:
+                async with session.get(f"{url}/status") as resp:
+                    if resp.status != 200:
+                        continue
+                    status_data = await resp.json()
+                    if status_data.get("busy"):
+                        continue
+            except Exception as e:
+                print(f"[dispatch/{label}] {url}/status javob bermadi: {e}")
+                continue
+
+            # Bo'sh ko'rinadi — task push qilishga urinamiz.
+            # Agar shu orada boshqa main instance yoki bu server band bo'lib
+            # qolgan bo'lsa, claim_*_by_id baribir xavfsiz rad etadi (409).
+            try:
+                async with session.post(f"{url}/claim-task", json={"task_id": task_id}) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        if data.get("ok"):
+                            print(f"[dispatch/{label}] Task #{task_id} → {url} ga yuborildi")
+                            return True
+                    print(f"[dispatch/{label}] {url} taskni rad etdi (status={resp.status})")
+            except Exception as e:
+                print(f"[dispatch/{label}] {url}/claim-task xatosi: {e}")
+                continue
+
+    return False
 
 
 # ==================== AUTOPILOT WORKER ====================
@@ -77,8 +134,12 @@ async def run_autopilot_worker():
                             # Update last run right away so it doesn't run again if it fails
                             update_autopilot_last_run(user_id)
 
-                            # ROLE=main: DB ga yozib qo'yamiz, worker/autoposter o'zi oladi
-                            print(f"[autopilot] Task {task_id} navbatga qo'shildi (worker oladi)")
+                            if task_id:
+                                print(f"[autopilot] Task {task_id} navbatga qo'shildi, marshrutlanmoqda...")
+                                try:
+                                    await dispatch_or_run_autopost(task_id)
+                                except Exception as _dispatch_err:
+                                    print(f"[autopilot] dispatch xato: {_dispatch_err}")
                             
                         except Exception as e:
                             print(f"Autopilot task error: {e}")
@@ -89,23 +150,8 @@ async def run_autopilot_worker():
         await asyncio.sleep(60 * 60) # Check every hour
 
 
-async def run_worker_queue():
-    """
-    ROLE=worker / ROLE=autoposter uchun:
-    DB dagi 'pending' autopost tasklerini oladi va bajaradi.
-    Bir vaqtda bir task. Tugatgach keyingisini oladi.
-    """
-    from database import claim_pending_autopost_task, get_user_proxy
-    from autopost import autopost_worker
-    import asyncio
-    import os
-
-    worker_id = f"worker_{os.getpid()}"
-    print(f"👷 [{worker_id}] Autopost queue worker poylamoqda...")
-
-    # Lightweight mock client (faqat xabar yuborish uchun)
-    # Agar BOT_TOKEN bo'lsa — real bot orqali xabar yuboramiz
-    bot_client = None
+async def _get_worker_bot_client(worker_id):
+    """ROLE=worker/autoposter uchun xabar yuboradigan yengil bot client (bor bo'lsa)."""
     try:
         from pyrogram import Client
         from config import API_ID, API_HASH, BOT_TOKEN
@@ -119,39 +165,227 @@ async def run_worker_queue():
             )
             await bot_client.start()
             print(f"✅ [{worker_id}] Bot client tayyor")
+            return bot_client
     except Exception as e:
         print(f"⚠️ [{worker_id}] Bot client ishga tushmadi (xabarsiz ishlaydi): {e}")
-        bot_client = None
+    return None
+
+
+async def _run_autopost_task(task, worker_id, bot_client):
+    """
+    Bitta autopost taskni bajaradi. Ham poll-loop (run_worker_queue), ham
+    tashqidan push qilingan /claim-task shu funksiyani chaqiradi — mantiq
+    ikki joyda takrorlanmasin va busy-state doim to'g'ri boshqarilsin.
+    """
+    from database import get_user_proxy, update_autopost_task
+    from autopost import autopost_worker
+
+    task_id      = task['id']
+    tg_user_id   = task['tg_user_id']
+    search_query = task['search_query']
+    total_count  = task['total_count']
+    apply_wm     = task.get('apply_watermark', False)
+    user_proxy   = get_user_proxy(tg_user_id)
+
+    print(f"📥 [{worker_id}] Task #{task_id} olindi: '{search_query}' ({total_count} ta)")
+
+    _autopost_busy_state["busy"] = True
+    _autopost_busy_state["task_id"] = task_id
+    try:
+        await autopost_worker(
+            task_id, tg_user_id, search_query, total_count,
+            bot_client, tg_user_id,
+            proxy_url=user_proxy,
+            apply_watermark=apply_wm
+        )
+    except Exception as e:
+        print(f"❌ [{worker_id}] Task #{task_id} xatosi: {e}")
+        update_autopost_task(task_id, status="failed")
+    finally:
+        _autopost_busy_state["busy"] = False
+        _autopost_busy_state["task_id"] = None
+
+
+async def run_worker_queue(bot_client=None):
+    """
+    ROLE=worker / ROLE=autoposter uchun:
+    DB dagi 'pending' autopost tasklerini oladi va bajaradi.
+    Bir vaqtda bir task. Tugatgach keyingisini oladi.
+    ROLE=main HTTP orqali /claim-task ga task push qilsa, u ham xuddi shu
+    _autopost_busy_state dan foydalanadi — shu process ikki taskni
+    baravariga boshlab qo'ymaydi.
+
+    bot_client berilmasa (masalan to'g'ridan chaqirilganda), o'zi yaratadi.
+    ROLE=worker asosiy oqimida chaqirilganda, bitta client ikkala yo'l
+    (poll-loop va HTTP push) uchun umumiy ishlatilishi kerak — Pyrogram
+    bitta processda ikkita bir xil sessiyani parallel ochishni yoqtirmaydi.
+    """
+    from database import claim_pending_autopost_task
+    import asyncio
+    import os
+
+    worker_id = f"worker_{os.getpid()}"
+    print(f"👷 [{worker_id}] Autopost queue worker poylamoqda...")
+
+    if bot_client is None:
+        bot_client = await _get_worker_bot_client(worker_id)
 
     while True:
         try:
+            if _autopost_busy_state["busy"]:
+                # Hozir /claim-task orqali push qilingan (yoki shu loopdan) task ishlayapti
+                await asyncio.sleep(5)
+                continue
+
             task = claim_pending_autopost_task()
             if task:
-                task_id      = task['id']
-                tg_user_id   = task['tg_user_id']
-                search_query = task['search_query']
-                total_count  = task['total_count']
-                apply_wm     = task.get('apply_watermark', False)
-                user_proxy   = get_user_proxy(tg_user_id)
-
-                print(f"📥 [{worker_id}] Task #{task_id} olindi: '{search_query}' ({total_count} ta)")
-
-                try:
-                    await autopost_worker(
-                        task_id, tg_user_id, search_query, total_count,
-                        bot_client, tg_user_id,
-                        proxy_url=user_proxy,
-                        apply_watermark=apply_wm
-                    )
-                except Exception as e:
-                    print(f"❌ [{worker_id}] Task #{task_id} xatosi: {e}")
-                    from database import update_autopost_task
-                    update_autopost_task(task_id, status="failed")
+                await _run_autopost_task(task, worker_id, bot_client)
             else:
                 await asyncio.sleep(5)
         except Exception as e:
             print(f"❌ [{worker_id}] Queue loop xatosi: {e}")
             await asyncio.sleep(10)
+
+
+# ==================== ROLE=main DISPATCHER ====================
+# /autopost va /autostream start (yoki API orqali yaratilgan tasklar) DB ga
+# yozilgandan keyin shu yerdan chaqiriladi. Tartib:
+#   1. WORKER_URLS / STREAMER_URLS dagi tashqi serverlardan bo'shini topib push qiladi
+#   2. Hech kim bo'sh bo'lmasa/javob bermasa va main hali RAM limitida (
+#      MAIN_MAX_CONCURRENT_TASKS dan kam ish bajarayotgan) bo'lsa — main o'zi bajaradi
+#   3. Aks holda hech narsa qilinmaydi — task DB da 'pending' holida qoladi,
+#      keyinroq bo'shagan har qanday worker/streamer (poll orqali) yoki
+#      keyingi dispatch chaqiruvi uni oladi.
+
+async def dispatch_or_run_autopost(task_id):
+    """ROLE=main: yangi yaratilgan autopost task_id ni marshrutlaydi."""
+    from config import WORKER_URLS, MAIN_MAX_CONCURRENT_TASKS
+
+    sent = await _dispatch_task_to_remote(WORKER_URLS, task_id, "autopost")
+    if sent:
+        return "dispatched"
+
+    if _main_running_tasks["count"] >= MAIN_MAX_CONCURRENT_TASKS:
+        print(f"[dispatch/autopost] Task #{task_id}: tashqi worker yo'q, main band — DB navbatida qoldi")
+        return "queued"
+
+    from database import claim_autopost_task_by_id
+    task = claim_autopost_task_by_id(task_id)
+    if not task:
+        # Shu orada boshqa joy (masalan alohida ishlayotgan worker poll-loop) olib ulgurgan
+        return "queued"
+
+    print(f"[dispatch/autopost] Task #{task_id}: main o'zi bajaradi (RAM limit ichida)")
+    _main_running_tasks["count"] += 1
+    try:
+        asyncio.create_task(_run_main_autopost_task(task))
+    except Exception:
+        _main_running_tasks["count"] -= 1
+        raise
+    return "running_local"
+
+
+async def _run_main_autopost_task(task):
+    """ROLE=main o'zi autopost taskni bajarayotganda ishlaydigan wrapper (counter bilan)."""
+    try:
+        await _run_autopost_task(task, f"main_{os.getpid()}", ytbot_instance)
+    finally:
+        _main_running_tasks["count"] = max(0, _main_running_tasks["count"] - 1)
+
+
+async def dispatch_or_run_stream(task_id):
+    """ROLE=main: yangi yaratilgan stream task_id ni marshrutlaydi."""
+    from config import STREAMER_URLS, MAIN_MAX_CONCURRENT_TASKS
+
+    sent = await _dispatch_task_to_remote(STREAMER_URLS, task_id, "stream")
+    if sent:
+        return "dispatched"
+
+    if _main_running_tasks["count"] >= MAIN_MAX_CONCURRENT_TASKS:
+        print(f"[dispatch/stream] Task #{task_id}: tashqi streamer yo'q, main band — DB navbatida qoldi")
+        return "queued"
+
+    from database import claim_stream_task_by_id
+    worker_id = f"main_streamer_{os.getpid()}"
+    task = claim_stream_task_by_id(task_id, worker_id)
+    if not task:
+        return "queued"
+
+    print(f"[dispatch/stream] Task #{task_id}: main o'zi bajaradi (RAM limit ichida)")
+    _main_running_tasks["count"] += 1
+    try:
+        asyncio.create_task(_run_main_stream_task(task, worker_id))
+    except Exception:
+        _main_running_tasks["count"] -= 1
+        raise
+    return "running_local"
+
+
+async def _run_main_stream_task(task, worker_id):
+    """
+    ROLE=main o'zi stream taskni bajarayotganda ishlaydigan wrapper.
+
+    Muhim: start_stream_task faqat FFmpeg ni ishga tushiradi va darhol
+    qaytadi — streamning tugashini kutmaydi. Shuning uchun bu yerda
+    _main_running_tasks countini FFmpeg chindan tugaguncha (yoki bekor
+    qilinguncha) ushlab turadigan monitor loop kerak — aks holda RAM
+    limiti FFmpeg ishga tushgan zahoti "bo'shab qoladi" va main navbatdan
+    tashqari yana og'ir ish olib, RAM limitini buzadi.
+    """
+    from autostream import start_stream_task, _streamer_state, autostream_tasks
+    from database import update_stream_task, get_db
+    import psycopg2.extras
+
+    task_id = task['id']
+    try:
+        await start_stream_task(task, worker_id, ytbot_instance)
+
+        # start_stream_task muvaffaqiyatsiz bo'lsa (masalan video topilmadi
+        # yoki FFmpeg ishga tushmadi), _streamer_state allaqachon tozalangan —
+        # monitor qilishga hojat yo'q, counter darhol bo'shaydi.
+        if _streamer_state.get("task_id") != task_id:
+            return
+
+        # FFmpeg tirik ekan — tugaguncha yoki bekor qilinguncha kuzatamiz
+        while _streamer_state.get("task_id") == task_id:
+            proc = _streamer_state.get("proc")
+            if proc and proc.poll() is not None:
+                print(f"[main_streamer] FFmpeg to'xtadi (task #{task_id})")
+                update_stream_task(task_id, 'completed')
+                keys_to_del = [k for k, v in autostream_tasks.items() if v == proc]
+                for k in keys_to_del:
+                    del autostream_tasks[k]
+                _streamer_state["task_id"] = None
+                _streamer_state["proc"] = None
+                break
+
+            # Bekor qilinganmi tekshiramiz (masalan /autostream stop)
+            conn_check = get_db()
+            if conn_check:
+                try:
+                    cur_check = conn_check.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                    cur_check.execute("SELECT status FROM stream_tasks WHERE id=%s", (task_id,))
+                    row = cur_check.fetchone()
+                    if row and row['status'] == 'cancelled' and proc:
+                        try:
+                            proc.terminate()
+                            proc.wait(timeout=5)
+                        except Exception:
+                            try: proc.kill()
+                            except: pass
+                        print(f"[main_streamer] Stream bekor qilindi (task #{task_id})")
+                        _streamer_state["task_id"] = None
+                        _streamer_state["proc"] = None
+                        break
+                except Exception as e:
+                    print(f"[main_streamer] cancel check xato: {e}")
+                finally:
+                    conn_check.close()
+
+            await asyncio.sleep(5)
+    finally:
+        _main_running_tasks["count"] = max(0, _main_running_tasks["count"] - 1)
+
 
 # ==================== WEB SERVER (OAuth Callback + Health Check) ====================
 
@@ -921,8 +1155,10 @@ async def handle_api_autopost_create(request):
         search_query = "__IDS__:" + ",".join(video_ids)
         task_id = create_autopost_task(tg_user_id, channel_id, search_query, "shorts", len(video_ids))
 
-        # ROLE=main: faqat DB ga yozamiz — worker/autoposter o'zi oladi
-        # (to'g'ridan autopost_worker chaqirmaymiz — main qotib qoladi)
+        # ROLE=main: bo'sh tashqi worker qidiradi (yoki RAM limit ichida o'zi bajaradi);
+        # javobni HTTP so'rovchiga darhol qaytarish uchun fon vazifasiga o'raymiz.
+        if task_id:
+            asyncio.create_task(dispatch_or_run_autopost(task_id))
         return web.json_response({"success": True, "task_id": task_id})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=500)
@@ -998,21 +1234,70 @@ async def main():
     # ------------------------------------------------------------------ #
     if role == "streamer":
         from aiohttp import web as _web
+        from autostream import _streamer_state, start_stream_task, run_streamer_queue
+
+        bot_client_holder = {"client": None}
 
         async def _handle_health_simple(request):
             return _web.Response(text="streamer ok")
 
+        async def _handle_status_streamer(request):
+            return _web.json_response({
+                "role": "streamer",
+                "busy": _streamer_state["task_id"] is not None,
+                "task_id": _streamer_state["task_id"],
+            })
+
+        async def _handle_claim_task_streamer(request):
+            try:
+                data = await request.json()
+                task_id = int(data["task_id"])
+            except Exception as e:
+                return _web.json_response({"ok": False, "error": f"bad request: {e}"}, status=400)
+
+            if _streamer_state["task_id"] is not None:
+                return _web.json_response({"ok": False, "error": "busy"}, status=409)
+
+            from database import claim_stream_task_by_id
+            worker_id = f"pushed_streamer_{os.getpid()}"
+            task = claim_stream_task_by_id(task_id, worker_id)
+            if not task:
+                # Boshqa streamer allaqachon olgan yoki bekor qilingan bo'lishi mumkin
+                return _web.json_response({"ok": False, "error": "task_not_available"}, status=409)
+
+            asyncio.create_task(
+                start_stream_task(task, worker_id, bot_client_holder["client"])
+            )
+            return _web.json_response({"ok": True, "task_id": task_id})
+
         app = _web.Application()
         app.router.add_get("/", _handle_health_simple)
+        app.router.add_get("/status", _handle_status_streamer)
+        app.router.add_post("/claim-task", _handle_claim_task_streamer)
 
         runner = _web.AppRunner(app)
         await runner.setup()
         site = _web.TCPSite(runner, "0.0.0.0", port)
         await site.start()
-        print(f"📡 Streamer service {port}-portda tayyor (DB queue mode)")
+        print(f"📡 Streamer service {port}-portda tayyor (/status, /claim-task)")
 
-        from autostream import run_streamer_queue
-        await run_streamer_queue(port)
+        try:
+            from pyrogram import Client
+            from config import API_ID, API_HASH, BOT_TOKEN
+            if BOT_TOKEN and API_ID and API_HASH:
+                bot_client_holder["client"] = Client(
+                    f"streamer_bot_{os.getpid()}",
+                    api_id=API_ID,
+                    api_hash=API_HASH,
+                    bot_token=BOT_TOKEN,
+                    in_memory=True
+                )
+                await bot_client_holder["client"].start()
+        except Exception as e:
+            print(f"⚠️ Streamer bot client ishga tushmadi: {e}")
+            bot_client_holder["client"] = None
+
+        await run_streamer_queue(port, bot_client=bot_client_holder["client"])
         return
 
     # ------------------------------------------------------------------ #
@@ -1054,11 +1339,62 @@ async def main():
     # ------------------------------------------------------------------ #
     #  ROLE = worker  yoki  ROLE = autoposter                             #
     #  Faqat autopost worker queue — bot polling yo'q                     #
+    #  /status va /claim-task — ROLE=main dan HTTP orqali push qabul      #
+    #  qilish uchun (bo'sh bo'lsa darhol oladi, band bo'lsa rad etadi,    #
+    #  shunda main DB navbatiga yozib qo'yaveradi).                       #
     # ------------------------------------------------------------------ #
     if role in ("worker", "autoposter"):
-        await start_web_server(port)   # health check uchun
-        print(f"👷 {role.upper()} queue worker ishga tushdi")
-        await run_worker_queue()
+        from aiohttp import web as _web
+
+        bot_client_holder = {"client": None}
+
+        async def _handle_health_worker(request):
+            return _web.Response(text=f"{role} ok")
+
+        async def _handle_status_worker(request):
+            return _web.json_response({
+                "role": role,
+                "busy": _autopost_busy_state["busy"],
+                "task_id": _autopost_busy_state["task_id"],
+            })
+
+        async def _handle_claim_task_worker(request):
+            import json
+            try:
+                data = await request.json()
+                task_id = int(data["task_id"])
+            except Exception as e:
+                return _web.json_response({"ok": False, "error": f"bad request: {e}"}, status=400)
+
+            if _autopost_busy_state["busy"]:
+                return _web.json_response({"ok": False, "error": "busy"}, status=409)
+
+            from database import claim_autopost_task_by_id
+            task = claim_autopost_task_by_id(task_id)
+            if not task:
+                # Boshqa worker allaqachon olgan bo'lishi mumkin — bu xato emas
+                return _web.json_response({"ok": False, "error": "task_not_available"}, status=409)
+
+            worker_id = f"pushed_{os.getpid()}"
+            asyncio.create_task(
+                _run_autopost_task(task, worker_id, bot_client_holder["client"])
+            )
+            return _web.json_response({"ok": True, "task_id": task_id})
+
+        app = _web.Application()
+        app.router.add_get("/", _handle_health_worker)
+        app.router.add_get("/status", _handle_status_worker)
+        app.router.add_post("/claim-task", _handle_claim_task_worker)
+
+        runner = _web.AppRunner(app)
+        await runner.setup()
+        site = _web.TCPSite(runner, "0.0.0.0", port)
+        await site.start()
+        print(f"👷 {role.upper()} service {port}-portda tayyor (/status, /claim-task)")
+
+        bot_client_holder["client"] = await _get_worker_bot_client(f"{role}_{os.getpid()}")
+
+        await run_worker_queue(bot_client=bot_client_holder["client"])
         return
 
     # ------------------------------------------------------------------ #

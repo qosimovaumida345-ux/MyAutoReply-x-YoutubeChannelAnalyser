@@ -141,3 +141,20 @@ DEFAULT_PROXY = os.getenv("DEFAULT_PROXY", "")  # masalan: socks5://user:pass@ho
 # ==================== KUNLIK LIMITLAR ====================
 DAILY_LIMIT_USER = 15    # Oddiy foydalanuvchilar uchun kunlik limit
 DAILY_LIMIT_ADMIN = 999  # Admin uchun (deyarli cheksiz)
+
+# ==================== MULTI-SERVICE ROUTING (ROLE=main) ====================
+# ROLE=main boshqa serverlarga (ROLE=worker/autoposter, ROLE=streamer) vazifa
+# yubormoqchi bo'lsa, ularning to'liq HTTP manzillarini shu yerga yoziladi.
+# Masalan Render'da: WORKER_URLS=https://myworker.onrender.com,https://myworker2.onrender.com
+# Bo'sh qoldirilsa — main hech kimga yubormaydi, faqat DB navbatiga yozadi
+# (eski workerlar/streamerlar DB'ni poll qilib baribir oladi, agar ular alohida ishga tushirilgan bo'lsa).
+WORKER_URLS = [u.strip().rstrip("/") for u in os.getenv("WORKER_URLS", "").split(",") if u.strip()]
+STREAMER_URLS = [u.strip().rstrip("/") for u in os.getenv("STREAMER_URLS", "").split(",") if u.strip()]
+
+# HTTP orqali boshqa serverga /status va /claim-task so'rovlari uchun timeout (soniya)
+DISPATCH_HTTP_TIMEOUT = float(os.getenv("DISPATCH_HTTP_TIMEOUT", "4"))
+
+# ROLE=main o'zi bir vaqtda nechta og'ir vazifani (autopost yoki stream) bajaraoladi.
+# Tashqi worker/streamer topilmasa yoki hammasi band bo'lsa, shu limitgacha main o'zi ham qiladi.
+# 0 qilib qo'ysangiz — main hech qachon o'zi bajarmaydi, faqat DB navbatiga yozadi.
+MAIN_MAX_CONCURRENT_TASKS = int(os.getenv("MAIN_MAX_CONCURRENT_TASKS", "1"))

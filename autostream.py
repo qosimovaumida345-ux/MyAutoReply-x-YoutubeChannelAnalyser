@@ -353,57 +353,178 @@ def get_autostream_status(tg_user_id):
 
 # ==================== STREAMER WORKER LOOP ====================
 
-async def run_streamer_queue(port=3000):
+# Module-darajadagi holat (poll-loop bilan HTTP push-handler ikkalasi ham
+# shuni ko'rishi kerak, shuning uchun funksiya ichidagi lokal o'zgaruvchi emas).
+_streamer_state = {
+    "task_id": None,   # hozir ishlayotgan stream_tasks.id, band bo'lmasa None
+    "proc": None,       # shu taskning ffmpeg subprocess.Popen obyekti
+    "worker_id": None,
+}
+
+
+async def _streamer_safe_msg(bot_client, worker_id, chat_id, text):
+    if bot_client:
+        try:
+            await bot_client.send_message(chat_id, text)
+        except Exception as ex:
+            print(f"[{worker_id}] xabar yuborish xatosi: {ex}")
+
+
+async def start_stream_task(task, worker_id, bot_client):
+    """
+    Bitta stream taskni boshlaydi: video yuklab oladi + FFmpeg RTMP ga uzatadi.
+    Ham poll-loop (run_streamer_queue), ham tashqidan push qilingan
+    /claim-task shu funksiyani chaqiradi. _streamer_state shu yerda
+    boshqariladi, shunda monitor-loop ham xuddi shu taskni kuzatadi.
+    """
+    from database import update_stream_task
+
+    task_id      = task['id']
+    tg_user_id   = task['tg_user_id']
+    chat_id      = task['chat_id']
+    search_query = task['search_query']
+    stream_key   = task['stream_key']
+
+    _streamer_state["task_id"] = task_id
+    _streamer_state["proc"] = None
+    _streamer_state["worker_id"] = worker_id
+
+    print(f"📥 [{worker_id}] Stream task #{task_id} olindi: '{search_query}'")
+
+    await _streamer_safe_msg(
+        bot_client, worker_id, chat_id,
+        f"🔍 **'{search_query}'** bo'yicha Shorts videolari yuklanmoqda..."
+    )
+
+    try:
+        # 1. Videolarni yuklab olish
+        video_paths = await download_videos(
+            search_query, chat_id,
+            tg_user_id=tg_user_id, limit=6
+        )
+
+        if not video_paths:
+            await _streamer_safe_msg(
+                bot_client, worker_id, chat_id,
+                "❌ Hech qanday Shorts video topilmadi!\n"
+                "• `@Username` to'g'riligini tekshiring\n"
+                "• `/setcookies` orqali cookie qo'shing"
+            )
+            update_stream_task(task_id, 'failed')
+            _streamer_state["task_id"] = None
+            _streamer_state["proc"] = None
+            return
+
+        # 2. filelist.txt yaratish
+        tmpdir = f"/tmp/autostream_{chat_id}"
+        os.makedirs(tmpdir, exist_ok=True)
+        list_path = f"{tmpdir}/filelist.txt"
+        with open(list_path, "w", encoding="utf-8") as f:
+            for p in video_paths:
+                safe_p = p.replace("\\", "/").replace("'", "\\'")
+                f.write(f"file '{safe_p}'\n")
+
+        rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
+        log_path = f"{tmpdir}/ffmpeg.log"
+
+        cmd = [
+            "ffmpeg", "-y", "-re",
+            "-f", "concat", "-safe", "0",
+            "-stream_loop", "-1", "-i", list_path,
+            "-vf", (
+                "scale=720:1280:force_original_aspect_ratio=decrease,"
+                "pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1"
+            ),
+            "-c:v", "libx264", "-preset", "ultrafast",
+            "-tune", "zerolatency",
+            "-b:v", "1500k", "-maxrate", "1800k", "-bufsize", "3000k",
+            "-pix_fmt", "yuv420p", "-g", "60",
+            "-keyint_min", "60", "-sc_threshold", "0",
+            "-c:a", "aac", "-b:a", "128k",
+            "-ar", "44100", "-ac", "2",
+            "-f", "flv", rtmp_url
+        ]
+
+        log_file = open(log_path, "w")
+        proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
+
+        # 3 soniya kut — FFmpeg darhol o'lganini bilish uchun
+        await asyncio.sleep(3)
+        if proc.poll() is not None:
+            log_file.close()
+            err = ""
+            try:
+                with open(log_path, "r") as lf:
+                    err = "".join(lf.readlines()[-15:])
+            except Exception:
+                pass
+            await _streamer_safe_msg(
+                bot_client, worker_id, chat_id,
+                f"❌ FFmpeg ishga tushmadi!\n```\n{err[-300:]}\n```"
+            )
+            update_stream_task(task_id, 'failed')
+            _streamer_state["task_id"] = None
+            _streamer_state["proc"] = None
+        else:
+            # Muvaffaqiyatli boshlandi
+            autostream_tasks[tg_user_id] = proc
+            _streamer_state["proc"] = proc
+            update_stream_task(task_id, 'running')
+            await _streamer_safe_msg(
+                bot_client, worker_id, chat_id,
+                f"📱 **Jonli efir muvaffaqiyatli boshlandi!**\n\n"
+                f"📺 Manba: `{search_query}`\n"
+                f"🎬 {len(video_paths)} ta video loop\n"
+                f"📐 Format: 9:16 vertikal\n\n"
+                "To'xtatish: `/autostream stop`"
+            )
+
+    except Exception as e:
+        await _streamer_safe_msg(bot_client, worker_id, chat_id, f"❌ Stream xatosi: {e}")
+        update_stream_task(task_id, 'failed')
+        _streamer_state["task_id"] = None
+        _streamer_state["proc"] = None
+
+
+async def run_streamer_queue(port=3000, bot_client=None):
     """
     ROLE=streamer uchun:
     DB dagi 'pending' stream tasklerini oladi va bajaradi.
     Agar 2 ta odam bir vaqtda stream qilsa — 2 ta streamer instance
     har biri alohida task olib ishlaydi (SKIP LOCKED bilan).
+    ROLE=main HTTP orqali /claim-task ga stream task push qilsa, u ham
+    xuddi shu _streamer_state dan foydalanadi — shu process ikki FFmpeg
+    jarayonini baravariga boshlab qo'ymaydi.
+
+    bot_client berilmasa (masalan to'g'ridan chaqirilganda), o'zi yaratadi.
     """
-    import asyncio
-    import os
-    import subprocess
-    from database import (
-        claim_pending_stream_task, update_stream_task,
-        cancel_user_stream_tasks, get_user_stream_status
-    )
+    from database import claim_pending_stream_task, update_stream_task
 
     worker_id = f"streamer_{os.getpid()}"
     print(f"📡 [{worker_id}] Stream queue worker poylamoqda...")
 
-    # Bot client — foydalanuvchiga xabar yuborish uchun
-    bot_client = None
-    try:
-        from pyrogram import Client
-        from config import API_ID, API_HASH, BOT_TOKEN
-        if BOT_TOKEN and API_ID and API_HASH:
-            bot_client = Client(
-                f"streamer_bot_{os.getpid()}",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                bot_token=BOT_TOKEN,
-                in_memory=True
-            )
-            await bot_client.start()
-            print(f"✅ [{worker_id}] Bot client tayyor")
-    except Exception as e:
-        print(f"⚠️ [{worker_id}] Bot client ishga tushmadi: {e}")
-        bot_client = None
-
-    current_task_id = None
-    current_proc    = None
-
-    async def safe_msg(chat_id, text):
-        if bot_client:
-            try:
-                await bot_client.send_message(chat_id, text)
-            except Exception as ex:
-                print(f"[{worker_id}] xabar yuborish xatosi: {ex}")
+    if bot_client is None:
+        try:
+            from pyrogram import Client
+            from config import API_ID, API_HASH, BOT_TOKEN
+            if BOT_TOKEN and API_ID and API_HASH:
+                bot_client = Client(
+                    f"streamer_bot_{os.getpid()}",
+                    api_id=API_ID,
+                    api_hash=API_HASH,
+                    bot_token=BOT_TOKEN,
+                    in_memory=True
+                )
+                await bot_client.start()
+                print(f"✅ [{worker_id}] Bot client tayyor")
+        except Exception as e:
+            print(f"⚠️ [{worker_id}] Bot client ishga tushmadi: {e}")
+            bot_client = None
 
     while True:
         try:
             # Avval joriy task bekor qilinganmi — tekshir
-            if current_task_id is not None and current_proc is not None:
+            if _streamer_state["task_id"] is not None and _streamer_state["proc"] is not None:
                 from database import get_db
                 import psycopg2.extras
                 conn_check = get_db()
@@ -412,144 +533,45 @@ async def run_streamer_queue(port=3000):
                         cur_check = conn_check.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                         cur_check.execute(
                             "SELECT status FROM stream_tasks WHERE id=%s",
-                            (current_task_id,)
+                            (_streamer_state["task_id"],)
                         )
                         row = cur_check.fetchone()
                         if row and row['status'] == 'cancelled':
                             # Stop current ffmpeg
+                            proc = _streamer_state["proc"]
                             try:
-                                current_proc.terminate()
-                                current_proc.wait(timeout=5)
+                                proc.terminate()
+                                proc.wait(timeout=5)
                             except Exception:
-                                try: current_proc.kill()
+                                try: proc.kill()
                                 except: pass
-                            current_task_id = None
-                            current_proc    = None
                             print(f"[{worker_id}] Joriy stream bekor qilindi")
+                            _streamer_state["task_id"] = None
+                            _streamer_state["proc"] = None
                     except Exception as e:
                         print(f"[{worker_id}] cancel check xato: {e}")
                     finally:
                         conn_check.close()
 
             # Agar hozir band bo'lmasak — yangi task ol
-            if current_task_id is None:
+            if _streamer_state["task_id"] is None:
                 task = claim_pending_stream_task(worker_id)
                 if task:
-                    task_id      = task['id']
-                    tg_user_id   = task['tg_user_id']
-                    chat_id      = task['chat_id']
-                    search_query = task['search_query']
-                    stream_key   = task['stream_key']
-
-                    current_task_id = task_id
-                    print(f"📥 [{worker_id}] Stream task #{task_id} olindi: '{search_query}'")
-
-                    await safe_msg(
-                        chat_id,
-                        f"🔍 **'{search_query}'** bo'yicha Shorts videolari yuklanmoqda..."
-                    )
-
-                    try:
-                        # 1. Videolarni yuklab olish
-                        video_paths = await download_videos(
-                            search_query, chat_id,
-                            tg_user_id=tg_user_id, limit=6
-                        )
-
-                        if not video_paths:
-                            await safe_msg(
-                                chat_id,
-                                "❌ Hech qanday Shorts video topilmadi!\n"
-                                "• `@Username` to'g'riligini tekshiring\n"
-                                "• `/setcookies` orqali cookie qo'shing"
-                            )
-                            update_stream_task(task_id, 'failed')
-                            current_task_id = None
-                            current_proc    = None
-                        else:
-                            # 2. filelist.txt yaratish
-                            import tempfile
-                            tmpdir = f"/tmp/autostream_{chat_id}"
-                            os.makedirs(tmpdir, exist_ok=True)
-                            list_path = f"{tmpdir}/filelist.txt"
-                            with open(list_path, "w", encoding="utf-8") as f:
-                                for p in video_paths:
-                                    safe_p = p.replace("\\", "/").replace("'", "\\'")
-                                    f.write(f"file '{safe_p}'\n")
-
-                            rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
-                            log_path = f"{tmpdir}/ffmpeg.log"
-
-                            cmd = [
-                                "ffmpeg", "-y", "-re",
-                                "-f", "concat", "-safe", "0",
-                                "-stream_loop", "-1", "-i", list_path,
-                                "-vf", (
-                                    "scale=720:1280:force_original_aspect_ratio=decrease,"
-                                    "pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,setsar=1"
-                                ),
-                                "-c:v", "libx264", "-preset", "ultrafast",
-                                "-tune", "zerolatency",
-                                "-b:v", "1500k", "-maxrate", "1800k", "-bufsize", "3000k",
-                                "-pix_fmt", "yuv420p", "-g", "60",
-                                "-keyint_min", "60", "-sc_threshold", "0",
-                                "-c:a", "aac", "-b:a", "128k",
-                                "-ar", "44100", "-ac", "2",
-                                "-f", "flv", rtmp_url
-                            ]
-
-                            log_file = open(log_path, "w")
-                            proc = subprocess.Popen(cmd, stdout=log_file, stderr=log_file)
-
-                            # 3 soniya kut — FFmpeg darhol o'lganini bilish uchun
-                            await asyncio.sleep(3)
-                            if proc.poll() is not None:
-                                log_file.close()
-                                err = ""
-                                try:
-                                    with open(log_path, "r") as lf:
-                                        err = "".join(lf.readlines()[-15:])
-                                except Exception:
-                                    pass
-                                await safe_msg(
-                                    chat_id,
-                                    f"❌ FFmpeg ishga tushmadi!\n```\n{err[-300:]}\n```"
-                                )
-                                update_stream_task(task_id, 'failed')
-                                current_task_id = None
-                                current_proc    = None
-                            else:
-                                # Muvaffaqiyatli boshlandi
-                                autostream_tasks[tg_user_id] = proc
-                                current_proc = proc
-                                update_stream_task(task_id, 'running')
-                                await safe_msg(
-                                    chat_id,
-                                    f"📱 **Jonli efir muvaffaqiyatli boshlandi!**\n\n"
-                                    f"📺 Manba: `{search_query}`\n"
-                                    f"🎬 {len(video_paths)} ta video loop\n"
-                                    f"📐 Format: 9:16 vertikal\n\n"
-                                    "To'xtatish: `/autostream stop`"
-                                )
-
-                    except Exception as e:
-                        await safe_msg(chat_id, f"❌ Stream xatosi: {e}")
-                        update_stream_task(task_id, 'failed')
-                        current_task_id = None
-                        current_proc    = None
-
+                    await start_stream_task(task, worker_id, bot_client)
             else:
                 # Hozir task bor — FFmpeg tirik ekanini tekshir
-                if current_proc and current_proc.poll() is not None:
+                proc = _streamer_state["proc"]
+                if proc and proc.poll() is not None:
                     # FFmpeg o'chib qoldi
-                    print(f"[{worker_id}] FFmpeg to'xtadi (task #{current_task_id})")
-                    update_stream_task(current_task_id, 'completed')
+                    finished_task_id = _streamer_state["task_id"]
+                    print(f"[{worker_id}] FFmpeg to'xtadi (task #{finished_task_id})")
+                    update_stream_task(finished_task_id, 'completed')
                     # autostream_tasks dan o'chirish
-                    keys_to_del = [k for k, v in autostream_tasks.items() if v == current_proc]
+                    keys_to_del = [k for k, v in autostream_tasks.items() if v == proc]
                     for k in keys_to_del:
                         del autostream_tasks[k]
-                    current_task_id = None
-                    current_proc    = None
+                    _streamer_state["task_id"] = None
+                    _streamer_state["proc"] = None
 
             await asyncio.sleep(5)
 
