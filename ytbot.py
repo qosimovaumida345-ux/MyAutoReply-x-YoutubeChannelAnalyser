@@ -50,11 +50,21 @@ def convert_md_to_html_and_emojis(text):
     # 4. Convert italic
     text = re.sub(r'(?<![\w\\])_(.*?)_(?![\w\\])', r'<i>\1</i>', text, flags=re.DOTALL)
     
-    # 5. Apply custom emojis
+    # 5. Apply custom emojis (preserve code blocks from illegal nested tags)
+    code_blocks = []
+    def _save_code(m):
+        code_blocks.append(m.group(0))
+        return f"__CODE_PH_{len(code_blocks)-1}__"
+
+    text = re.sub(r'<code>[\s\S]*?</code>', _save_code, text)
+
     for fallback, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
         if fallback in text:
             # Replaces ALL occurrences of the fallback emoji
             text = text.replace(fallback, f'<emoji id="{c_id}">{fallback}</emoji>')
+
+    for idx, cb in enumerate(code_blocks):
+        text = text.replace(f"__CODE_PH_{idx}__", cb)
             
     return text
 

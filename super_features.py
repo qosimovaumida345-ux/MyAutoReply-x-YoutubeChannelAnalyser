@@ -165,30 +165,6 @@ def load_super_features(bot: Client):
             if cookie_path and os.path.exists(cookie_path):
                 os.remove(cookie_path)
 
-    # 2. Summarize (AI)
-    @bot.on_message(filters.command("summarize") & filters.private)
-    async def summarize_cmd(client, message):
-        await message.reply_text("⏳ Bu funksiya tez orada to'liq ishga tushadi. Gemini API orqali uzun videolarni qisqartiradi.")
-
-    # 3. Tags Generator
-    @bot.on_message(filters.command("tags") & filters.private)
-    async def tags_cmd(client, message):
-        if len(message.command) < 2:
-            await message.reply_text("❌ So'z bering: `/tags biznes`")
-            return
-        keyword = message.text.split(maxsplit=1)[1]
-        msg = await message.reply_text("⏳ Yaratilmoqda...")
-        from config import generate_with_fallback_async
-        try:
-            res = await generate_with_fallback_async(f"'{keyword}' mavzusidagi YouTube video uchun eng zo'r, qidiruvda yuqoriga olib chiqadigan 20 ta vergul bilan ajratilgan SEO taglar va hashtaglarni yozib ber.")
-            await msg.edit_text(f"🎯 **SEO Taglar:**\n\n`{res.text}`")
-        except Exception as e:
-            await msg.edit_text(f"❌ Xatolik: {e}")
-            
-    # 4. Roast (Hazil)
-    @bot.on_message(filters.command("roast") & filters.private)
-    async def roast_cmd(client, message):
-        await message.reply_text("🔥 Yozilgan matn yoki kanalni kulgili 'roast' (tanqid) qilish funksiyasi. Gemini orqali ishlaydi!")
 
     # 5. Mass Action (Like, Comment, Subscribe)
     @bot.on_message(filters.command("mass") & filters.private)

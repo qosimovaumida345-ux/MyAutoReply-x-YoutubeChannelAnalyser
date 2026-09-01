@@ -1422,6 +1422,49 @@ async def main():
                 await bot.start()
                 print("🎬 YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
                 try:
+                    from pyrogram.types import BotCommand
+                    await bot.set_bot_commands([
+                        BotCommand("start", "Botni ishga tushirish"),
+                        BotCommand("menu", "Asosiy menyuni ochish"),
+                        BotCommand("ytlogin", "YouTube akkauntni ulash"),
+                        BotCommand("autopost", "Avtomatik qisqa video yuklash"),
+                        BotCommand("autostream", "24/7 jonli efirni boshlash"),
+                        BotCommand("reaction", "Reaksiya (PiP) video yasash"),
+                        BotCommand("setcookies", "YouTube Cookies yuklash"),
+                        BotCommand("channel", "Kanal umumiy statistikasi"),
+                        BotCommand("status", "Tizim holatini ko'rish"),
+                        BotCommand("compare", "Raqobatchi bilan solishtirish"),
+                        BotCommand("roast", "Kanalni AI yordamida tanqid qilish"),
+                        BotCommand("tagsgen", "AI orqali SEO teglar yaratish"),
+                        BotCommand("summarize", "Videoni AI orqali qisqartirish"),
+                        BotCommand("recent", "Oxirgi 10 ta video"),
+                        BotCommand("popular", "Eng mashhur videolar"),
+                        BotCommand("growth", "Kanal o'sish analitikasi"),
+                        BotCommand("engagement", "Auditoriya faolligi (like/comment)"),
+                        BotCommand("earnings", "Daromad (tahminiy)"),
+                        BotCommand("milestone", "Maqsadlarga yetish vaqti"),
+                        BotCommand("report", "Kanalning to'liq hisoboti"),
+                        BotCommand("comments", "Videodagi oxirgi izohlar"),
+                        BotCommand("tags", "Videodan teglarni olish"),
+                        BotCommand("thumbnail", "Video muqovasini yuklab olish"),
+                        BotCommand("search", "YouTube dan video qidirish"),
+                        BotCommand("trending", "Trenddagi videolar"),
+                        BotCommand("track", "Raqobatchini kuzatuvga qo'shish"),
+                        BotCommand("untrack", "Kuzatuvdan olib tashlash"),
+                        BotCommand("mylist", "Kuzatilayotgan kanallar"),
+                        BotCommand("mass", "Ommaviy harakatlar (Like/Comment)"),
+                        BotCommand("dl", "Videoni yuklab olish"),
+                        BotCommand("seo", "SEO tahlil va maslahatlar"),
+                        BotCommand("ideas", "Yangi video g'oyalari (AI)"),
+                        BotCommand("script", "Video ssenariy yozish (AI)"),
+                        BotCommand("shorts", "Shorts uchun ssenariy (AI)"),
+                        BotCommand("audit", "Kanalni audit qilish (AI)"),
+                        BotCommand("clickbait", "Clickbait sarlavhalar (AI)"),
+                        BotCommand("autopilot", "Avtopilot (Avto video) sozlamalari"),
+                    ])
+                except Exception as e:
+                    print(f"Bot commands xatosi: {e}")
+                try:
                     from ytbot import AUTO_EMOJI_MAP
                     from custom_emojis import CUSTOM_EMOJI_POOL
                     ids = [int(i) for i in CUSTOM_EMOJI_POOL]
