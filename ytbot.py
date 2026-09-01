@@ -592,7 +592,7 @@ def create_ytbot():
             f"to'liq statistikasini ko'rishingiz mumkin.\n\n"
             f"{e('PIN')} Quyidagi menyudan kerakli bo'limni tanlang:"
         )
-        await message.reply_text(text, reply_markup=main_menu_kb(), parse_mode=ParseMode.HTML)
+        await message.reply_text(text, reply_markup=main_menu_kb(), parse_mode=ParseMode.MARKDOWN)
     
     # ==================== /help ====================
     @bot.on_message(filters.command("help"))
@@ -726,7 +726,7 @@ def create_ytbot():
     # ==================== /menu ====================
     @bot.on_message(filters.command("menu"))
     async def menu_cmd(client, message):
-        await message.reply_text(f"{e('STAR')} Asosiy menyu:", reply_markup=main_menu_kb(), parse_mode=ParseMode.HTML)
+        await message.reply_text(f"{e('STAR')} Asosiy menyu:", reply_markup=main_menu_kb(), parse_mode=ParseMode.MARKDOWN)
     
     # ==================== /ping ====================
     @bot.on_message(filters.command("ping"))
