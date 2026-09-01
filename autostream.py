@@ -1,3 +1,4 @@
+import tempfile
 import os
 import asyncio
 import subprocess
@@ -45,7 +46,7 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=6):
     import yt_dlp
     from database import get_user_cookies
 
-    download_dir = f"/tmp/autostream_{chat_id}"
+    download_dir = os.path.join(tempfile.gettempdir(), f"autostream_{chat_id}")
     os.makedirs(download_dir, exist_ok=True)
 
     cookies_text = get_user_cookies(tg_user_id)
@@ -235,14 +236,14 @@ async def start_autostream(tg_user_id, search_query, client, chat_id):
     )
 
     # filelist.txt yaratish (FFmpeg concat uchun)
-    list_path = f"/tmp/autostream_{chat_id}/filelist.txt"
+    list_path = os.path.join(tempfile.gettempdir(), f"autostream_{chat_id}", "filelist.txt")
     with open(list_path, "w", encoding="utf-8") as f:
         for p in video_paths:
             safe = p.replace("\\", "/").replace("'", "\\'")
             f.write(f"file '{safe}'\n")
 
     rtmp_url = f"rtmp://a.rtmp.youtube.com/live2/{stream_key}"
-    log_path = f"/tmp/autostream_{chat_id}/ffmpeg.log"
+    log_path = os.path.join(tempfile.gettempdir(), f"autostream_{chat_id}", "ffmpeg.log")
 
     cmd = [
         "ffmpeg", "-y", "-re",
@@ -335,7 +336,7 @@ async def stop_autostream(tg_user_id, client, chat_id):
     del autostream_tasks[tg_user_id]
 
     try:
-        shutil.rmtree(f"/tmp/autostream_{chat_id}", ignore_errors=True)
+        shutil.rmtree(os.path.join(tempfile.gettempdir(), f"autostream_{chat_id}"), ignore_errors=True)
     except Exception:
         pass
 
@@ -416,7 +417,7 @@ async def start_stream_task(task, worker_id, bot_client):
             return
 
         # 2. filelist.txt yaratish
-        tmpdir = f"/tmp/autostream_{chat_id}"
+        tmpdir = os.path.join(tempfile.gettempdir(), f"autostream_{chat_id}")
         os.makedirs(tmpdir, exist_ok=True)
         list_path = f"{tmpdir}/filelist.txt"
         with open(list_path, "w", encoding="utf-8") as f:

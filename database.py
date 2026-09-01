@@ -843,7 +843,8 @@ def get_user_cookies(user_id=None):
             conn.close()
 
     # Fallback 2: Fayl tizimidagi cookies.txt ni tekshirish
-    for path in ["cookies.txt", "downloads/cookies.txt", "/tmp/cookies.txt"]:
+    import tempfile
+    for path in ["cookies.txt", "downloads/cookies.txt", os.path.join(tempfile.gettempdir(), "cookies.txt")]:
         if os.path.exists(path):
             try:
                 with open(path, "r", encoding="utf-8") as f:

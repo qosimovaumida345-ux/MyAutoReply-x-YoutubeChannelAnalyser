@@ -284,7 +284,8 @@ def load_super_features(bot: Client):
         from video_processor import create_reaction_video
         from database import get_user_cookies
         
-        download_dir = f"/tmp/reaction_{message.from_user.id}"
+        import tempfile
+        download_dir = os.path.join(tempfile.gettempdir(), f"reaction_{message.from_user.id}")
         os.makedirs(download_dir, exist_ok=True)
         
         cookies_text = get_user_cookies(message.from_user.id)
@@ -366,3 +367,21 @@ def load_super_features(bot: Client):
             shutil.rmtree(download_dir, ignore_errors=True)
         except: pass
 
+    @bot.on_message(filters.command(["shortfactory", "shorts"]) & filters.private)
+    async def short_factory_cmd(client, message):
+        from custom_emojis import e
+        msg = await message.reply_text(f"{e('WAIT')} Shorts yasalmoqda, kuting... (bu 1-2 daqiqa olishi mumkin)")
+        topic = " ".join(message.command[1:])
+        try:
+            from shorts_factory import create_short
+            out_path, fact = await create_short(topic)
+            await message.reply_video(
+                video=out_path,
+                caption=f"{e('STAR')} **Tayyor!**\n\nFakt: {fact}",
+                supports_streaming=True
+            )
+            import os
+            os.remove(out_path)
+            await msg.delete()
+        except Exception as err:
+            await msg.edit_text(f"{e('ERROR')} Xatolik yuz berdi: {err}")

@@ -2,6 +2,8 @@ import asyncio
 import random
 import json
 import re
+import tempfile
+import os
 import google.generativeai as genai
 from pyrogram import Client, filters
 from pyrogram.enums import ChatAction, MessageEntityType
@@ -25,18 +27,7 @@ MAX_HISTORY = 20
 message_counter = {}     # {user_id: count} — har bir userning xabar sanagichi
 reply_threshold = {}     # {user_id: threshold} — nechta xabardan keyin javob berish (3-4 random)
 
-# Whisper modeli (bir marta yuklanadi, xotirada saqlanadi)
-_whisper_model = None
-def get_whisper_model():
-    global _whisper_model
-    if _whisper_model is None:
-        import os
-        from faster_whisper import WhisperModel
-        size = os.getenv("WHISPER_MODEL", "base")
-        print(f"Whisper modeli yuklanmoqda: {size}...")
-        _whisper_model = WhisperModel(size, device="cpu", compute_type="int8")
-        print("Whisper modeli tayyor!")
-    return _whisper_model
+TEMP_DIR = tempfile.gettempdir()
 
 # Reaksiya uchun emojilar
 POSITIVE_REACTIONS = ["❤️", "🔥", "👍", "😍", "🎉", "👏", "💯", "⚡"]
@@ -649,22 +640,31 @@ FAQAT JSON formatida javob ber:"""
             await client.send_chat_action(message.chat.id, ChatAction.RECORD_AUDIO)
             
             # Ovoz faylini yuklab olish
-            voice_path = await client.download_media(message, file_name=f"/tmp/voice_{user_id}_{message.id}.ogg")
+            file_path_str = os.path.join(TEMP_DIR, f"voice_{user_id}_{message.id}.ogg")
+            voice_path = await client.download_media(message, file_name=file_path_str)
             
             transcribed_text = None
             try:
-                # Whisper orqali ovozni matnga aylantirish (cached model ishlatiladi)
-                def transcribe_audio(path):
-                    model = get_whisper_model()
-                    segments, info = model.transcribe(path, beam_size=5)
-                    text = " ".join([seg.text for seg in segments]).strip()
-                    return text, info.language
+                # Gemini 1.5 Flash (yoki eng yangi model) orqali ovozni matnga aylantirish (RAM tejash)
+                import google.generativeai as genai
+                from config import get_gemini_key
+                genai.configure(api_key=get_gemini_key())
                 
-                transcribed_text, detected_lang = await asyncio.to_thread(transcribe_audio, voice_path)
-                print(f"STT: {user_name} -> '{transcribed_text}' (til: {detected_lang})")
+                audio_file = await asyncio.to_thread(genai.upload_file, voice_path)
+                model = genai.GenerativeModel('gemini-flash-latest')
+                
+                def generate_stt():
+                    return model.generate_content([
+                        audio_file, 
+                        "Transcribe this audio. Return ONLY the transcribed text in its original language, without any extra text, translation, or markdown."
+                    ])
+                
+                result = await asyncio.to_thread(generate_stt)
+                transcribed_text = result.text.strip()
+                print(f"STT: {user_name} -> '{transcribed_text}'")
                 
             except Exception as stt_err:
-                print(f"STT xatosi: {stt_err}")
+                print(f"STT xatosi (Gemini): {stt_err}")
             finally:
                 # Vaqtinchalik faylni o'chirish
                 try:
@@ -706,7 +706,7 @@ FAQAT JSON formatida javob ber:"""
                     
                     if clean_text.strip():
                         import edge_tts
-                        out_path = f"/tmp/out_voice_{user_id}_{message.id}.mp3"
+                        out_path = os.path.join(TEMP_DIR, f"out_voice_{user_id}_{message.id}.mp3")
                         
                         communicate = edge_tts.Communicate(clean_text, voice_name)
                         await communicate.save(out_path)
