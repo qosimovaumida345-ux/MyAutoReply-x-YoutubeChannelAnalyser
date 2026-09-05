@@ -76,30 +76,146 @@ def convert_md_to_html_and_emojis(text):
             
     return text
 
+def _build_bot_api_reply_markup(reply_markup):
+    """Converts Pyrogram InlineKeyboardMarkup to Telegram Bot API dict with icon_custom_emoji_id"""
+    if not reply_markup or not isinstance(reply_markup, InlineKeyboardMarkup):
+        return None
+    keyboard = []
+    for row in reply_markup.inline_keyboard:
+        row_btns = []
+        for btn in row:
+            btn_dict = {}
+            text = btn.text or ""
+            icon_id = None
+            
+            # Find and extract custom emoji ID from text
+            for fallback, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
+                if fallback in text:
+                    icon_id = str(c_id)
+                    text = text.replace(fallback, "").strip()
+                    break
+            
+            btn_dict["text"] = text if text else (btn.text or "")
+            if icon_id:
+                btn_dict["icon_custom_emoji_id"] = icon_id
+                
+            if btn.callback_data is not None:
+                btn_dict["callback_data"] = btn.callback_data if isinstance(btn.callback_data, str) else btn.callback_data.decode("utf-8")
+            elif btn.url is not None:
+                btn_dict["url"] = btn.url
+            elif btn.web_app is not None:
+                btn_dict["web_app"] = {"url": btn.web_app.url}
+            elif btn.switch_inline_query is not None:
+                btn_dict["switch_inline_query"] = btn.switch_inline_query
+            elif btn.switch_inline_query_current_chat is not None:
+                btn_dict["switch_inline_query_current_chat"] = btn.switch_inline_query_current_chat
+                
+            row_btns.append(btn_dict)
+        keyboard.append(row_btns)
+    return {"inline_keyboard": keyboard}
+
+async def _bot_api_send(bot_token, chat_id, text, reply_markup=None, reply_to_message_id=None):
+    import aiohttp
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+    }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    if reply_to_message_id:
+        payload["reply_to_message_id"] = reply_to_message_id
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("ok"):
+                        return data["result"]["message_id"]
+    except Exception as e:
+        import logging
+        logging.warning(f"Bot API send failed: {e}")
+    return None
+
+async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None):
+    import aiohttp
+    url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
+    payload = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "parse_mode": "HTML",
+    }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return data.get("ok", False)
+    except Exception as e:
+        import logging
+        logging.warning(f"Bot API edit failed: {e}")
+    return False
+
 _orig_send_message = Client.send_message
-async def _patched_send_message(self, chat_id, text, parse_mode=None, **kwargs):
+async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_markup=None, **kwargs):
     if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
+
+    # If reply_markup is InlineKeyboardMarkup, send via Telegram Bot API to support icon_custom_emoji_id
+    if reply_markup and isinstance(reply_markup, InlineKeyboardMarkup):
+        bot_token = getattr(self, "bot_token", None) or os.getenv("BOT_TOKEN")
+        if bot_token:
+            cid = getattr(chat_id, "id", chat_id)
+            if isinstance(cid, (int, str)):
+                bot_api_kb = _build_bot_api_reply_markup(reply_markup)
+                reply_to_id = kwargs.get("reply_to_message_id")
+                msg_id = await _bot_api_send(bot_token, cid, text, bot_api_kb, reply_to_id)
+                if msg_id:
+                    try:
+                        return await self.get_messages(cid, msg_id)
+                    except Exception:
+                        pass
+
     try:
-        return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, **kwargs)
+        return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
     except Exception as e:
         import logging
         logging.error(f"send_message error in ytbot.py: {e} | Text: {text[:50]}...")
-        return await _orig_send_message(self, chat_id, text, parse_mode=None, **kwargs)
+        return await _orig_send_message(self, chat_id, text, parse_mode=None, reply_markup=reply_markup, **kwargs)
 Client.send_message = _patched_send_message
 
 _orig_edit_message_text = Client.edit_message_text
-async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode=None, **kwargs):
+async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=None, **kwargs):
     if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
+
+    # If reply_markup is InlineKeyboardMarkup, edit via Telegram Bot API to support icon_custom_emoji_id
+    if reply_markup and isinstance(reply_markup, InlineKeyboardMarkup):
+        bot_token = getattr(self, "bot_token", None) or os.getenv("BOT_TOKEN")
+        if bot_token:
+            cid = getattr(chat_id, "id", chat_id)
+            if isinstance(cid, (int, str)):
+                bot_api_kb = _build_bot_api_reply_markup(reply_markup)
+                mid = getattr(message_id, "id", message_id)
+                ok = await _bot_api_edit(bot_token, cid, mid, text, bot_api_kb)
+                if ok:
+                    try:
+                        return await self.get_messages(cid, mid)
+                    except Exception:
+                        pass
+
     try:
-        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, **kwargs)
+        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
     except Exception as e:
         import logging
         logging.error(f"edit_message_text error in ytbot.py: {e} | Text: {text[:50]}...")
-        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=None, **kwargs)
+        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=reply_markup, **kwargs)
 Client.edit_message_text = _patched_edit_message_text
 
 _orig_send_photo = Client.send_photo
