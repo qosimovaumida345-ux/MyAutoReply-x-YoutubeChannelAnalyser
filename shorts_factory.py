@@ -2,9 +2,7 @@ import os
 import asyncio
 import tempfile
 import yt_dlp
-import google.generativeai as genai
 import edge_tts
-from config import get_gemini_key
 
 TEMP_DIR = tempfile.gettempdir()
 BACKGROUND_URL = "https://www.youtube.com/watch?v=n_Dv4JMiwK8"  # Subway Surfers No Copyright
@@ -14,25 +12,17 @@ CACHED_BG = os.path.join(DOWNLOADS_DIR, "background_shorts.mp4")
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
 async def generate_fact(topic=""):
-    genai.configure(api_key=get_gemini_key())
-    
-    prompt = f"Sen juda qiziqarli faktlar aytib beradigan Youtubersan. 30-40 soniyada o'qiladigan, odamlarni hayratda qoldiradigan bitta qisqa qiziqarli fakt yoz. Format: Faqat fakt matni. Hech qanday salomlashish yoki ortiqcha narsa yozma."
+    prompt = "Sen juda qiziqarli faktlar aytib beradigan Youtubersan. 30-40 soniyada o'qiladigan, odamlarni hayratda qoldiradigan bitta qisqa qiziqarli fakt yoz. Format: Faqat fakt matni. Hech qanday salomlashish yoki ortiqcha narsa yozma."
     if topic:
         prompt += f" Mavzu: {topic}"
         
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
-        response = await asyncio.to_thread(model.generate_content, prompt)
-        return response.text.strip()
+        from config import generate_with_fallback_async
+        result = await generate_with_fallback_async(prompt)
+        return result.text.strip()
     except Exception as e:
-        print(f"Gemini error with latest: {e}")
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = await asyncio.to_thread(model.generate_content, prompt)
-            return response.text.strip()
-        except Exception as e2:
-            print(f"Gemini error with base: {e2}")
-            return "Bilasizmi, dunyodagi eng katta cho'l Sahroyi Kabir emas, Antarktida hisoblanadi. Chunki cho'l deganda qurg'oqchilik nazarda tutiladi, Antarktida esa yiliga eng kam yog'ingarchilik bo'ladigan joydir!"
+        print(f"Gemini fact error: {e}")
+        return "Bilasizmi, dunyodagi eng katta cho'l Sahroyi Kabir emas, Antarktida hisoblanadi. Chunki cho'l deganda qurg'oqchilik nazarda tutiladi, Antarktida esa yiliga eng kam yog'ingarchilik bo'ladigan joydir!"
 
 async def ensure_background_video():
     if not os.path.exists(CACHED_BG):

@@ -367,7 +367,7 @@ def load_super_features(bot: Client):
             shutil.rmtree(download_dir, ignore_errors=True)
         except: pass
 
-    @bot.on_message(filters.command(["shortfactory", "shorts"]) & filters.private)
+    @bot.on_message(filters.command("shortfactory") & filters.private)
     async def short_factory_cmd(client, message):
         from custom_emojis import e
         msg = await message.reply_text(f"{e('WAIT')} Shorts yasalmoqda, kuting... (bu 1-2 daqiqa olishi mumkin)")

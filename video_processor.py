@@ -148,36 +148,49 @@ def add_intro_outro(input_mp4, output_mp4, channel_title, channel_pfp):
 
 
 # ==========================================
-# 3. AUTO-CAPTIONS (Whisper + FFmpeg)
+# 3. AUTO-CAPTIONS (Gemini STT + FFmpeg)
 # ==========================================
 def generate_srt(input_mp4, srt_path):
-    """Whisper orqali SRT subtitr faylini yaratish"""
+    """Gemini Flash orqali SRT subtitr faylini yaratish"""
     try:
-        from faster_whisper import WhisperModel
-        import os
-        model_size = os.getenv("WHISPER_MODEL", "base")
-        print(f"[CAPTIONS] Ovoz tahlil qilinmoqda ({model_size})...")
+        import google.generativeai as genai
+        from config import get_gemini_key
+        genai.configure(api_key=get_gemini_key())
         
-        # For auto captions, we can also use the global cache from userbot if we want, but doing it fresh here is fine
-        model = WhisperModel(model_size, device="cpu", compute_type="int8")
-        segments, info = model.transcribe(input_mp4, beam_size=5, word_timestamps=True)
+        print(f"[CAPTIONS] Gemini orqali ovoz tahlil qilinmoqda...")
         
-        def format_time(seconds):
-            hours = int(seconds // 3600)
-            minutes = int((seconds % 3600) // 60)
-            secs = int(seconds % 60)
-            millis = int((seconds - int(seconds)) * 1000)
-            return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
-            
+        audio_file = genai.upload_file(input_mp4)
+        models_to_try = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash']
+        result = None
+        for m_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(m_name)
+                result = model.generate_content([
+                    audio_file,
+                    "Transcribe this video/audio into SRT subtitle format. "
+                    "Return ONLY valid SRT content with numbered entries, timestamps in HH:MM:SS,mmm format, "
+                    "and the transcribed text. Keep segments 3-6 seconds each. "
+                    "Do not add any extra text or markdown formatting."
+                ])
+                if result and result.text:
+                    break
+            except Exception as me:
+                print(f"[CAPTIONS] {m_name} xatosi: {me}. Keyingi model...")
+                continue
+        
+        srt_content = result.text.strip()
+        # Remove markdown code block if present
+        if srt_content.startswith("```"):
+            srt_content = srt_content.split("\n", 1)[1]
+            if srt_content.endswith("```"):
+                srt_content = srt_content[:-3].strip()
+        
         with open(srt_path, "w", encoding="utf-8") as f:
-            for i, segment in enumerate(segments, start=1):
-                f.write(f"{i}\n")
-                f.write(f"{format_time(segment.start)} --> {format_time(segment.end)}\n")
-                f.write(f"{segment.text.strip()}\n\n")
-                
+            f.write(srt_content)
+            
         return srt_path
     except Exception as e:
-        print(f"SRT yaratish xatosi: {e}")
+        print(f"SRT yaratish xatosi (Gemini): {e}")
         return None
 
 def burn_captions(input_mp4, output_mp4):

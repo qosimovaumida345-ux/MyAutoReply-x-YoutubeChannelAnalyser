@@ -34,8 +34,16 @@ import uuid
 
 AUTOPOST_ARGS_MAP = {}
 
-# We'll create a reverse map: fallback_emoji -> custom_emoji_id
-FALLBACK_TO_ID = {val[1]: int(val[0]) for val in EMOJI_MAP.values()}
+# We'll create a reverse map: fallback_emoji -> custom_emoji_id (with both \ufe0f and non-\ufe0f variants)
+FALLBACK_TO_ID = {}
+for val in EMOJI_MAP.values():
+    c_id = int(val[0])
+    fb = val[1]
+    FALLBACK_TO_ID[fb] = c_id
+    if '\ufe0f' in fb:
+        FALLBACK_TO_ID[fb.replace('\ufe0f', '')] = c_id
+    else:
+        FALLBACK_TO_ID[fb + '\ufe0f'] = c_id
 
 def convert_md_to_html_and_emojis(text):
     if not isinstance(text, str): return text
@@ -78,7 +86,6 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, **kwargs):
     except Exception as e:
         import logging
         logging.error(f"send_message error in ytbot.py: {e} | Text: {text[:50]}...")
-        # Fallback to no parse mode if formatting fails
         return await _orig_send_message(self, chat_id, text, parse_mode=None, **kwargs)
 Client.send_message = _patched_send_message
 
@@ -102,6 +109,14 @@ async def _patched_send_photo(self, chat_id, photo, caption=None, parse_mode=Non
         parse_mode = ParseMode.HTML
     return await _orig_send_photo(self, chat_id, photo, caption=caption, parse_mode=parse_mode, **kwargs)
 Client.send_photo = _patched_send_photo
+
+_orig_send_video = Client.send_video
+async def _patched_send_video(self, chat_id, video, caption=None, parse_mode=None, **kwargs):
+    if caption and parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
+        caption = convert_md_to_html_and_emojis(caption)
+        parse_mode = ParseMode.HTML
+    return await _orig_send_video(self, chat_id, video, caption=caption, parse_mode=parse_mode, **kwargs)
+Client.send_video = _patched_send_video
 # ================================================================
 
 # ==================== YOUTUBE API ====================
@@ -686,7 +701,19 @@ def create_ytbot():
             "`/myrivals` - Raqobatchilar ro'yxati\n"
             "`/dl <url>` - Video/Audio yuklab olish\n"
             "`/autopost <soni> <qidiruv>` - Auto-post\n"
-            "`/mass <kanal URL> [matn]` - Mass engagement\n\n"
+            "`/mass <kanal URL> [matn]` - Mass engagement\n"
+            "`/myid` - Sizning Telegram ID\n"
+            "`/ping` - Bot tezligini tekshirish\n\n"
+
+            "🎬 `Shorts & Avtomatlashtirish:`\n"
+            "`/shortfactory [mavzu]` - AI Shorts video yasash\n"
+            "`/autopilot` - Avtopilot sozlamalari\n"
+            "`/setcookies` - YouTube Cookies yuklash\n"
+            "`/setproxy <url>` - Proksi o'rnatish\n"
+            "`/myproxy` - Proksi ko'rish\n"
+            "`/login_status` - YouTube ulanish holati\n"
+            "`/save_def` - Default akkaunt belgilash\n"
+            "`/delaccount` - YouTube akkauntni uzish\n\n"
 
             "🤖 `Shaxsiy Userbot (chatda):`\n"
             "`.ar on/off` - Avto-javob\n"
