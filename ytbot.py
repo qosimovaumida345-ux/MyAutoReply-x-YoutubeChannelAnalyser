@@ -30,7 +30,8 @@ from database import (
     get_user_balance, add_user_balance, deduct_user_balance,
     create_payment_transaction, complete_payment_transaction, get_payment_transaction,
     get_user_payment_history, create_engagement_order, update_engagement_order,
-    get_user_engagement_orders, get_every_yt_connection, is_user_kyc_verified
+    get_user_engagement_orders, get_every_yt_connection, is_user_kyc_verified,
+    get_ton_wallet, set_ton_wallet
 )
 from autopost import autopost_worker, get_auth_url, upload_to_youtube
 from custom_emojis import EMOJI_MAP, e
@@ -64,35 +65,70 @@ for val in EMOJI_MAP.values():
     else:
         FALLBACK_TO_ID[fb + '\ufe0f'] = c_id
 
+_CODE_RE = re.compile(r'<(?:code|pre)[^>]*>[\s\S]*?</(?:code|pre)>', re.IGNORECASE)
+_EXISTING_EMOJI_RE = re.compile(r'<(?:emoji|tg-emoji)[^>]*>[\s\S]*?</(?:emoji|tg-emoji)>', re.IGNORECASE)
+_TAG_RE = re.compile(r'</?(?:b|strong|i|em|u|ins|s|strike|del|a|span|tg-spoiler|blockquote)(?:\s+[^<>\n\r]*)?>', re.IGNORECASE)
+_ENTITY_RE = re.compile(r'&(?:[a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);')
+
 def convert_md_to_html_and_emojis(text):
     if not isinstance(text, str): return text
-    # Escape HTML special chars first
-    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-    # 1. Convert links
-    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
-    # 2. Convert bold
-    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text, flags=re.DOTALL)
-    # 3. Convert code
-    text = re.sub(r'`(.*?)`', r'<code>\1</code>', text, flags=re.DOTALL)
-    # 4. Convert italic
-    text = re.sub(r'(?<![\w\\])_(.*?)_(?![\w\\])', r'<i>\1</i>', text, flags=re.DOTALL)
     
-    # 5. Apply custom emojis (preserve code blocks from illegal nested tags)
-    code_blocks = []
+    saved_code = []
     def _save_code(m):
-        code_blocks.append(m.group(0))
-        return f"__CODE_PH_{len(code_blocks)-1}__"
+        saved_code.append(m.group(0))
+        return f"CODEPHX{len(saved_code)-1}XPH"
 
+    saved_emojis = []
+    def _save_emoji(m):
+        saved_emojis.append(m.group(0))
+        return f"EMOJIPHX{len(saved_emojis)-1}XPH"
+
+    saved_tags = []
+    def _save_tag(m):
+        saved_tags.append(m.group(0))
+        return f"TAGPHX{len(saved_tags)-1}XPH"
+        
+    saved_ents = []
+    def _save_ent(m):
+        saved_ents.append(m.group(0))
+        return f"ENTPHX{len(saved_ents)-1}XPH"
+
+    # 1. Protect existing <code> and <pre> blocks
+    text = _CODE_RE.sub(_save_code, text)
+    # 2. Protect existing <emoji> or <tg-emoji> blocks
+    text = _EXISTING_EMOJI_RE.sub(_save_emoji, text)
+    # 3. Protect valid HTML tags (<b>, </b>, <i>, <a>, <blockquote>, etc.)
+    text = _TAG_RE.sub(_save_tag, text)
+    # 4. Protect valid HTML entities (&amp;, &lt;, etc.)
+    text = _ENTITY_RE.sub(_save_ent, text)
+
+    # 5. Escape raw <, >, & so Telegram HTML parser won't error on bare symbols
+    text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    # 6. Convert Markdown syntax
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
+    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text, flags=re.DOTALL)
+    text = re.sub(r'`(.*?)`', r'<code>\1</code>', text, flags=re.DOTALL)
+    text = re.sub(r'(?<![\w\\])_(.*?)_(?![\w\\])', r'<i>\1</i>', text, flags=re.DOTALL)
+
+    # Protect new <code> tags created from markdown `code`
     text = re.sub(r'<code>[\s\S]*?</code>', _save_code, text)
 
+    # 7. Apply custom emojis
     for fallback, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
         if fallback in text:
-            # Replaces ALL occurrences of the fallback emoji
             text = text.replace(fallback, f'<emoji id="{c_id}">{fallback}</emoji>')
 
-    for idx, cb in enumerate(code_blocks):
-        text = text.replace(f"__CODE_PH_{idx}__", cb)
-            
+    # 8. Restore saved items in exact reverse order
+    for idx, cb in enumerate(saved_code):
+        text = text.replace(f"CODEPHX{idx}XPH", cb)
+    for idx, ent in enumerate(saved_ents):
+        text = text.replace(f"ENTPHX{idx}XPH", ent)
+    for idx, tag in enumerate(saved_tags):
+        text = text.replace(f"TAGPHX{idx}XPH", tag)
+    for idx, em in enumerate(saved_emojis):
+        text = text.replace(f"EMOJIPHX{idx}XPH", em)
+        
     return text
 
 def _build_bot_api_reply_markup(reply_markup):
@@ -215,7 +251,7 @@ async def _send_bot_api_invoice(bot_token, chat_id, title, description, payload,
 
 _orig_send_message = Client.send_message
 async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_markup=None, **kwargs):
-    if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
+    if parse_mode != ParseMode.DISABLED:
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
 
@@ -244,7 +280,7 @@ Client.send_message = _patched_send_message
 
 _orig_edit_message_text = Client.edit_message_text
 async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=None, **kwargs):
-    if parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
+    if parse_mode != ParseMode.DISABLED:
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
 
@@ -273,7 +309,7 @@ Client.edit_message_text = _patched_edit_message_text
 
 _orig_send_photo = Client.send_photo
 async def _patched_send_photo(self, chat_id, photo, caption=None, parse_mode=None, **kwargs):
-    if caption and parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
+    if caption and parse_mode != ParseMode.DISABLED:
         caption = convert_md_to_html_and_emojis(caption)
         parse_mode = ParseMode.HTML
     return await _orig_send_photo(self, chat_id, photo, caption=caption, parse_mode=parse_mode, **kwargs)
@@ -281,7 +317,7 @@ Client.send_photo = _patched_send_photo
 
 _orig_send_video = Client.send_video
 async def _patched_send_video(self, chat_id, video, caption=None, parse_mode=None, **kwargs):
-    if caption and parse_mode in (ParseMode.MARKDOWN, ParseMode.DEFAULT, None):
+    if caption and parse_mode != ParseMode.DISABLED:
         caption = convert_md_to_html_and_emojis(caption)
         parse_mode = ParseMode.HTML
     return await _orig_send_video(self, chat_id, video, caption=caption, parse_mode=parse_mode, **kwargs)
@@ -522,7 +558,7 @@ def main_menu_kb(user_id=None):
 def wallet_menu_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
-        [InlineKeyboardButton("🪙 CryptoPay (USDT / TON) orqali", callback_data="pay_crypto_menu")],
+        [InlineKeyboardButton("🪙 CryptoPay (USDT / GRAM) orqali", callback_data="pay_crypto_menu")],
         [InlineKeyboardButton("📋 To'lovlar tarixi", callback_data="pay_history")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
@@ -1290,6 +1326,50 @@ def create_ytbot():
         else:
             def_p = DEFAULT_PROXY or "o'rnatilmagan"
             await message.reply_text(f"🌐 `Sizda shaxsiy proxy yo'q. Default proxy:` `{def_p}`", parse_mode=ParseMode.MARKDOWN)
+
+    # ==================== /setton & /myton ====================
+    @bot.on_message(filters.command(["setton", "tonwallet"]))
+    async def setton_cmd(client, message):
+        is_admin = check_is_admin(message.from_user)
+        if not is_admin:
+            await message.reply_text("❌ Bu buyruq faqat bot admini uchun!")
+            return
+            
+        args = message.text.split(maxsplit=1)
+        if len(args) < 2:
+            curr = get_ton_wallet()
+            txt = (
+                f"ℹ️ <b>TON / GRAM Hamyon manzili sozlamasi</b>\n\n"
+                f"💎 <b>Joriy manzil:</b> <code>{curr or 'Hali kiritilmagan'}</code>\n\n"
+                f"O'zgartirish uchun:\n"
+                f"<code>/setton &lt;hamyon_manzilingiz&gt;</code> deb yuboring.\n"
+                f"<i>(Masalan: /setton UQ... yoki EQ...)</i>"
+            )
+            await message.reply_text(txt)
+            return
+            
+        wallet_address = args[1].strip()
+        if len(wallet_address) < 24:
+            await message.reply_text("❌ Noto'g'ri TON hamyon manzili! Manzil uzunligi kamida 24 belgi bo'lishi kerak.")
+            return
+            
+        if set_ton_wallet(wallet_address):
+            await message.reply_text(
+                f"✅ <b>TON / GRAM hamyon manzili muvaffaqiyatli saqlandi!</b>\n\n"
+                f"💎 <b>Manzil:</b> <code>{wallet_address}</code>\n\n"
+                f"🚀 Endi foydalanuvchilar GRAM (TON) orqali to'lov qilganda ushbu manzil va Tonkeeper / Telegram Wallet havolasi avtomatik ko'rsatiladi."
+            )
+        else:
+            await message.reply_text("❌ Bazaga saqlashda xatolik yuz berdi.")
+
+    @bot.on_message(filters.command("myton"))
+    async def myton_cmd(client, message):
+        curr = get_ton_wallet()
+        if curr:
+            await message.reply_text(f"💎 <b>O'rnatilgan TON / GRAM hamyon manzili:</b>\n<code>{curr}</code>")
+        else:
+            await message.reply_text("ℹ️ TON hamyon manzili hali o'rnatilmagan. O'rnatish: <code>/setton &lt;manzil&gt;</code>")
+
 
     # ==================== /autopost ====================
     
@@ -2792,7 +2872,7 @@ def create_ytbot():
     async def cb_pay_crypto_menu(client, cb: CallbackQuery):
         text = (
             f"{e('CRYPTO')} <b>CryptoPay (@CryptoBot) orqali to'ldirish</b>\n\n"
-            f"USDT yoki TON orqali bir zumda to'ldiring.\n"
+            f"USDT yoki GRAM (sobiq TON) orqali bir zumda to'ldiring.\n"
             f"Kerakli paketni tanlang:"
         )
         await cb.message.edit_text(text, reply_markup=crypto_packages_kb())
@@ -2804,7 +2884,7 @@ def create_ytbot():
         asset = cb.matches[0].group(2)
         user_id = cb.from_user.id
         
-        amount_uzs = int(amount * 12800) if asset == "USDT" else int(amount * 65000)
+        amount_uzs = int(amount * 12800) if asset == "USDT" else int(amount * 18000)
         for pkg in CRYPTO_PACKAGES:
             if pkg["asset"] == asset and float(pkg["amount"]) == amount:
                 amount_uzs = pkg["amount_uzs"]
@@ -2815,17 +2895,42 @@ def create_ytbot():
             invoice_res = await create_crypto_pay_invoice(user_id, asset, amount, amount_uzs, tx_id)
             if invoice_res.get("ok"):
                 pay_url = invoice_res["pay_url"]
-                text = (
-                    f"{e('CRYPTO')} <b>CryptoPay orqali to'lov</b>\n\n"
-                    f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
-                    f"🪙 <b>To'lov summasi:</b> {amount} {asset}\n\n"
-                    f"⚡ To'lovni amalga oshirish uchun quyidagi tugmani bosing:\n"
-                    f"<i>(To'lovdan so'ng hisobingiz 1-2 soniyada avtomatik to'ldiriladi)</i>"
-                )
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton(f"💳 To'lov qilish ({amount} {asset})", url=pay_url)],
-                    [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
-                ])
+                ton_wallet = get_ton_wallet() if asset == "TON" else ""
+                
+                if asset == "TON" and ton_wallet:
+                    nano_amount = int(amount * 1e9)
+                    tonkeeper_link = f"https://app.tonkeeper.com/transfer/{ton_wallet}?amount={nano_amount}&text=tx_{tx_id}"
+                    text = (
+                        f"{e('CRYPTO')} <b>GRAM (TON) orqali to'lov</b>\n\n"
+                        f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
+                        f"🪙 <b>To'lov miqdori:</b> <code>{amount} GRAM (TON)</code>\n"
+                        f"🆔 <b>Buyurtma ID:</b> <code>#{tx_id}</code>\n\n"
+                        f"<b>Quyidagi to'lov usullaridan birini tanlang:</b>\n\n"
+                        f"⚡ <b>1. @CryptoBot orqali:</b> 1 bosishda tezkor avtomatik to'lov.\n\n"
+                        f"💎 <b>2. Shaxsiy TON hamyon orqali:</b>\n"
+                        f"Hamyon manzili (nusxalash uchun ustiga bosing):\n"
+                        f"<code>{ton_wallet}</code>\n"
+                        f"Izoh (memo): <code>tx_{tx_id}</code>\n"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(f"⚡ @CryptoBot orqali to'lash ({amount} GRAM)", url=pay_url)],
+                        [InlineKeyboardButton("💎 Tonkeeper / Wallet orqali to'lash", url=tonkeeper_link)],
+                        [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
+                    ])
+                else:
+                    coin_name = "GRAM (TON)" if asset == "TON" else asset
+                    text = (
+                        f"{e('CRYPTO')} <b>CryptoPay orqali to'lov</b>\n\n"
+                        f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
+                        f"🪙 <b>To'lov summasi:</b> {amount} {coin_name}\n"
+                        f"🆔 <b>Buyurtma ID:</b> <code>#{tx_id}</code>\n\n"
+                        f"⚡ To'lovni amalga oshirish uchun quyidagi tugmani bosing:\n"
+                        f"<i>(To'lovdan so'ng hisobingiz 1-2 soniyada avtomatik to'ldiriladi)</i>"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(f"💳 To'lov qilish ({amount} {coin_name})", url=pay_url)],
+                        [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
+                    ])
                 await cb.message.edit_text(text, reply_markup=kb)
             else:
                 await cb.answer(f"Xato: {invoice_res.get('error', 'Invoice yaratib bo`lmadi')}", show_alert=True)

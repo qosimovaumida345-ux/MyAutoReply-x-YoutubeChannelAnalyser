@@ -294,6 +294,18 @@ def get_config(key):
     finally:
         conn.close()
 
+def get_ton_wallet() -> str:
+    """Admin yoki tizim TON hamyon manzilini qaytaradi"""
+    val = get_config("ton_wallet_address")
+    if not val:
+        val = os.getenv("TON_WALLET_ADDRESS", "")
+    return (val or "").strip()
+
+def set_ton_wallet(address: str) -> bool:
+    """Admin TON hamyon manzilini bot_config ga saqlaydi"""
+    return set_config("ton_wallet_address", address.strip())
+
+
 
 # ==================== USER SETTINGS (Proxy + Limit) ====================
 

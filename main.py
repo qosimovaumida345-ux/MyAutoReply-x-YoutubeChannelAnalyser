@@ -1232,6 +1232,21 @@ async def handle_cryptopay_webhook(request):
                     )
                     asyncio.create_task(ytbot_instance.send_message(tg_user_id, notify_text))
                     
+                # Bot egasiga (@CryptoBot dagi shaxsiy hisobiga) avtomatik o'tkazish
+                paid_amount = payload_info.get("amount") or custom_data.get("amount")
+                owner_id = int(os.getenv("OWNER_ID", "0"))
+                auto_transfer = os.getenv("AUTO_TRANSFER_CRYPTO_TO_OWNER", "true").lower() in ("true", "1", "yes")
+                if owner_id and auto_transfer and paid_amount:
+                    from crypto_pay import transfer_crypto_pay
+                    spend_id = f"fwd_{invoice_id}_{tx_id}"
+                    asyncio.create_task(transfer_crypto_pay(
+                        user_id=owner_id,
+                        asset=asset,
+                        amount=float(paid_amount),
+                        spend_id=spend_id,
+                        comment=f"Avto forward: Bot to'lovi #{tx_id} ({asset})"
+                    ))
+
         return web.json_response({"ok": True})
     except Exception as e:
         print(f"CryptoPay webhook xatosi: {e}")
