@@ -736,7 +736,7 @@ def create_ytbot():
     
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
     
-    # Adminni username (@WebDev999) orqali aniqlash
+    # Adminni username (aiko_64) orqali aniqlash
     def check_is_admin(user):
         if not user or not user.username:
             return False
