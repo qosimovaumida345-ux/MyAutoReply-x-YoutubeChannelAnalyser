@@ -16,7 +16,8 @@ from config import OWNER_ID
 from config import (
     generate_with_fallback_async, generate_with_fallback,
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
-    ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key
+    ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key,
+    WEB_APP_URL, CRYPTO_PAY_TOKEN
 )
 from database import (
     set_autopilot, get_autopilot, stop_autopilot,
@@ -25,14 +26,32 @@ from database import (
     get_channel_history, get_channel_growth,
     add_bot_admin, is_bot_admin, get_all_admins,
     create_autopost_task, reset_all_data, get_all_yt_connections,
-    set_user_proxy, get_user_proxy, get_daily_usage, increment_usage, set_config, set_user_cookies
+    set_user_proxy, get_user_proxy, get_daily_usage, increment_usage, set_config, set_user_cookies,
+    get_user_balance, add_user_balance, deduct_user_balance,
+    create_payment_transaction, complete_payment_transaction, get_payment_transaction,
+    get_user_payment_history, create_engagement_order, update_engagement_order,
+    get_user_engagement_orders, get_every_yt_connection, is_user_kyc_verified
 )
-from autopost import autopost_worker, get_auth_url
+from autopost import autopost_worker, get_auth_url, upload_to_youtube
 from custom_emojis import EMOJI_MAP, e
+from crypto_pay import create_crypto_pay_invoice, CRYPTO_PACKAGES
+from instagram_processor import download_instagram_reel, is_instagram_url
+from mass_engagement import _do_like, _do_comment, _do_subscribe, generate_gemini_comment, extract_video_id
 import google.generativeai as genai
 import uuid
 
 AUTOPOST_ARGS_MAP = {}
+USER_ORDER_STATE = {} # tg_user_id -> dict(action, step, target_url, qty, total_cost)
+INSTA_CACHE = {} # cache_id -> dict(file_path, title, desc)
+
+# Telegram Stars narx paketlari (1 Star ≈ 250 UZS)
+STARS_PACKAGES = [
+    {"stars": 50, "amount_uzs": 12500, "label": "50 ⭐ — 12,500 so'm"},
+    {"stars": 100, "amount_uzs": 25000, "label": "100 ⭐ — 25,000 so'm"},
+    {"stars": 250, "amount_uzs": 62500, "label": "250 ⭐ — 62,500 so'm"},
+    {"stars": 500, "amount_uzs": 125000, "label": "500 ⭐ — 125,000 so'm"},
+    {"stars": 1000, "amount_uzs": 250000, "label": "1,000 ⭐ — 250,000 so'm"},
+]
 
 # We'll create a reverse map: fallback_emoji -> custom_emoji_id (with both \ufe0f and non-\ufe0f variants)
 FALLBACK_TO_ID = {}
@@ -117,9 +136,10 @@ def _build_bot_api_reply_markup(reply_markup):
 async def _bot_api_send(bot_token, chat_id, text, reply_markup=None, reply_to_message_id=None):
     import aiohttp
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    bot_api_text = text.replace('<emoji id="', '<tg-emoji emoji-id="').replace('</emoji>', '</tg-emoji>')
     payload = {
         "chat_id": chat_id,
-        "text": text,
+        "text": bot_api_text,
         "parse_mode": "HTML",
     }
     if reply_markup:
@@ -129,10 +149,12 @@ async def _bot_api_send(bot_token, chat_id, text, reply_markup=None, reply_to_me
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    if data.get("ok"):
-                        return data["result"]["message_id"]
+                data = await resp.json()
+                if resp.status == 200 and data.get("ok"):
+                    return data["result"]["message_id"]
+                else:
+                    import logging
+                    logging.error(f"Bot API sendMessage error {resp.status}: {data}")
     except Exception as e:
         import logging
         logging.warning(f"Bot API send failed: {e}")
@@ -141,10 +163,11 @@ async def _bot_api_send(bot_token, chat_id, text, reply_markup=None, reply_to_me
 async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None):
     import aiohttp
     url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
+    bot_api_text = text.replace('<emoji id="', '<tg-emoji emoji-id="').replace('</emoji>', '</tg-emoji>')
     payload = {
         "chat_id": chat_id,
         "message_id": message_id,
-        "text": text,
+        "text": bot_api_text,
         "parse_mode": "HTML",
     }
     if reply_markup:
@@ -152,13 +175,43 @@ async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None)
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data.get("ok", False)
+                data = await resp.json()
+                if resp.status == 200 and data.get("ok"):
+                    return True
+                else:
+                    import logging
+                    logging.error(f"Bot API editMessageText error {resp.status}: {data}")
     except Exception as e:
         import logging
         logging.warning(f"Bot API edit failed: {e}")
     return False
+
+async def _send_bot_api_invoice(bot_token, chat_id, title, description, payload, currency, prices, provider_token=""):
+    """Telegram Bot API orqali Invoice (masalan Telegram Stars) yuborish"""
+    import aiohttp
+    url = f"https://api.telegram.org/bot{bot_token}/sendInvoice"
+    body = {
+        "chat_id": chat_id,
+        "title": title,
+        "description": description,
+        "payload": payload,
+        "currency": currency,
+        "prices": prices,
+        "provider_token": provider_token,
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=body, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                data = await resp.json()
+                if resp.status == 200 and data.get("ok"):
+                    return data["result"]["message_id"]
+                else:
+                    import logging
+                    logging.error(f"Bot API sendInvoice error {resp.status}: {data}")
+    except Exception as e:
+        import logging
+        logging.warning(f"Bot API sendInvoice failed: {e}")
+    return None
 
 _orig_send_message = Client.send_message
 async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_markup=None, **kwargs):
@@ -443,11 +496,19 @@ def get_categories(region="US"):
 
 # ==================== INLINE KEYBOARD BUILDERS ====================
 
-def main_menu_kb():
+def main_menu_kb(user_id=None):
     import os
-    web_url = os.environ.get("WEB_URL", "https://botclient-d1jn.onrender.com")
+    web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+    kyc_text = "🛡️ 3D Yuz Skaneri (KYC)"
+    if user_id and is_user_kyc_verified(user_id):
+        kyc_text = "✅ 3D Yuz Tasdiqlangan"
+        
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌐 Open Dashboard", web_app=WebAppInfo(url=web_url))],
+        [InlineKeyboardButton("🚀 Xizmatlar / Marketplace", callback_data="menu_marketplace"),
+         InlineKeyboardButton("💰 Balans & To'lovlar", callback_data="menu_wallet")],
+        [InlineKeyboardButton(kyc_text, web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}")),
+         InlineKeyboardButton("📸 Instagram Reels", callback_data="menu_instagram")],
         [InlineKeyboardButton("📢 Kanal tahlili", callback_data="menu_channel"),
          InlineKeyboardButton("🎬 Video tahlili", callback_data="menu_video")],
         [InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics"),
@@ -456,6 +517,54 @@ def main_menu_kb():
          InlineKeyboardButton("⚙️ Asboblar", callback_data="menu_tools")],
         [InlineKeyboardButton("🔥 Trending", callback_data="menu_trending"),
          InlineKeyboardButton("📖 Yordam", callback_data="menu_help")],
+    ])
+
+def wallet_menu_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
+        [InlineKeyboardButton("🪙 CryptoPay (USDT / TON) orqali", callback_data="pay_crypto_menu")],
+        [InlineKeyboardButton("📋 To'lovlar tarixi", callback_data="pay_history")],
+        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
+    ])
+
+def stars_packages_kb():
+    buttons = []
+    for pkg in STARS_PACKAGES:
+        buttons.append([InlineKeyboardButton(pkg["label"], callback_data=f"stars_pkg_{pkg['stars']}")])
+    buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")])
+    return InlineKeyboardMarkup(buttons)
+
+def crypto_packages_kb():
+    buttons = []
+    for pkg in CRYPTO_PACKAGES:
+        cb_val = f"crypto_pkg_{int(pkg['amount'])}_{pkg['asset']}"
+        buttons.append([InlineKeyboardButton(pkg["label"], callback_data=cb_val)])
+    buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")])
+    return InlineKeyboardMarkup(buttons)
+
+def marketplace_menu_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👍 Layk buyurtma berish (3,000 so'm)", callback_data="mkt_order_like")],
+        [InlineKeyboardButton("🔔 Obuna buyurtma berish (5,000 so'm)", callback_data="mkt_order_subscribe")],
+        [InlineKeyboardButton("💬 Izoh (AI Gemini) (1,000 so'm)", callback_data="mkt_order_comment")],
+        [InlineKeyboardButton("📋 Mening buyurtmalarim", callback_data="mkt_my_orders")],
+        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
+    ])
+
+def order_quantity_kb(action_type):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("5 ta", callback_data=f"mkt_qty_{action_type}_5"),
+         InlineKeyboardButton("10 ta", callback_data=f"mkt_qty_{action_type}_10")],
+        [InlineKeyboardButton("25 ta", callback_data=f"mkt_qty_{action_type}_25"),
+         InlineKeyboardButton("50 ta", callback_data=f"mkt_qty_{action_type}_50")],
+        [InlineKeyboardButton("100 ta", callback_data=f"mkt_qty_{action_type}_100")],
+        [InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_cancel")],
+    ])
+
+def order_confirm_kb(action_type, qty, total_cost):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Ha, tasdiqlayman", callback_data=f"mkt_confirm_{action_type}_{qty}_{total_cost}")],
+        [InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_cancel")],
     ])
 
 def channel_menu_kb():
@@ -723,7 +832,7 @@ def create_ytbot():
             f"to'liq statistikasini ko'rishingiz mumkin.\n\n"
             f"{e('PIN')} Quyidagi menyudan kerakli bo'limni tanlang:"
         )
-        await message.reply_text(text, reply_markup=main_menu_kb(), parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(text, reply_markup=main_menu_kb(message.from_user.id), parse_mode=ParseMode.MARKDOWN)
     
     # ==================== /help ====================
     @bot.on_message(filters.command("help"))
@@ -866,10 +975,73 @@ def create_ytbot():
             reply_markup=main_menu_kb()
         )
     
-    # ==================== /menu ====================
     @bot.on_message(filters.command("menu"))
     async def menu_cmd(client, message):
-        await message.reply_text(f"{e('STAR')} Asosiy menyu:", reply_markup=main_menu_kb(), parse_mode=ParseMode.MARKDOWN)
+        user_id = message.from_user.id
+        await message.reply_text(f"{e('STAR')} Asosiy menyu:", reply_markup=main_menu_kb(user_id), parse_mode=ParseMode.MARKDOWN)
+
+    # ==================== /balance & /balans ====================
+    @bot.on_message(filters.command(["balance", "balans"]))
+    async def balance_cmd(client, message):
+        user_id = message.from_user.id
+        bal = get_user_balance(user_id)
+        text = (
+            f"{e('MONEY')} <b>Sizning Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{e('STAR')} <b>Telegram Stars</b> yoki {e('CRYPTO')} <b>CryptoPay</b> orqali "
+            f"hisobingizni bir zumda to'ldirishingiz mumkin.\n\n"
+            f"{e('PIN')} To'lov usulini tanlang:"
+        )
+        await message.reply_text(text, reply_markup=wallet_menu_kb())
+
+    # ==================== /marketplace & /xizmatlar ====================
+    @bot.on_message(filters.command(["marketplace", "xizmatlar"]))
+    async def marketplace_cmd(client, message):
+        user_id = message.from_user.id
+        bal = get_user_balance(user_id)
+        text = (
+            f"{e('ROCKET')} <b>YouTube Engagement Marketplace</b>\n\n"
+            f"{e('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<b>Tariflar:</b>\n"
+            f"• {e('LIKE')} <b>1 dona Layk:</b> 3,000 so'm\n"
+            f"• {e('SUBS')} <b>1 dona Obuna:</b> 5,000 so'm\n"
+            f"• {e('COMMENTS')} <b>1 dona Izoh (AI):</b> 1,000 so'm\n\n"
+            f"{e('SHIELD')} <i>Barcha amallar haqiqiy ulangan akkauntlar orqali xavfsiz va random intervallar bilan bajariladi!</i>\n\n"
+            f"{e('PIN')} Kerakli xizmatni tanlang:"
+        )
+        await message.reply_text(text, reply_markup=marketplace_menu_kb())
+
+    # ==================== /kyc ====================
+    @bot.on_message(filters.command("kyc"))
+    async def kyc_cmd(client, message):
+        user_id = message.from_user.id
+        is_verified = is_user_kyc_verified(user_id)
+        status_text = "✅ <b>Siz allaqachon tasdiqlangansiz!</b>" if is_verified else "⚠️ <b>Hali tasdiqlanmagansiz!</b>"
+        text = (
+            f"{e('SHIELD')} <b>3D Yuz & Pasport Biometrik Identifikatsiyasi</b>\n\n"
+            f"Holat: {status_text}\n\n"
+            f"Anti-Sybil tizimi orqali har bir shaxs faqat 1 ta Telegram akkaunt orqali ro'yxatdan o'tishi mumkin.\n"
+            f"Tasdiqlash uchun quyidagi WebApp tugmasini bosing:"
+        )
+        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛡️ 3D Yuz Skanerini Ochish", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}"))],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
+
+    # ==================== /instagram ====================
+    @bot.on_message(filters.command("instagram"))
+    async def instagram_cmd(client, message):
+        text = (
+            f"{e('INSTA')} <b>Instagram Reels Yuklash & YouTube Shorts</b>\n\n"
+            f"{e('LIGHTNING')} Instagram Reels havolasini shunchaki botga yuboring!\n\n"
+            f"Avtomatik imkoniyatlar:\n"
+            f"• {e('CHECK')} Eng yuqori sifatda videoni yuklash\n"
+            f"• {e('SHIELD')} Content ID (avtorlik huquqi) bloklanishiga qarshi audio pitch va video EQ filtrlash\n"
+            f"• {e('SHORTS')} 1 tugma bilan YouTube kanalingizga Shorts qilib joylash!\n\n"
+            f"<i>Misol havola: https://www.instagram.com/reel/C7.../</i>"
+        )
+        await message.reply_text(text, reply_markup=main_menu_kb(message.from_user.id))
     
     # ==================== /ping ====================
     @bot.on_message(filters.command("ping"))
@@ -2513,12 +2685,55 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex("^back_main$"))
     async def cb_back_main(client, cb: CallbackQuery):
-        await cb.message.edit_text("Asosiy menyu:", reply_markup=main_menu_kb())
+        await cb.message.edit_text("Asosiy menyu:", reply_markup=main_menu_kb(cb.from_user.id))
         await cb.answer()
     
     @bot.on_callback_query(filters.regex("^menu_"))
     async def cb_menu(client, cb: CallbackQuery):
         menu = cb.data.replace("menu_", "")
+        user_id = cb.from_user.id
+        
+        if menu == "wallet":
+            bal = get_user_balance(user_id)
+            text = (
+                f"{e('MONEY')} <b>Sizning Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f"{e('STAR')} <b>Telegram Stars</b> yoki {e('CRYPTO')} <b>CryptoPay</b> orqali hisobingizni to'ldirishingiz mumkin.\n\n"
+                f"{e('PIN')} To'lov usulini tanlang:"
+            )
+            await cb.message.edit_text(text, reply_markup=wallet_menu_kb())
+            await cb.answer()
+            return
+            
+        if menu == "marketplace":
+            bal = get_user_balance(user_id)
+            text = (
+                f"{e('ROCKET')} <b>YouTube Engagement Marketplace</b>\n\n"
+                f"{e('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
+                f"<b>Tariflar:</b>\n"
+                f"• {e('LIKE')} <b>1 ta Layk:</b> 3,000 so'm\n"
+                f"• {e('SUBS')} <b>1 ta Obuna:</b> 5,000 so'm\n"
+                f"• {e('COMMENTS')} <b>1 ta Izoh (AI Gemini):</b> 1,000 so'm\n\n"
+                f"{e('SHIELD')} <i>Barcha amallar ulangan haqiqiy YouTube akkauntlar orqali xavfsiz va random oraliqlar bilan bajariladi!</i>\n\n"
+                f"{e('PIN')} Kerakli xizmatni tanlang:"
+            )
+            await cb.message.edit_text(text, reply_markup=marketplace_menu_kb())
+            await cb.answer()
+            return
+            
+        if menu == "instagram":
+            text = (
+                f"{e('INSTA')} <b>Instagram Reels Yuklash & YouTube Shorts</b>\n\n"
+                f"{e('LIGHTNING')} Instagram Reels havolasini to'g'ridan-to'g'ri botga yuboring!\n\n"
+                f"Xususiyatlar:\n"
+                f"• {e('CHECK')} Eng yuqori sifatda videoni yuklab beradi\n"
+                f"• {e('SHIELD')} Avtorlik huquqi (Content ID) filtri avtomatik qo'llanadi\n"
+                f"• {e('SHORTS')} To'g'ridan-to'g'ri YouTube kanalingizga Shorts qilib joylaydi!\n\n"
+                f"{e('PIN')} Instagram video havolasini chatga yuboring:"
+            )
+            await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")]]))
+            await cb.answer()
+            return
+
         menus = {
             "channel": ("**Kanal tahlili**\n\nKanal nomini yoki URL ni buyruq bilan yuboring:", channel_menu_kb()),
             "video": ("**Video tahlili**\n\nVideo URL ni buyruq bilan yuboring:", video_menu_kb()),
@@ -2533,6 +2748,277 @@ def create_ytbot():
             text, kb = menus[menu]
             await cb.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
         await cb.answer()
+
+    # ==================== TO'LOV VA MARKETPLACE CALLBACKLARI ====================
+    
+    @bot.on_callback_query(filters.regex(r"^pay_stars_menu$"))
+    async def cb_pay_stars_menu(client, cb: CallbackQuery):
+        text = (
+            f"{e('STAR')} <b>Telegram Stars orqali hisob to'ldirish</b>\n\n"
+            f"Telegram Stars — Telegramning rasmiy xavfsiz to'lov vositasi.\n"
+            f"O'zingizga ma'qul bo'lgan paketni tanlang:"
+        )
+        await cb.message.edit_text(text, reply_markup=stars_packages_kb())
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^stars_pkg_(\d+)$"))
+    async def cb_stars_pkg(client, cb: CallbackQuery):
+        stars = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        amount_uzs = 12500
+        for pkg in STARS_PACKAGES:
+            if pkg["stars"] == stars:
+                amount_uzs = pkg["amount_uzs"]
+                break
+        tx_id = create_payment_transaction(user_id, "stars", stars, "XTR", amount_uzs)
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        payload = f"stars_{user_id}_{stars}_{amount_uzs}_{tx_id}"
+        res = await _send_bot_api_invoice(
+            bot_token=bot_token,
+            chat_id=cb.message.chat.id,
+            title=f"⭐ {stars} Telegram Stars",
+            description=f"Hisobingizga +{amount_uzs:,} so'm qo'shiladi",
+            payload=payload,
+            currency="XTR",
+            prices=[{"label": f"{stars} Stars", "amount": stars}],
+            provider_token=""
+        )
+        if res:
+            await cb.answer("To'lov cheki yuborildi! Yuqoridagi chek orqali to'lang.", show_alert=False)
+        else:
+            await cb.answer("To'lov chekini yaratib bo'lmadi!", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^pay_crypto_menu$"))
+    async def cb_pay_crypto_menu(client, cb: CallbackQuery):
+        text = (
+            f"{e('CRYPTO')} <b>CryptoPay (@CryptoBot) orqali to'ldirish</b>\n\n"
+            f"USDT yoki TON orqali bir zumda to'ldiring.\n"
+            f"Kerakli paketni tanlang:"
+        )
+        await cb.message.edit_text(text, reply_markup=crypto_packages_kb())
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^crypto_pkg_(\d+)_([A-Z]+)$"))
+    async def cb_crypto_pkg(client, cb: CallbackQuery):
+        amount = float(cb.matches[0].group(1))
+        asset = cb.matches[0].group(2)
+        user_id = cb.from_user.id
+        
+        amount_uzs = int(amount * 12800) if asset == "USDT" else int(amount * 65000)
+        for pkg in CRYPTO_PACKAGES:
+            if pkg["asset"] == asset and float(pkg["amount"]) == amount:
+                amount_uzs = pkg["amount_uzs"]
+                break
+                
+        tx_id = create_payment_transaction(user_id, "cryptopay", amount, asset, amount_uzs)
+        try:
+            invoice_res = await create_crypto_pay_invoice(user_id, asset, amount, amount_uzs, tx_id)
+            if invoice_res.get("ok"):
+                pay_url = invoice_res["pay_url"]
+                text = (
+                    f"{e('CRYPTO')} <b>CryptoPay orqali to'lov</b>\n\n"
+                    f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
+                    f"🪙 <b>To'lov summasi:</b> {amount} {asset}\n\n"
+                    f"⚡ To'lovni amalga oshirish uchun quyidagi tugmani bosing:\n"
+                    f"<i>(To'lovdan so'ng hisobingiz 1-2 soniyada avtomatik to'ldiriladi)</i>"
+                )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"💳 To'lov qilish ({amount} {asset})", url=pay_url)],
+                    [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
+                ])
+                await cb.message.edit_text(text, reply_markup=kb)
+            else:
+                await cb.answer(f"Xato: {invoice_res.get('error', 'Invoice yaratib bo`lmadi')}", show_alert=True)
+        except Exception as inv_err:
+            await cb.answer(f"To'lov tizimi xatosi: {inv_err}", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^pay_history$"))
+    async def cb_pay_history(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        history = get_user_payment_history(user_id, limit=5)
+        if not history:
+            text = f"{e('INFO')} Sizda hali to'lovlar tarixi mavjud emas."
+        else:
+            lines = [f"{e('LIST')} <b>Oxirgi to'lovlar:</b>\n"]
+            for h in history:
+                st = "✅ Bajarildi" if h['status'] == 'completed' else "⏳ Kutilmoqda"
+                lines.append(f"• #{h['id']} — +{h['amount_uzs']:,} so'm ({h['payment_type'].upper()}) [{st}]")
+            text = "\n".join(lines)
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^mkt_order_(like|subscribe|comment)$"))
+    async def cb_mkt_order(client, cb: CallbackQuery):
+        action = cb.matches[0].group(1)
+        user_id = cb.from_user.id
+        USER_ORDER_STATE[user_id] = {"action": action, "step": "awaiting_url"}
+        
+        names = {"like": "Layk", "subscribe": "Obuna", "comment": "Izoh"}
+        prompt_text = (
+            f"{e('TARGET')} <b>{names.get(action)} buyurtma berish</b>\n\n"
+            f"{e('LINK')} Iltimos, YouTube video yoki kanal havolasini chatga yuboring:\n"
+            f"<i>(Masalan: https://youtu.be/xxx yoki https://youtube.com/@channel)</i>"
+        )
+        await cb.message.edit_text(
+            prompt_text,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_cancel")]])
+        )
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^mkt_qty_(like|subscribe|comment)_(\d+)$"))
+    async def cb_mkt_qty(client, cb: CallbackQuery):
+        action = cb.matches[0].group(1)
+        qty = int(cb.matches[0].group(2))
+        user_id = cb.from_user.id
+        
+        state = USER_ORDER_STATE.get(user_id, {})
+        target_url = state.get("target_url", "")
+        if not target_url:
+            await cb.answer("Iltimos, avval havolani yuboring!", show_alert=True)
+            return
+            
+        prices = {"like": 3000, "subscribe": 5000, "comment": 1000}
+        price_per_item = prices.get(action, 3000)
+        total_cost = qty * price_per_item
+        
+        user_bal = get_user_balance(user_id)
+        if user_bal < total_cost:
+            text = (
+                f"{e('WARN')} <b>Balansingizda mablag' yetarli emas!</b>\n\n"
+                f"💰 <b>Joriy balans:</b> {user_bal:,} so'm\n"
+                f"💸 <b>Buyurtma summasi:</b> {total_cost:,} so'm\n"
+                f"⚠️ <b>Yetishmayotgan summa:</b> {(total_cost - user_bal):,} so'm\n\n"
+                f"Iltimos, avval hisobingizni to'ldiring:"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
+                [InlineKeyboardButton("🪙 CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            return
+            
+        state["qty"] = qty
+        state["total_cost"] = total_cost
+        USER_ORDER_STATE[user_id] = state
+        
+        names = {"like": "Layk", "subscribe": "Obuna", "comment": "Izoh"}
+        confirm_text = (
+            f"{e('TARGET')} <b>Buyurtmani tasdiqlash</b>\n\n"
+            f"🎯 <b>Xizmat:</b> {names.get(action)}\n"
+            f"🔗 <b>Manzil:</b> <code>{target_url}</code>\n"
+            f"🔢 <b>Miqdor:</b> {qty} ta\n"
+            f"💰 <b>Jami summa:</b> {total_cost:,} so'm\n\n"
+            f"Buyurtmani tasdiqlaysizmi?"
+        )
+        await cb.message.edit_text(confirm_text, reply_markup=order_confirm_kb(action, qty, total_cost))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^mkt_confirm_(like|subscribe|comment)_(\d+)_(\d+)$"))
+    async def cb_mkt_confirm(client, cb: CallbackQuery):
+        action = cb.matches[0].group(1)
+        qty = int(cb.matches[0].group(2))
+        total_cost = int(cb.matches[0].group(3))
+        user_id = cb.from_user.id
+        
+        state = USER_ORDER_STATE.pop(user_id, {})
+        target_url = state.get("target_url")
+        if not target_url:
+            await cb.answer("Buyurtma muddati tugagan. Qaytadan boshlang.", show_alert=True)
+            return
+            
+        success = deduct_user_balance(user_id, total_cost)
+        if not success:
+            await cb.answer("Balansda mablag' yetarli emas!", show_alert=True)
+            return
+            
+        target_id = extract_video_id(target_url)
+        order_id = create_engagement_order(user_id, action, target_url, target_id, qty, total_cost)
+        
+        await cb.message.edit_text(
+            f"{e('SUCCESS')} <b>Buyurtma #{order_id} muvaffaqiyatli qabul qilindi!</b>\n\n"
+            f"🎯 <b>Xizmat:</b> {action.upper()}\n"
+            f"🔢 <b>Miqdor:</b> {qty} ta\n"
+            f"💰 <b>To'langan:</b> {total_cost:,} so'm\n\n"
+            f"🛡️ Akkauntlar orqali xavfsiz bajarish boshlandi...",
+            reply_markup=main_menu_kb(user_id)
+        )
+        await cb.answer()
+        
+        asyncio.create_task(execute_engagement_order_task(order_id, user_id, action, target_url, qty, client, cb.message.chat.id))
+
+    @bot.on_callback_query(filters.regex(r"^mkt_cancel$"))
+    async def cb_mkt_cancel(client, cb: CallbackQuery):
+        USER_ORDER_STATE.pop(cb.from_user.id, None)
+        await cb.message.edit_text("Buyurtma bekor qilindi.", reply_markup=main_menu_kb(cb.from_user.id))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^mkt_my_orders$"))
+    async def cb_mkt_my_orders(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        orders = get_user_engagement_orders(user_id, limit=5)
+        if not orders:
+            text = f"{e('INFO')} Sizda hali buyurtmalar yo'q."
+        else:
+            lines = [f"{e('LIST')} <b>Mening buyurtmalarim:</b>\n"]
+            for o in orders:
+                lines.append(f"• #{o['id']} {o['order_type'].upper()} — {o['completed_count']}/{o['quantity']} ta [{o['status'].upper()}]")
+            text = "\n".join(lines)
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]]))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^insta_dl_([a-f0-9]+)$"))
+    async def cb_insta_dl(client, cb: CallbackQuery):
+        cache_id = cb.matches[0].group(1)
+        data = INSTA_CACHE.get(cache_id)
+        if not data or not os.path.exists(data.get("video_path", "")):
+            await cb.answer("Video fayli topilmadi yoki muddati tugagan.", show_alert=True)
+            return
+        await cb.answer("Video yuborilmoqda...")
+        await client.send_video(
+            cb.message.chat.id,
+            video=data["video_path"],
+            caption=f"{e('CHECK')} <b>Instagram Reels</b>\n\n{data.get('title', '')}"
+        )
+
+    @bot.on_callback_query(filters.regex(r"^insta_pub_([a-f0-9]+)$"))
+    async def cb_insta_pub(client, cb: CallbackQuery):
+        cache_id = cb.matches[0].group(1)
+        data = INSTA_CACHE.get(cache_id)
+        if not data or not os.path.exists(data.get("video_path", "")):
+            await cb.answer("Video fayli topilmadi!", show_alert=True)
+            return
+        user_id = cb.from_user.id
+        from database import get_default_account, get_all_yt_connections
+        def_acc = get_default_account(user_id)
+        if not def_acc:
+            conns = get_all_yt_connections(user_id)
+            def_acc = conns[0] if conns else None
+        if not def_acc:
+            await cb.answer("YouTube kanalingiz ulanmagan! Avval /ytlogin qiling.", show_alert=True)
+            return
+            
+        await cb.message.edit_text(f"{e('WAIT')} <b>Shorts YouTube-ga yuklanmoqda...</b>")
+        try:
+            res_id = await asyncio.to_thread(
+                upload_to_youtube,
+                data["video_path"],
+                data["title"][:90] + " #Shorts",
+                data.get("description", "") + "\n\nUploaded via YouTube Automation Bot",
+                def_acc
+            )
+            if res_id:
+                yt_link = f"https://youtube.com/shorts/{res_id}"
+                await cb.message.edit_text(
+                    f"{e('SUCCESS')} <b>Video muvaffaqiyatli YouTube Shorts-ga joylandi!</b>\n\n"
+                    f"📺 <b>Havola:</b> <a href=\"{yt_link}\">{yt_link}</a>",
+                    reply_markup=main_menu_kb(user_id)
+                )
+            else:
+                await cb.message.edit_text(f"{e('ERROR')} YouTube ga yuklashda xatolik yuz berdi.", reply_markup=main_menu_kb(user_id))
+        except Exception as pub_err:
+            await cb.message.edit_text(f"{e('ERROR')} Xatolik: {pub_err}", reply_markup=main_menu_kb(user_id))
     
     # Channel menu callbacks
     @bot.on_callback_query(filters.regex("^ch_"))
@@ -3740,15 +4226,198 @@ def create_ytbot():
             
         await message.reply("Noma'lum buyruq.")
 
+    async def execute_engagement_order_task(order_id, user_id, action_type, target_url, qty, client, chat_id):
+        """
+        Ulangan YouTube akkauntlar orqali xavfsiz va random intervallar bilan
+        layk, obuna yoki izoh topshiriqlarini bajaradi.
+        """
+        from database import get_every_yt_connection, update_engagement_order, update_yt_tokens
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build as google_build
+        from google.auth.transport.requests import Request
+        from config import YT_CLIENT_ID, YT_CLIENT_SECRET
+        import random
+
+        update_engagement_order(order_id, "processing")
+        all_conns = get_every_yt_connection()
+        if not all_conns:
+            update_engagement_order(order_id, "failed")
+            await client.send_message(
+                chat_id,
+                f"{e('ERROR')} <b>Buyurtmani bajarish uchun tizimda ulangan YouTube akkaunt topilmadi!</b>\n"
+                f"Mablag' qaytarilishi yoki tekshirish uchun adminga murojaat qiling."
+            )
+            return
+
+        random.shuffle(all_conns)
+        selected_users = all_conns[:qty]
+        target_id = extract_video_id(target_url)
+
+        action_names = {
+            "like": ("Layk", e("LIKE")),
+            "subscribe": ("Obuna", e("SUBS")),
+            "comment": ("Izoh", e("COMMENTS"))
+        }
+        name, icon = action_names.get(action_type, (action_type, "⚡"))
+
+        await client.send_message(
+            chat_id,
+            f"{icon} <b>Buyurtma #{order_id} boshlandi!</b>\n\n"
+            f"🎯 <b>Xizmat:</b> {name}\n"
+            f"🔢 <b>Miqdor:</b> {len(selected_users)} ta\n"
+            f"🛡️ <i>Amallar xavfsiz tasodifiy oraliq bilan ijro etilmoqda...</i>"
+        )
+
+        success_count = 0
+        failed_count = 0
+
+        for idx, u in enumerate(selected_users, 1):
+            try:
+                creds = Credentials(
+                    token=u['access_token'],
+                    refresh_token=u.get('refresh_token'),
+                    token_uri="https://oauth2.googleapis.com/token",
+                    client_id=YT_CLIENT_ID,
+                    client_secret=YT_CLIENT_SECRET
+                )
+                if creds.expired or creds.expiry is None:
+                    try:
+                        await asyncio.to_thread(creds.refresh, Request())
+                        update_yt_tokens(u['tg_user_id'], u['yt_channel_id'], creds.token)
+                    except Exception as ref_e:
+                        print(f"Token refresh error: {ref_e}")
+
+                yt_service = google_build("youtube", "v3", credentials=creds)
+
+                if action_type == "like":
+                    await asyncio.to_thread(_do_like, yt_service, target_id)
+                elif action_type == "subscribe":
+                    await asyncio.to_thread(_do_subscribe, yt_service, target_id)
+                elif action_type == "comment":
+                    video_title = "super video"
+                    try:
+                        res = await asyncio.to_thread(yt_service.videos().list, part="snippet", id=target_id)
+                        res_data = res.execute()
+                        if res_data.get("items"):
+                            video_title = res_data["items"][0]["snippet"]["title"]
+                    except Exception:
+                        pass
+                    comment_text = await generate_gemini_comment(video_title)
+                    await asyncio.to_thread(_do_comment, yt_service, target_id, comment_text)
+
+                success_count += 1
+                update_engagement_order(order_id, "processing", completed_count=success_count)
+            except Exception as err:
+                failed_count += 1
+                print(f"Order #{order_id} item failed: {err}")
+
+            if idx < len(selected_users):
+                delay = random.randint(15, 35)
+                await asyncio.sleep(delay)
+
+        final_status = "completed" if success_count > 0 else "failed"
+        update_engagement_order(order_id, final_status, completed_count=success_count)
+
+        await client.send_message(
+            chat_id,
+            f"{e('SUCCESS')} <b>Buyurtma #{order_id} yakunlandi!</b>\n\n"
+            f"{icon} <b>Xizmat:</b> {name}\n"
+            f"✅ <b>Muvaffaqiyatli:</b> {success_count}/{len(selected_users)}\n"
+            f"❌ <b>Xatoliklar:</b> {failed_count}\n\n"
+            f"Rahmat! Yana buyurtma berish uchun /menu ni bosing."
+        )
+
+    # ==================== TELEGRAM STARS TO'LOV HANDLERLARI ====================
+    @bot.on_pre_checkout_query()
+    async def handle_pre_checkout(client, query):
+        try:
+            await query.answer(ok=True)
+        except Exception:
+            bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+            url = f"https://api.telegram.org/bot{bot_token}/answerPreCheckoutQuery"
+            import aiohttp
+            try:
+                async with aiohttp.ClientSession() as session:
+                    await session.post(url, json={"pre_checkout_query_id": query.id, "ok": True})
+            except Exception:
+                pass
+
+    @bot.on_message(filters.successful_payment)
+    async def handle_successful_payment(client, message):
+        payment = message.successful_payment
+        user_id = message.from_user.id
+        payload = payment.invoice_payload or ""
+        parts = payload.split("_")
+        if len(parts) >= 5 and parts[0] == "stars":
+            try:
+                tx_id = int(parts[4])
+                amount_uzs = int(parts[3])
+                complete_payment_transaction(tx_id, invoice_id=payment.telegram_payment_charge_id)
+                new_bal = get_user_balance(user_id)
+                await message.reply_text(
+                    f"{e('SUCCESS')} <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
+                    f"{e('STAR')} <b>Telegram Stars:</b> {payment.total_amount} ⭐\n"
+                    f"{e('MONEY')} <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
+                    f"{e('BALANCE')} <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
+                    f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!",
+                    reply_markup=main_menu_kb(user_id)
+                )
+            except Exception as pay_err:
+                print(f"Stars payment parse error: {pay_err}")
+
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
     async def ai_routing_handler(client, message):
         user_text = message.text.strip()
         if not user_text:
             return
+
+        user_id = message.from_user.id
+
+        # 1. Buyurtma jarayonidagi havola tekshiruvi
+        if user_id in USER_ORDER_STATE:
+            st = USER_ORDER_STATE[user_id]
+            if st.get("step") == "awaiting_url":
+                if "youtube.com" in user_text or "youtu.be" in user_text or user_text.startswith("@") or len(user_text) >= 10:
+                    st["target_url"] = user_text
+                    st["step"] = "awaiting_qty"
+                    action = st["action"]
+                    names = {"like": "Layk", "subscribe": "Obuna", "comment": "Izoh"}
+                    await message.reply_text(
+                        f"{e('CHECK')} <b>Havola qabul qilindi:</b> <code>{user_text}</code>\n\n"
+                        f"{e('TARGET')} Nechta {names.get(action, '')} kerak? Tanlang:",
+                        reply_markup=order_quantity_kb(action)
+                    )
+                    return
+
+        # 2. Instagram Reels havola tekshiruvi
+        if is_instagram_url(user_text):
+            wait_msg = await message.reply_text(
+                f"{e('WAIT')} <b>Instagram Reels yuklab olinmoqda va Content ID filtri qo'llanmoqda...</b>"
+            )
+            try:
+                info = await download_instagram_reel(user_text)
+                cid = uuid.uuid4().hex[:8]
+                INSTA_CACHE[cid] = info
+                caption_preview = (
+                    f"{e('INSTA')} <b>Instagram Reel tayyor!</b>\n\n"
+                    f"🎬 <b>Sarlavha:</b> {info['title']}\n"
+                    f"⏱ <b>Davomiyligi:</b> {info['duration']} soniya\n"
+                    f"🛡️ <i>Content ID filtri qo'llandi (Audio pitch + Video EQ)</i>\n\n"
+                    f"Kerakli amalni tanlang:"
+                )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎬 YouTube Shorts ga joylash", callback_data=f"insta_pub_{cid}")],
+                    [InlineKeyboardButton("⬇️ Videoni chatga yuklab olish", callback_data=f"insta_dl_{cid}")],
+                    [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+                ])
+                await wait_msg.edit_text(caption_preview, reply_markup=kb)
+                return
+            except Exception as dl_err:
+                await wait_msg.edit_text(f"{e('ERROR')} Instagram videoni yuklab bo'lmadi: {dl_err}")
+                return
             
         try:
-            
             prompt = f"""Foydalanuvchi Telegram botga quyidagi matnni yozdi:
 "{user_text}"
 
@@ -3759,6 +4428,9 @@ Botda quyidagi buyruqlar bor:
 4. /video <url> - video statistikasini ko'rish
 5. /trending - trenddagi videolarni ko'rish
 6. /search <so'z> - videolar qidirish
+7. /balance - hisob balansi va to'lovlar
+8. /marketplace - layk, obuna, izoh buyurtma berish
+9. /instagram - Instagram Reels yuklash
 
 Vazifang: Foydalanuvchi niyatini aniqla. 
 Agar foydalanuvchi kanal taqqoslashni so'rasa yoki boshqa buyruqqa mos keladigan narsa so'rasa, mos Telegram buyrug'ini aniq qaytar.
@@ -3790,6 +4462,12 @@ Javobingni FAQAT JSON formatida ber:
                             await trending_cmd(client, message)
                         elif cmd_name == "autopost":
                             await autopost_cmd(client, message)
+                        elif cmd_name in ("balance", "balans"):
+                            await balance_cmd(client, message)
+                        elif cmd_name in ("marketplace", "xizmatlar"):
+                            await marketplace_cmd(client, message)
+                        elif cmd_name == "instagram":
+                            await instagram_cmd(client, message)
                         return
                     else:
                         await message.reply_text(f"`{val}`", parse_mode=ParseMode.MARKDOWN)

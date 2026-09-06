@@ -12,3 +12,4 @@ aiohttp==3.10.11
 Pillow
 opencv-python-headless
 edge-tts
+imageio-ffmpeg

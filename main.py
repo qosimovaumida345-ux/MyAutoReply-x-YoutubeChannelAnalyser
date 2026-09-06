@@ -1181,6 +1181,119 @@ async def handle_api_reset_db(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
+async def handle_cryptopay_webhook(request):
+    """CryptoPay (@CryptoBot) to'lov webhook qabul qiluvchi"""
+    from crypto_pay import verify_crypto_pay_signature
+    from database import complete_payment_transaction, get_user_balance
+    from config import CRYPTO_PAY_TOKEN
+    import json
+    
+    try:
+        raw_body = await request.read()
+        sig = request.headers.get("crypto-pay-api-signature", "")
+        
+        if CRYPTO_PAY_TOKEN and sig:
+            if not verify_crypto_pay_signature(raw_body, sig):
+                print("⚠️ CryptoPay webhook noto'g'ri imzo!")
+                return web.json_response({"ok": False, "error": "Invalid signature"}, status=403)
+                
+        data = json.loads(raw_body.decode("utf-8"))
+        print(f"📥 CryptoPay webhook keldi: {data.get('update_type')}")
+        
+        if data.get("update_type") == "invoice_paid":
+            payload_info = data.get("payload", {})
+            invoice_id = str(payload_info.get("invoice_id", ""))
+            asset = payload_info.get("asset", "USDT")
+            
+            raw_custom = payload_info.get("payload", "{}")
+            if isinstance(raw_custom, str):
+                try:
+                    custom_data = json.loads(raw_custom)
+                except Exception:
+                    custom_data = {}
+            else:
+                custom_data = raw_custom or {}
+                
+            tx_id = custom_data.get("tx_id")
+            tg_user_id = custom_data.get("tg_user_id")
+            amount_uzs = custom_data.get("amount_uzs", 0)
+            
+            if tx_id:
+                complete_payment_transaction(int(tx_id), invoice_id=invoice_id)
+                new_bal = get_user_balance(tg_user_id) if tg_user_id else 0
+                
+                if ytbot_instance and tg_user_id:
+                    notify_text = (
+                        f"✅ <b>To'lov muvaffaqiyatli qabul qilindi!</b>\n\n"
+                        f"🪙 <b>Usul:</b> CryptoPay ({asset})\n"
+                        f"💰 <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
+                        f"⚖️ <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
+                        f"🚀 Endi layk, obuna yoki izoh xizmatlaridan foydalanishingiz mumkin!"
+                    )
+                    asyncio.create_task(ytbot_instance.send_message(tg_user_id, notify_text))
+                    
+        return web.json_response({"ok": True})
+    except Exception as e:
+        print(f"CryptoPay webhook xatosi: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500)
+
+
+async def handle_kyc_page(request):
+    """3D Face & ID Biometrik Identifikatsiya sahifasi"""
+    from kyc_template import KYC_HTML
+    return web.Response(text=KYC_HTML, content_type="text/html")
+
+
+async def handle_kyc_submit(request):
+    """3D Yuz va Pasport ma'lumotlarini qabul qilish va tekshirish (Anti-Sybil)"""
+    import hashlib
+    import json
+    from database import check_kyc_duplicate, save_kyc_verification
+    
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        phone = str(data.get("phone", "")).strip()
+        passport_raw = str(data.get("passport", "")).strip().upper().replace(" ", "")
+        face_hash = str(data.get("face_hash", "")).strip()
+        
+        if not user_id:
+            return web.json_response({"ok": False, "message": "Foydalanuvchi ID topilmadi!"}, status=400)
+        if not phone or len(phone) < 9:
+            return web.json_response({"ok": False, "message": "Telefon raqami noto'g'ri kiritilgan!"}, status=400)
+        if not passport_raw or len(passport_raw) < 7:
+            return web.json_response({"ok": False, "message": "Pasport ma'lumotlari to'liq emas!"}, status=400)
+        if not face_hash:
+            return web.json_response({"ok": False, "message": "3D Yuz skaneri ma'lumotlari topilmadi!"}, status=400)
+            
+        pass_hash = hashlib.sha256(passport_raw.encode()).hexdigest()
+        
+        # Takroriy hisob tekshiruvi (Anti-Sybil Deduplication)
+        is_dup, reason = check_kyc_duplicate(passport_hash=pass_hash, face_hash=face_hash, phone_number=phone, exclude_tg_user_id=user_id)
+        if is_dup:
+            return web.json_response({"ok": False, "message": reason}, status=400)
+            
+        # Saqlash
+        save_kyc_verification(user_id, phone, pass_hash, face_hash)
+        
+        # Bot orqali tasdiq xabari yuborish
+        if ytbot_instance:
+            masked_pass = f"{passport_raw[:2]}***{passport_raw[-2:]}"
+            msg = (
+                f"✅ <b>Tabriklaymiz! 3D Biometrik Identifikatsiya muvaffaqiyatli yakunlandi.</b>\n\n"
+                f"🆔 <b>Pasport / ID:</b> {masked_pass}\n"
+                f"📱 <b>Telefon:</b> {phone}\n"
+                f"🛡️ Anti-Sybil tekshiruvi: <b>Muvaffaqiyatli</b>\n\n"
+                f"🚀 Barcha YouTube avtomatizatsiya va xizmatlar siz uchun to'liq ochildi!"
+            )
+            asyncio.create_task(ytbot_instance.send_message(user_id, msg))
+            
+        return web.json_response({"ok": True, "message": "Identifikatsiya muvaffaqiyatli tasdiqlandi!"})
+    except Exception as e:
+        print(f"handle_kyc_submit error: {e}")
+        return web.json_response({"ok": False, "message": f"Server xatosi: {str(e)}"}, status=500)
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
@@ -1198,11 +1311,16 @@ async def start_web_server(port):
     app.router.add_post("/api/reset-db", handle_api_reset_db)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     
+    # Yangi: CryptoPay Webhook va KYC WebApp
+    app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)
+    app.router.add_get("/kyc/verify", handle_kyc_page)
+    app.router.add_post("/kyc/submit", handle_kyc_submit)
+    
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"🌐 Web server {port}-portda ishga tushdi (OAuth callback tayyor)")
+    print(f"🌐 Web server {port}-portda ishga tushdi (OAuth callback, CryptoPay webhook & KYC tayyor)")
     return runner
 
 

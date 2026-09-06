@@ -158,3 +158,7 @@ DISPATCH_HTTP_TIMEOUT = float(os.getenv("DISPATCH_HTTP_TIMEOUT", "4"))
 # Tashqi worker/streamer topilmasa yoki hammasi band bo'lsa, shu limitgacha main o'zi ham qiladi.
 # 0 qilib qo'ysangiz — main hech qachon o'zi bajarmaydi, faqat DB navbatiga yozadi.
 MAIN_MAX_CONCURRENT_TASKS = int(os.getenv("MAIN_MAX_CONCURRENT_TASKS", "1"))
+
+# ==================== CRYPTOPAY & WEBAPP ====================
+CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN", "")
+WEB_APP_URL = os.getenv("WEB_APP_URL", "https://botclient-d1jn.onrender.com").rstrip("/")

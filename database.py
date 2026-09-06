@@ -200,6 +200,62 @@ def init_db():
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='user_settings' AND column_name='default_yt_channel_id'")
     if not cur.fetchone():
         cur.execute("ALTER TABLE user_settings ADD COLUMN default_yt_channel_id TEXT;")
+
+    # Foydalanuvchilar balansi
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_balances (
+            tg_user_id BIGINT PRIMARY KEY,
+            balance_uzs BIGINT DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # To'lovlar tarixi (Telegram Stars & CryptoPay)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS payment_transactions (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            payment_type TEXT NOT NULL,
+            amount_original NUMERIC NOT NULL,
+            currency TEXT NOT NULL,
+            amount_uzs BIGINT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            invoice_id TEXT,
+            payload TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Engagement buyurtmalari (Layk, Obuna, Izoh)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS engagement_orders (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            order_type TEXT NOT NULL,
+            target_url TEXT NOT NULL,
+            target_id TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            completed_count INTEGER DEFAULT 0,
+            total_cost BIGINT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # KYC & 3D Face Anti-Sybil tekshiruvi
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS kyc_verifications (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT UNIQUE NOT NULL,
+            phone_number TEXT,
+            passport_hash TEXT,
+            face_hash TEXT,
+            status TEXT DEFAULT 'verified',
+            verified_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
     
     conn.commit()
     cur.close()
@@ -1268,3 +1324,338 @@ def get_user_stream_status(tg_user_id):
         return None
     finally:
         conn.close()
+
+
+# ==================== BALANS VA TO'LOVLAR ====================
+
+def get_user_balance(tg_user_id: int) -> int:
+    """Foydalanuvchining UZS balansini qaytaradi (default: 0)"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        return int(row["balance_uzs"]) if row and row["balance_uzs"] is not None else 0
+    except Exception as e:
+        print(f"get_user_balance error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def add_user_balance(tg_user_id: int, amount_uzs: int) -> int:
+    """Foydalanuvchining hisobiga pul qo'shish va yangi balansni qaytarish"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+            RETURNING balance_uzs
+        """, (tg_user_id, amount_uzs))
+        row = cur.fetchone()
+        conn.commit()
+        return int(row["balance_uzs"]) if row else 0
+    except Exception as e:
+        conn.rollback()
+        print(f"add_user_balance error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def deduct_user_balance(tg_user_id: int, amount_uzs: int) -> bool:
+    """Balansdan pul yechish. Agar yetarli bo'lsa True, bo'lmasa False"""
+    if amount_uzs <= 0: return True
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        row = cur.fetchone()
+        current = int(row["balance_uzs"]) if row and row["balance_uzs"] is not None else 0
+        if current < amount_uzs:
+            conn.rollback()
+            return False
+        cur.execute(
+            "UPDATE user_balances SET balance_uzs = balance_uzs - %s, updated_at = NOW() WHERE tg_user_id = %s",
+            (amount_uzs, tg_user_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"deduct_user_balance error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def create_payment_transaction(tg_user_id: int, payment_type: str, amount_original: float, currency: str, amount_uzs: int, invoice_id: str = None, payload: str = None) -> int:
+    """Yangi to'lov tranzaksiyasini yaratish (pending)"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO payment_transactions (tg_user_id, payment_type, amount_original, currency, amount_uzs, status, invoice_id, payload)
+            VALUES (%s, %s, %s, %s, %s, 'pending', %s, %s)
+            RETURNING id
+        """, (tg_user_id, payment_type, amount_original, currency, amount_uzs, invoice_id, payload))
+        row = cur.fetchone()
+        conn.commit()
+        return int(row["id"]) if row else 0
+    except Exception as e:
+        conn.rollback()
+        print(f"create_payment_transaction error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_payment_transaction(tx_id: int) -> dict:
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM payment_transactions WHERE id = %s", (tx_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_payment_transaction error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def complete_payment_transaction(tx_id: int, invoice_id: str = None) -> dict:
+    """Tranzaksiyani completed qilish va balansga qo'shish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM payment_transactions WHERE id = %s FOR UPDATE", (tx_id,))
+        tx = cur.fetchone()
+        if not tx:
+            conn.rollback()
+            return None
+        if tx["status"] == "completed":
+            conn.rollback()
+            return dict(tx)
+        
+        cur.execute("""
+            UPDATE payment_transactions
+            SET status = 'completed',
+                invoice_id = COALESCE(%s, invoice_id),
+                updated_at = NOW()
+            WHERE id = %s
+            RETURNING *
+        """, (invoice_id, tx_id))
+        updated_tx = cur.fetchone()
+        
+        tg_user_id = tx["tg_user_id"]
+        amount_uzs = tx["amount_uzs"]
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+        """, (tg_user_id, amount_uzs))
+        
+        conn.commit()
+        return dict(updated_tx) if updated_tx else None
+    except Exception as e:
+        conn.rollback()
+        print(f"complete_payment_transaction error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_payment_history(tg_user_id: int, limit: int = 10):
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM payment_transactions WHERE tg_user_id = %s ORDER BY created_at DESC LIMIT %s", (tg_user_id, limit))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        print(f"get_user_payment_history error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+# ==================== ENGAGEMENT MARKETPLACE ====================
+
+def create_engagement_order(tg_user_id: int, order_type: str, target_url: str, target_id: str, quantity: int, total_cost: int) -> int:
+    """Layk, Obuna yoki Izoh buyurtmasini yaratish"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO engagement_orders (tg_user_id, order_type, target_url, target_id, quantity, total_cost, status)
+            VALUES (%s, %s, %s, %s, %s, %s, 'pending')
+            RETURNING id
+        """, (tg_user_id, order_type, target_url, target_id, quantity, total_cost))
+        row = cur.fetchone()
+        conn.commit()
+        return int(row["id"]) if row else 0
+    except Exception as e:
+        conn.rollback()
+        print(f"create_engagement_order error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def update_engagement_order(order_id: int, status: str, completed_count: int = None):
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        if completed_count is not None:
+            cur.execute(
+                "UPDATE engagement_orders SET status = %s, completed_count = %s, updated_at = NOW() WHERE id = %s",
+                (status, completed_count, order_id)
+            )
+        else:
+            cur.execute(
+                "UPDATE engagement_orders SET status = %s, updated_at = NOW() WHERE id = %s",
+                (status, order_id)
+            )
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"update_engagement_order error: {e}")
+    finally:
+        conn.close()
+
+
+def get_user_engagement_orders(tg_user_id: int, limit: int = 10):
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM engagement_orders WHERE tg_user_id = %s ORDER BY created_at DESC LIMIT %s", (tg_user_id, limit))
+        return [dict(r) for r in cur.fetchall()]
+    except Exception as e:
+        print(f"get_user_engagement_orders error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+# ==================== KYC & 3D FACE ANTI-SYBIL ====================
+
+def check_kyc_duplicate(passport_hash: str = None, face_hash: str = None, phone_number: str = None, exclude_tg_user_id: int = None):
+    """
+    Pasport raqami, 3D yuz skaneri yoki telefon raqami allaqachon boshqa foydalanuvchiga
+    tegishli ekanligini tekshirish.
+    Qaytaradi: (is_duplicate: bool, reason: str)
+    """
+    conn = get_db()
+    if not conn: return False, ""
+    try:
+        cur = conn.cursor()
+        clauses = []
+        params = []
+        if passport_hash:
+            clauses.append("passport_hash = %s")
+            params.append(passport_hash)
+        if face_hash:
+            clauses.append("face_hash = %s")
+            params.append(face_hash)
+        if phone_number:
+            clauses.append("phone_number = %s")
+            params.append(phone_number)
+            
+        if not clauses:
+            return False, ""
+            
+        query = f"SELECT * FROM kyc_verifications WHERE ({' OR '.join(clauses)})"
+        if exclude_tg_user_id:
+            query += " AND tg_user_id != %s"
+            params.append(exclude_tg_user_id)
+            
+        cur.execute(query, tuple(params))
+        row = cur.fetchone()
+        if row:
+            if passport_hash and row.get("passport_hash") == passport_hash:
+                return True, "Ushbu pasport ma'lumotlari allaqachon boshqa hisobda ro'yxatdan o'tgan!"
+            if face_hash and row.get("face_hash") == face_hash:
+                return True, "Ushbu 3D yuz skaneri allaqachon boshqa Telegram akkauntiga biriktirilgan!"
+            if phone_number and row.get("phone_number") == phone_number:
+                return True, "Ushbu telefon raqam boshqa hisobda ro'yxatdan o'tgan!"
+            return True, "Tizimda takroriy hisob aniqlandi!"
+            
+        return False, ""
+    except Exception as e:
+        print(f"check_kyc_duplicate error: {e}")
+        return False, ""
+    finally:
+        conn.close()
+
+
+def save_kyc_verification(tg_user_id: int, phone_number: str, passport_hash: str, face_hash: str) -> bool:
+    """Foydalanuvchi KYC ma'lumotlarini saqlash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO kyc_verifications (tg_user_id, phone_number, passport_hash, face_hash, status, verified_at)
+            VALUES (%s, %s, %s, %s, 'verified', NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET phone_number = EXCLUDED.phone_number,
+                passport_hash = EXCLUDED.passport_hash,
+                face_hash = EXCLUDED.face_hash,
+                status = 'verified',
+                verified_at = NOW()
+        """, (tg_user_id, phone_number, passport_hash, face_hash))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"save_kyc_verification error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def is_user_kyc_verified(tg_user_id: int) -> bool:
+    """Foydalanuvchi KYC dan o'tganmi?"""
+    conn = get_db()
+    if not conn: return True
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT status FROM kyc_verifications WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        return bool(row and row.get("status") == "verified")
+    except Exception as e:
+        print(f"is_user_kyc_verified error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_user_kyc(tg_user_id: int):
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM kyc_verifications WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_user_kyc error: {e}")
+        return None
+    finally:
+        conn.close()
