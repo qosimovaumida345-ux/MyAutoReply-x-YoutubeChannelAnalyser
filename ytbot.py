@@ -2897,53 +2897,96 @@ def create_ytbot():
             if pkg["asset"] == asset and float(pkg["amount"]) == amount:
                 amount_uzs = pkg["amount_uzs"]
                 break
-                
+
+        # ================= TON / GRAM TO'G'RIDAN-TO'G'RI BLOCKCHAIN TO'LOVI =================
+        if asset == "TON":
+            ton_wallet = get_ton_wallet()
+            if not ton_wallet:
+                await cb.answer("⚠️ Botda TON hamyon hali o'rnatilmagan. Adminga murojaat qiling yoki Stars orqali to'ldiring.", show_alert=True)
+                return
+
+            tx_id = create_payment_transaction(user_id, "ton_direct", amount, "TON", amount_uzs)
+            nano_amount = int(amount * 1e9)
+            tonkeeper_link = f"https://app.tonkeeper.com/transfer/{ton_wallet}?amount={nano_amount}&text=tx_{tx_id}"
+
+            text = (
+                f"{e('CRYPTO')} <b>GRAM (TON) orqali to'lov</b>\n\n"
+                f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
+                f"🪙 <b>To'lov miqdori:</b> <code>{amount} GRAM (TON)</code>\n"
+                f"🆔 <b>To'lov kodi (Izoh):</b> <code>tx_{tx_id}</code>\n\n"
+                f"<b>To'lov qilish tartibi:</b>\n"
+                f"1️⃣ Quyidagi <b>«📲 Tonkeeper orqali to'lash»</b> tugmasini bosing (barcha ma'lumotlar avtomatik to'ldiriladi, faqat tasdiqlaysiz).\n\n"
+                f"2️⃣ <b>Yoki qo'lda o'tkazish uchun:</b>\n"
+                f"💎 <b>Hamyon:</b> (nusxalash uchun ustiga bosing)\n"
+                f"<code>{ton_wallet}</code>\n"
+                f"💬 <b>Izoh (MEMO/Comment):</b> <code>tx_{tx_id}</code>\n\n"
+                f"⚠️ <b>DIQQAT:</b> O'tkazma izoh (comment) qismiga <code>tx_{tx_id}</code> deb yozishingiz shart! Aks holda tizim to'lovni avtomatik aniqlay olmaydi.\n\n"
+                f"<i>To'laganingizdan so'ng 5-15 soniyada hisobingiz avtomatik to'ldiriladi yoki quyidagi «🔍 Tekshirish» tugmasini bosing.</i>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"📲 Tonkeeper orqali to'lash ({amount} GRAM)", url=tonkeeper_link)],
+                [InlineKeyboardButton("🔍 To'lovni tekshirish", callback_data=f"check_ton_tx_{tx_id}")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            return
+
+        # ================= USDT UCHUN CRYPTOPAY =================
         tx_id = create_payment_transaction(user_id, "cryptopay", amount, asset, amount_uzs)
         try:
             invoice_res = await create_crypto_pay_invoice(user_id, asset, amount, amount_uzs, tx_id)
             if invoice_res.get("ok"):
                 pay_url = invoice_res["pay_url"]
-                ton_wallet = get_ton_wallet() if asset == "TON" else ""
-                
-                if asset == "TON" and ton_wallet:
-                    nano_amount = int(amount * 1e9)
-                    tonkeeper_link = f"https://app.tonkeeper.com/transfer/{ton_wallet}?amount={nano_amount}&text=tx_{tx_id}"
-                    text = (
-                        f"{e('CRYPTO')} <b>GRAM (TON) orqali to'lov</b>\n\n"
-                        f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
-                        f"🪙 <b>To'lov miqdori:</b> <code>{amount} GRAM (TON)</code>\n"
-                        f"🆔 <b>Buyurtma ID:</b> <code>#{tx_id}</code>\n\n"
-                        f"<b>Quyidagi to'lov usullaridan birini tanlang:</b>\n\n"
-                        f"⚡ <b>1. @CryptoBot orqali:</b> 1 bosishda tezkor avtomatik to'lov.\n\n"
-                        f"💎 <b>2. Shaxsiy TON hamyon orqali:</b>\n"
-                        f"Hamyon manzili (nusxalash uchun ustiga bosing):\n"
-                        f"<code>{ton_wallet}</code>\n"
-                        f"Izoh (memo): <code>tx_{tx_id}</code>\n"
-                    )
-                    kb = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"⚡ @CryptoBot orqali to'lash ({amount} GRAM)", url=pay_url)],
-                        [InlineKeyboardButton("💎 Tonkeeper / Wallet orqali to'lash", url=tonkeeper_link)],
-                        [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
-                    ])
-                else:
-                    coin_name = "GRAM (TON)" if asset == "TON" else asset
-                    text = (
-                        f"{e('CRYPTO')} <b>CryptoPay orqali to'lov</b>\n\n"
-                        f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
-                        f"🪙 <b>To'lov summasi:</b> {amount} {coin_name}\n"
-                        f"🆔 <b>Buyurtma ID:</b> <code>#{tx_id}</code>\n\n"
-                        f"⚡ To'lovni amalga oshirish uchun quyidagi tugmani bosing:\n"
-                        f"<i>(To'lovdan so'ng hisobingiz 1-2 soniyada avtomatik to'ldiriladi)</i>"
-                    )
-                    kb = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"💳 To'lov qilish ({amount} {coin_name})", url=pay_url)],
-                        [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
-                    ])
+                text = (
+                    f"{e('CRYPTO')} <b>USDT orqali to'lov</b>\n\n"
+                    f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
+                    f"🪙 <b>To'lov summasi:</b> {amount} {asset}\n"
+                    f"🆔 <b>Buyurtma ID:</b> <code>#{tx_id}</code>\n\n"
+                    f"⚡ To'lovni amalga oshirish uchun quyidagi tugmani bosing:\n"
+                    f"<i>(To'lovdan so'ng hisobingiz 1-2 soniyada avtomatik to'ldiriladi)</i>"
+                )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"💳 To'lov qilish ({amount} {asset})", url=pay_url)],
+                    [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
+                ])
                 await cb.message.edit_text(text, reply_markup=kb)
             else:
                 await cb.answer(f"Xato: {invoice_res.get('error', 'Invoice yaratib bo`lmadi')}", show_alert=True)
         except Exception as inv_err:
             await cb.answer(f"To'lov tizimi xatosi: {inv_err}", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^check_ton_tx_(\d+)$"))
+    async def cb_check_ton_tx(client, cb: CallbackQuery):
+        tx_id = int(cb.matches[0].group(1))
+        from ton_checker import verify_and_credit_ton_tx
+        
+        await cb.answer("🔍 Blockchain tekshirilmoqda...", show_alert=False)
+        res = await verify_and_credit_ton_tx(tx_id)
+        if res.get("ok"):
+            tx = res.get("tx", {})
+            amount_uzs = tx.get("amount_uzs", 0)
+            amount_ton = tx.get("amount_original", 1.0)
+            new_bal = res.get("new_balance") or get_user_balance(cb.from_user.id)
+            text = (
+                f"✅ <b>To'lov muvaffaqiyatli qabul qilindi!</b>\n\n"
+                f"🪙 <b>To'lov:</b> {amount_ton} GRAM (TON)\n"
+                f"💰 <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
+                f"⚖️ <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
+                f"🚀 Endi layk, obuna yoki izoh xizmatlaridan bemalol foydalanishingiz mumkin!"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🛒 Xizmatlar do'koni", callback_data="menu_marketplace")],
+                [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+        else:
+            await cb.answer(
+                f"⏳ To'lov hali TON tarmog'ida tasdiqlanmadi.\n\n"
+                f"1. To'lovni yubordingizmi?\n"
+                f"2. Izoh (memo) ga 'tx_{tx_id}' deb kiritdingizmi?\n\n"
+                f"Blockchainda tasdiqlanish uchun 5-15 soniya vaqt oladi. Birozdan so'ng yana bosing.",
+                show_alert=True
+            )
 
     @bot.on_callback_query(filters.regex(r"^pay_history$"))
     async def cb_pay_history(client, cb: CallbackQuery):

@@ -1555,11 +1555,18 @@ async def main():
                 await bot.start()
                 print("🎬 YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
                 try:
+                    from ton_checker import start_ton_watcher_task
+                    start_ton_watcher_task(bot)
+                except Exception as ton_err:
+                    print(f"TON watcher ishga tushirishda xato: {ton_err}")
+                try:
                     from pyrogram.types import BotCommand
                     await bot.set_bot_commands([
                         BotCommand("start", "Botni ishga tushirish"),
                         BotCommand("menu", "Asosiy menyuni ochish"),
                         BotCommand("help", "Barcha buyruqlar va yordam"),
+                        BotCommand("setton", "TON hamyon manzilini sozlash"),
+                        BotCommand("myton", "TON hamyon manzilini ko'rish"),
                         BotCommand("ytlogin", "YouTube akkauntni ulash"),
                         BotCommand("login_status", "Akkaunt ulanish holati"),
                         BotCommand("delaccount", "Akkauntni uzish"),
