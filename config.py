@@ -118,7 +118,7 @@ YT_CLIENT_ID = os.getenv("YT_CLIENT_ID", "")
 YT_CLIENT_SECRET = os.getenv("YT_CLIENT_SECRET", "")
 
 # ==================== DATABASE ====================
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip().strip('"').strip("'")
 
 # ==================== AUTO-REPLY SOZLAMALARI ====================
 REPLY_DELAY_MIN = int(os.getenv("REPLY_DELAY_MIN", "1"))

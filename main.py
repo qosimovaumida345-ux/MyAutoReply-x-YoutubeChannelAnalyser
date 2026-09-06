@@ -1583,6 +1583,13 @@ async def main():
     #  ROLE = main  (default)                                             #
     #  TG bot + web server + autopilot worker                             #
     # ------------------------------------------------------------------ #
+    # 0. Database jadvallarini tekshirish va yaratish
+    try:
+        from database import init_db
+        init_db()
+    except Exception as db_init_err:
+        print(f"init_db xatosi: {db_init_err}")
+
     tasks = []
 
     # 1. Auto-Reply Userbot

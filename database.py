@@ -6,23 +6,41 @@ from datetime import datetime, timezone
 from config import DATABASE_URL
 
 
-def get_db():
-    """PostgreSQL ulanishini qaytaradi"""
+def clean_database_url(url: str) -> str:
+    """Tozalangan va xavfsiz SSL parametrli DB URL qaytaradi"""
+    if not url:
+        return ""
+    clean = str(url).strip().strip('"').strip("'")
+    if clean.startswith("postgres://"):
+        clean = "postgresql://" + clean[11:]
+    
+    # Render va boshqa bulutli bazalar uchun SSL ni tekshirish
+    if ("render.com" in clean or "dpg-" in clean) and "sslmode=" not in clean:
+        clean += "?sslmode=require" if "?" not in clean else "&sslmode=require"
+    return clean
+
+
+def get_db(retries: int = 3):
+    """PostgreSQL ulanishini qaytaradi (avtomatik qayta urinish bilan)"""
+    from config import DATABASE_URL
     if not DATABASE_URL:
         print("DATABASE_URL topilmadi! Render PostgreSQL ni ulang.")
         return None
         
-    url = DATABASE_URL
-    if "onrender.com" in url and "sslmode=" not in url:
-        url += "?sslmode=require" if "?" not in url else "&sslmode=require"
-        
-    try:
-        conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
-        conn.autocommit = False
-        return conn
-    except Exception as e:
-        print(f"DATABASE ERROR: {e}")
-        return None
+    url = clean_database_url(DATABASE_URL)
+    
+    for attempt in range(1, retries + 1):
+        try:
+            conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
+            conn.autocommit = False
+            return conn
+        except Exception as e:
+            if attempt < retries:
+                import time
+                time.sleep(1.5)
+            else:
+                print(f"DATABASE ERROR (attempt {attempt}/{retries}): {e}")
+                return None
 
 
 def init_db():
