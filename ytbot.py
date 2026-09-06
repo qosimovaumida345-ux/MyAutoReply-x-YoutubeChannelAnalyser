@@ -4328,42 +4328,55 @@ def create_ytbot():
         )
 
     # ==================== TELEGRAM STARS TO'LOV HANDLERLARI ====================
-    @bot.on_pre_checkout_query()
-    async def handle_pre_checkout(client, query):
-        try:
-            await query.answer(ok=True)
-        except Exception:
+    from pyrogram.raw.types import UpdateBotPrecheckoutQuery, UpdateNewMessage, MessageService, MessageActionPaymentSentMe, PeerUser
+
+    @bot.on_raw_update()
+    async def handle_raw_payment_update(client, update, users, chats):
+        # 1. Stars PreCheckoutQuery
+        if isinstance(update, UpdateBotPrecheckoutQuery):
             bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
             url = f"https://api.telegram.org/bot{bot_token}/answerPreCheckoutQuery"
             import aiohttp
             try:
                 async with aiohttp.ClientSession() as session:
-                    await session.post(url, json={"pre_checkout_query_id": query.id, "ok": True})
-            except Exception:
-                pass
+                    await session.post(url, json={"pre_checkout_query_id": str(update.query_id), "ok": True}, timeout=aiohttp.ClientTimeout(total=10))
+            except Exception as e:
+                print(f"answerPreCheckoutQuery error: {e}")
+            return
 
-    @bot.on_message(filters.successful_payment)
-    async def handle_successful_payment(client, message):
-        payment = message.successful_payment
-        user_id = message.from_user.id
-        payload = payment.invoice_payload or ""
-        parts = payload.split("_")
-        if len(parts) >= 5 and parts[0] == "stars":
-            try:
-                tx_id = int(parts[4])
-                amount_uzs = int(parts[3])
-                complete_payment_transaction(tx_id, invoice_id=payment.telegram_payment_charge_id)
-                new_bal = get_user_balance(user_id)
-                await message.reply_text(
-                    f"{e('SUCCESS')} <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
-                    f"{e('STAR')} <b>Telegram Stars:</b> {payment.total_amount} ⭐\n"
-                    f"{e('MONEY')} <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
-                    f"{e('BALANCE')} <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
-                    f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!",
-                    reply_markup=main_menu_kb(user_id)
-                )
-            except Exception as pay_err:
-                print(f"Stars payment parse error: {pay_err}")
+        # 2. Stars Successful Payment
+        if isinstance(update, UpdateNewMessage):
+            msg = update.message
+            if isinstance(msg, MessageService) and isinstance(getattr(msg, "action", None), MessageActionPaymentSentMe):
+                action = msg.action
+                raw_payload = action.payload.decode("utf-8", errors="ignore") if isinstance(action.payload, bytes) else str(action.payload or "")
+                
+                user_id = None
+                if hasattr(msg, "from_id") and isinstance(msg.from_id, PeerUser):
+                    user_id = msg.from_id.user_id
+                elif hasattr(msg, "peer_id") and isinstance(msg.peer_id, PeerUser):
+                    user_id = msg.peer_id.user_id
+
+                parts = raw_payload.split("_")
+                if len(parts) >= 5 and parts[0] == "stars":
+                    try:
+                        tx_id = int(parts[4])
+                        amount_uzs = int(parts[3])
+                        charge_id = getattr(action.charge, "id", "") if hasattr(action, "charge") else ""
+                        complete_payment_transaction(tx_id, invoice_id=str(charge_id))
+                        if user_id:
+                            new_bal = get_user_balance(user_id)
+                            await client.send_message(
+                                user_id,
+                                f"{e('SUCCESS')} <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
+                                f"{e('STAR')} <b>Telegram Stars:</b> {action.total_amount} ⭐\n"
+                                f"{e('MONEY')} <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
+                                f"{e('BALANCE')} <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
+                                f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!",
+                                reply_markup=main_menu_kb(user_id)
+                            )
+                    except Exception as pay_err:
+                        print(f"Stars payment error: {pay_err}")
 
     # ==================== AI ROUTER (Aqlli Yo'naltirish) ====================
     @bot.on_message(filters.text & ~filters.regex(r"^/") & filters.private)
