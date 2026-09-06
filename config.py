@@ -133,7 +133,8 @@ AI_SYSTEM_PROMPT = os.getenv("AI_SYSTEM_PROMPT",
 OWNER_ID = int(os.getenv("OWNER_ID", "0"))
 
 # ==================== ADMIN (Username orqali) ====================
-ADMIN_USERNAME = "@aiko_64"  # Asosiy admin username
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "aiko_64").lstrip("@")  # Asosiy admin username
+
 
 # ==================== PROXY ====================
 DEFAULT_PROXY = os.getenv("DEFAULT_PROXY", "")  # masalan: socks5://user:pass@host:port

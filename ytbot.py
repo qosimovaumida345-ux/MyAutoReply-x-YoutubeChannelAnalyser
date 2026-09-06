@@ -736,11 +736,20 @@ def create_ytbot():
     
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
     
-    # Adminni username (aiko_64) orqali aniqlash
+    # Adminni tekshirish: OWNER_ID, bot_admins jadvali yoki username bo'yicha
     def check_is_admin(user):
-        if not user or not user.username:
+        if not user:
             return False
-        return user.username.lower() == ADMIN_USERNAME.lower()
+        if OWNER_ID and user.id == OWNER_ID:
+            return True
+        if is_bot_admin(user.id):
+            return True
+        if user.username:
+            target_admin = ADMIN_USERNAME.lstrip("@").lower().strip()
+            user_uname = user.username.lstrip("@").lower().strip()
+            if target_admin and user_uname == target_admin:
+                return True
+        return False
 
     # /dl, /seo, /ideas, /translate kabi buyruqlar uchun kunlik limit tekshiruvi
     # (admin uchun cheklovsiz, oddiy foydalanuvchi uchun /autopost bilan bir xil limit)
@@ -764,8 +773,7 @@ def create_ytbot():
         from googleapiclient.discovery import build
         from googleapiclient.errors import HttpError
         
-        username = message.from_user.username
-        if not username or username.lower() != ADMIN_USERNAME.lower():
+        if not check_is_admin(message.from_user):
             await message.reply("❌ Bu buyruq faqat admin uchun!")
             return
             
