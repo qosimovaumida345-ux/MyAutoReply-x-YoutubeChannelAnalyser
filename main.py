@@ -1255,8 +1255,56 @@ async def handle_cryptopay_webhook(request):
 
 async def handle_kyc_page(request):
     """3D Face & ID Biometrik Identifikatsiya sahifasi"""
-    from kyc_template import KYC_HTML
-    return web.Response(text=KYC_HTML, content_type="text/html")
+    from kyc_template import get_kyc_html
+    from database import is_user_kyc_verified, get_user_kyc, get_telegram_phone
+    user_id = 0
+    is_verified = False
+    kyc_data = None
+    phone = str(request.query.get("phone", "")).strip()
+    try:
+        user_id = int(request.query.get("user_id", 0))
+        if user_id:
+            is_verified = is_user_kyc_verified(user_id)
+            if is_verified:
+                kyc_data = get_user_kyc(user_id)
+            if not phone:
+                phone = get_telegram_phone(user_id)
+    except Exception as e:
+        print(f"handle_kyc_page error: {e}")
+    return web.Response(text=get_kyc_html(user_id=user_id, is_verified=is_verified, kyc_data=kyc_data, phone=phone), content_type="text/html")
+
+
+async def handle_kyc_status(request):
+    """Foydalanuvchi KYC holatini tekshirish API"""
+    from database import is_user_kyc_verified, get_user_kyc
+    try:
+        user_id = int(request.query.get("user_id", 0))
+        if not user_id:
+            return web.json_response({"ok": False, "is_verified": False, "message": "user_id kiritilmadi"})
+        verified = is_user_kyc_verified(user_id)
+        kyc_data = get_user_kyc(user_id) if verified else None
+        phone_masked = ""
+        verified_at_str = ""
+        face_hash_masked = ""
+        if kyc_data:
+            ph = str(kyc_data.get("phone_number", ""))
+            if len(ph) > 6:
+                phone_masked = ph[:4] + " *** ** " + ph[-2:]
+            else:
+                phone_masked = ph
+            verified_at_str = str(kyc_data.get("verified_at", ""))[:19]
+            fh = str(kyc_data.get("face_hash", ""))
+            face_hash_masked = (fh[:12] + "..." + fh[-6:]) if len(fh) > 18 else fh
+        return web.json_response({
+            "ok": True,
+            "is_verified": verified,
+            "user_id": user_id,
+            "phone_masked": phone_masked,
+            "verified_at": verified_at_str,
+            "face_hash": face_hash_masked
+        })
+    except Exception as e:
+        return web.json_response({"ok": False, "is_verified": False, "error": str(e)})
 
 
 async def handle_kyc_submit(request):
@@ -1329,6 +1377,7 @@ async def start_web_server(port):
     # Yangi: CryptoPay Webhook va KYC WebApp
     app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)
     app.router.add_get("/kyc/verify", handle_kyc_page)
+    app.router.add_get("/kyc/status", handle_kyc_status)
     app.router.add_post("/kyc/submit", handle_kyc_submit)
     
     runner = web.AppRunner(app)

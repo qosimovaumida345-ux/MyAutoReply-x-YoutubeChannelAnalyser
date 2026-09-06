@@ -47,7 +47,10 @@ def load_super_features(bot: Client):
             }
         }
         
-        from database import get_user_cookies
+        from database import get_user_cookies, get_user_download_proxy
+        user_dl_proxy = get_user_download_proxy(message.from_user.id)
+        if user_dl_proxy:
+            ydl_opts['proxy'] = user_dl_proxy
         cookies_text = get_user_cookies(message.from_user.id)
         cookie_path = None
         if cookies_text:
@@ -110,7 +113,10 @@ def load_super_features(bot: Client):
             }
         }
         
-        from database import get_user_cookies
+        from database import get_user_cookies, get_user_download_proxy
+        user_dl_proxy = get_user_download_proxy(callback_query.from_user.id)
+        if user_dl_proxy:
+            ydl_opts['proxy'] = user_dl_proxy
         cookies_text = get_user_cookies(callback_query.from_user.id)
         cookie_path = None
         if cookies_text:

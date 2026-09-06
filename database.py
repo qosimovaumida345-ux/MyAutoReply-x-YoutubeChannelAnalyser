@@ -256,6 +256,103 @@ def init_db():
             verified_at TIMESTAMP DEFAULT NOW()
         )
     """)
+
+    # AI API Keys do'koni (OpenRouter, Gemini, Groq kalitlari zaxirasi)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS api_keys_stock (
+            id SERIAL PRIMARY KEY,
+            service_type TEXT NOT NULL,
+            api_key TEXT NOT NULL UNIQUE,
+            price_usd NUMERIC NOT NULL DEFAULT 3.0,
+            price_uzs BIGINT NOT NULL DEFAULT 38000,
+            status TEXT DEFAULT 'available',
+            sold_to_user_id BIGINT,
+            sold_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Telegram orqali tasdiqlangan telefon raqamlar (KYC Gate)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_phones (
+            tg_user_id BIGINT PRIMARY KEY,
+            phone_number TEXT NOT NULL,
+            is_telegram_verified BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Dedicated Private Proxy zaxirasi ($3 — faqat download paytida ishlaydi)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS proxies_stock (
+            id SERIAL PRIMARY KEY,
+            proxy_url TEXT UNIQUE NOT NULL,
+            status TEXT DEFAULT 'available',
+            sold_to_user_id BIGINT,
+            sold_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Autostream Cloud Sloti (Soatbay — $0.5 / soat)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS autostream_slots (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            video_url TEXT,
+            stream_key TEXT,
+            hours_paid INT NOT NULL,
+            total_cost_uzs BIGINT NOT NULL,
+            status TEXT DEFAULT 'active',
+            started_at TIMESTAMP DEFAULT NOW(),
+            expires_at TIMESTAMP,
+            pid INT
+        )
+    """)
+
+    # Flux.1 AI Rasm Obunalari ($2 / hafta, 25 ta rasm)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS flux_subscriptions (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT UNIQUE NOT NULL,
+            generations_left INT DEFAULT 25,
+            expires_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # VIP Cheksiz Pro Obuna ($15 / oy)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS vip_subscriptions (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Referal tizimi (10% keshbek)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            tg_user_id BIGINT PRIMARY KEY,
+            referrer_id BIGINT NOT NULL,
+            total_earned_uzs BIGINT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # Umumiy xaridlar (500+ Prompt Pack, DeepLink QR, Unikalizatsiya, Shorts clipper)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_purchases (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            item_type TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            price_uzs BIGINT NOT NULL,
+            payload TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
     
     conn.commit()
     cur.close()
@@ -1481,6 +1578,13 @@ def complete_payment_transaction(tx_id: int, invoice_id: str = None) -> dict:
         """, (tg_user_id, amount_uzs))
         
         conn.commit()
+
+        # Referral keshbek (10%)
+        try:
+            process_referral_cashback(tg_user_id, amount_uzs)
+        except Exception as ref_e:
+            print(f"process_referral_cashback trigger error: {ref_e}")
+
         return dict(updated_tx) if updated_tx else None
     except Exception as e:
         conn.rollback()
@@ -1645,12 +1749,14 @@ def save_kyc_verification(tg_user_id: int, phone_number: str, passport_hash: str
 def is_user_kyc_verified(tg_user_id: int) -> bool:
     """Foydalanuvchi KYC dan o'tganmi?"""
     conn = get_db()
-    if not conn: return True
+    if not conn: return False
     try:
         cur = conn.cursor()
         cur.execute("SELECT status FROM kyc_verifications WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
-        return bool(row and row.get("status") == "verified")
+        if not row: return False
+        st = row["status"] if isinstance(row, dict) else row[0]
+        return st == "verified"
     except Exception as e:
         print(f"is_user_kyc_verified error: {e}")
         return False
@@ -1670,4 +1776,758 @@ def get_user_kyc(tg_user_id: int):
         print(f"get_user_kyc error: {e}")
         return None
     finally:
-        conn.close()
+        conn.close()
+
+
+# ==================== AI API KEYS STOCK ====================
+
+def add_api_key_to_stock(service_type: str, api_key: str, price_usd: float = None, price_uzs: int = None) -> bool:
+    """Yangi API kalitni zaxiraga qo'shish"""
+    conn = get_db()
+    if not conn: return False
+    st = service_type.strip().lower()
+    if price_usd is None:
+        if st == "openrouter": price_usd = 3.0
+        elif st == "gemini": price_usd = 5.0
+        elif st == "groq": price_usd = 0.8
+        else: price_usd = 1.0
+    if price_uzs is None:
+        if st == "openrouter": price_uzs = 38000
+        elif st == "gemini": price_uzs = 64000
+        elif st == "groq": price_uzs = 10000
+        else: price_uzs = 10000
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO api_keys_stock (service_type, api_key, price_usd, price_uzs, status)
+            VALUES (%s, %s, %s, %s, 'available')
+            ON CONFLICT (api_key) DO NOTHING
+        """, (st, api_key.strip(), price_usd, price_uzs))
+        inserted = cur.rowcount > 0
+        conn.commit()
+        return inserted
+    except Exception as e:
+        conn.rollback()
+        print(f"add_api_key_to_stock error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_api_keys_stock_count() -> dict:
+    """Mavjud kalitlar sonini olish: {'openrouter': count, 'gemini': count, 'groq': count}"""
+    conn = get_db()
+    res = {"openrouter": 0, "gemini": 0, "groq": 0}
+    if not conn: return res
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT service_type, COUNT(*) as cnt
+            FROM api_keys_stock
+            WHERE status = 'available'
+            GROUP BY service_type
+        """)
+        rows = cur.fetchall()
+        for r in rows:
+            st = r["service_type"].lower()
+            res[st] = r["cnt"]
+        return res
+    except Exception as e:
+        print(f"get_api_keys_stock_count error: {e}")
+        return res
+    finally:
+        conn.close()
+
+def purchase_api_key(tg_user_id: int, service_type: str) -> dict:
+    """Foydalanuvchi hisobidan pul ayirib, zaxiradan 1 ta API kalit taqdim etish"""
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    st = service_type.strip().lower()
+    try:
+        cur = conn.cursor()
+        # 1. Zaxiradan bitta kalitni qulflash
+        cur.execute("""
+            SELECT * FROM api_keys_stock
+            WHERE service_type = %s AND status = 'available'
+            LIMIT 1 FOR UPDATE
+        """, (st,))
+        key_row = cur.fetchone()
+        if not key_row:
+            conn.rollback()
+            return {"ok": False, "out_of_stock": True, "error": "Zaxirada ushbu kalit qolmagan"}
+
+        price_uzs = int(key_row["price_uzs"])
+        
+        # 2. Foydalanuvchi balansini tekshirish
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        # 3. Balansdan ayirish
+        new_bal = curr_bal - price_uzs
+        cur.execute("""
+            UPDATE user_balances
+            SET balance_uzs = %s, updated_at = NOW()
+            WHERE tg_user_id = %s
+        """, (new_bal, tg_user_id))
+
+        # 4. Kalitni sold deb belgilash
+        cur.execute("""
+            UPDATE api_keys_stock
+            SET status = 'sold', sold_to_user_id = %s, sold_at = NOW()
+            WHERE id = %s
+        """, (tg_user_id, key_row["id"]))
+
+        conn.commit()
+        return {
+            "ok": True,
+            "api_key": key_row["api_key"],
+            "service_type": st,
+            "price_uzs": price_uzs,
+            "price_usd": float(key_row["price_usd"]),
+            "new_balance": new_bal
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"purchase_api_key error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_user_purchased_keys(tg_user_id: int) -> list:
+    """Foydalanuvchi sotib olgan barcha kalitlarni olish"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT service_type, api_key, price_usd, price_uzs, sold_at
+            FROM api_keys_stock
+            WHERE sold_to_user_id = %s
+            ORDER BY sold_at DESC
+        """, (tg_user_id,))
+        return cur.fetchall() or []
+    except Exception as e:
+        print(f"get_user_purchased_keys error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+# ==================== TELEGRAM VERIFIED PHONES (KYC GATE) ====================
+
+def save_telegram_phone(tg_user_id: int, phone_number: str) -> bool:
+    """Telegram contact orqali yuborilgan tasdiqlangan raqamni saqlash"""
+    conn = get_db()
+    if not conn: return False
+    clean_phone = phone_number.strip().replace(" ", "").replace("-", "")
+    if not clean_phone.startswith("+"):
+        clean_phone = "+" + clean_phone
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_phones (tg_user_id, phone_number, is_telegram_verified, created_at)
+            VALUES (%s, %s, TRUE, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET phone_number = EXCLUDED.phone_number,
+                is_telegram_verified = TRUE
+        """, (tg_user_id, clean_phone))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"save_telegram_phone error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_telegram_phone(tg_user_id: int) -> str:
+    """Foydalanuvchining tasdiqlangan Telegram telefon raqamini olish"""
+    conn = get_db()
+    if not conn: return ""
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT phone_number FROM user_phones WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if not row: return ""
+        return row["phone_number"] if isinstance(row, dict) else row[0]
+    except Exception as e:
+        print(f"get_telegram_phone error: {e}")
+        return ""
+    finally:
+        conn.close()
+
+
+# ==================== DEDICATED PROXIES STOCK ($3) ====================
+
+def add_proxy_to_stock(proxy_url: str) -> bool:
+    """Zaxiraga yangi private proxy qo'shish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO proxies_stock (proxy_url, status)
+            VALUES (%s, 'available')
+            ON CONFLICT (proxy_url) DO NOTHING
+        """, (proxy_url.strip(),))
+        inserted = cur.rowcount > 0
+        conn.commit()
+        return inserted
+    except Exception as e:
+        conn.rollback()
+        print(f"add_proxy_to_stock error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_proxies_stock_count() -> int:
+    """Mavjud erkin proxylar soni"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) as cnt FROM proxies_stock WHERE status = 'available'")
+        row = cur.fetchone()
+        if not row: return 0
+        return row["cnt"] if isinstance(row, dict) else row[0]
+    except Exception as e:
+        print(f"get_proxies_stock_count error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+def purchase_proxy(tg_user_id: int) -> dict:
+    """Foydalanuvchi hisobidan 38,000 so'm yechib, zaxiradan 1 ta dedicated proxy biriktirish"""
+    price_uzs = 38000
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        # 1. Zaxiradan bitta proxyni qulflash
+        cur.execute("""
+            SELECT * FROM proxies_stock
+            WHERE status = 'available'
+            LIMIT 1 FOR UPDATE
+        """)
+        p_row = cur.fetchone()
+        if not p_row:
+            conn.rollback()
+            return {"ok": False, "out_of_stock": True, "error": "Zaxirada hozircha bo'sh proxy qolmagan"}
+
+        # 2. Balans tekshirish
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        # 3. Balansdan yechish
+        new_bal = curr_bal - price_uzs
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+
+        # 4. Proxyni sotilgan deb belgilash
+        cur.execute("""
+            UPDATE proxies_stock
+            SET status = 'sold', sold_to_user_id = %s, sold_at = NOW()
+            WHERE id = %s
+        """, (tg_user_id, p_row["id"]))
+
+        # 5. Userga download proxy qilib biriktirish
+        proxy_url = p_row["proxy_url"]
+        cur.execute("""
+            INSERT INTO user_proxies (tg_user_id, proxy_url, is_active, updated_at)
+            VALUES (%s, %s, TRUE, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET proxy_url = EXCLUDED.proxy_url, is_active = TRUE, updated_at = NOW()
+        """, (tg_user_id, proxy_url))
+
+        conn.commit()
+        return {
+            "ok": True,
+            "proxy_url": proxy_url,
+            "price_uzs": price_uzs,
+            "new_balance": new_bal
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"purchase_proxy error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_user_download_proxy(tg_user_id: int) -> str:
+    """Foydalanuvchining yuklab olish (download) uchun biriktirilgan proxiesini olish"""
+    conn = get_db()
+    if not conn: return ""
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT proxy_url FROM user_proxies WHERE tg_user_id = %s AND is_active = TRUE", (tg_user_id,))
+        row = cur.fetchone()
+        if not row: return ""
+        return row["proxy_url"] if isinstance(row, dict) else row[0]
+    except Exception as e:
+        print(f"get_user_download_proxy error: {e}")
+        return ""
+    finally:
+        conn.close()
+
+
+# ==================== AUTOSTREAM CLOUD SLOTS ($0.5 / SOAT) ====================
+
+def purchase_autostream_slot(tg_user_id: int, hours: int, video_url: str = "", stream_key: str = "") -> dict:
+    """Soatiga 6,000 so'm ($0.5) hisobidan Autostream bulutli sloti sotib olish"""
+    price_per_hour = 6000
+    total_cost = hours * price_per_hour
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < total_cost:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": total_cost,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {total_cost:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        new_bal = curr_bal - total_cost
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+
+        cur.execute("""
+            INSERT INTO autostream_slots (tg_user_id, video_url, stream_key, hours_paid, total_cost_uzs, status, started_at, expires_at)
+            VALUES (%s, %s, %s, %s, %s, 'active', NOW(), NOW() + (%s || ' hours')::INTERVAL)
+            RETURNING id, expires_at
+        """, (tg_user_id, video_url, stream_key, hours, total_cost, str(hours)))
+        res = cur.fetchone()
+        slot_id = res["id"] if isinstance(res, dict) else res[0]
+        expires_at = res["expires_at"] if isinstance(res, dict) else res[1]
+
+        conn.commit()
+        return {
+            "ok": True,
+            "slot_id": slot_id,
+            "hours": hours,
+            "total_cost": total_cost,
+            "new_balance": new_bal,
+            "expires_at": str(expires_at)[:19]
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"purchase_autostream_slot error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_user_autostream_slots(tg_user_id: int) -> list:
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, hours_paid, total_cost_uzs, status, started_at, expires_at, (NOW() < expires_at) as is_running
+            FROM autostream_slots
+            WHERE tg_user_id = %s
+            ORDER BY id DESC
+            LIMIT 5
+        """, (tg_user_id,))
+        return cur.fetchall() or []
+    except Exception as e:
+        print(f"get_user_autostream_slots error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def get_all_active_autostream_slots() -> list:
+    """Muddati o'tmagan faol autostream slotlari"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM autostream_slots
+            WHERE status = 'active' AND NOW() < expires_at
+        """)
+        return cur.fetchall() or []
+    except Exception as e:
+        print(f"get_all_active_autostream_slots error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def expire_autostream_slot(slot_id: int) -> bool:
+    """Muddati tugagan stream slotini to'xtatish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE autostream_slots SET status = 'expired' WHERE id = %s", (slot_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"expire_autostream_slot error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ==================== FLUX.1 AI IMAGE SUBSCRIPTION ($2 / HAFTA) ====================
+
+def purchase_flux_subscription(tg_user_id: int) -> dict:
+    """Haftasiga 25,000 so'm ($2) to'lab, 25 ta fotoreal rasm generatsiya kvotasini olish"""
+    price_uzs = 25000
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        new_bal = curr_bal - price_uzs
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+
+        cur.execute("""
+            INSERT INTO flux_subscriptions (tg_user_id, generations_left, expires_at, updated_at)
+            VALUES (%s, 25, NOW() + INTERVAL '7 days', NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET generations_left = flux_subscriptions.generations_left + 25,
+                expires_at = GREATEST(flux_subscriptions.expires_at, NOW()) + INTERVAL '7 days',
+                updated_at = NOW()
+            RETURNING generations_left, expires_at
+        """, (tg_user_id,))
+        res = cur.fetchone()
+        left = res["generations_left"] if isinstance(res, dict) else res[0]
+        exp = res["expires_at"] if isinstance(res, dict) else res[1]
+
+        conn.commit()
+        return {
+            "ok": True,
+            "generations_left": left,
+            "expires_at": str(exp)[:19],
+            "new_balance": new_bal
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"purchase_flux_subscription error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_flux_quota(tg_user_id: int) -> dict:
+    conn = get_db()
+    if not conn: return {"active": False, "left": 0}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT generations_left, expires_at, (NOW() < expires_at AND generations_left > 0) as is_active
+            FROM flux_subscriptions
+            WHERE tg_user_id = %s
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        if not row: return {"active": False, "left": 0}
+        active = bool(row["is_active"] if isinstance(row, dict) else row[2])
+        left = int(row["generations_left"] if isinstance(row, dict) else row[0])
+        exp = str(row["expires_at"] if isinstance(row, dict) else row[1])[:19]
+        return {"active": active, "left": left, "expires_at": exp}
+    except Exception as e:
+        print(f"get_flux_quota error: {e}")
+        return {"active": False, "left": 0}
+    finally:
+        conn.close()
+
+def use_flux_credit(tg_user_id: int) -> bool:
+    """1 ta rasm generatsiya kreditini kamaytirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE flux_subscriptions
+            SET generations_left = generations_left - 1, updated_at = NOW()
+            WHERE tg_user_id = %s AND generations_left > 0 AND NOW() < expires_at
+        """, (tg_user_id,))
+        used = cur.rowcount > 0
+        conn.commit()
+        return used
+    except Exception as e:
+        conn.rollback()
+        print(f"use_flux_credit error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ==================== VIP CHEKSIZ PRO OBUNA ($15 / OY) ====================
+
+def purchase_vip_subscription(tg_user_id: int) -> dict:
+    """Oylik 192,000 so'm ($15) VIP cheksiz tarif xarid qilish"""
+    price_uzs = 192000
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        new_bal = curr_bal - price_uzs
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+
+        cur.execute("""
+            INSERT INTO vip_subscriptions (tg_user_id, expires_at, created_at)
+            VALUES (%s, NOW() + INTERVAL '30 days', NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET expires_at = GREATEST(vip_subscriptions.expires_at, NOW()) + INTERVAL '30 days'
+            RETURNING expires_at
+        """, (tg_user_id,))
+        res = cur.fetchone()
+        exp = res["expires_at"] if isinstance(res, dict) else res[0]
+
+        conn.commit()
+        return {
+            "ok": True,
+            "expires_at": str(exp)[:19],
+            "new_balance": new_bal
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"purchase_vip_subscription error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def is_user_vip(tg_user_id: int) -> bool:
+    """Foydalanuvchi VIP abonentimi?"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT expires_at FROM vip_subscriptions
+            WHERE tg_user_id = %s AND NOW() < expires_at
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        return bool(row)
+    except Exception as e:
+        print(f"is_user_vip error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ==================== REFERAL & KESHBEK TIZIMI (10%) ====================
+
+def set_user_referrer(tg_user_id: int, referrer_id: int) -> bool:
+    """Foydalanuvchini taklif qilgan odamni biriktirish"""
+    if tg_user_id == referrer_id: return False
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO referrals (tg_user_id, referrer_id, total_earned_uzs, created_at)
+            VALUES (%s, %s, 0, NOW())
+            ON CONFLICT (tg_user_id) DO NOTHING
+        """, (tg_user_id, referrer_id))
+        inserted = cur.rowcount > 0
+        conn.commit()
+        return inserted
+    except Exception as e:
+        conn.rollback()
+        print(f"set_user_referrer error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_referrer(tg_user_id: int) -> int:
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT referrer_id FROM referrals WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if not row: return 0
+        return int(row["referrer_id"] if isinstance(row, dict) else row[0])
+    except Exception as e:
+        print(f"get_user_referrer error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+def process_referral_cashback(tg_user_id: int, deposit_uzs: int) -> dict:
+    """To'lov amalga oshirilganda taklif qilgan odamga 10% keshbek berish"""
+    referrer_id = get_user_referrer(tg_user_id)
+    if not referrer_id or deposit_uzs <= 0:
+        return {"has_referrer": False}
+
+    bonus = int(deposit_uzs * 0.10)
+    if bonus <= 0:
+        return {"has_referrer": False}
+
+    conn = get_db()
+    if not conn: return {"has_referrer": False}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+        """, (referrer_id, bonus))
+
+        cur.execute("""
+            UPDATE referrals
+            SET total_earned_uzs = total_earned_uzs + %s
+            WHERE tg_user_id = %s
+        """, (bonus, tg_user_id))
+
+        conn.commit()
+        return {
+            "has_referrer": True,
+            "referrer_id": referrer_id,
+            "bonus_uzs": bonus
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"process_referral_cashback error: {e}")
+        return {"has_referrer": False}
+    finally:
+        conn.close()
+
+def get_referral_stats(tg_user_id: int) -> dict:
+    """Foydalanuvchining referal statistikasi"""
+    conn = get_db()
+    res = {"invited_count": 0, "total_earned": 0}
+    if not conn: return res
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) as cnt, COALESCE(SUM(total_earned_uzs), 0) as earned
+            FROM referrals
+            WHERE referrer_id = %s
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        if row:
+            res["invited_count"] = int(row["cnt"] if isinstance(row, dict) else row[0])
+            res["total_earned"] = int(row["earned"] if isinstance(row, dict) else row[1])
+        return res
+    except Exception as e:
+        print(f"get_referral_stats error: {e}")
+        return res
+    finally:
+        conn.close()
+
+
+# ==================== GENERAL PURCHASES (PROMPT PACK, DEEPLINK, UNIKALIZATSIYA, CLIPPER) ====================
+
+def record_user_purchase(tg_user_id: int, item_type: str, item_name: str, price_uzs: int, payload: str = "") -> dict:
+    """Balansdan pul yechib, xaridni saqlash"""
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        new_bal = curr_bal - price_uzs
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+
+        cur.execute("""
+            INSERT INTO user_purchases (tg_user_id, item_type, item_name, price_uzs, payload, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            RETURNING id
+        """, (tg_user_id, item_type, item_name, price_uzs, payload))
+        p_res = cur.fetchone()
+        purchase_id = p_res["id"] if isinstance(p_res, dict) else p_res[0]
+
+        conn.commit()
+        return {
+            "ok": True,
+            "purchase_id": purchase_id,
+            "new_balance": new_bal,
+            "item_type": item_type,
+            "item_name": item_name
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"record_user_purchase error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_user_purchases(tg_user_id: int, item_type: str = None) -> list:
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        if item_type:
+            cur.execute("""
+                SELECT * FROM user_purchases
+                WHERE tg_user_id = %s AND item_type = %s
+                ORDER BY id DESC
+            """, (tg_user_id, item_type))
+        else:
+            cur.execute("""
+                SELECT * FROM user_purchases
+                WHERE tg_user_id = %s
+                ORDER BY id DESC
+            """, (tg_user_id,))
+        return cur.fetchall() or []
+    except Exception as e:
+        print(f"get_user_purchases error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
