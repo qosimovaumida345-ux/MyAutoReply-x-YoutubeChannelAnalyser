@@ -98,7 +98,7 @@ def get_support_menu_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(title, callback_data=f"supp_role_{role_key}")])
     
     back_text = "⬅️ Orqaga" if lang == "uz" else ("⬅️ Назад" if lang == "ru" else "⬅️ Back")
-    rows.append([InlineKeyboardButton(back_text, callback_data="main_menu")])
+    rows.append([InlineKeyboardButton(back_text, callback_data="back_main")])
     return InlineKeyboardMarkup(rows)
 
 def get_role_view_keyboard(role_key: str, lang: str = "uz") -> InlineKeyboardMarkup:

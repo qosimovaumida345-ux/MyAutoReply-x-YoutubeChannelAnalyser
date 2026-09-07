@@ -52,6 +52,6 @@ def get_capcut_menu_keyboard(has_active_link: bool = False, lang: str = "uz") ->
         [InlineKeyboardButton("🎁 Bepul Pro Havola Olish", callback_data="capcut_get_pro")],
         [InlineKeyboardButton("➕ O'z Havolamni Qo'shish", callback_data="capcut_add_link")],
         [InlineKeyboardButton("📊 Mening Havolalarim Statistikasi", callback_data="capcut_my_stats")],
-        [InlineKeyboardButton("⬅️ Orqaga", callback_data="main_menu")]
+        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")]
     ]
     return InlineKeyboardMarkup(buttons)

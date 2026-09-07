@@ -242,16 +242,13 @@ async def _bot_api_send(bot_token, chat_id, text, reply_markup=None, reply_to_me
         payload["reply_to_message_id"] = reply_to_message_id
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                 data = await resp.json()
                 if resp.status == 200 and data.get("ok"):
                     return data["result"]["message_id"]
-                else:
-                    import logging
-                    logging.error(f"Bot API sendMessage error {resp.status}: {data}")
     except Exception as e:
         import logging
-        logging.warning(f"Bot API send failed: {e}")
+        logging.debug(f"Bot API send fallback: {e}")
     return None
 
 async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None):
@@ -268,16 +265,13 @@ async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None)
         payload["reply_markup"] = reply_markup
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                 data = await resp.json()
                 if resp.status == 200 and data.get("ok"):
                     return True
-                else:
-                    import logging
-                    logging.error(f"Bot API editMessageText error {resp.status}: {data}")
     except Exception as e:
         import logging
-        logging.warning(f"Bot API edit failed: {e}")
+        logging.debug(f"Bot API edit fallback: {e}")
     return False
 
 async def _send_bot_api_invoice(bot_token, chat_id, title, description, payload, currency, prices, provider_token=""):
@@ -4119,7 +4113,7 @@ def create_ytbot():
         except Exception as _dispatch_err:
             print(f"[autopost dispatch] xato: {_dispatch_err}")
 
-    @bot.on_callback_query(filters.regex("^back_main$"))
+    @bot.on_callback_query(filters.regex(r"^(back_main|main_menu)$"))
     async def cb_back_main(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
@@ -4127,7 +4121,7 @@ def create_ytbot():
         await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
         await cb.answer()
     
-    @bot.on_callback_query(filters.regex("^menu_"))
+    @bot.on_callback_query(filters.regex(r"^menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help)$"))
     async def cb_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         if not check_is_admin(cb.from_user) and not is_user_kyc_verified(user_id):
@@ -4204,7 +4198,9 @@ def create_ytbot():
         if menu in menus:
             text, kb = menus[menu]
             await cb.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        await cb.answer()
+            await cb.answer()
+            return
+        cb.continue_propagation()
 
     # ==================== TO'LOV VA MARKETPLACE CALLBACKLARI ====================
     

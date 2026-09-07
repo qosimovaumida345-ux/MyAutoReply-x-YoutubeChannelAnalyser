@@ -114,6 +114,7 @@ def load_mega_features(bot: Client):
             f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:",
             reply_markup=kb
         )
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^support_desk_root$"))
     async def cb_support_desk_back(client, cb: CallbackQuery):
@@ -123,6 +124,7 @@ def load_mega_features(bot: Client):
             f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\nKerakli yo'nalishni tanlang:",
             reply_markup=get_support_menu_keyboard(lang)
         )
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^supp_role_([a-z_]+)$"))
     async def cb_support_role(client, cb: CallbackQuery):
@@ -140,6 +142,7 @@ def load_mega_features(bot: Client):
             f"yoki shaxsan adminga xat yo'llang:"
         )
         await cb.message.edit_text(text, reply_markup=get_role_view_keyboard(role_key, lang))
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^supp_ask_([a-z_]+)$"))
     async def cb_support_ask_ai(client, cb: CallbackQuery):
@@ -228,9 +231,10 @@ def load_mega_features(bot: Client):
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Yangi Chek Yaratish Qo'llanmasi", callback_data="help_create_check")],
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="main_menu")]
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^claim_chk_([A-Za-z0-9_-]+)$"))
     async def cb_claim_check(client, cb: CallbackQuery):
@@ -301,9 +305,10 @@ def load_mega_features(bot: Client):
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
             [InlineKeyboardButton("🔄 Tekshirish & Yuklash", callback_data="ig_sync_now")],
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="main_menu")]
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^ig_add_profile$"))
     async def cb_ig_add_profile(client, cb: CallbackQuery):
@@ -334,6 +339,7 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_capcut$"))
     async def cb_menu_capcut(client, cb: CallbackQuery):
         await cb.message.edit_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard())
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^capcut_get_pro$"))
     async def cb_capcut_get_pro(client, cb: CallbackQuery):
@@ -465,7 +471,11 @@ def load_mega_features(bot: Client):
             "• 🎬 **FFmpeg Ken Burns** — Dinamik kamera harakati va audio montaj\n\n"
             "✍️ **Video yaratish uchun mavzuni yozib yuboring:**"
         )
-        await cb.message.edit_text(text)
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^pub_aivid_(.+)$"))
     async def cb_publish_ai_video(client, cb: CallbackQuery):
@@ -538,10 +548,15 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_spy$"))
     async def cb_menu_spy(client, cb: CallbackQuery):
         USER_STATES[cb.from_user.id] = {"action": "waiting_spy_url"}
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+        ])
         await cb.message.edit_text(
             "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
-            "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
+            "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:",
+            reply_markup=kb
         )
+        await cb.answer()
 
     # =========================================================================
     # 8. CASHOUT ENGINE (STARS & TON PUL YECHISH)
@@ -579,6 +594,7 @@ def load_mega_features(bot: Client):
             [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^co_method_(stars|ton)$"))
     async def cb_co_select_method(client, cb: CallbackQuery):
