@@ -199,8 +199,8 @@ def _build_bot_api_reply_markup(reply_markup):
                     except: cb = ""
                 raw_text = (btn.text or "").lower()
                 
-                # Green ("success") - Sotib olish, to'ldirish, qutini ochish, tasdiqlash
-                if any(k in cb for k in ["pay_", "wallet", "box_open", "sub_check", "buy", "stars_pkg", "crypto_pkg"]) or any(k in raw_text for k in ["buy", "to'ldirish", "ochish", "tekshirish", "sotib olish"]):
+                # Green ("success") - Sotib olish, to'ldirish, qutini ochish, tasdiqlash, marketplace
+                if any(k in cb for k in ["pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg", "marketplace", "market"]) or any(k in raw_text for k in ["sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace"]):
                     style = "success"
                 # Red ("danger") - O'yinlar, Duel, Bekor qilish, O'chirish
                 elif any(k in cb for k in ["menu_games", "game_duel", "delaccount", "dbreset", "cancel"]) or any(k in raw_text for k in ["duel", "o'yinlar", "who wins", "o'chirish", "bekor"]):
@@ -627,7 +627,7 @@ def main_menu_kb(user_id=None):
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
     kyc_text = "🛡️ 3D KYC"
     if user_id and is_user_kyc_verified(user_id):
-        kyc_text = "✅ 3D KYC Verified"
+        kyc_text = "🛡️ 3D KYC Verified"
         
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🌐 Web Dashboard", web_app=WebAppInfo(url=web_url)),
@@ -636,7 +636,7 @@ def main_menu_kb(user_id=None):
          InlineKeyboardButton(t("btn_games", lang), callback_data="menu_games")],
         [InlineKeyboardButton(t("btn_referral", lang), callback_data="menu_referral"),
          InlineKeyboardButton(t("btn_leaderboard", lang), callback_data="menu_leaderboard")],
-        [InlineKeyboardButton("🚀 Xizmatlar / Marketplace", callback_data="menu_marketplace"),
+        [InlineKeyboardButton(t("btn_marketplace", lang), callback_data="menu_marketplace"),
          InlineKeyboardButton("🔑 Developer API", callback_data="help_api")],
         [InlineKeyboardButton("📢 Kanal & Video", callback_data="menu_channel"),
          InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics")],
@@ -1073,7 +1073,8 @@ def create_ytbot():
             except Exception as _fe:
                 print(f"forcesub start error: {_fe}")
 
-        text = t("main_menu", lang)
+        name = (message.from_user.first_name or "Foydalanuvchi") if message.from_user else "Foydalanuvchi"
+        text = t("main_menu", lang, name=name)
         await message.reply_text(text, reply_markup=main_menu_kb(user_id))
 
     # ==================== TELEGRAM KONTAKT (TELEFON RAQAM) QABUL QILISH ====================
@@ -1268,7 +1269,9 @@ def create_ytbot():
     @bot.on_message(filters.command("menu"))
     async def menu_cmd(client, message):
         user_id = message.from_user.id
-        await message.reply_text(f"{e('STAR')} Asosiy menyu:", reply_markup=main_menu_kb(user_id), parse_mode=ParseMode.MARKDOWN)
+        lang = get_user_language(user_id)
+        name = (message.from_user.first_name or "Foydalanuvchi") if message.from_user else "Foydalanuvchi"
+        await message.reply_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
 
     # ==================== /balance & /balans ====================
     @bot.on_message(filters.command(["balance", "balans"]))
@@ -1298,7 +1301,7 @@ def create_ytbot():
         gq_stock = stock.get("groq", 0)
         pr_stock = get_proxies_stock_count()
         text = (
-            f"{e('ROCKET')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
+            f"{e('CASH')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
             f"{e('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
             f"<b>🌐 Proxy & Server Quvvati:</b>\n"
             f"• {e('PROXY')} <b>Dedicated Private Proxy:</b> $3 (38,000 so'm) — <i>Zaxirada: {pr_stock} ta</i>\n"
@@ -2421,8 +2424,9 @@ def create_ytbot():
         set_user_language(user_id, selected_lang)
         confirm_text = t("lang_changed", selected_lang)
         await callback_query.answer(f"✅ {SUPPORTED_LANGUAGES.get(selected_lang, selected_lang)}")
+        name = (callback_query.from_user.first_name or "Foydalanuvchi") if callback_query.from_user else "Foydalanuvchi"
         await callback_query.message.edit_text(
-            f"{confirm_text}\n\n{t('main_menu', selected_lang)}",
+            f"{confirm_text}\n\n{t('main_menu', selected_lang, name=name)}",
             reply_markup=main_menu_kb(user_id)
         )
 
@@ -4111,7 +4115,8 @@ def create_ytbot():
     async def cb_back_main(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
-        await cb.message.edit_text(t("main_menu", lang), reply_markup=main_menu_kb(user_id))
+        name = (cb.from_user.first_name or "Foydalanuvchi") if cb.from_user else "Foydalanuvchi"
+        await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
         await cb.answer()
     
     @bot.on_callback_query(filters.regex("^menu_"))
@@ -4140,7 +4145,7 @@ def create_ytbot():
             gq_stock = stock.get("groq", 0)
             pr_stock = get_proxies_stock_count()
             text = (
-                f"{e('ROCKET')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
+                f"{e('CASH')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
                 f"{e('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
                 f"<b>🌐 Proxy & Server Quvvati:</b>\n"
                 f"• {e('PROXY')} <b>Dedicated Private Proxy:</b> $3 (38,000 so'm) — <i>Zaxirada: {pr_stock} ta</i>\n"

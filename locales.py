@@ -33,25 +33,87 @@ TRANSLATIONS = {
     },
     "main_menu": {
         "uz": (
-            "🌟 <b>YouTube Analytics & Automation Bot — Asosiy Menyu</b>\n\n"
-            "Kerakli bo'limni tanlang:"
+            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👤 <b>Foydalanuvchi:</b> <b>{name}</b>\n"
+            "⚡ <b>Tizim holati:</b> <code>Online 🟢</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🚀 <b>Asosiy Imkoniyatlar & Xizmatlar:</b>\n"
+            "• 📊 <b>Analitika:</b> Kanal tahlili va trendlar\n"
+            "• 💸 <b>Marketplace:</b> Raqamli xizmatlar va AI kalitlar\n"
+            "• 🎁 <b>Yutuqlar:</b> Mystery Box va sovrunlar\n"
+            "• 📥 <b>Yuklovchi:</b> Shorts & Reels yuklab olish\n"
+            "• 🔑 <b>API & Bot:</b> Developer integratsiya\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👇 <i>Kerakli bo'limni tanlang:</i>"
         ),
         "ru": (
-            "🌟 <b>YouTube Analytics & Automation Bot — Главное Меню</b>\n\n"
-            "Выберите нужный раздел:"
+            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👤 <b>Пользователь:</b> <b>{name}</b>\n"
+            "⚡ <b>Статус системы:</b> <code>Online 🟢</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🚀 <b>Основные возможности и услуги:</b>\n"
+            "• 📊 <b>Аналитика:</b> Анализ каналов и тренды\n"
+            "• 💸 <b>Маркетплейс:</b> Цифровые услуги и AI ключи\n"
+            "• 🎁 <b>Призы:</b> Mystery Box и рулетка\n"
+            "• 📥 <b>Загрузчик:</b> Скачивание Shorts и Reels\n"
+            "• 🔑 <b>API и Бот:</b> Интеграция для разработчиков\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👇 <i>Выберите нужный раздел:</i>"
         ),
         "en": (
-            "🌟 <b>YouTube Analytics & Automation Bot — Main Menu</b>\n\n"
-            "Select an option below:"
+            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👤 <b>User:</b> <b>{name}</b>\n"
+            "⚡ <b>System Status:</b> <code>Online 🟢</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🚀 <b>Core Features & Services:</b>\n"
+            "• 📊 <b>Analytics:</b> Channel insights & viral trends\n"
+            "• 💸 <b>Marketplace:</b> Digital services & AI keys\n"
+            "• 🎁 <b>Rewards:</b> Mystery Boxes & lucky spins\n"
+            "• 📥 <b>Downloader:</b> High-speed Shorts & Reels\n"
+            "• 🔑 <b>API & Bot:</b> Developer integrations\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👇 <i>Select an option below:</i>"
         ),
         "es": (
-            "🌟 <b>YouTube Analytics & Automation Bot — Menú Principal</b>\n\n"
-            "Selecciona una opción a continuación:"
+            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👤 <b>Usuario:</b> <b>{name}</b>\n"
+            "⚡ <b>Estado del sistema:</b> <code>Online 🟢</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🚀 <b>Funciones principales y servicios:</b>\n"
+            "• 📊 <b>Analítica:</b> Estadísticas de canal y tendencias\n"
+            "• 💸 <b>Mercado:</b> Servicios digitales y claves de IA\n"
+            "• 🎁 <b>Premios:</b> Cajas misteriosas y giros\n"
+            "• 📥 <b>Descargador:</b> Descarga de Shorts y Reels\n"
+            "• 🔑 <b>API y Bot:</b> Integración de desarrollador\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👇 <i>Selecciona una opción abajo:</i>"
         ),
         "tr": (
-            "🌟 <b>YouTube Analytics & Automation Bot — Ana Menü</b>\n\n"
-            "Aşağıdaki seçeneklerden birini seçin:"
+            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👤 <b>Kullanıcı:</b> <b>{name}</b>\n"
+            "⚡ <b>Sistem Durumu:</b> <code>Online 🟢</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "🚀 <b>Temel Özellikler ve Hizmetler:</b>\n"
+            "• 📊 <b>Analitik:</b> Kanal analizi ve viral trendler\n"
+            "• 💸 <b>Pazar:</b> Dijital hizmetler ve Yapay Zeka API\n"
+            "• 🎁 <b>Ödüller:</b> Gizemli Kutular ve şans çarkı\n"
+            "• 📥 <b>İndirici:</b> Hızlı Shorts ve Reels indirme\n"
+            "• 🔑 <b>API & Bot:</b> Geliştirici entegrasyonu\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "👇 <i>Aşağıdan bir seçenek belirleyin:</i>"
         )
+    },
+    "btn_marketplace": {
+        "uz": "💸 Xizmatlar / Marketplace",
+        "ru": "💸 Услуги / Маркетплейс",
+        "en": "💸 Services / Marketplace",
+        "es": "💸 Servicios / Mercado",
+        "tr": "💸 Hizmetler / Pazar"
     },
     "btn_balance": {
         "uz": "💰 Balans & To'lovlar",
@@ -392,6 +454,8 @@ def t(key: str, lang: str = "uz", **kwargs) -> str:
     safe_lang = lang if lang in SUPPORTED_LANGUAGES else "uz"
     item = TRANSLATIONS.get(key, {})
     text = item.get(safe_lang) or item.get("uz") or key
+    if "{name}" in text and "name" not in kwargs:
+        kwargs["name"] = "Foydalanuvchi"
     if kwargs:
         try:
             return text.format(**kwargs)
