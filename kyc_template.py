@@ -551,7 +551,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                         const lockBadge = document.createElement('div');
                         lockBadge.id = 'phoneLockBadge';
                         lockBadge.style.cssText = 'font-size: 11px; color: #10b981; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px;';
-                        lockBadge.innerHTML = '🔒 Telegram orqali tasdiqlangan (O\'zgartirib bo\'lmaydi)';
+                        lockBadge.innerHTML = "🔒 Telegram orqali tasdiqlangan (O'zgartirib bo'lmaydi)";
                         group.appendChild(lockBadge);
                     }}
                 }}
@@ -621,6 +621,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             guidance.innerText = "Kameraga ruxsat so'ralmoqda...";
 
             try {{
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {{
+                    throw new Error("Kamera ushbu brauzer/qurilmada qo'llab-quvvatlanmaydi. Mobil Telegram orqali oching!");
+                }}
                 videoStream = await navigator.mediaDevices.getUserMedia({{
                     video: {{
                         facingMode: "user",
