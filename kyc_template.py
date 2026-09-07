@@ -7,13 +7,27 @@ and verified state presentation.
 import json
 
 def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
+    clean_kyc = {}
+    if kyc_data and isinstance(kyc_data, dict):
+        for k, v in kyc_data.items():
+            if hasattr(v, "isoformat"):
+                clean_kyc[k] = v.isoformat()
+            else:
+                clean_kyc[k] = v
+        ph = str(clean_kyc.get("phone_number", ""))
+        if ph and "phone_masked" not in clean_kyc:
+            clean_kyc["phone_masked"] = ph[:4] + " *** ** " + ph[-2:] if len(ph) > 6 else ph
+        fh = str(clean_kyc.get("face_hash", ""))
+        if fh and len(fh) > 18:
+            clean_kyc["face_hash"] = fh[:12] + "..." + fh[-6:]
+
     initial_state = {
         "user_id": int(user_id or 0),
         "is_verified": bool(is_verified),
-        "kyc_data": kyc_data or {},
+        "kyc_data": clean_kyc,
         "phone": str(phone or "")
     }
-    state_json = json.dumps(initial_state)
+    state_json = json.dumps(initial_state, default=str)
     
     return f"""<!DOCTYPE html>
 <html lang="uz">

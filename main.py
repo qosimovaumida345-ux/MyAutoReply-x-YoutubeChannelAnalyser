@@ -1269,9 +1269,21 @@ async def handle_kyc_page(request):
                 kyc_data = get_user_kyc(user_id)
             if not phone:
                 phone = get_telegram_phone(user_id)
+        html = get_kyc_html(user_id=user_id, is_verified=is_verified, kyc_data=kyc_data, phone=phone)
+        return web.Response(text=html, content_type="text/html")
     except Exception as e:
         print(f"handle_kyc_page error: {e}")
-    return web.Response(text=get_kyc_html(user_id=user_id, is_verified=is_verified, kyc_data=kyc_data, phone=phone), content_type="text/html")
+        try:
+            fallback_html = get_kyc_html(user_id=user_id, is_verified=False, kyc_data=None, phone=phone)
+            return web.Response(text=fallback_html, content_type="text/html")
+        except Exception as _fe:
+            return web.Response(
+                text="<!DOCTYPE html><html><body style='background:#080c14;color:#fff;font-family:sans-serif;text-align:center;padding:50px;'>"
+                     "<h2>🛡️ 3D Biometrik Identifikatsiya</h2>"
+                     "<p>Tizim yangilanmoqda. Iltimos, bir necha daqiqadan so'ng qayta urinib ko'ring.</p>"
+                     "</body></html>",
+                content_type="text/html"
+            )
 
 
 async def handle_kyc_status(request):
