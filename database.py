@@ -371,6 +371,119 @@ def init_db():
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
+
+    # Reseller & Developer API Foydalanuvchilari
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_api_keys (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT UNIQUE NOT NULL,
+            api_key VARCHAR(128) UNIQUE NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            last_used_at TIMESTAMP,
+            total_requests BIGINT DEFAULT 0
+        )
+    """)
+
+    # 1. Vaucherlar & Promokodlar
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS vouchers (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(64) UNIQUE NOT NULL,
+            amount_uzs BIGINT NOT NULL,
+            created_by BIGINT NOT NULL,
+            used_by BIGINT,
+            used_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 2. Mystery Box (Omadli Quti) Loglari
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS mystery_box_logs (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            cost_uzs BIGINT NOT NULL,
+            prize_type TEXT NOT NULL,
+            prize_value TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 3. Omad G'ildiragi (Wheel of Fortune)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS wheel_spins (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            is_free BOOLEAN DEFAULT TRUE,
+            prize_type TEXT NOT NULL,
+            prize_value TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 4. PvP Coin Flip Duellar
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS coinflip_duels (
+            id SERIAL PRIMARY KEY,
+            creator_id BIGINT NOT NULL,
+            opponent_id BIGINT,
+            amount_uzs BIGINT NOT NULL,
+            choice_creator TEXT NOT NULL,
+            status TEXT DEFAULT 'waiting',
+            winner_id BIGINT,
+            commission_uzs BIGINT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 5. Jekpot Mega Lotereya
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS lottery_pools (
+            id SERIAL PRIMARY KEY,
+            ticket_price_uzs BIGINT DEFAULT 3000,
+            pool_status TEXT DEFAULT 'active',
+            winner_user_id BIGINT,
+            total_collected_uzs BIGINT DEFAULT 0,
+            prize_uzs BIGINT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            drawn_at TIMESTAMP
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS lottery_tickets (
+            id SERIAL PRIMARY KEY,
+            pool_id INT REFERENCES lottery_pools(id),
+            tg_user_id BIGINT NOT NULL,
+            ticket_number INT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 6. Reseller Webhooks ($3/hafta)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS reseller_webhooks (
+            tg_user_id BIGINT PRIMARY KEY,
+            webhook_url TEXT NOT NULL,
+            secret_token TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 7. White-Label Botlar ($50 VIP)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS whitelabel_bots (
+            id SERIAL PRIMARY KEY,
+            owner_id BIGINT NOT NULL,
+            bot_token TEXT UNIQUE NOT NULL,
+            bot_username TEXT,
+            markup_percent INT DEFAULT 20,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
     
     conn.commit()
     cur.close()
@@ -2547,5 +2660,144 @@ def get_user_purchases(tg_user_id: int, item_type: str = None) -> list:
         return []
     finally:
         conn.close()
+
+
+# ==================== RESELLER & DEVELOPER USER API KEYS ====================
+
+def generate_secure_api_key() -> str:
+    import secrets
+    return "art_live_" + secrets.token_hex(20)
+
+def get_or_create_user_api_key(tg_user_id: int) -> dict:
+    """Foydalanuvchining shaxsiy Developer API kalitini olish yoki yangi yaratish"""
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM user_api_keys WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if row:
+            api_key = row["api_key"] if isinstance(row, dict) else row[2]
+            is_active = row["is_active"] if isinstance(row, dict) else row[3]
+            created_at = row["created_at"] if isinstance(row, dict) else row[4]
+            total_requests = row["total_requests"] if isinstance(row, dict) else row[6]
+            return {
+                "ok": True,
+                "api_key": api_key,
+                "is_active": is_active,
+                "created_at": str(created_at),
+                "total_requests": total_requests
+            }
+        
+        # Yangi kalit yaratish
+        new_key = generate_secure_api_key()
+        cur.execute("""
+            INSERT INTO user_api_keys (tg_user_id, api_key)
+            VALUES (%s, %s)
+            ON CONFLICT (tg_user_id) DO UPDATE SET api_key = EXCLUDED.api_key
+            RETURNING api_key, created_at
+        """, (tg_user_id, new_key))
+        res = cur.fetchone()
+        conn.commit()
+        api_key = res["api_key"] if isinstance(res, dict) else res[0]
+        created_at = res["created_at"] if isinstance(res, dict) else res[1]
+        return {
+            "ok": True,
+            "api_key": api_key,
+            "is_active": True,
+            "created_at": str(created_at),
+            "total_requests": 0
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"get_or_create_user_api_key error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def regenerate_user_api_key(tg_user_id: int) -> dict:
+    """Foydalanuvchining API kalitini yangilash (Rotate)"""
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        new_key = generate_secure_api_key()
+        cur.execute("""
+            INSERT INTO user_api_keys (tg_user_id, api_key, is_active)
+            VALUES (%s, %s, TRUE)
+            ON CONFLICT (tg_user_id) DO UPDATE 
+            SET api_key = EXCLUDED.api_key, is_active = TRUE
+            RETURNING api_key
+        """, (tg_user_id, new_key))
+        res = cur.fetchone()
+        conn.commit()
+        api_key = res["api_key"] if isinstance(res, dict) else res[0]
+        return {"ok": True, "api_key": api_key}
+    except Exception as e:
+        conn.rollback()
+        print(f"regenerate_user_api_key error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_user_by_api_key(api_key: str) -> dict:
+    """API kalit orqali foydalanuvchi ma'lumotlari va balansini tekshirish"""
+    conn = get_db()
+    if not conn: return None
+    key_clean = str(api_key).strip()
+    if not key_clean: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT k.tg_user_id, k.is_active, k.total_requests,
+                   COALESCE(b.balance_uzs, 0) as balance_uzs,
+                   COALESCE(v.status, 'unverified') as kyc_status
+            FROM user_api_keys k
+            LEFT JOIN user_balances b ON b.tg_user_id = k.tg_user_id
+            LEFT JOIN kyc_verifications v ON v.tg_user_id = k.tg_user_id
+            WHERE k.api_key = %s
+        """, (key_clean,))
+        row = cur.fetchone()
+        if not row: return None
+        if isinstance(row, dict):
+            return {
+                "tg_user_id": row["tg_user_id"],
+                "is_active": row["is_active"],
+                "balance_uzs": int(row["balance_uzs"]),
+                "kyc_status": row["kyc_status"],
+                "total_requests": int(row["total_requests"])
+            }
+        else:
+            return {
+                "tg_user_id": row[0],
+                "is_active": row[1],
+                "total_requests": int(row[2]),
+                "balance_uzs": int(row[3]),
+                "kyc_status": row[4]
+            }
+    except Exception as e:
+        print(f"get_user_by_api_key error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def log_api_key_usage(api_key: str):
+    """API chaqiruv hisoblagichini oshirish"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE user_api_keys 
+            SET total_requests = total_requests + 1, last_used_at = NOW()
+            WHERE api_key = %s
+        """, (api_key.strip(),))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"log_api_key_usage error: {e}")
+    finally:
+        conn.close()
+
 
 

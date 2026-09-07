@@ -1380,6 +1380,13 @@ async def start_web_server(port):
     app.router.add_get("/kyc/status", handle_kyc_status)
     app.router.add_post("/kyc/submit", handle_kyc_submit)
     
+    # Yangi: Reseller & Developer REST API (/api/v1/...)
+    try:
+        from reseller_api import setup_reseller_api_routes
+        setup_reseller_api_routes(app)
+    except Exception as e:
+        print(f"reseller_api ulanish xatosi: {e}")
+    
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)

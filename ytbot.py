@@ -43,7 +43,17 @@ from database import (
     purchase_flux_subscription, get_flux_quota, use_flux_credit,
     purchase_vip_subscription, is_user_vip,
     set_user_referrer, get_user_referrer, process_referral_cashback, get_referral_stats,
-    record_user_purchase, get_user_purchases
+    record_user_purchase, get_user_purchases,
+    get_or_create_user_api_key, regenerate_user_api_key
+)
+from games_monetization import (
+    create_vouchers, redeem_voucher,
+    open_mystery_box, get_recent_box_winners,
+    can_user_free_spin, spin_wheel,
+    create_duel, join_duel, cancel_duel, get_open_duels,
+    buy_lottery_tickets, get_current_lottery_info, draw_lottery_if_ready,
+    subscribe_webhook, get_user_webhook,
+    order_whitelabel_bot, get_user_whitelabel_bots
 )
 from autopost import autopost_worker, get_auth_url, upload_to_youtube
 from custom_emojis import EMOJI_MAP, e
@@ -1125,7 +1135,20 @@ def create_ytbot():
             "`/autostream start <qidiruv>` - 24/7 jonli efir\n"
             "`/autostream stop` - Efirni to'xtatish\n"
             "`/autostream status` - Efir holati\n"
-            "`/reaction <asosiy_video> <reactor_video>` - Reaksiya videoni yaratish (PiP)"
+            "`/reaction <asosiy_video> <reactor_video>` - Reaksiya videoni yaratish (PiP)\n\n"
+            "🔑 `Developer & Reseller API:`\n"
+            "`/api` - Shaxsiy Developer API kalit va Python kod qo'llanmasi\n"
+            "`/stock` - Do'kondagi API kalitlar va proksilar soni\n"
+            "`/dashboard` - Developer WebApp Dashboard (Mini App)\n"
+            "`/webhook <url> [hafta]` - Reseller Webhook obunasi ($3/hafta)\n"
+            "`/createbot <token>` - 1-Click White-Label Bot ($50)\n\n"
+            "🎰 `O'yinlar va Monetizatsiya:`\n"
+            "`/box` - Omadli Quti (Mystery Box - 6,000 so'm / 15 Stars)\n"
+            "`/wheel` yoki `/spin` - Omad G'ildiragi (Kunlik bepul spin)\n"
+            "`/duel <summa> [burgut|panja]` - PvP Tanga tashlash (Coin Flip)\n"
+            "`/lottery` - Jekpot Mega Lotereya (3,000 so'm / bilet)\n"
+            "`/makegift <summa> [soni]` - Sovg'a vaucherlari (Admin)\n"
+            "`/redeem <kod>` - Vaucher / Promokod faollashtirish"
         )
             
         await message.reply_text(help_text, reply_markup=help_menu_kb(), parse_mode=ParseMode.MARKDOWN)
@@ -1683,6 +1706,598 @@ def create_ytbot():
             f"• ✨ <b>Google Gemini API ($5):</b> <code>{gm_count} ta</code>\n"
             f"• ⚡ <b>Groq Cloud API (10k so'm):</b> <code>{gq_count} ta</code>\n\n"
             f"<i>Kalit qo'shish: /addkey &lt;openrouter|gemini|groq&gt; &lt;key1...&gt;\nProxy qo'shish: /addproxy &lt;proxy1...&gt;</i>"
+        )
+
+    # ==================== /api & Developer Platform ====================
+    @bot.on_message(filters.command(["api", "developer", "reseller"]))
+    async def api_cmd(client, message):
+        user_id = message.from_user.id
+        res = get_or_create_user_api_key(user_id)
+        if not res.get("ok"):
+            await message.reply_text("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+            return
+            
+        api_key = res["api_key"]
+        total_reqs = res.get("total_requests", 0)
+        bal = get_user_balance(user_id)
+        
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+        docs_url = f"{base_domain}/api/v1/docs" if base_domain else "https://sizning-botingiz.onrender.com/api/v1/docs"
+        
+        text = (
+            f"{e('API')} <b>Developer & Reseller REST API</b>\n\n"
+            f"O'z Telegram botingiz, saytingiz yoki skriptingizni bizning bot bilan bog'lang va mahsulotlarimizni (AI kalitlar, Proxylar, YouTube buyurtmalar) to'liq avtomatlashtirilgan tarzda sotib oling!\n\n"
+            f"🔑 <b>Sizning Shaxsiy API Kalitingiz:</b>\n"
+            f"<code>{api_key}</code> <i>(Nusxalash uchun ustiga bosing)</i>\n\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
+            f"📊 <b>Amalga oshirilgan so'rovlar:</b> <code>{total_reqs} ta</code>\n\n"
+            f"🌐 <b>API Asosiy Manzil (Base URL):</b>\n"
+            f"<code>{base_domain or 'https://...onrender.com'}/api/v1</code>\n\n"
+            f"⚡ <b>Avtorizatsiya sarlavhasi (Header):</b>\n"
+            f"<code>Authorization: Bearer {api_key}</code>\n\n"
+            f"<i>Quyidagi tugmalar orqali tayyor Python kodini olishingiz yoki kalitingizni yangilashingiz mumkin.</i>"
+        )
+        
+        buttons = [
+            [
+                InlineKeyboardButton(f"{e('REFRESH')} Kalitni yangilash (Rotate)", callback_data="api_regen"),
+                InlineKeyboardButton(f"{e('MEMO')} Python Kod Namunasi", callback_data="api_code_sample")
+            ]
+        ]
+        if docs_url.startswith("http"):
+            buttons.append([InlineKeyboardButton(f"{e('GLOBE')} Web Dokumentatsiya (Docs)", url=docs_url)])
+            
+        kb = InlineKeyboardMarkup(buttons)
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
+
+    @bot.on_callback_query(filters.regex(r"^api_regen$"))
+    async def api_regen_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        res = regenerate_user_api_key(user_id)
+        if not res.get("ok"):
+            await callback_query.answer("❌ Xatolik yuz berdi!", show_alert=True)
+            return
+            
+        new_key = res["api_key"]
+        bal = get_user_balance(user_id)
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+        docs_url = f"{base_domain}/api/v1/docs" if base_domain else "https://sizning-botingiz.onrender.com/api/v1/docs"
+        
+        text = (
+            f"{e('API')} <b>Developer & Reseller REST API</b>\n\n"
+            f"🔄 <b>Yangi API kalit yaratildi! Eski kalit bekor qilindi.</b>\n\n"
+            f"🔑 <b>Yangi Shaxsiy API Kalitingiz:</b>\n"
+            f"<code>{new_key}</code> <i>(Nusxalash uchun ustiga bosing)</i>\n\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"🌐 <b>API Asosiy Manzil (Base URL):</b>\n"
+            f"<code>{base_domain or 'https://...onrender.com'}/api/v1</code>\n\n"
+            f"⚡ <b>Header:</b>\n"
+            f"<code>Authorization: Bearer {new_key}</code>"
+        )
+        
+        buttons = [
+            [
+                InlineKeyboardButton(f"{e('REFRESH')} Qayta yangilash", callback_data="api_regen"),
+                InlineKeyboardButton(f"{e('MEMO')} Python Kod Namunasi", callback_data="api_code_sample")
+            ]
+        ]
+        if docs_url.startswith("http"):
+            buttons.append([InlineKeyboardButton(f"{e('GLOBE')} Web Dokumentatsiya (Docs)", url=docs_url)])
+            
+        await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+        await callback_query.answer("✅ API kalit muvaffaqiyatli yangilandi!")
+
+    @bot.on_callback_query(filters.regex(r"^api_code_sample$"))
+    async def api_code_sample_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        res = get_or_create_user_api_key(user_id)
+        api_key = res.get("api_key", "art_live_sizning_kalitingiz")
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://SIZNING_DOMAIN.onrender.com"
+        
+        sample_code = (
+            f"import requests\n\n"
+            f"API_KEY = \"{api_key}\"\n"
+            f"BASE_URL = \"{base_domain}/api/v1\"\n\n"
+            f"headers = {{\n"
+            f"    \"Authorization\": f\"Bearer {{API_KEY}}\",\n"
+            f"    \"Content-Type\": \"application/json\"\n"
+            f"}}\n\n"
+            f"# 1. Balansni tekshirish\n"
+            f"me = requests.get(f\"{{BASE_URL}}/me\", headers=headers).json()\n"
+            f"print(\"Balans:\", me[\"user\"][\"balance_uzs\"], \"so'm\")\n\n"
+            f"# 2. OpenRouter API kalit sotib olish\n"
+            f"buy = requests.post(f\"{{BASE_URL}}/buy\", headers=headers, json={{\"service\": \"openrouter\"}}).json()\n"
+            f"if buy[\"ok\"]:\n"
+            f"    print(\"Olingan kalit:\", buy[\"api_key\"])\n"
+            f"    print(\"Qoldiq balans:\", buy[\"remaining_balance_uzs\"])\n"
+            f"else:\n"
+            f"    print(\"Xatolik:\", buy[\"message\"])\n"
+        )
+        
+        text = (
+            f"🐍 <b>Reseller Bot yaratish uchun tayyor Python kodi:</b>\n\n"
+            f"<pre><code class=\"language-python\">{sample_code}</code></pre>\n\n"
+            f"<i>Ushbu kod orqali o'z botingizdan bizning bot bazasidagi mahsulotlarni avtomatik sotishingiz mumkin!</i>"
+        )
+        
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{e('BACK')} Orqaga", callback_data="api_back_info")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+        await callback_query.answer()
+
+    @bot.on_callback_query(filters.regex(r"^api_back_info$"))
+    async def api_back_info_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        res = get_or_create_user_api_key(user_id)
+        api_key = res.get("api_key", "")
+        total_reqs = res.get("total_requests", 0)
+        bal = get_user_balance(user_id)
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+        docs_url = f"{base_domain}/api/v1/docs" if base_domain else "https://sizning-botingiz.onrender.com/api/v1/docs"
+        
+        text = (
+            f"{e('API')} <b>Developer & Reseller REST API</b>\n\n"
+            f"O'z Telegram botingiz, saytingiz yoki skriptingizni bizning bot bilan bog'lang va mahsulotlarimizni (AI kalitlar, Proxylar, YouTube buyurtmalar) to'liq avtomatlashtirilgan tarzda sotib oling!\n\n"
+            f"🔑 <b>Sizning Shaxsiy API Kalitingiz:</b>\n"
+            f"<code>{api_key}</code> <i>(Nusxalash uchun ustiga bosing)</i>\n\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
+            f"📊 <b>Amalga oshirilgan so'rovlar:</b> <code>{total_reqs} ta</code>\n\n"
+            f"🌐 <b>API Asosiy Manzil (Base URL):</b>\n"
+            f"<code>{base_domain or 'https://...onrender.com'}/api/v1</code>\n\n"
+            f"⚡ <b>Avtorizatsiya sarlavhasi (Header):</b>\n"
+            f"<code>Authorization: Bearer {api_key}</code>\n\n"
+            f"<i>Quyidagi tugmalar orqali tayyor Python kodini olishingiz yoki kalitingizni yangilashingiz mumkin.</i>"
+        )
+        buttons = [
+            [
+                InlineKeyboardButton(f"{e('REFRESH')} Kalitni yangilash (Rotate)", callback_data="api_regen"),
+                InlineKeyboardButton(f"{e('MEMO')} Python Kod Namunasi", callback_data="api_code_sample")
+            ]
+        ]
+        if docs_url.startswith("http"):
+            buttons.append([InlineKeyboardButton(f"{e('GLOBE')} Web Dokumentatsiya (Docs)", url=docs_url)])
+            
+        await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
+        await callback_query.answer()
+
+    # ==================== 1. /box (Mystery Box - Omadli Quti) ====================
+    @bot.on_message(filters.command(["box", "mystery", "omad"]))
+    async def box_cmd(client, message):
+        user_id = message.from_user.id
+        bal = get_user_balance(user_id)
+        cost = 6000
+        recent = get_recent_box_winners(3)
+        recent_text = ""
+        if recent:
+            recent_text = "\n\n🔥 <b>Oxirgi yutuqlar:</b>\n" + "\n".join([f"• @user_{r['user']} ➔ <b>{r['prize']}</b>" for r in recent])
+            
+        text = (
+            f"🎁 <b>Omadli Quti (Mystery Box)</b>\n\n"
+            f"Qutini oching va omadingizni sinang! Qutidan <b>OpenRouter ($3)</b>, <b>Google Gemini ($5)</b>, "
+            f"<b>Groq API</b> yoki <b>Katta Keshbek</b> yutib olishingiz mumkin!\n\n"
+            f"💰 <b>Ochish narxi:</b> <code>{cost:,} so'm</code> (yoki 15 ⭐ Stars)\n"
+            f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{recent_text}\n\n"
+            f"<i>Yutish imkoniyati kazino modeli asosida ishlaydi. Omad tilaymiz!</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Qutini ochish (6,000 so'm)", callback_data="box_open")],
+            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="star_buy_15")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^box_open$"))
+    async def box_open_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        await callback_query.message.edit_text(
+            "🎁 <b>Quti ochilmoqda...</b>\n\n"
+            "[ ▰▰▰▰▰▰▱▱▱ ] ⏳"
+        )
+        await asyncio.sleep(1.0)
+        
+        res = open_mystery_box(user_id, cost_uzs=6000)
+        if not res.get("ok"):
+            err_msg = res.get("error", "Xatolik yuz berdi")
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{e('MONEY')} Balansni to'ldirish", callback_data="btn_balance")]])
+            await callback_query.message.edit_text(f"❌ {err_msg}", reply_markup=kb)
+            return
+            
+        prize_type = res["prize_type"]
+        title = res["prize_title"]
+        val = res.get("prize_value", "")
+        rem_bal = res.get("remaining_balance", 0)
+        
+        if prize_type == "lose":
+            res_text = (
+                f"😢 <b>Afsus, bu safar quti bo'sh chiqdi!</b>\n\n"
+                f"Omad keyingi safar albatta kulib boqadi! Yana urinib ko'rasizmi?\n\n"
+                f"💰 <b>Qoldiq balansingiz:</b> <code>{rem_bal:,} so'm</code>"
+            )
+        else:
+            val_display = f"\n🔑 <b>Mukofot kodi:</b> <code>{val}</code>" if val and len(val) > 10 else ""
+            res_text = (
+                f"🎉 <b>TABRIKLAYMIZ! YUTUQ!</b>\n\n"
+                f"🏆 <b>Yutug'ingiz:</b> {title}"
+                f"{val_display}\n\n"
+                f"💰 <b>Qoldiq balansingiz:</b> <code>{rem_bal:,} so'm</code>"
+            )
+            
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔁 Yana ochish (6,000 so'm)", callback_data="box_open")],
+            [InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(res_text, reply_markup=kb)
+
+
+    # ==================== 2. /wheel & /spin (Omad G'ildiragi) ====================
+    @bot.on_message(filters.command(["wheel", "spin"]))
+    async def wheel_cmd(client, message):
+        user_id = message.from_user.id
+        can_free = can_user_free_spin(user_id)
+        bal = get_user_balance(user_id)
+        
+        status_text = "🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"
+        text = (
+            f"🎰 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
+            f"Har kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n"
+            f"{status_text}\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"🎁 <b>Sovg'alar:</b> 200 so'm, 500 so'm, 1,000 so'm, 2,500 so'm, Groq Cloud API!"
+        )
+        buttons = []
+        if can_free:
+            buttons.append([InlineKeyboardButton("🎯 Bepul aylantirish (Spin)", callback_data="spin_free")])
+        buttons.append([InlineKeyboardButton("💎 Pullik aylantirish (3,000 so'm)", callback_data="spin_paid")])
+        
+        await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+
+    @bot.on_callback_query(filters.regex(r"^spin_(free|paid)$"))
+    async def spin_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        is_free = (callback_query.data == "spin_free")
+        
+        await callback_query.message.edit_text("🎰 <b>G'ildirak aylanmoqda...</b>\n\n[ 🔄 🔄 🔄 🔄 🔄 ]")
+        await asyncio.sleep(1.0)
+        
+        res = spin_wheel(user_id, is_free=is_free)
+        if not res.get("ok"):
+            await callback_query.answer(res.get("error", "Xatolik!"), show_alert=True)
+            return
+            
+        prize = res["title"]
+        new_bal = res["new_balance"]
+        
+        text = (
+            f"🎰 <b>Omad G'ildiragi Natijasi:</b>\n\n"
+            f"🎉 <b>Mukofot:</b> {prize}\n"
+            f"💰 <b>Yangi balansingiz:</b> <code>{new_bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔁 Yana aylantirish (3,000 so'm)", callback_data="spin_paid")],
+            [InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+
+
+    # ==================== 3. /duel (PvP Coin Flip - 10% Komissiya) ====================
+    @bot.on_message(filters.command("duel"))
+    async def duel_cmd(client, message):
+        user_id = message.from_user.id
+        parts = message.text.strip().split()
+        if len(parts) < 2:
+            open_duels = get_open_duels(5)
+            duels_text = ""
+            if open_duels:
+                duels_text = "\n\n⚔️ <b>Hozirgi faol duellar:</b>\n" + "\n".join([f"• Duel #{d['id']}: <code>{d['amount_uzs']:,} so'm</code> ({d['choice'].upper()})" for d in open_duels])
+            await message.reply_text(
+                f"⚔️ <b>PvP Tanga Tashlash Duellari (Coin Flip)</b>\n\n"
+                f"Boshqa foydalanuvchilar bilan pul tikib o'ynang! G'olib jami bankning 90%ini oladi (10% kassa xizmati).\n\n"
+                f"ℹ️ <b>Foydalanish:</b>\n"
+                f"<code>/duel &lt;summa&gt; [burgut|panja]</code>\n\n"
+                f"<b>Misollar:</b>\n"
+                f"• <code>/duel 5000 burgut</code>\n"
+                f"• <code>/duel 10000 panja</code>"
+                f"{duels_text}"
+            )
+            return
+            
+        try:
+            amount = int(parts[1])
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri summa! Masalan: <code>/duel 5000 burgut</code>")
+            return
+            
+        choice = parts[2].lower() if len(parts) > 2 else "burgut"
+        if choice not in ("burgut", "panja"):
+            choice = "burgut"
+            
+        res = create_duel(user_id, amount, choice)
+        if not res.get("ok"):
+            await message.reply_text(f"❌ {res.get('error', 'Xatolik!')}")
+            return
+            
+        duel_id = res["duel_id"]
+        creator_name = message.from_user.first_name or "O'yinchi"
+        text = (
+            f"⚔️ <b>Yangi Duel e'lon qilindi!</b>\n\n"
+            f"👤 <b>Yaratuvchi:</b> {creator_name}\n"
+            f"💰 <b>Garov:</b> <code>{amount:,} so'm</code>\n"
+            f"🦅 <b>Tanlov:</b> {choice.upper()}\n"
+            f"🏆 <b>G'olib oladi:</b> <code>{int(amount * 2 * 0.9):,} so'm</code> (10% kassa)\n\n"
+            f"<i>Kim duelga kirishga tayyor? Quyidagi tugmani bosing!</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"⚔️ Duelga kirish ({amount:,} so'm)", callback_data=f"duel_join_{duel_id}")],
+            [InlineKeyboardButton("🚫 Bekor qilish (Yaratuvchi uchun)", callback_data=f"duel_cancel_{duel_id}")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^duel_join_(\d+)$"))
+    async def duel_join_callback(client, callback_query: CallbackQuery):
+        duel_id = int(callback_query.matches[0].group(1))
+        opponent_id = callback_query.from_user.id
+        
+        await callback_query.answer("🪙 Tanga tashlanmoqda...", show_alert=False)
+        res = join_duel(duel_id, opponent_id)
+        if not res.get("ok"):
+            await callback_query.answer(res.get("error", "Xatolik!"), show_alert=True)
+            return
+            
+        coin = res["coin_result"]
+        winner_id = res["winner_id"]
+        payout = res["payout"]
+        opp_name = callback_query.from_user.first_name or "Raqib"
+        winner_tag = f"<b>{opp_name}</b>" if winner_id == opponent_id else "<b>Duel Yaratuvchisi</b>"
+        
+        coin_icon = "🦅 Burgut" if coin == "burgut" else "🪙 Panja"
+        text = (
+            f"🪙 <b>Tanga tashlandi: {coin_icon}!</b>\n\n"
+            f"🏆 <b>G'OLIB:</b> {winner_tag}\n"
+            f"💰 <b>Yutuq summasi:</b> <code>{payout:,} so'm</code> hisobiga o'tkazildi!\n"
+            f"🏛 <b>Kassa xizmati (10%):</b> <code>{res['commission']:,} so'm</code>\n\n"
+            f"<i>Yangi duel boshlash uchun: /duel &lt;summa&gt;</i>"
+        )
+        await callback_query.message.edit_text(text)
+
+    @bot.on_callback_query(filters.regex(r"^duel_cancel_(\d+)$"))
+    async def duel_cancel_callback(client, callback_query: CallbackQuery):
+        duel_id = int(callback_query.matches[0].group(1))
+        user_id = callback_query.from_user.id
+        res = cancel_duel(duel_id, user_id)
+        if not res.get("ok"):
+            await callback_query.answer(res.get("error", "Faqat duel yaratuvchisi bekor qilishi mumkin!"), show_alert=True)
+            return
+        await callback_query.message.edit_text(f"🚫 Duel #{duel_id} bekor qilindi va {res['refunded_amount']:,} so'm hisobingizga qaytarildi.")
+        await callback_query.answer("Duel bekor qilindi.")
+
+
+    # ==================== 4. /lottery (Jekpot Mega Lotereya) ====================
+    @bot.on_message(filters.command(["lottery", "lotereya"]))
+    async def lottery_cmd(client, message):
+        user_id = message.from_user.id
+        info = get_current_lottery_info()
+        bal = get_user_balance(user_id)
+        
+        sold = info["tickets_sold"]
+        bank = info["total_bank"]
+        prize = info["prize_fund"]
+        
+        text = (
+            f"🎟 <b>Jekpot Mega Lotereya (Tiraj #{info['pool_id']})</b>\n\n"
+            f"Kichik bilet narxi bilan katta jekpot yutib oling!\n\n"
+            f"🎫 <b>1 ta bilet narxi:</b> <code>3,000 so'm</code> (yoki 10 Stars)\n"
+            f"📊 <b>Sotilgan biletlar:</b> <code>{sold} ta</code>\n"
+            f"💰 <b>Umumiy jamg'arma:</b> <code>{bank:,} so'm</code>\n"
+            f"🏆 <b>G'olibga beriladigan Jekpot:</b> <code>{prize:,} so'm</code> (65%)\n"
+            f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<i>15 ta bilet to'planganda g'olib avtomatik e'lon qilinadi!</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🎟 1 ta bilet (3,000 so'm)", callback_data="lottery_buy_1"),
+                InlineKeyboardButton("🎟 5 ta bilet (15,000 so'm)", callback_data="lottery_buy_5")
+            ],
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="lottery_refresh")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^lottery_buy_(\d+)$"))
+    async def lottery_buy_callback(client, callback_query: CallbackQuery):
+        count = int(callback_query.matches[0].group(1))
+        user_id = callback_query.from_user.id
+        res = buy_lottery_tickets(user_id, count)
+        if not res.get("ok"):
+            await callback_query.answer(res.get("error", "Balansingiz yetarli emas!"), show_alert=True)
+            return
+            
+        ticket_nums = ", ".join([f"#{n}" for n in res["tickets"]])
+        await callback_query.answer(f"✅ {count} ta bilet xarid qilindi!", show_alert=False)
+        
+        draw_res = draw_lottery_if_ready(min_tickets=15)
+        if draw_res.get("ok"):
+            await callback_query.message.reply_text(
+                f"🎉 <b>LOTEREYA YAKUNLANDI! G'OLIB ANIQLANDI!</b>\n\n"
+                f"🏆 <b>Yutuqli bilet:</b> #{draw_res['winning_ticket']}\n"
+                f"💰 <b>G'olib mukofoti:</b> <code>{draw_res['prize_uzs']:,} so'm</code> hisobiga o'tkazildi!\n"
+                f"🏛 <b>Kassa sof daromadi (35%):</b> <code>{draw_res['house_profit']:,} so'm</code>\n\n"
+                f"🚀 <i>Yangi tiraj boshlandi! Yangi biletlar xarid qilish mumkin.</i>"
+            )
+            
+        info = get_current_lottery_info()
+        bal = get_user_balance(user_id)
+        text = (
+            f"🎟 <b>Jekpot Mega Lotereya</b>\n\n"
+            f"✅ <b>Sizning yangi biletlaringiz:</b> {ticket_nums}\n\n"
+            f"📊 <b>Jami sotilgan:</b> {info['tickets_sold']} ta\n"
+            f"🏆 <b>G'olibga Jekpot:</b> <code>{info['prize_fund']:,} so'm</code>\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🎟 Yana 1 ta (3,000)", callback_data="lottery_buy_1"),
+                InlineKeyboardButton("🎟 Yana 5 ta (15,000)", callback_data="lottery_buy_5")
+            ],
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="lottery_refresh")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^lottery_refresh$"))
+    async def lottery_refresh_callback(client, callback_query: CallbackQuery):
+        info = get_current_lottery_info()
+        user_id = callback_query.from_user.id
+        bal = get_user_balance(user_id)
+        text = (
+            f"🎟 <b>Jekpot Mega Lotereya (Tiraj #{info['pool_id']})</b>\n\n"
+            f"🎫 <b>1 ta bilet narxi:</b> <code>3,000 so'm</code>\n"
+            f"📊 <b>Sotilgan biletlar:</b> <code>{info['tickets_sold']} ta</code>\n"
+            f"🏆 <b>G'olibga Jekpot:</b> <code>{info['prize_fund']:,} so'm</code>\n"
+            f"💳 <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🎟 1 ta bilet (3,000 so'm)", callback_data="lottery_buy_1"),
+                InlineKeyboardButton("🎟 5 ta bilet (15,000 so'm)", callback_data="lottery_buy_5")
+            ],
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="lottery_refresh")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+        await callback_query.answer("Yangilandi!")
+
+
+    # ==================== 5. /makegift & /redeem (Vaucherlar) ====================
+    @bot.on_message(filters.command("makegift"))
+    async def makegift_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("⛔ Bu buyruq faqat bot administratorlari uchun!")
+            return
+        parts = message.text.strip().split()
+        if len(parts) < 2:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/makegift &lt;summa&gt; [soni]</code>\n\n<b>Masalan:</b> <code>/makegift 10000 5</code>")
+            return
+        try:
+            amount = int(parts[1])
+            count = int(parts[2]) if len(parts) > 2 else 1
+        except ValueError:
+            await message.reply_text("❌ Noto'g'ri qiymatlar kiritildi!")
+            return
+            
+        codes = create_vouchers(message.from_user.id, amount, count)
+        if not codes:
+            await message.reply_text("❌ Vaucher yaratishda xatolik yuz berdi!")
+            return
+            
+        codes_text = "\n".join([f"• <code>{c}</code>" for c in codes])
+        await message.reply_text(
+            f"✅ <b>{count} ta sovg'a vaucheri yaratildi!</b>\n\n"
+            f"💰 <b>Har birining qiymati:</b> <code>{amount:,} so'm</code>\n\n"
+            f"🎁 <b>Promokodlar:</b>\n{codes_text}\n\n"
+            f"<i>Foydalanuvchilar /redeem &lt;kod&gt; orqali faollashtirishi mumkin.</i>"
+        )
+
+    @bot.on_message(filters.command("redeem"))
+    async def redeem_cmd(client, message):
+        parts = message.text.strip().split()
+        if len(parts) < 2:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/redeem &lt;kod&gt;</code>\n\n<b>Masalan:</b> <code>/redeem GIFT-XXXX-YYYY</code>")
+            return
+        code = parts[1].strip()
+        res = redeem_voucher(message.from_user.id, code)
+        if not res.get("ok"):
+            await message.reply_text(f"❌ {res.get('error', 'Yaroqsiz vaucher!')}")
+            return
+            
+        await message.reply_text(
+            f"🎉 <b>Vaucher muvaffaqiyatli faollashtirildi!</b>\n\n"
+            f"💰 <b>Hisobingizga qo'shildi:</b> <code>+{res['amount_uzs']:,} so'm</code>\n"
+            f"💳 <b>Yangi balansingiz:</b> <code>{res['new_balance']:,} so'm</code>"
+        )
+
+
+    # ==================== 6. /createbot (1-Click White-Label Bot $50) ====================
+    @bot.on_message(filters.command("createbot"))
+    async def createbot_cmd(client, message):
+        parts = message.text.strip().split()
+        user_id = message.from_user.id
+        if len(parts) < 2:
+            await message.reply_text(
+                f"🤖 <b>1-Click White-Label Bot Platformasi ($50 / 640,000 so'm)</b>\n\n"
+                f"O'zingizning nomingiz ostida alohida Telegram bot oching! Biz sizning botingizni butunlay avtomatik backend va zaxiralar bilan ta'minlaymiz, barcha ustama foyda o'zingizda qoladi!\n\n"
+                f"ℹ️ <b>Foydalanish:</b>\n"
+                f"<code>/createbot &lt;botfather_token&gt;</code>\n\n"
+                f"<b>Qadamlar:</b>\n"
+                f"1. @BotFather ga boring va yangi bot oching.\n"
+                f"2. Berilgan tokenni <code>/createbot &lt;token&gt;</code> orqali yuboring."
+            )
+            return
+            
+        token = parts[1].strip()
+        res = order_whitelabel_bot(user_id, token)
+        if not res.get("ok"):
+            await message.reply_text(f"❌ {res.get('error', 'Xatolik!')}")
+            return
+            
+        await message.reply_text(
+            f"🚀 <b>White-Label Botingiz muvaffaqiyatli ulandi!</b>\n\n"
+            f"✅ Botingiz bizning ulgurji zaxiralarimiz va to'lov tizimimiz bilan to'liq integratsiya qilindi.\n"
+            f"💰 <b>Qoldiq balansingiz:</b> <code>{res['new_balance']:,} so'm</code>"
+        )
+
+
+    # ==================== 7. /webhook (Reseller Webhooks $3/hafta) ====================
+    @bot.on_message(filters.command("webhook"))
+    async def webhook_cmd(client, message):
+        parts = message.text.strip().split()
+        user_id = message.from_user.id
+        if len(parts) < 2:
+            existing = get_user_webhook(user_id)
+            exist_text = ""
+            if existing:
+                exist_text = f"\n\n🌐 <b>Faol webhookingiz:</b> <code>{existing['webhook_url']}</code>\n⏳ <b>Muddati:</b> {existing['expires_at'][:16]}"
+            await message.reply_text(
+                f"⚡ <b>Reseller Webhook & Real-Time Push ($3 / hafta)</b>\n\n"
+                f"Buyurtmalaringiz holati o'zgarganda yoki yangi zaxira kelganda o'z serveringizga lahzali xabar (HTTP POST) oling!\n\n"
+                f"ℹ️ <b>Foydalanish:</b>\n"
+                f"<code>/webhook &lt;https://saytingiz.uz/webhook&gt; [hafta_soni]</code>\n\n"
+                f"<b>Masalan:</b> <code>/webhook https://reseller-bot.com/cb 1</code>"
+                f"{exist_text}"
+            )
+            return
+            
+        url = parts[1].strip()
+        weeks = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
+        res = subscribe_webhook(user_id, url, weeks)
+        if not res.get("ok"):
+            await message.reply_text(f"❌ {res.get('error', 'Xatolik!')}")
+            return
+            
+        await message.reply_text(
+            f"✅ <b>Webhook obunangiz faollashtirildi!</b>\n\n"
+            f"🌐 <b>URL:</b> <code>{res['webhook_url']}</code>\n"
+            f"🔐 <b>Secret Token:</b> <code>{res['secret_token']}</code>\n"
+            f"⏳ <b>Amal qilish muddati:</b> {res['expires_at'][:16]}\n"
+            f"💰 <b>Qoldiq balansingiz:</b> <code>{res['new_balance']:,} so'm</code>"
+        )
+
+
+    # ==================== 8. /dashboard (Developer & Reseller Mini App) ====================
+    @bot.on_message(filters.command(["dashboard", "devpanel"]))
+    async def dashboard_cmd(client, message):
+        user_id = message.from_user.id
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+        dash_url = f"{base_domain}/dashboard?user_id={user_id}" if base_domain else f"https://sizning-botingiz.onrender.com/dashboard?user_id={user_id}"
+        
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📊 Dashboard Mini App ni ochish", web_app=WebAppInfo(url=dash_url))]
+        ])
+        await message.reply_text(
+            "📊 <b>Developer & Reseller Dashboard Mini App</b>\n\n"
+            "Telegram ichida to'liq interaktiv boshqaruv paneli:\n"
+            "• Jonli balans va so'rovlar grafigi\n"
+            "• API kalitni nusxalash va boshqarish\n"
+            "• 💎 <b>TON</b> va ⭐ <b>Telegram Stars</b> orqali 1-klikda to'ldirish\n\n"
+            "<i>Pastdagi tugmani bosing:</i>",
+            reply_markup=kb
         )
 
     # ==================== /autopost ====================
