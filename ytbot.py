@@ -299,6 +299,16 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
     except Exception as e:
         import logging
         logging.error(f"send_message error in ytbot.py: {e} | Text: {text[:50]}...")
+        if len(text) > 4000:
+            chunks = [text[i:i+3800] for i in range(0, len(text), 3800)]
+            last_msg = None
+            for idx, c in enumerate(chunks):
+                km = reply_markup if idx == len(chunks) - 1 else None
+                try:
+                    last_msg = await _orig_send_message(self, chat_id, c, parse_mode=parse_mode, reply_markup=km, **kwargs)
+                except Exception:
+                    last_msg = await _orig_send_message(self, chat_id, c, parse_mode=None, reply_markup=km, **kwargs)
+            return last_msg
         return await _orig_send_message(self, chat_id, text, parse_mode=None, reply_markup=reply_markup, **kwargs)
 Client.send_message = _patched_send_message
 
@@ -762,14 +772,14 @@ def back_main_kb():
 
 def help_menu_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Kanal", callback_data="help_channel"),
-         InlineKeyboardButton("🎬 Video", callback_data="help_video"),
-         InlineKeyboardButton("🧠 AI Yordamchi", callback_data="help_ai")],
-        [InlineKeyboardButton("📊 Analitika", callback_data="help_analytics"),
-         InlineKeyboardButton("🔍 Qidiruv", callback_data="help_search")],
-        [InlineKeyboardButton("📌 Kuzatuv", callback_data="help_tracking"),
-         InlineKeyboardButton("⚙️ Asboblar", callback_data="help_tools"),
-         InlineKeyboardButton("⬇️ Yuklash", callback_data="help_download")],
+        [InlineKeyboardButton("📢 Kanal & Video", callback_data="help_channel"),
+         InlineKeyboardButton("📊 Analitika & Trend", callback_data="help_analytics")],
+        [InlineKeyboardButton("🧠 AI & Shorts", callback_data="help_ai"),
+         InlineKeyboardButton("🎥 24/7 Jonli Efir", callback_data="help_stream")],
+        [InlineKeyboardButton("🔑 Reseller & API", callback_data="help_api"),
+         InlineKeyboardButton("🎰 O'yinlar & Yutuqlar", callback_data="help_games")],
+        [InlineKeyboardButton("🤖 Shaxsiy Userbot", callback_data="help_userbot"),
+         InlineKeyboardButton("⚙️ Sozlash & Asboblar", callback_data="help_tools")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
 
@@ -1012,146 +1022,151 @@ def create_ytbot():
         await message.reply_text(txt, reply_markup=kb)
     
     # ==================== /help ====================
+    HELP_MAIN_TEXT = (
+        "📖 <b>YouTube Analytics & Automation Bot — Yordam</b>\n\n"
+        "Quyidagi bo'limlardan birini tanlang va unga tegishli buyruqlar bilan tanishing:\n\n"
+        "⚡ <b>Tezkor buyruqlar:</b>\n"
+        "• <code>/start</code> — Botni ishga tushirish\n"
+        "• <code>/menu</code> — Asosiy menyu\n"
+        "• <code>/balance</code> — Balansni tekshirish (TON & Stars)\n"
+        "• <code>/box</code> — Omadli Quti (Mystery Box)\n"
+        "• <code>/wheel</code> — Omad G'ildiragi (Kunlik bepul spin)\n"
+        "• <code>/duel</code> — PvP Tanga Tashlash (Coin Flip)\n"
+        "• <code>/lottery</code> — Jekpot Mega Lotereya\n"
+        "• <code>/api</code> — Developer & Reseller REST API\n"
+        "• <code>/dashboard</code> — WebApp Dashboard Mini App\n"
+        "• <code>/shortfactory</code> — AI Shorts video generatori\n"
+        "• <code>/autostream</code> — 24/7 Jonli efir boshqaruvchisi\n\n"
+        "👇 <i>Bo'limlar bo'yicha batafsil ko'rish uchun quyidagi tugmalardan foydalaning:</i>"
+    )
+
+    HELP_SECTIONS = {
+        "help_channel": (
+            "📢 <b>Kanal va Video Buyruqlari:</b>\n\n"
+            "• <code>/channel &lt;kanal&gt;</code> — Kanal umumiy statistikasi\n"
+            "• <code>/about &lt;kanal&gt;</code> — Kanal haqida to'liq ma'lumot\n"
+            "• <code>/subs &lt;kanal&gt;</code> — Obunachilar soni\n"
+            "• <code>/totalviews &lt;kanal&gt;</code> — Jami ko'rishlar soni\n"
+            "• <code>/videocount &lt;kanal&gt;</code> — Jami videolar soni\n"
+            "• <code>/banner &lt;kanal&gt;</code> — Kanal banner rasmi\n"
+            "• <code>/avatar &lt;kanal&gt;</code> — Profil rasmi (HD)\n"
+            "• <code>/keywords &lt;kanal&gt;</code> — Kanal kalit so'zlari\n"
+            "• <code>/desc &lt;kanal&gt;</code> — Kanal tavsifi\n"
+            "• <code>/video &lt;url&gt;</code> — Video statistikasi\n"
+            "• <code>/recent &lt;kanal&gt;</code> — Oxirgi yuklangan videolar\n"
+            "• <code>/popular &lt;kanal&gt;</code> — Eng mashhur videolar\n"
+            "• <code>/comments &lt;url&gt;</code> — Izohlarni ko'rish\n"
+            "• <code>/tags &lt;url&gt;</code> — Video teglari\n"
+            "• <code>/thumbnail &lt;url&gt;</code> — Thumbnail muqovani olish\n"
+            "• <code>/playlists &lt;kanal&gt;</code> — Pleylistlar ro'yxati\n"
+            "• <code>/dl &lt;url&gt;</code> — Video yoki audioni yuklab olish"
+        ),
+        "help_analytics": (
+            "📊 <b>Analitika va Monitoring Buyruqlari:</b>\n\n"
+            "• <code>/compare &lt;k1&gt; &lt;k2&gt;</code> — Kanallarni o'zaro solishtirish\n"
+            "• <code>/growth &lt;kanal&gt;</code> — Kanal o'sish dinamikasi\n"
+            "• <code>/engagement &lt;kanal&gt;</code> — Auditoriya faolligi (Like/Comment nisbati)\n"
+            "• <code>/earnings &lt;kanal&gt;</code> — Kanalning taxminiy daromadi\n"
+            "• <code>/milestone &lt;kanal&gt;</code> — Keyingi marraga erishish vaqti\n"
+            "• <code>/report &lt;kanal&gt;</code> — To'liq tahliliy hisobot\n"
+            "• <code>/search &lt;so'z&gt;</code> — Video qidiruv\n"
+            "• <code>/trending</code> — YouTube trenddagi videolar\n"
+            "• <code>/track &lt;kanal&gt;</code> — Raqobatchini kuzatuvga olish\n"
+            "• <code>/untrack &lt;kanal&gt;</code> — Kuzatuvdan chiqarish\n"
+            "• <code>/mylist</code> — Kuzatuvdagi kanallar ro'yxati\n"
+            "• <code>/checkall</code> — Barcha kuzatuvdagilarni tekshirish\n"
+            "• <code>/live &lt;kanal&gt;</code> — Jonli efir bor-yo'qligini tekshirish"
+        ),
+        "help_ai": (
+            "🧠 <b>AI Yordamchi va Avtomatlashtirish:</b>\n\n"
+            "• <code>/shortfactory [mavzu]</code> — Shorts Factory (AI video yasash)\n"
+            "• <code>/seo &lt;mavzu&gt;</code> — SEO tahlili va kalit so'zlar\n"
+            "• <code>/tagsgen &lt;mavzu&gt;</code> — AI SEO teglar generatsiyasi\n"
+            "• <code>/clickbait &lt;mavzu&gt;</code> — Jozibador sarlavhalar\n"
+            "• <code>/ideas &lt;mavzu&gt;</code> — Video g'oyalari\n"
+            "• <code>/script &lt;mavzu&gt;</code> — Video ssenariysi\n"
+            "• <code>/shorts &lt;url&gt;</code> — Shorts uchun ssenariy g'oyalari\n"
+            "• <code>/thumbidea &lt;mavzu&gt;</code> — Thumbnail g'oyalari\n"
+            "• <code>/summarize &lt;url&gt;</code> — Video mazmunini qisqartirish\n"
+            "• <code>/roast &lt;kanal&gt;</code> — Kanalni AI yordamida tanqid qilish\n"
+            "• <code>/audit &lt;kanal&gt;</code> — Kanal auditi\n"
+            "• <code>/autopost &lt;soni&gt; &lt;qidiruv&gt;</code> — Avto-post qisqa video yuklash\n"
+            "• <code>/autopilot</code> — Avtopilot sozlamalari"
+        ),
+        "help_stream": (
+            "🎥 <b>24/7 Jonli Efir va Reaksiya:</b>\n\n"
+            "• <code>/setstreamkey &lt;key&gt;</code> — YouTube Stream Key sozlash\n"
+            "• <code>/autostream start &lt;qidiruv&gt;</code> — 24/7 jonli efirni boshlash\n"
+            "• <code>/autostream stop</code> — Jonli efirni to'xtatish\n"
+            "• <code>/autostream status</code> — Efir holatini tekshirish\n"
+            "• <code>/reaction &lt;video&gt; &lt;reaktor&gt;</code> — PiP Reaksiya video yasash"
+        ),
+        "help_api": (
+            "🔑 <b>Developer & Reseller REST API:</b>\n\n"
+            "• <code>/api</code> — Shaxsiy API kalitingiz va Python kodi\n"
+            "• <code>/stock</code> — Do'kondagi API kalitlar va proksilar soni\n"
+            "• <code>/dashboard</code> — Developer WebApp Mini App paneli\n"
+            "• <code>/webhook &lt;url&gt; [hafta]</code> — Real-time Webhook obunasi ($3/hafta)\n"
+            "• <code>/createbot &lt;token&gt;</code> — 1-Click White-Label Bot ($50 VIP)\n\n"
+            "🌐 <i>REST API Dokumentatsiyasi: /api buyrug'i orqali ochiladi.</i>"
+        ),
+        "help_games": (
+            "🎰 <b>O'yinlar va Monetizatsiya:</b>\n\n"
+            "• <code>/box</code> — Omadli Quti (Mystery Box — 6,000 so'm / 15 Stars)\n"
+            "• <code>/wheel</code> yoki <code>/spin</code> — Omad G'ildiragi (Kunlik bepul spin)\n"
+            "• <code>/duel &lt;summa&gt; [burgut|panja]</code> — PvP Tanga Tashlash (Coin Flip)\n"
+            "• <code>/lottery</code> — Jekpot Mega Lotereya (3,000 so'm / bilet)\n"
+            "• <code>/redeem &lt;kod&gt;</code> — Sovg'a vaucherini faollashtirish\n"
+            "• <code>/makegift &lt;summa&gt; [soni]</code> — Sovg'a vaucherlari yaratish (Admin)\n"
+            "• <code>/balance</code> — Balansni tekshirish va to'ldirish"
+        ),
+        "help_userbot": (
+            "🤖 <b>Shaxsiy Userbot Buyruqlari (Guruh va chatlarda):</b>\n\n"
+            "• <code>.ar on/off</code> — Avto-javob funksiyasi\n"
+            "• <code>.gif on/off</code> — GIF animatsiya yuborish\n"
+            "• <code>.react on/off</code> — Avto-reaksiyalar\n"
+            "• <code>.arstyle</code> — Shaxsiy yozish uslubini o'rgatish\n"
+            "• <code>.arvoice &lt;voice&gt;</code> — Ovozli xabar bilan javob (edge-tts)\n"
+            "• <code>.arsetprompt &lt;text&gt;</code> — Userbot promptini o'rnatish\n"
+            "• <code>.arblock &lt;id&gt;</code> — ID bo'yicha bloklash\n"
+            "• <code>.arunblock &lt;id&gt;</code> — Blokdan chiqarish\n"
+            "• <code>.arstatus</code> — Userbot holatini ko'rish\n"
+            "• <code>.arhelp</code> — Userbot yordami"
+        ),
+        "help_tools": (
+            "⚙️ <b>Sozlash va Qo'shimcha Asboblar:</b>\n\n"
+            "• <code>/ytlogin</code> — YouTube kanalini Google orqali ulash\n"
+            "• <code>/login_status</code> — Ulangan kanallar ro'yxati\n"
+            "• <code>/delaccount</code> — Ulangan kanalni uzish\n"
+            "• <code>/defaultacc</code> — Asosiy kanalni tanlash\n"
+            "• <code>/setcookies</code> — YouTube Cookies faylini yuklash\n"
+            "• <code>/setproxy &lt;ip:port&gt;</code> — Shaxsiy proksi o'rnatish\n"
+            "• <code>/myproxy</code> — Joriy proksini ko'rish\n"
+            "• <code>/setton &lt;manzil&gt;</code> — TON hamyon manzilini kiritish\n"
+            "• <code>/myton</code> — Saqlangan TON hamyon\n"
+            "• <code>/id &lt;url&gt;</code> — Video/kanal URL dan ID ajratish\n"
+            "• <code>/categories</code> — YouTube kategoriyalari\n"
+            "• <code>/ping</code> — Server tezligini tekshirish"
+        )
+    }
+
     @bot.on_message(filters.command("help"))
     async def help_cmd(client, message):
-        is_admin = check_is_admin(message.from_user)
-        
-        help_text = (
-            "📖 `YouTube Analytics Bot Buyruqlari:`\n\n"
-            "📌 `Asosiy:`\n"
-            "`/start` - Botni boshlash\n"
-            "`/help` - Yordam\n"
-            "`/myid` - Telegram ID\n"
-            "`/ping` - Bot holatini tekshirish\n"
-            "`/menu` - Asosiy menyu\n\n"
+        await message.reply_text(HELP_MAIN_TEXT, reply_markup=help_menu_kb())
 
-            "🔗 `YouTube Ulanish:`\n"
-            "`/ytlogin` - YouTube kanalini ulash\n"
-            "`/login_status` - Ulangan kanallar\n"
-            "`/delaccount` - Akkauntni o'chirish\n"
-            "`/defaultacc` - Default kanalni tanlash\n"
-            "`/setcookies` - Cookies yuklash\n"
-            "`/setproxy <ip:port>` - Proxy o'rnatish\n"
-            "`/myproxy` - Hozirgi proxy\n\n"
-
-            "📢 `Kanal Tahlili:`\n"
-            "`/channel <kanal>` - Kanal statistikasi\n"
-            "`/about <kanal>` - Kanal haqida\n"
-            "`/subs <kanal>` - Obunachilar soni\n"
-            "`/totalviews <kanal>` - Jami ko'rishlar\n"
-            "`/videocount <kanal>` - Videolar soni\n"
-            "`/country <kanal>` - Davlat\n"
-            "`/created <kanal>` - Yaratilgan sana\n"
-            "`/banner <kanal>` - Banner rasm\n"
-            "`/avatar <kanal>` - Profil rasm\n"
-            "`/keywords <kanal>` - Kanal kalit so'zlari\n"
-            "`/desc <kanal>` - Kanal tavsifi\n\n"
-
-            "🎬 `Video Tahlili:`\n"
-            "`/video <url>` - Video statistikasi\n"
-            "`/recent <kanal>` - Oxirgi videolar\n"
-            "`/popular <kanal>` - Mashhur videolar\n"
-            "`/topvideos <kanal>` - Eng ko'p ko'rilganlar\n"
-            "`/comments <url>` - Izohlarni ko'rish\n"
-            "`/tags <url>` - Video teglari\n"
-            "`/thumbnail <url>` - Thumbnail olish\n"
-            "`/playlists <kanal>` - Pleylistlar\n"
-            "`/playlist <url>` - Pleylist ichidagi videolar\n\n"
-
-            "📊 `Analitika:`\n"
-            "`/compare <kanal1> <kanal2>` - Solishtirish\n"
-            "`/growth <kanal>` - O'sish dinamikasi\n"
-            "`/engagement <kanal>` - Engagement tahlili\n"
-            "`/earnings <kanal>` - Taxminiy daromad\n"
-            "`/milestone <kanal>` - Milestone prognozi\n"
-            "`/avgviews <kanal>` - O'rtacha ko'rishlar\n"
-            "`/uploadfreq <kanal>` - Yuklash chastotasi\n"
-            "`/report <kanal>` - To'liq hisobot\n"
-            "`/money <video url>` - Video daromadi\n"
-            "`/sponsor <kanal>` - Homiylik narxi\n"
-            "`/schedule <kanal>` - Yuklash jadvali\n\n"
-
-            "🔍 `Qidiruv va Monitoring:`\n"
-            "`/search <so'z>` - Video qidiruv\n"
-            "`/searchch <so'z>` - Kanal qidiruv\n"
-            "`/trending` - Trendlar\n"
-            "`/track <kanal>` - Kanalni kuzatish\n"
-            "`/untrack <kanal>` - Kuzatuvni to'xtatish\n"
-            "`/mylist` - Kuzatilayotgan kanallar\n"
-            "`/checkall` - Barcha kuzatilayotganlarni tekshirish\n"
-            "`/live <kanal>` - Jonli efirni tekshirish\n\n"
-
-            "🧠 `AI Yordamchi:`\n"
-            "`/seo <mavzu>` - SEO tahlili\n"
-            "`/tagsgen <mavzu>` - Teglar yaratish\n"
-            "`/clickbait <mavzu>` - Jozibador sarlavhalar\n"
-            "`/ideas <mavzu>` - Video g'oyalar\n"
-            "`/script <mavzu>` - Ssenariy yozish\n"
-            "`/thumbidea <mavzu>` - Thumbnail g'oyalar\n"
-            "`/reply <izoh>` - Izohga javob\n"
-            "`/roast <kanal>` - AI roast\n"
-            "`/audit <kanal>` - Kanal audit\n"
-            "`/summarize <video URL>` - Qisqacha mazmun\n"
-            "`/shorts <video URL>` - Shorts g'oyalar\n"
-            "`/translate <video URL>` - Tarjima\n\n"
-
-            "⚙️ `Asboblar:`\n"
-            "`/id <url>` - URL dan ID olish\n"
-            "`/categories` - Kategoriyalar\n"
-            "`/rivals <kanal>` - Raqobatchilar\n"
-            "`/addrival <kanal>` - Raqobatchi qo'shish\n"
-            "`/myrivals` - Raqobatchilar ro'yxati\n"
-            "`/dl <url>` - Video/Audio yuklab olish\n"
-            "`/autopost <soni> <qidiruv>` - Auto-post\n"
-            "`/mass <kanal URL> [matn]` - Mass engagement\n"
-            "`/myid` - Sizning Telegram ID\n"
-            "`/ping` - Bot tezligini tekshirish\n\n"
-
-            "🎬 `Shorts & Avtomatlashtirish:`\n"
-            "`/shortfactory [mavzu]` - AI Shorts video yasash\n"
-            "`/autopilot` - Avtopilot sozlamalari\n"
-            "`/setcookies` - YouTube Cookies yuklash\n"
-            "`/setproxy <url>` - Proksi o'rnatish\n"
-            "`/myproxy` - Proksi ko'rish\n"
-            "`/login_status` - YouTube ulanish holati\n"
-            "`/save_def` - Default akkaunt belgilash\n"
-            "`/delaccount` - YouTube akkauntni uzish\n\n"
-
-            "🤖 `Shaxsiy Userbot (chatda):`\n"
-            "`.ar on/off` - Avto-javob\n"
-            "`.gif on/off` - GIF yuborish\n"
-            "`.react on/off` - Reaksiyalar\n"
-            "`.arstyle` - Yozish uslubini o'rgatish\n"
-            "`.arvoice <voice>` - Ovozli javob (edge-tts)\n"
-            "`.arsetprompt <text>` - Prompt o'rnatish\n"
-            "`.arblock <id>` - Bloklash\n"
-            "`.arunblock <id>` - Blokdan chiqarish\n"
-            "`.arclear [id]` - Tarix tozalash\n"
-            "`.arstatus` - Holat\n"
-            "`.arhelp` - Userbot yordam\n\n"
-            
-            "🎥 `Video Strim & Reaksiya:`\n"
-            "`/setstreamkey <key>` - Stream Key kiritish\n"
-            "`/autostream start <qidiruv>` - 24/7 jonli efir\n"
-            "`/autostream stop` - Efirni to'xtatish\n"
-            "`/autostream status` - Efir holati\n"
-            "`/reaction <asosiy_video> <reactor_video>` - Reaksiya videoni yaratish (PiP)\n\n"
-            "🔑 `Developer & Reseller API:`\n"
-            "`/api` - Shaxsiy Developer API kalit va Python kod qo'llanmasi\n"
-            "`/stock` - Do'kondagi API kalitlar va proksilar soni\n"
-            "`/dashboard` - Developer WebApp Dashboard (Mini App)\n"
-            "`/webhook <url> [hafta]` - Reseller Webhook obunasi ($3/hafta)\n"
-            "`/createbot <token>` - 1-Click White-Label Bot ($50)\n\n"
-            "🎰 `O'yinlar va Monetizatsiya:`\n"
-            "`/box` - Omadli Quti (Mystery Box - 6,000 so'm / 15 Stars)\n"
-            "`/wheel` yoki `/spin` - Omad G'ildiragi (Kunlik bepul spin)\n"
-            "`/duel <summa> [burgut|panja]` - PvP Tanga tashlash (Coin Flip)\n"
-            "`/lottery` - Jekpot Mega Lotereya (3,000 so'm / bilet)\n"
-            "`/makegift <summa> [soni]` - Sovg'a vaucherlari (Admin)\n"
-            "`/redeem <kod>` - Vaucher / Promokod faollashtirish"
-        )
-            
-        await message.reply_text(help_text, reply_markup=help_menu_kb(), parse_mode=ParseMode.MARKDOWN)
+    @bot.on_callback_query(filters.regex(r"^help_(.+)$"))
+    async def help_callback(client, callback_query: CallbackQuery):
+        sec = callback_query.matches[0].group(1)
+        full_key = f"help_{sec}"
+        if full_key in HELP_SECTIONS:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Yordam bo'limlari", callback_data="help_main"),
+                 InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+            ])
+            await callback_query.message.edit_text(HELP_SECTIONS[full_key], reply_markup=kb)
+        else:
+            await callback_query.message.edit_text(HELP_MAIN_TEXT, reply_markup=help_menu_kb())
+        await callback_query.answer()
     
     # ==================== /myid ====================
     @bot.on_message(filters.command("myid"))
