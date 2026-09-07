@@ -290,6 +290,15 @@ def init_db():
         )
     """)
 
+    # AI Video Studio $20/oy obunalar jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ai_video_subscriptions (
+            tg_user_id BIGINT PRIMARY KEY,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # Telegram orqali tasdiqlangan telefon raqamlar (KYC Gate)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS user_phones (
@@ -2627,6 +2636,109 @@ def is_user_vip(tg_user_id: int) -> bool:
     except Exception as e:
         print(f"is_user_vip error: {e}")
         return False
+    finally:
+        conn.close()
+
+def is_user_ai_video_subscribed(tg_user_id: int) -> bool:
+    """Foydalanuvchida $20/oy AI Video generator obunasi mavjudmi?"""
+    from config import OWNER_ID
+    if tg_user_id == OWNER_ID:
+        return True
+    if is_user_vip(tg_user_id):
+        return True
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT expires_at FROM ai_video_subscriptions
+            WHERE tg_user_id = %s AND NOW() < expires_at
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        return bool(row)
+    except Exception as e:
+        print(f"is_user_ai_video_subscribed error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def purchase_ai_video_subscription(tg_user_id: int, days: int = 30) -> dict:
+    """Oylik 256,000 so'm ($20) AI Video cheksiz obuna xarid qilish"""
+    price_uzs = 256000
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! Kerak: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        new_bal = curr_bal - price_uzs
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+
+        cur.execute("""
+            INSERT INTO ai_video_subscriptions (tg_user_id, expires_at, created_at)
+            VALUES (%s, NOW() + INTERVAL '30 days', NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET expires_at = GREATEST(ai_video_subscriptions.expires_at, NOW()) + INTERVAL '30 days'
+            RETURNING expires_at
+        """, (tg_user_id,))
+        res = cur.fetchone()
+        exp = res["expires_at"] if isinstance(res, dict) else res[0]
+
+        conn.commit()
+        return {
+            "ok": True,
+            "expires_at": str(exp)[:19],
+            "new_balance": new_bal
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"purchase_ai_video_subscription error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def deduct_single_ai_video_fee(tg_user_id: int) -> dict:
+    """Bitta AI video generatsiyasi uchun 15,000 so'm yechish"""
+    from config import OWNER_ID
+    if tg_user_id == OWNER_ID or is_user_ai_video_subscribed(tg_user_id):
+        return {"ok": True, "free": True}
+    price_uzs = 15000
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        bal_row = cur.fetchone()
+        curr_bal = bal_row["balance_uzs"] if bal_row else 0
+        if curr_bal < price_uzs:
+            conn.rollback()
+            return {
+                "ok": False,
+                "insufficient_funds": True,
+                "required": price_uzs,
+                "current": curr_bal,
+                "error": f"Balansingiz yetarli emas! 1 ta video: {price_uzs:,} so'm, mavjud: {curr_bal:,} so'm"
+            }
+
+        new_bal = curr_bal - price_uzs
+        cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+        conn.commit()
+        return {"ok": True, "new_balance": new_bal}
+    except Exception as e:
+        conn.rollback()
+        print(f"deduct_single_ai_video_fee error: {e}")
+        return {"ok": False, "error": str(e)}
     finally:
         conn.close()
 

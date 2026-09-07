@@ -7,6 +7,7 @@ import math
 import json
 from datetime import datetime, timedelta
 from pyrogram import Client, filters, StopPropagation
+from pyrogram.errors import MessageNotModified
 from pyrogram.enums import ParseMode, ChatAction
 from pyrogram.types import (
     WebAppInfo,
@@ -307,26 +308,11 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
 
-    # If reply_markup is InlineKeyboardMarkup, send via Telegram Bot API to support icon_custom_emoji_id
-    if reply_markup and isinstance(reply_markup, InlineKeyboardMarkup):
-        bot_token = getattr(self, "bot_token", None) or os.getenv("BOT_TOKEN")
-        if bot_token:
-            cid = getattr(chat_id, "id", chat_id)
-            if isinstance(cid, (int, str)):
-                bot_api_kb = _build_bot_api_reply_markup(reply_markup)
-                reply_to_id = kwargs.get("reply_to_message_id")
-                msg_id = await _bot_api_send(bot_token, cid, text, bot_api_kb, reply_to_id)
-                if msg_id:
-                    try:
-                        return await self.get_messages(cid, msg_id)
-                    except Exception:
-                        pass
-
     try:
         return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
     except Exception as e:
         import logging
-        logging.error(f"send_message error in ytbot.py: {e} | Text: {text[:50]}...")
+        logging.warning(f"send_message error in ytbot.py: {e} | Text: {text[:50]}...")
         if len(text) > 4000:
             chunks = [text[i:i+3800] for i in range(0, len(text), 3800)]
             last_msg = None
@@ -346,27 +332,20 @@ async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
 
-    # If reply_markup is InlineKeyboardMarkup, edit via Telegram Bot API to support icon_custom_emoji_id
-    if reply_markup and isinstance(reply_markup, InlineKeyboardMarkup):
-        bot_token = getattr(self, "bot_token", None) or os.getenv("BOT_TOKEN")
-        if bot_token:
-            cid = getattr(chat_id, "id", chat_id)
-            if isinstance(cid, (int, str)):
-                bot_api_kb = _build_bot_api_reply_markup(reply_markup)
-                mid = getattr(message_id, "id", message_id)
-                ok = await _bot_api_edit(bot_token, cid, mid, text, bot_api_kb)
-                if ok:
-                    try:
-                        return await self.get_messages(cid, mid)
-                    except Exception:
-                        pass
-
     try:
         return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
+    except MessageNotModified:
+        return None
     except Exception as e:
         import logging
-        logging.error(f"edit_message_text error in ytbot.py: {e} | Text: {text[:50]}...")
-        return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=reply_markup, **kwargs)
+        logging.warning(f"edit_message_text fallback to raw text: {e} | Text: {text[:50]}...")
+        try:
+            return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=reply_markup, **kwargs)
+        except MessageNotModified:
+            return None
+        except Exception as e2:
+            logging.error(f"edit_message_text fatal error: {e2}")
+            return None
 Client.edit_message_text = _patched_edit_message_text
 
 _orig_send_photo = Client.send_photo
@@ -6610,6 +6589,29 @@ def create_ytbot():
                             )
                     except Exception as pay_err:
                         print(f"Stars payment error: {pay_err}")
+                elif raw_payload.startswith("aivid_sub_"):
+                    try:
+                        u_id = int(raw_payload.split("_")[2])
+                        from database import get_db
+                        conn = get_db()
+                        if conn:
+                            cur = conn.cursor()
+                            cur.execute("""
+                                INSERT INTO ai_video_subscriptions (tg_user_id, expires_at, created_at)
+                                VALUES (%s, NOW() + INTERVAL '30 days', NOW())
+                                ON CONFLICT (tg_user_id) DO UPDATE
+                                SET expires_at = GREATEST(ai_video_subscriptions.expires_at, NOW()) + INTERVAL '30 days'
+                            """, (u_id,))
+                            conn.commit()
+                            conn.close()
+                        await client.send_message(
+                            u_id,
+                            f"🎉 <b>AI Video Studio $20/oy obunangiz faollashdi!</b>\n\n"
+                            f"Telegram Stars orqali 1,000 ⭐ to'lovingiz qabul qilindi. 30 kun davomida cheksiz AI videolar yaratishingiz mumkin!",
+                            reply_markup=main_menu_kb(u_id)
+                        )
+                    except Exception as aivid_pay_err:
+                        print(f"Stars aivid_sub error: {aivid_pay_err}")
 
     # ==================== VIDEO FAYL UNIKALIZATSIYA HANDLER ====================
     @bot.on_message((filters.video | filters.document) & filters.private)

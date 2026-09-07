@@ -207,11 +207,11 @@ TRANSLATIONS = {
         "tr": "🎬 CapCut Pro Değişim Havuzu"
     },
     "btn_ai_video": {
-        "uz": "🤖 Bepul AI Video Generator",
-        "ru": "🤖 Бесплатный AI Видеогенератор",
-        "en": "🤖 100% Free AI Video Generator",
-        "es": "🤖 Generador de Video IA Gratis",
-        "tr": "🤖 Ücretsiz Yapay Zeka Video Oluşturucu"
+        "uz": "🎬 AI Video Studio ($20/oy)",
+        "ru": "🎬 AI Видео Студия ($20/мес)",
+        "en": "🎬 AI Video Studio ($20/mo)",
+        "es": "🎬 AI Video Studio ($20/mes)",
+        "tr": "🎬 AI Video Studio ($20/ay)"
     },
     "btn_spy": {
         "uz": "🔍 Raqobatchi Tahlili (Spy & SEO)",

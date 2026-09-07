@@ -190,7 +190,7 @@ Quyidagi formatda aniq 3 ta qismdan iborat matn qaytar (faqat ko'rsatilgan tegla
     return {
         "video_path": final_video,
         "title": title,
-        "description": f"{title}\n\n{script}\n\n#shorts #ai #pollinations #viral #trending",
+        "description": f"{title}\n\n{script}\n\n#shorts #ai #aivideostudio #viral #trending",
         "duration": duration,
         "script": script
     }

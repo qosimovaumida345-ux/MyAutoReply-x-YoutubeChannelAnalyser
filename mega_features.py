@@ -85,9 +85,12 @@ def load_mega_features(bot: Client):
         if not cb.from_user:
             return
         uid = cb.from_user.id
-        if check_antifraud_or_blocked(uid):
-            await cb.answer("🚫 Siz qoidabuzarlik sababli botdan bloklangansiz!", show_alert=True)
-            cb.stop_propagation()
+        try:
+            if check_antifraud_or_blocked(uid):
+                await cb.answer("🚫 Siz qoidabuzarlik sababli botdan bloklangansiz!", show_alert=True)
+                cb.stop_propagation()
+        except Exception as e:
+            logger.error(f"global_antifraud_cb_gate error: {e}")
 
     # =========================================================================
     # 1. SUPPORT DESK & LIVE ADMIN BRIDGE
@@ -106,25 +109,31 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_support_desk$"))
     async def cb_support_desk_root(client, cb: CallbackQuery):
+        await cb.answer()
         uid = cb.from_user.id
         lang = db.get_user_language(uid)
         kb = get_support_menu_keyboard(lang)
-        await cb.message.edit_text(
-            f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
-            f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:",
-            reply_markup=kb
-        )
-        await cb.answer()
+        try:
+            await cb.message.edit_text(
+                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+                f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:",
+                reply_markup=kb
+            )
+        except Exception as e:
+            logger.error(f"cb_support_desk_root error: {e}")
 
     @bot.on_callback_query(filters.regex(r"^support_desk_root$"))
     async def cb_support_desk_back(client, cb: CallbackQuery):
+        await cb.answer()
         uid = cb.from_user.id
         lang = db.get_user_language(uid)
-        await cb.message.edit_text(
-            f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\nKerakli yo'nalishni tanlang:",
-            reply_markup=get_support_menu_keyboard(lang)
-        )
-        await cb.answer()
+        try:
+            await cb.message.edit_text(
+                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\nKerakli yo'nalishni tanlang:",
+                reply_markup=get_support_menu_keyboard(lang)
+            )
+        except Exception as e:
+            logger.error(f"cb_support_desk_back error: {e}")
 
     @bot.on_callback_query(filters.regex(r"^supp_role_([a-z_]+)$"))
     async def cb_support_role(client, cb: CallbackQuery):
@@ -218,11 +227,12 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_vouchers$"))
     async def cb_menu_vouchers(client, cb: CallbackQuery):
+        await cb.answer()
         uid = cb.from_user.id
         bal = db.get_user_balance(uid)
         text = (
             f"💸 **P2P Shartli Cheklar Tizimi (@wallet uslubida)**\n\n"
-            f"💰 **Balansingiz:** `{bal:,}` so'm\n\n"
+            f"💰 **Balansingiz:** `<b>{bal:,} so'm</b>`\n\n"
             f"Siz o'z balansingizdan do'stlaringizga yoki kanalingiz auditoriyasiga chek tarqatishingiz mumkin.\n"
             f"Chekni olish uchun majburiy kanal a'zoligi shartini qo'yishingiz mumkin!\n\n"
             f"Yaratish uchun buyruq:\n"
@@ -233,8 +243,10 @@ def load_mega_features(bot: Client):
             [InlineKeyboardButton("➕ Yangi Chek Yaratish Qo'llanmasi", callback_data="help_create_check")],
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
-        await cb.message.edit_text(text, reply_markup=kb)
-        await cb.answer()
+        try:
+            await cb.message.edit_text(text, reply_markup=kb)
+        except Exception as e:
+            logger.error(f"cb_menu_vouchers error: {e}")
 
     @bot.on_callback_query(filters.regex(r"^claim_chk_([A-Za-z0-9_-]+)$"))
     async def cb_claim_check(client, cb: CallbackQuery):
@@ -293,6 +305,7 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_ig_cloner$"))
     async def cb_menu_ig_cloner(client, cb: CallbackQuery):
+        await cb.answer()
         uid = cb.from_user.id
         targets = get_instagram_targets(uid)
         ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
@@ -307,24 +320,26 @@ def load_mega_features(bot: Client):
             [InlineKeyboardButton("🔄 Tekshirish & Yuklash", callback_data="ig_sync_now")],
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
-        await cb.message.edit_text(text, reply_markup=kb)
-        await cb.answer()
+        try:
+            await cb.message.edit_text(text, reply_markup=kb)
+        except Exception as e:
+            logger.error(f"cb_menu_ig_cloner error: {e}")
 
     @bot.on_callback_query(filters.regex(r"^ig_add_profile$"))
     async def cb_ig_add_profile(client, cb: CallbackQuery):
+        await cb.answer()
         USER_STATES[cb.from_user.id] = {"action": "waiting_ig_profile"}
         await cb.message.reply_text("📸 **Instagram username yuboring:** (masalan: `@cristiano` yoki `selenagomez`)")
-        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^ig_sync_now$"))
     async def cb_ig_sync_now(client, cb: CallbackQuery):
+        await cb.answer()
         uid = cb.from_user.id
         targets = get_instagram_targets(uid)
         if not targets:
-            await cb.answer("Avval kamida 1 ta Instagram profil qo'shing!", show_alert=True)
+            await cb.message.reply_text("⚠️ Avval kamida 1 ta Instagram profil qo'shing!")
             return
         await cb.message.reply_text("🔄 **Tekshiruv boshlanmoqda...** Yangi videolar avtomatik yuklanadi.")
-        await cb.answer()
         for t in targets:
             await sync_instagram_account_now(uid, t["ig_username"], app=client, chat_id=cb.message.chat.id)
 
@@ -334,36 +349,37 @@ def load_mega_features(bot: Client):
     @bot.on_message(filters.command(["capcut", "capcutpro"]) & filters.private)
     async def capcut_cmd(client, message: Message):
         kb = get_capcut_menu_keyboard()
-        await message.reply_text(CAPCUT_GUIDE_TEXT, reply_markup=kb)
+        await message.reply_text(CAPCUT_GUIDE_TEXT, reply_markup=kb, disable_web_page_preview=True)
 
     @bot.on_callback_query(filters.regex(r"^menu_capcut$"))
     async def cb_menu_capcut(client, cb: CallbackQuery):
-        await cb.message.edit_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard())
         await cb.answer()
+        try:
+            await cb.message.edit_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard(), disable_web_page_preview=True)
+        except Exception as e:
+            logger.error(f"cb_menu_capcut error: {e}")
 
     @bot.on_callback_query(filters.regex(r"^capcut_get_pro$"))
     async def cb_capcut_get_pro(client, cb: CallbackQuery):
+        await cb.answer()
         uid = cb.from_user.id
         ref = get_next_invite_link(exclude_user_id=uid)
-        if not ref:
-            # Fallback rasmiy havola
-            fallback_link = "https://www.capcut.com/s/Zs8rVpL3/"
-            text = (
-                f"🎁 **Navbatdagi CapCut Desktop Havolasi:**\n\n"
-                f"🔗 [Ushbu havola orqali yuklab oling]({fallback_link})\n\n"
-                f"O'rnatgandan so'ng kompyuteringizda ro'yxatdan o'tsangiz, 7 kunlik Pro faollashadi!\n"
-                f"O'z havolangizni botga qo'shib, muddatni 70 kungacha uzaytiring."
-            )
-        else:
-            link = ref["invite_link"]
-            text = (
-                f"🎁 **CapCut Pro 7 Kunlik Bepul Havola:**\n\n"
-                f"🔗 [CapCut Desktop-ni Yuklab Olish]({link})\n\n"
-                f"Kompyuteringizda ushbu havola orqali CapCut Desktop o'rnating va 7 kun bepul Pro oling!\n"
-                f"O'z havolangizni botga qo'shishni unutmang."
-            )
-        await cb.message.reply_text(text, disable_web_page_preview=False)
-        await cb.answer()
+        fallback_link = "https://www.capcut.com/capcut_pc_web/fission_receive?code=AIIt3z29586914&lng=en"
+        link = ref.get("invite_link") if ref else fallback_link
+        text = (
+            f"🎁 **CapCut Pro Bepul Havolangiz:**\n\n"
+            f"🔗 [CapCut Desktop-ni Yuklab Olish (7 kun bepul Pro)]({link})\n\n"
+            f"Kompyuteringizda ushbu havola orqali CapCut Desktop o'rnating va 7 kun bepul Pro oling!\n"
+            f"O'z taklif havolangizni botga qo'shib muddatni 70 kungacha uzaytirishingiz mumkin."
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ O'z Havolamni Qo'shish", callback_data="capcut_add_link")],
+            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_capcut")]
+        ])
+        try:
+            await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=False)
+        except Exception as e:
+            logger.error(f"cb_capcut_get_pro error: {e}")
 
     @bot.on_callback_query(filters.regex(r"^capcut_add_link$"))
     async def cb_capcut_add_link(client, cb: CallbackQuery):
@@ -423,19 +439,49 @@ def load_mega_features(bot: Client):
     @bot.on_message(filters.command(["aivideo", "genvideo"]) & filters.private)
     async def aivideo_cmd(client, message: Message):
         uid = message.from_user.id
+        is_sub = db.is_user_ai_video_subscribed(uid)
+        bal = db.get_user_balance(uid)
+        if not is_sub and bal < 15000:
+            text = (
+                "🎬 **AI Video Studio ($20 / oy)**\n\n"
+                "Ushbu xizmat pullik bo'lib, professional 9:16 vertikal Shorts/Reels tayyorlaydi:\n"
+                "• 🎨 **Flux.1 Ultra AI** — 4K tasvirlar\n"
+                "• 🎙 **Neural Edge-TTS** — 5 ta tilda tabiiy diktor ovozi\n"
+                "• 🎬 **FFmpeg Ken Burns FX** — Dinamik animatsiya va audio montaj\n\n"
+                "💎 **Tariflar:**\n"
+                "• 👑 **Oylik Cheksiz Obuna:** <b>$20 / oy</b> (256,000 so'm)\n"
+                "• ⭐ **Telegram Stars:** 1,000 ⭐\n"
+                "• 🎞 **1 ta Video:** 15,000 so'm / video\n\n"
+                f"💳 **Balansingiz:** <code>{bal:,} so'm</code>\n\n"
+                "Tarifni tanlang:"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
+                [InlineKeyboardButton("⭐ 1,000 Stars bilan Olish", callback_data="aivid_buy_stars")],
+                [InlineKeyboardButton("🎞 1 ta Video (15,000 so'm)", callback_data="aivid_buy_single")],
+                [InlineKeyboardButton("💰 Hisobni To'ldirish", callback_data="menu_wallet")],
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
+            await message.reply_text(text, reply_markup=kb)
+            return
+
         parts = message.command
         if len(parts) < 2:
-            USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
+            USER_STATES[uid] = {"action": "waiting_aivideo_prompt" if is_sub else "waiting_aivideo_prompt_single"}
+            note = "Faol $20/oy obuna (Cheksiz)" if is_sub else "1 ta video: 15,000 so'm (balansdan yechiladi)"
             await message.reply_text(
-                "🤖 **100% Bepul AI Video Generator:**\n\n"
-                "Ixtiyoriy mavzuni yozing. Sun'iy intellekt Flux modeli orqali 9:16 vertikal "
-                "kinematografik kadr yaratadi, Edge-TTS orqali ovoz beradi va dinamik Ken Burns "
-                "animatsiya bilan tayyor YouTube Short video qilib beradi!\n\n"
-                "✍️ **Mavzuni yozing:** (masalan: *Kosmos sirlari va qora tuynuklar*)"
+                f"🎬 **AI Video Studio ({note})**\n\n"
+                "✍️ **Video mavzusini yozing:** (masalan: *Kosmos sirlari va qora tuynuklar*)"
             )
             return
 
         prompt = " ".join(parts[1:])
+        if not is_sub:
+            res_fee = db.deduct_single_ai_video_fee(uid)
+            if not res_fee.get("ok"):
+                await message.reply_text(f"❌ {res_fee.get('error', 'Balans yetarli emas')}")
+                return
+
         wait_m = await message.reply_text("⏳ **AI video yaratilmoqda...**\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
         try:
             lang = db.get_user_language(uid)
@@ -445,7 +491,7 @@ def load_mega_features(bot: Client):
 
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚀 YouTube Kanalimga Yuklash", callback_data=f"pub_aivid_{os.path.basename(v_path)}")],
-                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="main_menu")]
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
 
             await client.send_video(
@@ -462,42 +508,158 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_ai_video$"))
     async def cb_menu_ai_video(client, cb: CallbackQuery):
-        USER_STATES[cb.from_user.id] = {"action": "waiting_aivideo_prompt"}
+        await cb.answer()
+        uid = cb.from_user.id
+        is_sub = db.is_user_ai_video_subscribed(uid)
+        if not is_sub:
+            bal = db.get_user_balance(uid)
+            text = (
+                "🎬 **AI Video Studio ($20 / oy)**\n\n"
+                "Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
+                "• 🎨 **Flux.1 Ultra AI** — 9:16 kinematografik 4K tasvirlar\n"
+                "• 🎙 **Neural Edge-TTS** — 5 ta tilda tabiiy diktor ovozi\n"
+                "• 🎬 **Ken Burns FX** — Dinamik kamera harakati va audio montaj\n"
+                "• 🚀 **1-Click YouTube Shorts Yuklash**\n\n"
+                f"💳 **Sizning balansingiz:** <code>{bal:,} so'm</code>\n\n"
+                "💎 **Tariflar:**\n"
+                "• 👑 **Oylik Cheksiz Obuna:** <b>$20 / oy</b> (256,000 so'm)\n"
+                "• ⭐ **Telegram Stars:** 1,000 ⭐\n"
+                "• 🎞 **1 ta Video:** 15,000 so'm / video\n\n"
+                "Kerakli tarifni tanlang:"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
+                [InlineKeyboardButton("⭐ 1,000 Stars bilan Olish", callback_data="aivid_buy_stars")],
+                [InlineKeyboardButton("🎞 1 ta Video Yaratish (15,000 so'm)", callback_data="aivid_buy_single")],
+                [InlineKeyboardButton("💰 Hisobni To'ldirish", callback_data="menu_wallet")],
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
+            try:
+                await cb.message.edit_text(text, reply_markup=kb)
+            except Exception as e:
+                logger.error(f"cb_menu_ai_video error: {e}")
+            return
+
+        USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
         text = (
-            "🤖 **100% Bepul AI Video Generator**\n\n"
-            "0 xarajat bilan cheksiz Shorts/Reels video yaratish tizimi:\n"
-            "• 🎨 **Flux.1 AI** — Yuqori aniqlikdagi 9:16 vertikal tasvir\n"
-            "• 🎙 **Edge-TTS Neural** — Tabiiy diktor ovozi (5 ta tilda)\n"
-            "• 🎬 **FFmpeg Ken Burns** — Dinamik kamera harakati va audio montaj\n\n"
-            "✍️ **Video yaratish uchun mavzuni yozib yuboring:**"
+            "🎬 **AI Video Studio (Faol Obuna)**\n\n"
+            "Sizda faol obuna mavjud! Cheksiz video yaratish rejimi yoqilgan.\n\n"
+            "✍️ **Video yaratish uchun mavzuni yozib yuboring:**\n"
+            "(Masalan: *Kosmos sirlari va qora tuynuklar* yoki *Qiziqarli faktlar*)"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
-        await cb.message.edit_text(text, reply_markup=kb)
+        try:
+            await cb.message.edit_text(text, reply_markup=kb)
+        except Exception as e:
+            logger.error(f"cb_menu_ai_video prompt error: {e}")
+
+    @bot.on_callback_query(filters.regex(r"^aivid_buy_sub$"))
+    async def cb_aivid_buy_sub(client, cb: CallbackQuery):
         await cb.answer()
+        uid = cb.from_user.id
+        res = db.purchase_ai_video_subscription(uid)
+        if not res.get("ok"):
+            bal = db.get_user_balance(uid)
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 Balansni To'ldirish", callback_data="menu_wallet")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ai_video")]
+            ])
+            await cb.message.edit_text(
+                f"❌ <b>Mablag' yetarli emas!</b>\n\n"
+                f"AI Video Studio $20/oy (256,000 so'm) obunasi uchun balansingiz yetarli emas.\n"
+                f"• Kerak: <code>256,000 so'm</code>\n"
+                f"• Balansingiz: <code>{bal:,} so'm</code>\n\n"
+                f"Iltimos, avval hisobingizni to'ldiring:",
+                reply_markup=kb
+            )
+            return
+
+        exp = res.get("expires_at", "")
+        USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎬 Video Yaratish", callback_data="menu_ai_video")],
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+        ])
+        await cb.message.edit_text(
+            f"🎉 <b>Tabriklaymiz! AI Video Studio obunangiz faollashdi!</b>\n\n"
+            f"• Amal qilish muddati: <code>{exp}</code> gacha (30 kun)\n"
+            f"• Cheksiz video generatsiya faol!\n\n"
+            f"Endi video mavzusini chatga yozib yuborishingiz mumkin:",
+            reply_markup=kb
+        )
+
+    @bot.on_callback_query(filters.regex(r"^aivid_buy_stars$"))
+    async def cb_aivid_buy_stars(client, cb: CallbackQuery):
+        await cb.answer()
+        uid = cb.from_user.id
+        bot_token = os.getenv("BOT_TOKEN")
+        from ytbot import _send_bot_api_invoice
+        res = await _send_bot_api_invoice(
+            bot_token=bot_token,
+            chat_id=cb.message.chat.id,
+            title="AI Video Studio — $20 / oy Obuna",
+            description="30 kun davomida cheksiz 9:16 vertikal AI video generatsiyasi",
+            payload=f"aivid_sub_{uid}",
+            currency="XTR",
+            prices=[{"label": "AI Video Studio ($20)", "amount": 1000}],
+            provider_token=""
+        )
+        if not res:
+            await cb.message.reply_text("❌ Stars hisobini ochishda xatolik yuz berdi. Iltimos, /balance orqali balansingizni to'ldiring.")
+
+    @bot.on_callback_query(filters.regex(r"^aivid_buy_single$"))
+    async def cb_aivid_buy_single(client, cb: CallbackQuery):
+        await cb.answer()
+        uid = cb.from_user.id
+        bal = db.get_user_balance(uid)
+        if bal < 15000:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 Balansni To'ldirish", callback_data="menu_wallet")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ai_video")]
+            ])
+            await cb.message.edit_text(
+                f"❌ <b>Mablag' yetarli emas!</b>\n\n"
+                f"1 ta video yaratish narxi: <code>15,000 so'm</code>\n"
+                f"Sizning balansingiz: <code>{bal:,} so'm</code>\n\n"
+                f"Iltimos, avval hisobingizni to'ldiring:",
+                reply_markup=kb
+            )
+            return
+
+        USER_STATES[uid] = {"action": "waiting_aivideo_prompt_single"}
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_ai_video")]
+        ])
+        await cb.message.edit_text(
+            f"🎞 <b>1 ta AI Video Generatsiyasi (15,000 so'm)</b>\n\n"
+            f"Mavzuni yuborganingizdan so'ng balansingizdan 15,000 so'm yechiladi va video tayyorlanadi.\n\n"
+            f"✍️ <b>Video mavzusini yozib yuboring:</b>",
+            reply_markup=kb
+        )
 
     @bot.on_callback_query(filters.regex(r"^pub_aivid_(.+)$"))
     async def cb_publish_ai_video(client, cb: CallbackQuery):
+        await cb.answer("YouTube ga yuklash boshlandi...", show_alert=False)
         uid = cb.from_user.id
         v_name = cb.matches[0].group(1)
         v_path = os.path.join("downloads", v_name)
         if not os.path.exists(v_path):
-            await cb.answer("Video fayli topilmadi.", show_alert=True)
+            await cb.message.reply_text("❌ Video fayli topilmadi.")
             return
 
         yt_conn = db.get_yt_connection(uid)
         if not yt_conn or not yt_conn.get("access_token"):
-            await cb.answer("Avval /ytlogin orqali YouTube kanalingizni ulang!", show_alert=True)
+            await cb.message.reply_text("⚠️ Avval /ytlogin orqali YouTube kanalingizni ulang!")
             return
 
-        await cb.answer("YouTube ga yuklash boshlandi...", show_alert=False)
         try:
             yt_id = await asyncio.to_thread(
                 upload_to_youtube,
                 v_path,
                 "AI Viral Short #Shorts",
-                "Generated with 100% Free AI Video Generator\n#shorts #ai #viral",
+                "Generated with AI Video Studio ($20/mo)\n#shorts #ai #viral",
                 yt_conn
             )
             await cb.message.reply_text(f"✅ **Muvaffaqiyatli yuklandi!**\n🔗 [YouTube da ko'rish](https://youtu.be/{yt_id})")
@@ -547,16 +709,19 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_spy$"))
     async def cb_menu_spy(client, cb: CallbackQuery):
+        await cb.answer()
         USER_STATES[cb.from_user.id] = {"action": "waiting_spy_url"}
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
-        await cb.message.edit_text(
-            "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
-            "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:",
-            reply_markup=kb
-        )
-        await cb.answer()
+        try:
+            await cb.message.edit_text(
+                "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
+                "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:",
+                reply_markup=kb
+            )
+        except Exception as e:
+            logger.error(f"cb_menu_spy error: {e}")
 
     # =========================================================================
     # 8. CASHOUT ENGINE (STARS & TON PUL YECHISH)
@@ -736,8 +901,19 @@ def load_mega_features(bot: Client):
             message.stop_propagation()
 
         # 7. AI Video Prompt
-        elif action == "waiting_aivideo_prompt":
+        elif action in ("waiting_aivideo_prompt", "waiting_aivideo_prompt_single"):
             USER_STATES.pop(uid, None)
+            if action == "waiting_aivideo_prompt_single":
+                res_fee = db.deduct_single_ai_video_fee(uid)
+                if not res_fee.get("ok"):
+                    await message.reply_text(f"❌ {res_fee.get('error', 'Balansingiz yetarli emas!')}")
+                    message.stop_propagation()
+                    return
+            elif not db.is_user_ai_video_subscribed(uid):
+                await message.reply_text("❌ Ushbu xizmatdan foydalanish uchun AI Video Studio obunasi ($20/oy) talab qilinadi. /aivideo orqali xarid qiling.")
+                message.stop_propagation()
+                return
+
             wait_m = await message.reply_text("⏳ **AI video yaratilmoqda...**\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
             try:
                 lang = db.get_user_language(uid)
@@ -747,7 +923,7 @@ def load_mega_features(bot: Client):
 
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("🚀 YouTube Kanalimga Yuklash", callback_data=f"pub_aivid_{os.path.basename(v_path)}")],
-                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="main_menu")]
+                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
                 ])
 
                 await client.send_video(

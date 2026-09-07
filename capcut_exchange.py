@@ -12,14 +12,18 @@ import database as db
 
 logger = logging.getLogger(__name__)
 
+OWNER_CAPCUT_LINK = "https://www.capcut.com/capcut_pc_web/fission_receive?code=AIIt3z29586914&lng=en"
+FALLBACK_CAPCUT_LINK = OWNER_CAPCUT_LINK
+
 CAPCUT_GUIDE_TEXT = (
     "🎬 **CAPCUT PRO NI 7 KUNDAN 70 KUNGACHA BEPUL OLISH TIZIMI!**\n\n"
     "CapCut Desktop (kompyuter versiyasi) yangi foydalanuvchilarga referal dasturi orqali "
     "**1 hafta bepul Pro obuna** taqdim etadi.\n\n"
     "💎 **Bu qanday ishlaydi?**\n"
-    "1️⃣ Quyidagi '🎁 Bepul Pro Olish' tugmasini bosing va navbatdagi ishtirokchining havolasi orqali CapCut Desktop-ni o'rnating.\n"
+    "1️⃣ Quyidagi '🎁 Bepul Pro Havola Olish' tugmasini bosing va rasmiy taklif havolasi orqali CapCut Desktop-ni o'rnating.\n"
     "2️⃣ Kompyuteringizda ro'yxatdan o'ting — sizga darhol 7 kunlik CapCut Pro beriladi!\n"
-    "3️⃣ O'zingizning CapCut Desktop taklif havolangizni botga qo'shing — sizning havolangiz orqali boshqa yangi foydalanuvchilar kiradi va har bir odam uchun yana +7 kun Pro qo'shiladi (jami 70 kungacha)!\n\n"
+    "3️⃣ O'zingizning CapCut Desktop taklif havolangizni botga qo'shing — sizning havolangiz orqali yangi foydalanuvchilar kiradi va har bir odam uchun yana +7 kun Pro qo'shiladi (jami 70 kungacha)!\n\n"
+    f"🔗 **Rasmiy havola:** [CapCut Desktop yuklab olish]({OWNER_CAPCUT_LINK})\n\n"
     "🚀 Hammasi 100% tekin va o'zaro hamkorlikka asoslangan!"
 )
 
@@ -44,7 +48,10 @@ def submit_referral_link(tg_user_id: int, invite_link: str, service_name: str = 
 
 def get_next_invite_link(exclude_user_id: int = None, service_name: str = "capcut") -> dict:
     """Eng kam bosilgan yoki navbatdagi faol havolani olish"""
-    return db.get_active_capcut_referral(exclude_user_id, service_name)
+    res = db.get_active_capcut_referral(exclude_user_id, service_name)
+    if not res:
+        return {"invite_link": OWNER_CAPCUT_LINK, "service_name": "capcut"}
+    return res
 
 def get_capcut_menu_keyboard(has_active_link: bool = False, lang: str = "uz") -> InlineKeyboardMarkup:
     """CapCut almashinuv markazi menyusi"""
@@ -52,6 +59,6 @@ def get_capcut_menu_keyboard(has_active_link: bool = False, lang: str = "uz") ->
         [InlineKeyboardButton("🎁 Bepul Pro Havola Olish", callback_data="capcut_get_pro")],
         [InlineKeyboardButton("➕ O'z Havolamni Qo'shish", callback_data="capcut_add_link")],
         [InlineKeyboardButton("📊 Mening Havolalarim Statistikasi", callback_data="capcut_my_stats")],
-        [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")]
+        [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
     ]
     return InlineKeyboardMarkup(buttons)
