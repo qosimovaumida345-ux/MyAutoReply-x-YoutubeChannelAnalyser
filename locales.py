@@ -178,6 +178,62 @@ TRANSLATIONS = {
         "es": "🏠 Menú Principal",
         "tr": "🏠 Ana Menü"
     },
+    "btn_support": {
+        "uz": "💬 Yordam & Live Admin",
+        "ru": "💬 Поддержка и Админ",
+        "en": "💬 Support & Live Admin",
+        "es": "💬 Soporte y Administrador",
+        "tr": "💬 Destek ve Canlı Yönetici"
+    },
+    "btn_vouchers": {
+        "uz": "💸 P2P Shartli Cheklar",
+        "ru": "💸 P2P Условные Чеки",
+        "en": "💸 P2P Conditional Vouchers",
+        "es": "💸 Vales Condicionales P2P",
+        "tr": "💸 P2P Koşullu Çekler"
+    },
+    "btn_ig_cloner": {
+        "uz": "📸 Instagram Auto-Kloner",
+        "ru": "📸 Instagram Авто-Клонер",
+        "en": "📸 Instagram Auto-Cloner",
+        "es": "📸 Auto-Clonador Instagram",
+        "tr": "📸 Instagram Otomatik Klonlayıcı"
+    },
+    "btn_capcut": {
+        "uz": "🎬 CapCut Pro Almashinuv",
+        "ru": "🎬 CapCut Pro Обменник",
+        "en": "🎬 CapCut Pro Exchange Hub",
+        "es": "🎬 Intercambio CapCut Pro",
+        "tr": "🎬 CapCut Pro Değişim Havuzu"
+    },
+    "btn_ai_video": {
+        "uz": "🤖 Bepul AI Video Generator",
+        "ru": "🤖 Бесплатный AI Видеогенератор",
+        "en": "🤖 100% Free AI Video Generator",
+        "es": "🤖 Generador de Video IA Gratis",
+        "tr": "🤖 Ücretsiz Yapay Zeka Video Oluşturucu"
+    },
+    "btn_spy": {
+        "uz": "🔍 Raqobatchi Tahlili (Spy & SEO)",
+        "ru": "🔍 Шпион Конкурентов (SEO)",
+        "en": "🔍 Competitor Spy & SEO Stealer",
+        "es": "🔍 Espía de Competidores y SEO",
+        "tr": "🔍 Rakip Casusu ve SEO Analizi"
+    },
+    "btn_cashout": {
+        "uz": "💸 Pul Yechish (Stars & TON)",
+        "ru": "💸 Вывод средств (Stars и TON)",
+        "en": "💸 Cashout (Stars & TON)",
+        "es": "💸 Retiro de Fondos (Stars y TON)",
+        "tr": "💸 Para Çekme (Stars ve TON)"
+    },
+    "btn_deeplink": {
+        "uz": "📲 DeepLink & QR Generator",
+        "ru": "📲 DeepLink и QR Генератор",
+        "en": "📲 DeepLink & QR Generator",
+        "es": "📲 Generador DeepLink y QR",
+        "tr": "📲 DeepLink ve QR Oluşturucu"
+    },
 
     # ==================== REFERRAL ====================
     "referral_title": {

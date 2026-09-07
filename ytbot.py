@@ -634,6 +634,12 @@ def main_menu_kb(user_id=None):
          InlineKeyboardButton(kyc_text, web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}"))],
         [InlineKeyboardButton(t("btn_balance", lang), callback_data="menu_wallet"),
          InlineKeyboardButton(t("btn_games", lang), callback_data="menu_games")],
+        [InlineKeyboardButton(t("btn_support", lang), callback_data="menu_support_desk"),
+         InlineKeyboardButton(t("btn_vouchers", lang), callback_data="menu_vouchers")],
+        [InlineKeyboardButton(t("btn_ig_cloner", lang), callback_data="menu_ig_cloner"),
+         InlineKeyboardButton(t("btn_capcut", lang), callback_data="menu_capcut")],
+        [InlineKeyboardButton(t("btn_ai_video", lang), callback_data="menu_ai_video"),
+         InlineKeyboardButton(t("btn_spy", lang), callback_data="menu_spy")],
         [InlineKeyboardButton(t("btn_referral", lang), callback_data="menu_referral"),
          InlineKeyboardButton(t("btn_leaderboard", lang), callback_data="menu_leaderboard")],
         [InlineKeyboardButton(t("btn_marketplace", lang), callback_data="menu_marketplace"),
@@ -648,6 +654,8 @@ def wallet_menu_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
         [InlineKeyboardButton("💎 TON (The Open Network) orqali", callback_data="pay_crypto_menu")],
+        [InlineKeyboardButton("💸 Balansni Yechish (Cashout)", callback_data="menu_cashout")],
+        [InlineKeyboardButton("🎟 Promokod kiritish (/redeem)", callback_data="enter_promo_code")],
         [InlineKeyboardButton("📋 To'lovlar tarixi", callback_data="pay_history")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
@@ -7024,6 +7032,8 @@ Javobingni FAQAT JSON formatida ber:
         await message.reply_text("`Yordam uchun /help ni bosing.`", parse_mode=ParseMode.MARKDOWN)
     from super_features import load_super_features
     load_super_features(bot)
+    from mega_features import load_mega_features
+    load_mega_features(bot)
     return bot
 
 
@@ -7070,4 +7080,8 @@ async def run_ytbot():
     await bot.start()
     print("YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
     asyncio.create_task(autostream_expiration_worker(bot))
+    from vouchers_engine import start_antifraud_sentinel_daemon
+    from instagram_cloner import start_instagram_sync_daemon
+    asyncio.create_task(start_antifraud_sentinel_daemon(bot, interval_seconds=3600))
+    asyncio.create_task(start_instagram_sync_daemon(bot, interval_seconds=1800))
     await asyncio.Event().wait()

@@ -96,6 +96,62 @@ VERIFIED_CUSTOM_EMOJIS = {
     "WARNING": ("5787656288934564517", "⚠️"),
     "FIRE": ("5256047523620995497", "🔥"),
     "TREND": ("5256047523620995497", "🔥"),
+
+    # 🟡 9. Golden VIP Custom Emojis
+    "GOLD_CAPCUT_PRO": ("5285497929686069998", "👑"),
+    "GOLD_INSTAGRAM": ("6001420655252213986", "📸"),
+    "GOLD_REELS": ("5312147767966054472", "🎬"),
+    "GOLD_WALLET_CHECK": ("5420112302210817795", "💸"),
+    "GOLD_CHECK_CLAIM": ("5960914406366779993", "🪙"),
+    "GOLD_ANTIFRAUD_LOCK": ("5465443379917629504", "🔒"),
+    "GOLD_AI_CINEMA": ("5249493957578078525", "🤖"),
+    "GOLD_VOICE_MIC": ("5766912713586381607", "🎙️"),
+    "GOLD_SPY_BADGE": ("6107110845399962129", "🕵️"),
+    "GOLD_SEO_TAG": ("5406711411541823609", "🏷️"),
+    "GOLD_CASHOUT_BAG": ("5463046637842608206", "💰"),
+    "GOLD_DEEPLINK_QR": ("5224378350335707737", "📲"),
+
+    # Golden VIP Numbered Aliases (1-12)
+    "GOLDEN_1": ("5285497929686069998", "👑"),
+    "GOLDEN_2": ("6001420655252213986", "📸"),
+    "GOLDEN_3": ("5312147767966054472", "🎬"),
+    "GOLDEN_4": ("5420112302210817795", "💸"),
+    "GOLDEN_5": ("5960914406366779993", "🪙"),
+    "GOLDEN_6": ("5465443379917629504", "🔒"),
+    "GOLDEN_7": ("5249493957578078525", "🤖"),
+    "GOLDEN_8": ("5766912713586381607", "🎙️"),
+    "GOLDEN_9": ("6107110845399962129", "🕵️"),
+    "GOLDEN_10": ("5406711411541823609", "🏷️"),
+    "GOLDEN_11": ("5463046637842608206", "💰"),
+    "GOLDEN_12": ("5224378350335707737", "📲"),
+
+    # ⚪ 10. Oddiy / Standart Custom Emojis
+    "CAPCUT_LOGO": ("5978895591894161700", "🎬"),
+    "INSTAGRAM_LOGO": ("4990082283701535678", "📸"),
+    "REELS_LOGO": ("5825658700735451589", "🎬"),
+    "WALLET_CHECK": ("5265197972919964944", "💸"),
+    "CHECK_CLAIM": ("5980930633298350051", "💵"),
+    "ANTIFRAUD_SIREN": ("5463358164705489689", "🚨"),
+    "AI_VIDEO_CAM": ("5235837920081887219", "🎥"),
+    "VOICE_SPEAKER": ("5895215520000513680", "🔊"),
+    "SPY_HAT": ("5339247212012528642", "🕵️"),
+    "SEO_TAG": ("5298877105000439431", "🏷️"),
+    "CASHOUT_ATM": ("4967738760021148319", "💳"),
+    "DEEPLINK_QR": ("5264938002844513934", "📲"),
+
+    # Oddiy Numbered Aliases (1-12)
+    "ODDIY_1": ("5978895591894161700", "🎬"),
+    "ODDIY_2": ("4990082283701535678", "📸"),
+    "ODDIY_3": ("5825658700735451589", "🎬"),
+    "ODDIY_4": ("5265197972919964944", "💸"),
+    "ODDIY_5": ("5980930633298350051", "💵"),
+    "ODDIY_6": ("5463358164705489689", "🚨"),
+    "ODDIY_7": ("5235837920081887219", "🎥"),
+    "ODDIY_8": ("5895215520000513680", "🔊"),
+    "ODDIY_9": ("5339247212012528642", "🕵️"),
+    "ODDIY_10": ("5298877105000439431", "🏷️"),
+    "ODDIY_11": ("4967738760021148319", "💳"),
+    "ODDIY_12": ("5264938002844513934", "📲"),
 }
 
 # Qo'shimcha yordamchi emojilar (qolgan maxsus funksiyalar uchun)
@@ -144,7 +200,7 @@ ADDITIONAL_EMOJIS = {
 # EMOJI_MAP: VERIFIED Custom Emojilar to'liq ustunlik qiladi
 EMOJI_MAP = {**ADDITIONAL_EMOJIS, **VERIFIED_CUSTOM_EMOJIS}
 
-# 39 ta tasdiqlangan ID lar pooli
+# Tasdiqlangan ID lar pooli
 CUSTOM_EMOJI_POOL = [v[0] for v in VERIFIED_CUSTOM_EMOJIS.values()]
 
 def e(key: str) -> str:
@@ -153,6 +209,16 @@ def e(key: str) -> str:
         return EMOJI_MAP[key][1]
     return "✨"
 
+def custom_emoji(key: str) -> str:
+    """Returns Telegram HTML tag <emoji id="...">fallback</emoji> for exact custom emoji rendering."""
+    if key in EMOJI_MAP:
+        c_id, fallback = EMOJI_MAP[key]
+        return f'<emoji id="{c_id}">{fallback}</emoji>'
+    return "✨"
+
+ce = custom_emoji
+
 def get_random_custom_emoji_id() -> int:
     """Returns a random custom emoji ID from the pool as int for Pyrogram reactions"""
     return int(random.choice(CUSTOM_EMOJI_POOL))
+

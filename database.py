@@ -493,6 +493,142 @@ def init_db():
             updated_at TIMESTAMP DEFAULT NOW()
         )
     """)
+
+    # 9. Instagram Auto-Sync Channels & Synced Posts
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ig_sync_channels (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            ig_username TEXT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            check_interval_mins INT DEFAULT 60,
+            last_checked_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(tg_user_id, ig_username)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ig_synced_posts (
+            id SERIAL PRIMARY KEY,
+            sync_channel_id INT REFERENCES ig_sync_channels(id) ON DELETE CASCADE,
+            ig_post_id TEXT NOT NULL,
+            media_url TEXT,
+            yt_video_id TEXT,
+            status TEXT DEFAULT 'synced',
+            synced_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(sync_channel_id, ig_post_id)
+        )
+    """)
+
+    # 10. CapCut Desktop & Pro Tools Referral Pool
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS capcut_referral_pool (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            invite_link TEXT NOT NULL UNIQUE,
+            service_name TEXT DEFAULT 'capcut',
+            total_clicks INT DEFAULT 0,
+            total_claims INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 11. Support Desk (Gemini AI & Live Admin Tickets)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            role_intent TEXT DEFAULT 'general',
+            status TEXT DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS support_messages (
+            id SERIAL PRIMARY KEY,
+            ticket_id INT REFERENCES support_tickets(id) ON DELETE CASCADE,
+            sender_type TEXT NOT NULL,
+            message_text TEXT NOT NULL,
+            media_file_id TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 12. P2P Conditional Cheklar & Check Claims
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS conditional_checks (
+            id SERIAL PRIMARY KEY,
+            check_code VARCHAR(64) UNIQUE NOT NULL,
+            creator_id BIGINT NOT NULL,
+            total_amount_uzs BIGINT NOT NULL,
+            amount_per_user_uzs BIGINT NOT NULL,
+            max_claims INT DEFAULT 1,
+            claims_count INT DEFAULT 0,
+            required_channel TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS check_claims (
+            id SERIAL PRIMARY KEY,
+            check_id INT REFERENCES conditional_checks(id) ON DELETE CASCADE,
+            tg_user_id BIGINT NOT NULL,
+            amount_received_uzs BIGINT NOT NULL,
+            claimed_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(check_id, tg_user_id)
+        )
+    """)
+
+    # 13. Antifraud Banned Users (Kanaldan chiqqanlar)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS banned_antifraud_users (
+            tg_user_id BIGINT PRIMARY KEY,
+            reason TEXT,
+            banned_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 14. Promo-kodlar & Kuponlar
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS promo_codes (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(64) UNIQUE NOT NULL,
+            discount_percent INT DEFAULT 0,
+            balance_bonus_uzs BIGINT DEFAULT 0,
+            max_uses INT DEFAULT 100,
+            current_uses INT DEFAULT 0,
+            is_active BOOLEAN DEFAULT TRUE,
+            expires_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS promo_redemptions (
+            id SERIAL PRIMARY KEY,
+            promo_id INT REFERENCES promo_codes(id) ON DELETE CASCADE,
+            tg_user_id BIGINT NOT NULL,
+            redeemed_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(promo_id, tg_user_id)
+        )
+    """)
+
+    # 15. Pul Yechish (Stars & TON Cashout)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS cashout_requests (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            method TEXT NOT NULL,
+            target_address TEXT NOT NULL,
+            amount_uzs BIGINT NOT NULL,
+            currency_equivalent TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT NOW(),
+            processed_at TIMESTAMP
+        )
+    """)
     
     conn.commit()
     cur.close()
@@ -2908,6 +3044,619 @@ def get_top_duel_winners(limit: int = 5) -> list:
         return []
     finally:
         conn.close()
+
+
+# ==================== 1. INSTAGRAM AUTO-SYNC & RE-POSTER ====================
+
+def add_ig_sync_channel(tg_user_id: int, ig_username: str, check_interval_mins: int = 60) -> bool:
+    """Yangi Instagram profilni avtomatik kuzatuvga qo'shish"""
+    conn = get_db()
+    if not conn: return False
+    clean_username = ig_username.strip().lstrip("@").lower()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO ig_sync_channels (tg_user_id, ig_username, check_interval_mins)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (tg_user_id, ig_username) DO UPDATE SET is_active = TRUE, check_interval_mins = EXCLUDED.check_interval_mins
+        """, (tg_user_id, clean_username, check_interval_mins))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"add_ig_sync_channel error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def remove_ig_sync_channel(tg_user_id: int, ig_username: str) -> bool:
+    """Instagram profilni username bo'yicha kuzatuvdan o'chirish"""
+    conn = get_db()
+    if not conn: return False
+    clean_username = ig_username.strip().lstrip("@").lower()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM ig_sync_channels WHERE tg_user_id = %s AND ig_username = %s", (tg_user_id, clean_username))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"remove_ig_sync_channel error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_ig_sync_channels(tg_user_id: int) -> list:
+    """Foydalanuvchining ulangan Instagram kanallari ro'yxati"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM ig_sync_channels WHERE tg_user_id = %s ORDER BY id DESC", (tg_user_id,))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_user_ig_sync_channels error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def delete_ig_sync_channel(sync_channel_id: int, tg_user_id: int) -> bool:
+    """Kuzatuvdagi Instagram kanalni o'chirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM ig_sync_channels WHERE id = %s AND tg_user_id = %s", (sync_channel_id, tg_user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"delete_ig_sync_channel error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_all_active_ig_sync_channels() -> list:
+    """Barcha faol Instagram monitoring kanallarini olish"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM ig_sync_channels WHERE is_active = TRUE ORDER BY id ASC")
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_all_active_ig_sync_channels error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def is_ig_post_synced(sync_channel_id: int, ig_post_id: str) -> bool:
+    """Ushbu Instagram post avval yuklanganmi?"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM ig_synced_posts WHERE sync_channel_id = %s AND ig_post_id = %s", (sync_channel_id, str(ig_post_id)))
+        return bool(cur.fetchone())
+    except Exception as e:
+        print(f"is_ig_post_synced error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def record_ig_synced_post(sync_channel_id: int, ig_post_id: str, media_url: str = "", yt_video_id: str = "", status: str = "synced") -> bool:
+    """Yuklangan Instagram postni qayd etish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO ig_synced_posts (sync_channel_id, ig_post_id, media_url, yt_video_id, status)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (sync_channel_id, ig_post_id) DO UPDATE SET status = EXCLUDED.status, yt_video_id = EXCLUDED.yt_video_id
+        """, (sync_channel_id, str(ig_post_id), media_url, yt_video_id, status))
+        cur.execute("UPDATE ig_sync_channels SET last_checked_at = NOW() WHERE id = %s", (sync_channel_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"record_ig_synced_post error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ==================== 2. CAPCUT DESKTOP & PRO TOOLS REFERRAL POOL ====================
+
+def add_capcut_link(tg_user_id: int, invite_link: str, service_name: str = "capcut") -> bool:
+    """Foydalanuvchi CapCut taklif havolasini hovuzga qo'shish"""
+    conn = get_db()
+    if not conn: return False
+    link = invite_link.strip()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO capcut_referral_pool (tg_user_id, invite_link, service_name)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (invite_link) DO UPDATE SET is_active = TRUE
+        """, (tg_user_id, link, service_name))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"add_capcut_link error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_next_capcut_link(exclude_user_id: int = None, service_name: str = "capcut") -> dict:
+    """Navbatdagi eng kam bosilgan faol CapCut taklif havolasini olish (Fair Rotation)"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        if exclude_user_id:
+            cur.execute("""
+                SELECT * FROM capcut_referral_pool
+                WHERE is_active = TRUE AND service_name = %s AND tg_user_id != %s
+                ORDER BY total_clicks ASC, id ASC
+                LIMIT 1
+            """, (service_name, exclude_user_id))
+        else:
+            cur.execute("""
+                SELECT * FROM capcut_referral_pool
+                WHERE is_active = TRUE AND service_name = %s
+                ORDER BY total_clicks ASC, id ASC
+                LIMIT 1
+            """, (service_name,))
+        row = cur.fetchone()
+        if not row and exclude_user_id:
+            cur.execute("""
+                SELECT * FROM capcut_referral_pool
+                WHERE is_active = TRUE AND service_name = %s
+                ORDER BY total_clicks ASC, id ASC
+                LIMIT 1
+            """, (service_name,))
+            row = cur.fetchone()
+
+        if row:
+            d = dict(row)
+            cur.execute("UPDATE capcut_referral_pool SET total_clicks = total_clicks + 1 WHERE id = %s", (d["id"],))
+            conn.commit()
+            return d
+        return None
+    except Exception as e:
+        conn.rollback()
+        print(f"get_next_capcut_link error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def get_user_capcut_links(tg_user_id: int) -> list:
+    """Foydalanuvchining kiritgan CapCut havolalari statistikasi"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM capcut_referral_pool WHERE tg_user_id = %s ORDER BY id DESC", (tg_user_id,))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_user_capcut_links error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def increment_capcut_claims(pool_id: int) -> bool:
+    """Muvaffaqiyatli ro'yxatdan o'tish hisobini oshirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE capcut_referral_pool SET total_claims = total_claims + 1 WHERE id = %s", (pool_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"increment_capcut_claims error: {e}")
+        return False
+    finally:
+        conn.close()
+
+add_capcut_referral = add_capcut_link
+get_active_capcut_referral = get_next_capcut_link
+
+
+# ==================== 3. SUPPORT DESK & LIVE ADMIN BRIDGE ====================
+
+def create_or_get_open_ticket(tg_user_id: int, role_intent: str = "general") -> dict:
+    """Foydalanuvchi uchun ochiq support ticketni olish yoki yangi ochish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM support_tickets WHERE tg_user_id = %s AND status = 'open' ORDER BY id DESC LIMIT 1", (tg_user_id,))
+        row = cur.fetchone()
+        if row:
+            return dict(row)
+        cur.execute("""
+            INSERT INTO support_tickets (tg_user_id, role_intent, status)
+            VALUES (%s, %s, 'open')
+            RETURNING *
+        """, (tg_user_id, role_intent))
+        new_row = cur.fetchone()
+        conn.commit()
+        return dict(new_row)
+    except Exception as e:
+        conn.rollback()
+        print(f"create_or_get_open_ticket error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def add_support_message(ticket_id: int, sender_type: str, message_text: str, media_file_id: str = None) -> bool:
+    """Ticketga yangi xabar qo'shish (user yoki admin)"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO support_messages (ticket_id, sender_type, message_text, media_file_id)
+            VALUES (%s, %s, %s, %s)
+        """, (ticket_id, sender_type, message_text, media_file_id))
+        cur.execute("UPDATE support_tickets SET updated_at = NOW() WHERE id = %s", (ticket_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"add_support_message error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def close_support_ticket(ticket_id: int) -> bool:
+    """Ticketni yopish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE support_tickets SET status = 'closed', updated_at = NOW() WHERE id = %s", (ticket_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"close_support_ticket error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_ticket_by_id(ticket_id: int) -> dict:
+    """Ticket ma'lumotlarini olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM support_tickets WHERE id = %s", (ticket_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_ticket_by_id error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def get_ticket_messages(ticket_id: int, limit: int = 15) -> list:
+    """Ticketdagi oxirgi xabarlar tarixi"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM support_messages WHERE ticket_id = %s ORDER BY id ASC LIMIT %s", (ticket_id, limit))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_ticket_messages error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+# ==================== 4. P2P CONDITIONAL CHEKLAR & ANTIFRAUD ====================
+
+def create_conditional_check(creator_id: int, check_code: str, total_amount_uzs: int, max_claims: int = 1, required_channel: str = None) -> tuple:
+    """Majburiy kanalli P2P chek yaratish va balansi yechib olish"""
+    conn = get_db()
+    if not conn: return False, "Ma'lumotlar bazasiga ulanib bo'lmadi"
+    clean_channel = required_channel.strip().lstrip("@") if required_channel else None
+    amount_per_user = int(total_amount_uzs / max_claims) if max_claims > 0 else total_amount_uzs
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (creator_id,))
+        row = cur.fetchone()
+        bal = (row["balance_uzs"] if isinstance(row, dict) else row[0]) if row else 0
+        if bal < total_amount_uzs:
+            return False, "Balansingizda mablag' yetarli emas!"
+
+        cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs - %s, updated_at = NOW() WHERE tg_user_id = %s", (total_amount_uzs, creator_id))
+        cur.execute("""
+            INSERT INTO conditional_checks (check_code, creator_id, total_amount_uzs, amount_per_user_uzs, max_claims, required_channel)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (check_code, creator_id, total_amount_uzs, amount_per_user, max_claims, clean_channel))
+        conn.commit()
+        return True, check_code
+    except Exception as e:
+        conn.rollback()
+        print(f"create_conditional_check error: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
+def get_conditional_check(check_code: str) -> dict:
+    """Chek ma'lumotlarini olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM conditional_checks WHERE check_code = %s", (check_code.strip(),))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_conditional_check error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def claim_conditional_check(check_id: int, tg_user_id: int, amount: int) -> tuple:
+    """Chekni qabul qilish va mablag'ni hisobga qo'shish"""
+    conn = get_db()
+    if not conn: return False, "DB xatosi"
+    try:
+        cur = conn.cursor()
+        # Tekshirish
+        cur.execute("SELECT id FROM check_claims WHERE check_id = %s AND tg_user_id = %s", (check_id, tg_user_id))
+        if cur.fetchone():
+            return False, "Siz ushbu chekni avval qabul qilgansiz!"
+
+        cur.execute("SELECT * FROM conditional_checks WHERE id = %s FOR UPDATE", (check_id,))
+        row = cur.fetchone()
+        if not row:
+            return False, "Chek topilmadi!"
+        chk = dict(row)
+        if not chk["is_active"] or chk["claims_count"] >= chk["max_claims"]:
+            return False, "Ushbu chek allaqachon to'liq qabul qilib bo'lingan!"
+
+        cur.execute("""
+            INSERT INTO check_claims (check_id, tg_user_id, amount_received_uzs)
+            VALUES (%s, %s, %s)
+        """, (check_id, tg_user_id, amount))
+
+        new_count = chk["claims_count"] + 1
+        is_active = new_count < chk["max_claims"]
+        cur.execute("UPDATE conditional_checks SET claims_count = %s, is_active = %s WHERE id = %s", (new_count, is_active, check_id))
+
+        # Foydalanuvchi hisobiga pul qo'shish
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE SET balance_uzs = user_balances.balance_uzs + %s, updated_at = NOW()
+        """, (tg_user_id, amount, amount))
+
+        conn.commit()
+        return True, "Muvaffaqiyatli qabul qilindi!"
+    except Exception as e:
+        conn.rollback()
+        print(f"claim_conditional_check error: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
+def is_user_antifraud_banned(tg_user_id: int) -> bool:
+    """Foydalanuvchi antifraud qora ro'yxatidami?"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT tg_user_id FROM banned_antifraud_users WHERE tg_user_id = %s", (tg_user_id,))
+        return bool(cur.fetchone())
+    except Exception as e:
+        print(f"is_user_antifraud_banned error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def ban_antifraud_user(tg_user_id: int, reason: str = "Majburiy kanaldan chiqib ketgani sababli bloklandi") -> bool:
+    """Qoidabuzarni antifraud qora ro'yxatiga kiritish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO banned_antifraud_users (tg_user_id, reason)
+            VALUES (%s, %s)
+            ON CONFLICT (tg_user_id) DO UPDATE SET reason = EXCLUDED.reason, banned_at = NOW()
+        """, (tg_user_id, reason))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"ban_antifraud_user error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def unban_antifraud_user(tg_user_id: int) -> bool:
+    """Foydalanuvchini qora ro'yxatdan chiqarish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM banned_antifraud_users WHERE tg_user_id = %s", (tg_user_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"unban_antifraud_user error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_channel_check_claimers(required_channel: str) -> list:
+    """Muayyan kanal sharti bilan chek olgan barcha userlar ro'yxati (Sentinel tekshiruvi uchun)"""
+    conn = get_db()
+    if not conn: return []
+    clean_ch = required_channel.strip().lstrip("@")
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT DISTINCT cc.tg_user_id
+            FROM check_claims cc
+            JOIN conditional_checks c ON cc.check_id = c.id
+            WHERE c.required_channel = %s
+        """, (clean_ch,))
+        rows = cur.fetchall() or []
+        return [r["tg_user_id"] if isinstance(r, dict) else r[0] for r in rows]
+    except Exception as e:
+        print(f"get_channel_check_claimers error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+# ==================== 5. PROMO CODES & COUPONS ====================
+
+def create_promo_code(code: str, balance_bonus_uzs: int, discount_percent: int = 0, max_uses: int = 100) -> bool:
+    """Yangi promokod yaratish"""
+    conn = get_db()
+    if not conn: return False
+    clean_code = code.strip().upper()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO promo_codes (code, balance_bonus_uzs, discount_percent, max_uses)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (code) DO UPDATE SET balance_bonus_uzs = EXCLUDED.balance_bonus_uzs, max_uses = EXCLUDED.max_uses, is_active = TRUE
+        """, (clean_code, balance_bonus_uzs, discount_percent, max_uses))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"create_promo_code error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def redeem_promo_code(code: str, tg_user_id: int) -> tuple:
+    """Promokodni faollashtirish"""
+    conn = get_db()
+    if not conn: return False, "DB xatosi", 0
+    clean_code = code.strip().upper()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM promo_codes WHERE code = %s", (clean_code,))
+        row = cur.fetchone()
+        if not row:
+            return False, "Bunday promokod mavjud emas!", 0
+        promo = dict(row)
+        if not promo["is_active"] or promo["current_uses"] >= promo["max_uses"]:
+            return False, "Ushbu promokod tugagan yoki faol emas!", 0
+
+        # Foydalanuvchi avval ishlatganmi?
+        cur.execute("SELECT id FROM promo_redemptions WHERE promo_id = %s AND tg_user_id = %s", (promo["id"], tg_user_id))
+        if cur.fetchone():
+            return False, "Siz ushbu promokodni avval ishlatgansiz!", 0
+
+        bonus = int(promo["balance_bonus_uzs"])
+        cur.execute("INSERT INTO promo_redemptions (promo_id, tg_user_id) VALUES (%s, %s)", (promo["id"], tg_user_id))
+        cur.execute("UPDATE promo_codes SET current_uses = current_uses + 1 WHERE id = %s", (promo["id"],))
+
+        if bonus > 0:
+            cur.execute("""
+                INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (tg_user_id) DO UPDATE SET balance_uzs = user_balances.balance_uzs + %s, updated_at = NOW()
+            """, (tg_user_id, bonus, bonus))
+
+        conn.commit()
+        return True, "Promokod muvaffaqiyatli faollashtirildi!", bonus
+    except Exception as e:
+        conn.rollback()
+        print(f"redeem_promo_code error: {e}")
+        return False, str(e), 0
+    finally:
+        conn.close()
+
+
+# ==================== 6. CASHOUT (STARS & TON PUL YECHISH) ====================
+
+def create_cashout_request(tg_user_id: int, method: str, target_address: str, amount_uzs: int, currency_equiv: str = "") -> tuple:
+    """Balansni yechish uchun so'rov qoldirish"""
+    conn = get_db()
+    if not conn: return False, "DB xatosi"
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        row = cur.fetchone()
+        bal = (row["balance_uzs"] if isinstance(row, dict) else row[0]) if row else 0
+        if bal < amount_uzs:
+            return False, "Balansingizda mablag' yetarli emas!"
+
+        cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs - %s, updated_at = NOW() WHERE tg_user_id = %s", (amount_uzs, tg_user_id))
+        cur.execute("""
+            INSERT INTO cashout_requests (tg_user_id, method, target_address, amount_uzs, currency_equivalent, status)
+            VALUES (%s, %s, %s, %s, %s, 'pending')
+            RETURNING id
+        """, (tg_user_id, method, target_address.strip(), amount_uzs, currency_equiv))
+        conn.commit()
+        return True, "Pul yechish so'rovingiz qabul qilindi. Admin tekshiruvidan so'ng o'tkazib beriladi!"
+    except Exception as e:
+        conn.rollback()
+        print(f"create_cashout_request error: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
+def get_pending_cashout_requests(limit: int = 20) -> list:
+    """Kutilayotgan pul yechish so'rovlari"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM cashout_requests WHERE status = 'pending' ORDER BY id ASC LIMIT %s", (limit,))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_pending_cashout_requests error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def process_cashout_request(request_id: int, status: str) -> bool:
+    """Pul yechish so'rovini tasdiqlash yoki bekor qilish (agar rejected bo'lsa pul qaytariladi)"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM cashout_requests WHERE id = %s AND status = 'pending' FOR UPDATE", (request_id,))
+        row = cur.fetchone()
+        if not row: return False
+        req = dict(row)
+
+        cur.execute("UPDATE cashout_requests SET status = %s, processed_at = NOW() WHERE id = %s", (status, request_id))
+        if status == "rejected":
+            # Pulni foydalanuvchiga qaytarish
+            cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs + %s, updated_at = NOW() WHERE tg_user_id = %s", (req["amount_uzs"], req["tg_user_id"]))
+
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"process_cashout_request error: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 
 
