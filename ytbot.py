@@ -57,13 +57,15 @@ AUTOPOST_ARGS_MAP = {}
 USER_ORDER_STATE = {} # tg_user_id -> dict(action, step, target_url, qty, total_cost)
 INSTA_CACHE = {} # cache_id -> dict(file_path, title, desc)
 
-# Telegram Stars narx paketlari (1 Star ≈ 250 UZS)
+# Telegram Stars narx paketlari (1 Star ≈ 250-260 UZS)
 STARS_PACKAGES = [
-    {"stars": 50, "amount_uzs": 12500, "label": "50 ⭐ — 12,500 so'm"},
-    {"stars": 100, "amount_uzs": 25000, "label": "100 ⭐ — 25,000 so'm"},
-    {"stars": 250, "amount_uzs": 62500, "label": "250 ⭐ — 62,500 so'm"},
-    {"stars": 500, "amount_uzs": 125000, "label": "500 ⭐ — 125,000 so'm"},
-    {"stars": 1000, "amount_uzs": 250000, "label": "1,000 ⭐ — 250,000 so'm"},
+    {"stars": 15, "amount_uzs": 4000, "label": "15 ⭐ — 4,000 so'm (Minimal)"},
+    {"stars": 25, "amount_uzs": 6500, "label": "25 ⭐ — 6,500 so'm"},
+    {"stars": 50, "amount_uzs": 13000, "label": "50 ⭐ — 13,000 so'm"},
+    {"stars": 100, "amount_uzs": 26000, "label": "100 ⭐ — 26,000 so'm"},
+    {"stars": 250, "amount_uzs": 65000, "label": "250 ⭐ — 65,000 so'm"},
+    {"stars": 500, "amount_uzs": 130000, "label": "500 ⭐ — 130,000 so'm"},
+    {"stars": 1000, "amount_uzs": 260000, "label": "1,000 ⭐ — 260,000 so'm"},
 ]
 
 # We'll create a reverse map: fallback_emoji -> custom_emoji_id (with both \ufe0f and non-\ufe0f variants)
@@ -585,7 +587,8 @@ def stars_packages_kb():
 def crypto_packages_kb():
     buttons = []
     for pkg in CRYPTO_PACKAGES:
-        cb_val = f"crypto_pkg_{int(pkg['amount'])}_{pkg['asset']}"
+        amt_str = str(pkg['amount']).replace('.', 'd')
+        cb_val = f"crypto_pkg_{amt_str}_{pkg['asset']}"
         buttons.append([InlineKeyboardButton(pkg["label"], callback_data=cb_val)])
     buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")])
     return InlineKeyboardMarkup(buttons)
@@ -599,7 +602,7 @@ def marketplace_menu_kb():
     pr_stock = get_proxies_stock_count()
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"🌐 Private Proxy ($3) [{pr_stock} ta]", callback_data="mkt_view_proxy"),
-         InlineKeyboardButton(f"⚡ Autostream Cloud ($0.5/s)", callback_data="mkt_view_autostream")],
+         InlineKeyboardButton(f"⚡ Autostream Cloud (4k/s)", callback_data="mkt_view_autostream")],
         [InlineKeyboardButton(f"🎨 500+ Prompt Pack ($3)", callback_data="mkt_view_prompts"),
          InlineKeyboardButton(f"👑 VIP Cheksiz Pro ($15/oy)", callback_data="mkt_view_vip")],
         [InlineKeyboardButton(f"🌐 OpenRouter API ($3) [{op_stock} ta]", callback_data="mkt_view_openrouter"),
@@ -610,8 +613,8 @@ def marketplace_menu_kb():
          InlineKeyboardButton(f"⚡ Video Unikal (1.5k)", callback_data="mkt_view_unikal")],
         [InlineKeyboardButton(f"✂️ 3 ta Shorts Kesish ($1)", callback_data="mkt_view_clipper"),
          InlineKeyboardButton(f"💎 Referal & Keshbek (10%)", callback_data="mkt_view_ref")],
-        [InlineKeyboardButton("👍 Layk (3,000 so'm)", callback_data="mkt_order_like"),
-         InlineKeyboardButton("🔔 Obuna (5,000 so'm)", callback_data="mkt_order_subscribe"),
+        [InlineKeyboardButton("👍 Layk (1,500 so'm)", callback_data="mkt_order_like"),
+         InlineKeyboardButton("🔔 Obuna (2,500 so'm)", callback_data="mkt_order_subscribe"),
          InlineKeyboardButton("💬 Izoh (1,000 so'm)", callback_data="mkt_order_comment")],
         [InlineKeyboardButton("🔑 Mening xaridlarim", callback_data="mkt_my_purchases"),
          InlineKeyboardButton("📋 Buyurtmalarim", callback_data="mkt_my_orders")],
@@ -620,9 +623,11 @@ def marketplace_menu_kb():
 
 def order_quantity_kb(action_type):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("5 ta", callback_data=f"mkt_qty_{action_type}_5"),
-         InlineKeyboardButton("10 ta", callback_data=f"mkt_qty_{action_type}_10")],
-        [InlineKeyboardButton("25 ta", callback_data=f"mkt_qty_{action_type}_25"),
+        [InlineKeyboardButton("1 ta (Test)", callback_data=f"mkt_qty_{action_type}_1"),
+         InlineKeyboardButton("3 ta", callback_data=f"mkt_qty_{action_type}_3"),
+         InlineKeyboardButton("5 ta", callback_data=f"mkt_qty_{action_type}_5")],
+        [InlineKeyboardButton("10 ta", callback_data=f"mkt_qty_{action_type}_10"),
+         InlineKeyboardButton("25 ta", callback_data=f"mkt_qty_{action_type}_25"),
          InlineKeyboardButton("50 ta", callback_data=f"mkt_qty_{action_type}_50")],
         [InlineKeyboardButton("100 ta", callback_data=f"mkt_qty_{action_type}_100")],
         [InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_cancel")],
@@ -3208,19 +3213,20 @@ def create_ytbot():
         await cb.message.edit_text(text, reply_markup=crypto_packages_kb())
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^crypto_pkg_(\d+)_([A-Z]+)$"))
+    @bot.on_callback_query(filters.regex(r"^crypto_pkg_([0-9d]+)_([A-Z]+)$"))
     async def cb_crypto_pkg(client, cb: CallbackQuery):
-        amount = float(cb.matches[0].group(1))
+        raw_amount = cb.matches[0].group(1).replace('d', '.')
+        amount = float(raw_amount)
         asset = cb.matches[0].group(2)
         user_id = cb.from_user.id
         
-        amount_uzs = int(amount * 12800) if asset == "USDT" else int(amount * 18000)
+        amount_uzs = int(amount * 13000) if asset == "USDT" else int(amount * 20000)
         for pkg in CRYPTO_PACKAGES:
             if pkg["asset"] == asset and float(pkg["amount"]) == amount:
                 amount_uzs = pkg["amount_uzs"]
                 break
 
-        # ================= TON / GRAM TO'G'RIDAN-TO'G'RI BLOCKCHAIN TO'LOVI =================
+        # ================= TON TO'G'RIDAN-TO'G'RI BLOCKCHAIN TO'LOVI =================
         if asset == "TON":
             ton_wallet = get_ton_wallet()
             if not ton_wallet:
@@ -3232,13 +3238,13 @@ def create_ytbot():
             tonkeeper_link = f"https://app.tonkeeper.com/transfer/{ton_wallet}?amount={nano_amount}&text=tx_{tx_id}"
 
             text = (
-                f"{e('CRYPTO')} <b>GRAM (TON) orqali to'lov</b>\n\n"
+                f"{e('CRYPTO')} <b>TON orqali to'lov</b>\n\n"
                 f"💰 <b>Balansga qo'shiladi:</b> +{amount_uzs:,} so'm\n"
-                f"🪙 <b>To'lov miqdori:</b> <code>{amount} GRAM (TON)</code>\n"
+                f"🪙 <b>To'lov miqdori:</b> <code>{amount} TON</code>\n"
                 f"🆔 <b>To'lov kodi (Izoh):</b> <code>tx_{tx_id}</code>\n\n"
                 f"<b>To'lov qilish tartibi:</b>\n"
-                f"1️⃣ Quyidagi <b>«📲 Tonkeeper orqali to'lash»</b> tugmasini bosing (barcha ma'lumotlar avtomatik to'ldiriladi, faqat tasdiqlaysiz).\n\n"
-                f"2️⃣ <b>Yoki qo'lda o'tkazish uchun:</b>\n"
+                f"1. Quyidagi <b>«📲 Tonkeeper orqali to'lash»</b> tugmasini bosing (barcha ma'lumotlar avtomatik to'ldiriladi, faqat tasdiqlaysiz).\n\n"
+                f"2. <b>Yoki qo'lda o'tkazish uchun:</b>\n"
                 f"💎 <b>Hamyon:</b> (nusxalash uchun ustiga bosing)\n"
                 f"<code>{ton_wallet}</code>\n"
                 f"💬 <b>Izoh (MEMO/Comment):</b> <code>tx_{tx_id}</code>\n\n"
@@ -3246,7 +3252,7 @@ def create_ytbot():
                 f"<i>To'laganingizdan so'ng 5-15 soniyada hisobingiz avtomatik to'ldiriladi yoki quyidagi «🔍 Tekshirish» tugmasini bosing.</i>"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"📲 Tonkeeper orqali to'lash ({amount} GRAM)", url=tonkeeper_link)],
+                [InlineKeyboardButton(f"📲 Tonkeeper orqali to'lash ({amount} TON)", url=tonkeeper_link)],
                 [InlineKeyboardButton("🔍 To'lovni tekshirish", callback_data=f"check_ton_tx_{tx_id}")],
                 [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_wallet")]
             ])
@@ -3356,8 +3362,8 @@ def create_ytbot():
             await cb.answer("Iltimos, avval havolani yuboring!", show_alert=True)
             return
             
-        prices = {"like": 3000, "subscribe": 5000, "comment": 1000}
-        price_per_item = prices.get(action, 3000)
+        prices = {"like": 1500, "subscribe": 2500, "comment": 1000}
+        price_per_item = prices.get(action, 1500)
         total_cost = qty * price_per_item
         
         user_bal = get_user_balance(user_id)
@@ -3688,17 +3694,17 @@ def create_ytbot():
         desc = (
             f"{e('STREAM')} <b>24/7 Autostream Bulutli Efir Serveri</b>\n\n"
             f"• Telefon yoki kompyuteringizni yoqib o'tirmasdan YouTube kanalingizda 24/7 jonli efir uzating!\n"
-            f"• Soatbay to'lov: <b>soatiga $0.5 (6,000 so'm)</b>.\n"
+            f"• Soatbay to'lov: <b>soatiga 4,000 so'm ($0.3)</b>.\n"
             f"• <b>Avtomatik o'chish:</b> Sotib olingan vaqt tugashi bilan efir serveri avtomatik to'xtaydi.{slot_lines}\n\n"
             f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"Efir davomiyligini tanlang:"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("1 soat — 6,000 so'm", callback_data="mkt_stream_h_1"),
-             InlineKeyboardButton("3 soat — 18,000 so'm", callback_data="mkt_stream_h_3")],
-            [InlineKeyboardButton("6 soat — 36,000 so'm", callback_data="mkt_stream_h_6"),
-             InlineKeyboardButton("12 soat — 72,000 so'm", callback_data="mkt_stream_h_12")],
-            [InlineKeyboardButton("24 soat (1 kun) — 144,000 so'm", callback_data="mkt_stream_h_24")],
+            [InlineKeyboardButton("1 soat — 4,000 so'm", callback_data="mkt_stream_h_1"),
+             InlineKeyboardButton("3 soat — 12,000 so'm", callback_data="mkt_stream_h_3")],
+            [InlineKeyboardButton("6 soat — 24,000 so'm", callback_data="mkt_stream_h_6"),
+             InlineKeyboardButton("12 soat — 48,000 so'm", callback_data="mkt_stream_h_12")],
+            [InlineKeyboardButton("24 soat (1 kun) — 96,000 so'm", callback_data="mkt_stream_h_24")],
             [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
@@ -3709,7 +3715,7 @@ def create_ytbot():
         hours = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        cost = hours * 6000
+        cost = hours * 4000
 
         if bal < cost:
             diff = cost - bal

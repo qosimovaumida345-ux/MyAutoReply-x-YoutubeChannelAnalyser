@@ -2109,8 +2109,8 @@ def get_user_download_proxy(tg_user_id: int) -> str:
 # ==================== AUTOSTREAM CLOUD SLOTS ($0.5 / SOAT) ====================
 
 def purchase_autostream_slot(tg_user_id: int, hours: int, video_url: str = "", stream_key: str = "") -> dict:
-    """Soatiga 6,000 so'm ($0.5) hisobidan Autostream bulutli sloti sotib olish"""
-    price_per_hour = 6000
+    """Soatiga 4,000 so'm hisobidan Autostream bulutli sloti sotib olish"""
+    price_per_hour = 4000
     total_cost = hours * price_per_hour
     conn = get_db()
     if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}

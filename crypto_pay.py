@@ -11,18 +11,19 @@ logger = logging.getLogger(__name__)
 # CryptoPay API Base URL
 BASE_URL = "https://pay.crypt.bot/api"
 
-# USDT va GRAM (sobiq TON) kurslari (UZS ga nisbatan)
-# 2026-yil holatiga: 1 GRAM (TON) ≈ $1.41 - $1.42 ≈ 18,000 so'm
+# USDT va TON kurslari (UZS ga nisbatan)
 CRYPTO_PACKAGES = [
-    {"asset": "USDT", "amount": 1.0, "amount_uzs": 12800, "label": "1 USDT — 12,800 so'm"},
-    {"asset": "USDT", "amount": 3.0, "amount_uzs": 38400, "label": "3 USDT — 38,400 so'm"},
-    {"asset": "USDT", "amount": 5.0, "amount_uzs": 64000, "label": "5 USDT — 64,000 so'm"},
-    {"asset": "USDT", "amount": 10.0, "amount_uzs": 128000, "label": "10 USDT — 128,000 so'm"},
-    {"asset": "USDT", "amount": 25.0, "amount_uzs": 320000, "label": "25 USDT — 320,000 so'm"},
-    {"asset": "TON", "amount": 1.0, "amount_uzs": 18000, "label": "1 GRAM (TON) — 18,000 so'm"},
-    {"asset": "TON", "amount": 3.0, "amount_uzs": 54000, "label": "3 GRAM (TON) — 54,000 so'm"},
-    {"asset": "TON", "amount": 5.0, "amount_uzs": 90000, "label": "5 GRAM (TON) — 90,000 so'm"},
-    {"asset": "TON", "amount": 10.0, "amount_uzs": 180000, "label": "10 GRAM (TON) — 180,000 so'm"},
+    {"asset": "TON", "amount": 0.5, "amount_uzs": 10000, "label": "0.5 TON — 10,000 so'm (Minimal)"},
+    {"asset": "TON", "amount": 1.0, "amount_uzs": 20000, "label": "1 TON — 20,000 so'm"},
+    {"asset": "TON", "amount": 2.0, "amount_uzs": 40000, "label": "2 TON — 40,000 so'm"},
+    {"asset": "TON", "amount": 3.0, "amount_uzs": 60000, "label": "3 TON — 60,000 so'm"},
+    {"asset": "TON", "amount": 5.0, "amount_uzs": 100000, "label": "5 TON — 100,000 so'm"},
+    {"asset": "TON", "amount": 10.0, "amount_uzs": 200000, "label": "10 TON — 200,000 so'm"},
+    {"asset": "USDT", "amount": 1.0, "amount_uzs": 13000, "label": "1 USDT — 13,000 so'm (Minimal)"},
+    {"asset": "USDT", "amount": 3.0, "amount_uzs": 39000, "label": "3 USDT — 39,000 so'm"},
+    {"asset": "USDT", "amount": 5.0, "amount_uzs": 65000, "label": "5 USDT — 65,000 so'm"},
+    {"asset": "USDT", "amount": 10.0, "amount_uzs": 130000, "label": "10 USDT — 130,000 so'm"},
+    {"asset": "USDT", "amount": 25.0, "amount_uzs": 325000, "label": "25 USDT — 325,000 so'm"},
 ]
 
 async def get_exchange_rates() -> list:
