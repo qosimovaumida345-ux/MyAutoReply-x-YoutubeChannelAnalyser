@@ -12,7 +12,8 @@ from pyrogram.types import (
     WebAppInfo,
     InlineKeyboardMarkup, InlineKeyboardButton,
     ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove,
-    CallbackQuery, Message
+    CallbackQuery, Message,
+    InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 )
 from googleapiclient.discovery import build
 
@@ -44,8 +45,11 @@ from database import (
     purchase_vip_subscription, is_user_vip,
     set_user_referrer, get_user_referrer, process_referral_cashback, get_referral_stats,
     record_user_purchase, get_user_purchases,
-    get_or_create_user_api_key, regenerate_user_api_key
+    get_or_create_user_api_key, regenerate_user_api_key,
+    set_user_language, get_user_language, get_top_referrers, get_top_duel_winners,
+    get_config, set_config
 )
+from locales import t, SUPPORTED_LANGUAGES
 from games_monetization import (
     create_vouchers, redeem_voucher,
     open_mystery_box, get_recent_box_winners,
@@ -138,10 +142,18 @@ def convert_md_to_html_and_emojis(text):
     # Protect new <code> tags created from markdown `code`
     text = re.sub(r'<code>[\s\S]*?</code>', _save_code, text)
 
-    # 7. Apply custom emojis
+    # 7. Apply custom emojis (use placeholders to prevent nested tags on substrings)
     for fallback, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
         if fallback in text:
-            text = text.replace(fallback, f'<emoji id="{c_id}">{fallback}</emoji>')
+            parts = text.split(fallback)
+            new_text_parts = []
+            for idx, part in enumerate(parts):
+                new_text_parts.append(part)
+                if idx < len(parts) - 1:
+                    ph = f"EMOJIPHX{len(saved_emojis)}XPH"
+                    saved_emojis.append(f'<emoji id="{c_id}">{fallback}</emoji>')
+                    new_text_parts.append(ph)
+            text = "".join(new_text_parts)
 
     # 8. Restore saved items in exact reverse order
     for idx, cb in enumerate(saved_code):
@@ -177,6 +189,28 @@ def _build_bot_api_reply_markup(reply_markup):
             btn_dict["text"] = text if text else (btn.text or "")
             if icon_id:
                 btn_dict["icon_custom_emoji_id"] = icon_id
+
+            # Telegram Bot API 9.4+ button styling (success -> Green, danger -> Red, primary -> Blue)
+            style = getattr(btn, "style", None)
+            if not style:
+                cb = getattr(btn, "callback_data", None) or ""
+                if isinstance(cb, bytes):
+                    try: cb = cb.decode("utf-8")
+                    except: cb = ""
+                raw_text = (btn.text or "").lower()
+                
+                # Green ("success") - Sotib olish, to'ldirish, qutini ochish, tasdiqlash
+                if any(k in cb for k in ["pay_", "wallet", "box_open", "sub_check", "buy", "stars_pkg", "crypto_pkg"]) or any(k in raw_text for k in ["buy", "to'ldirish", "ochish", "tekshirish", "sotib olish"]):
+                    style = "success"
+                # Red ("danger") - O'yinlar, Duel, Bekor qilish, O'chirish
+                elif any(k in cb for k in ["menu_games", "game_duel", "delaccount", "dbreset", "cancel"]) or any(k in raw_text for k in ["duel", "o'yinlar", "who wins", "o'chirish", "bekor"]):
+                    style = "danger"
+                # Blue ("primary") - Bosh menyu, Web Dashboard
+                elif any(k in cb for k in ["back_main", "dashboard"]) or any(k in raw_text for k in ["web dashboard", "bosh menyu"]):
+                    style = "primary"
+
+            if style in ("success", "danger", "primary"):
+                btn_dict["style"] = style
                 
             if btn.callback_data is not None:
                 btn_dict["callback_data"] = btn.callback_data if isinstance(btn.callback_data, str) else btn.callback_data.decode("utf-8")
@@ -566,33 +600,54 @@ def get_categories(region="US"):
 
 # ==================== INLINE KEYBOARD BUILDERS ====================
 
+def lang_menu_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🇺🇿 O'zbekcha", callback_data="setlang_uz"),
+         InlineKeyboardButton("🇷🇺 Русский", callback_data="setlang_ru")],
+        [InlineKeyboardButton("🇬🇧 English", callback_data="setlang_en"),
+         InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es")],
+        [InlineKeyboardButton("🇹🇷 Türkçe", callback_data="setlang_tr")],
+        [InlineKeyboardButton("🏠 Bosh menyu / Main Menu", callback_data="back_main")],
+    ])
+
+def games_menu_kb(user_id=None):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎁 Omadli Quti (Mystery Box)", callback_data="box_open"),
+         InlineKeyboardButton("🎰 Omad G'ildiragi (Wheel)", callback_data="spin_free")],
+        [InlineKeyboardButton("⚔️ PvP Tanga Tashlash (Duel)", callback_data="game_duel_info"),
+         InlineKeyboardButton("🎟️ Jekpot Mega Lotereya", callback_data="lottery_refresh")],
+        [InlineKeyboardButton("🏆 Liderlar Jadvali (Top)", callback_data="menu_leaderboard"),
+         InlineKeyboardButton("🎁 Do'stlarni chaqirish", callback_data="menu_referral")],
+        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+    ])
+
 def main_menu_kb(user_id=None):
     import os
+    lang = get_user_language(user_id) if user_id else "uz"
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
-    kyc_text = "🛡️ 3D Yuz Skaneri (KYC)"
+    kyc_text = "🛡️ 3D KYC"
     if user_id and is_user_kyc_verified(user_id):
-        kyc_text = "✅ 3D Yuz Tasdiqlangan"
+        kyc_text = "✅ 3D KYC Verified"
         
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌐 Open Dashboard", web_app=WebAppInfo(url=web_url))],
+        [InlineKeyboardButton("🌐 Web Dashboard", web_app=WebAppInfo(url=web_url)),
+         InlineKeyboardButton(kyc_text, web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}"))],
+        [InlineKeyboardButton(t("btn_balance", lang), callback_data="menu_wallet"),
+         InlineKeyboardButton(t("btn_games", lang), callback_data="menu_games")],
+        [InlineKeyboardButton(t("btn_referral", lang), callback_data="menu_referral"),
+         InlineKeyboardButton(t("btn_leaderboard", lang), callback_data="menu_leaderboard")],
         [InlineKeyboardButton("🚀 Xizmatlar / Marketplace", callback_data="menu_marketplace"),
-         InlineKeyboardButton("💰 Balans & To'lovlar", callback_data="menu_wallet")],
-        [InlineKeyboardButton(kyc_text, web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}")),
-         InlineKeyboardButton("📸 Instagram Reels", callback_data="menu_instagram")],
-        [InlineKeyboardButton("📢 Kanal tahlili", callback_data="menu_channel"),
-         InlineKeyboardButton("🎬 Video tahlili", callback_data="menu_video")],
-        [InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics"),
-         InlineKeyboardButton("🔍 Qidiruv", callback_data="menu_search")],
-        [InlineKeyboardButton("📌 Kuzatuv", callback_data="menu_tracking"),
-         InlineKeyboardButton("⚙️ Asboblar", callback_data="menu_tools")],
-        [InlineKeyboardButton("🔥 Trending", callback_data="menu_trending"),
-         InlineKeyboardButton("📖 Yordam", callback_data="menu_help")],
+         InlineKeyboardButton("🔑 Developer API", callback_data="help_api")],
+        [InlineKeyboardButton("📢 Kanal & Video", callback_data="menu_channel"),
+         InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics")],
+        [InlineKeyboardButton(t("btn_lang", lang), callback_data="menu_lang"),
+         InlineKeyboardButton(t("btn_help", lang), callback_data="menu_help")],
     ])
 
 def wallet_menu_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
-        [InlineKeyboardButton("🪙 CryptoPay (USDT / GRAM) orqali", callback_data="pay_crypto_menu")],
+        [InlineKeyboardButton("💎 TON (The Open Network) orqali", callback_data="pay_crypto_menu")],
         [InlineKeyboardButton("📋 To'lovlar tarixi", callback_data="pay_history")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
@@ -941,7 +996,14 @@ def create_ytbot():
             if ref_id_str.isdigit():
                 ref_id = int(ref_id_str)
                 if ref_id != user_id:
-                    set_user_referrer(user_id, ref_id)
+                    added = set_user_referrer(user_id, ref_id)
+                    if added:
+                        try:
+                            ref_lang = get_user_language(ref_id)
+                            notify_txt = t("ref_joined_notify", ref_lang)
+                            await client.send_message(ref_id, notify_txt)
+                        except Exception:
+                            pass
 
         # 2. Xavfsizlik & KYC tekshiruvi (Adminlardan tashqari hamma uchun majburiy)
         if not is_admin and not is_user_kyc_verified(user_id):
@@ -982,14 +1044,37 @@ def create_ytbot():
                 return
 
         # Agar foydalanuvchi tasdiqlangan (yoki admin) bo'lsa:
-        text = (
-            f"{e('BOT')} <b>YouTube Analytics & Automation Bot</b> ga xush kelibsiz!\n\n"
-            f"{e('STAR')} Bu bot orqali istalgan YouTube kanal va videolarning "
-            f"to'liq statistikasini ko'rishingiz, avtopost, analitika va sun'iy intellekt "
-            f"xizmatlaridan foydalanishingiz mumkin.\n\n"
-            f"{e('PIN')} Quyidagi menyudan kerakli bo'limni tanlang:"
-        )
-        await message.reply_text(text, reply_markup=main_menu_kb(message.from_user.id))
+        lang = get_user_language(user_id)
+
+        # 3. Deep link PvP duel chaqiruvi tekshiruvi: /start duel_5000
+        if len(parts) > 1 and parts[1].startswith("duel_"):
+            d_amt = parts[1].replace("duel_", "")
+            if d_amt.isdigit():
+                await message.reply_text(
+                    f"⚔️ <b>Do'stingiz sizni PvP Duelga chaqirdi!</b>\n\n"
+                    f"💰 Garov summasi: <code>{int(d_amt):,} so'm</code>\n\n"
+                    f"O'ynash uchun buyruq: <code>/duel {d_amt} burgut</code> yoki <code>/duel {d_amt} panja</code>"
+                )
+
+        # 4. Majburiy kanal obunasini tekshirish (Admin bo'lmasa)
+        ch = get_config("force_sub_channel")
+        if ch and not is_admin:
+            try:
+                member = await client.get_chat_member(ch, user_id)
+                if not member or getattr(member, "status", None) in ("left", "kicked"):
+                    ch_clean = ch.replace("@", "")
+                    ch_url = f"https://t.me/{ch_clean}"
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(t("btn_join_channel", lang), url=ch_url)],
+                        [InlineKeyboardButton(t("btn_verify_sub", lang), callback_data="sub_check")]
+                    ])
+                    await message.reply_text(t("force_sub_title", lang), reply_markup=kb)
+                    return
+            except Exception as _fe:
+                print(f"forcesub start error: {_fe}")
+
+        text = t("main_menu", lang)
+        await message.reply_text(text, reply_markup=main_menu_kb(user_id))
 
     # ==================== TELEGRAM KONTAKT (TELEFON RAQAM) QABUL QILISH ====================
     @bot.on_message(filters.contact & filters.private)
@@ -2314,6 +2399,321 @@ def create_ytbot():
             "<i>Pastdagi tugmani bosing:</i>",
             reply_markup=kb
         )
+
+    # ==================== MULTI-LANGUAGE (i18n) ====================
+    @bot.on_message(filters.command(["lang", "language", "til"]))
+    async def lang_cmd(client, message):
+        user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        await message.reply_text(t("select_lang", lang), reply_markup=lang_menu_kb())
+
+    @bot.on_callback_query(filters.regex(r"^menu_lang$"))
+    async def menu_lang_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        await callback_query.message.edit_text(t("select_lang", lang), reply_markup=lang_menu_kb())
+        await callback_query.answer()
+
+    @bot.on_callback_query(filters.regex(r"^setlang_(uz|ru|en|es|tr)$"))
+    async def set_lang_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        selected_lang = callback_query.matches[0].group(1)
+        set_user_language(user_id, selected_lang)
+        confirm_text = t("lang_changed", selected_lang)
+        await callback_query.answer(f"✅ {SUPPORTED_LANGUAGES.get(selected_lang, selected_lang)}")
+        await callback_query.message.edit_text(
+            f"{confirm_text}\n\n{t('main_menu', selected_lang)}",
+            reply_markup=main_menu_kb(user_id)
+        )
+
+    # ==================== GAMES HUB ====================
+    @bot.on_callback_query(filters.regex(r"^menu_games$"))
+    async def menu_games_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        bal = get_user_balance(user_id)
+        text = t("games_title", lang, balance=bal)
+        await callback_query.message.edit_text(text, reply_markup=games_menu_kb(user_id))
+        await callback_query.answer()
+
+    @bot.on_callback_query(filters.regex(r"^game_duel_info$"))
+    async def game_duel_info_callback(client, callback_query: CallbackQuery):
+        open_duels = get_open_duels(5)
+        duels_text = ""
+        if open_duels:
+            duels_text = "\n\n⚔️ <b>Hozirgi faol duellar:</b>\n" + "\n".join([f"• Duel #{d['id']}: <code>{d['amount_uzs']:,} so'm</code> ({d['choice'].upper()})" for d in open_duels])
+        text = (
+            f"⚔️ <b>PvP Tanga Tashlash (Coin Flip)</b>\n\n"
+            f"Boshqa o'yinchilar bilan garov boylab o'ynang! G'olib jami bankning 90%ini oladi (10% kassa xizmati).\n\n"
+            f"ℹ️ <b>Qanday o'ynash kerak:</b>\n"
+            f"Chatda <code>/duel &lt;summa&gt; [burgut|panja]</code> buyrug'ini yuboring.\n\n"
+            f"<b>Masalan:</b> <code>/duel 5000 burgut</code>"
+            f"{duels_text}"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+        await callback_query.answer()
+
+    # ==================== VIRAL REFERRAL SYSTEM ====================
+    @bot.on_message(filters.command(["ref", "referral", "invite"]))
+    async def referral_cmd(client, message):
+        user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        me = await client.get_me()
+        bot_user = me.username or "AutoReplyBot"
+        ref_link = f"https://t.me/{bot_user}?start=ref_{user_id}"
+        stats = get_referral_stats(user_id)
+        share_url = f"https://t.me/share/url?url={urllib.parse.quote(ref_link)}&text={urllib.parse.quote(t('ref_share_message', lang))}"
+        
+        text = t(
+            "referral_title",
+            lang,
+            invited_count=stats["invited_count"],
+            total_earned=stats["total_earned"],
+            ref_link=ref_link
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(t("btn_share_ref", lang), url=share_url)],
+            [InlineKeyboardButton("🎁 Omadli Qutini ochish (/box)", callback_data="box_open")],
+            [InlineKeyboardButton(t("btn_back", lang), callback_data="back_main")]
+        ])
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
+
+    @bot.on_callback_query(filters.regex(r"^menu_referral$"))
+    async def menu_referral_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        me = await client.get_me()
+        bot_user = me.username or "AutoReplyBot"
+        ref_link = f"https://t.me/{bot_user}?start=ref_{user_id}"
+        stats = get_referral_stats(user_id)
+        share_url = f"https://t.me/share/url?url={urllib.parse.quote(ref_link)}&text={urllib.parse.quote(t('ref_share_message', lang))}"
+        
+        text = t(
+            "referral_title",
+            lang,
+            invited_count=stats["invited_count"],
+            total_earned=stats["total_earned"],
+            ref_link=ref_link
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(t("btn_share_ref", lang), url=share_url)],
+            [InlineKeyboardButton("🎁 Omadli Qutini ochish (/box)", callback_data="box_open")],
+            [InlineKeyboardButton(t("btn_back", lang), callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+        await callback_query.answer()
+
+    # ==================== LEADERBOARD (REYTING) ====================
+    @bot.on_message(filters.command(["leaderboard", "top", "reyting"]))
+    async def leaderboard_cmd(client, message):
+        user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        
+        top_refs = get_top_referrers(5)
+        top_duels = get_top_duel_winners(5)
+        
+        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+        ref_lines = [f"{medals[idx] if idx < 5 else '•'} ID: <code>{r['user']}</code> ➔ <b>{r['count']} ta</b> do'st ({r['earned']:,} so'm)" for idx, r in enumerate(top_refs)]
+        duel_lines = [f"{medals[idx] if idx < 5 else '•'} ID: <code>{d['user']}</code> ➔ <b>{d['count']} ta</b> yutuq ({d['payout']:,} so'm)" for idx, d in enumerate(top_duels)]
+        
+        ref_str = "\n".join(ref_lines) if ref_lines else "<i>Hozircha ma'lumotlar yo'q</i>"
+        duel_str = "\n".join(duel_lines) if duel_lines else "<i>Hozircha ma'lumotlar yo'q</i>"
+        
+        text = t("leaderboard_title", lang, top_referrers=ref_str, top_duels=duel_str)
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Do'stlarni chaqirish", callback_data="menu_referral")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^menu_leaderboard$"))
+    async def menu_leaderboard_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        
+        top_refs = get_top_referrers(5)
+        top_duels = get_top_duel_winners(5)
+        
+        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+        ref_lines = [f"{medals[idx] if idx < 5 else '•'} ID: <code>{r['user']}</code> ➔ <b>{r['count']} ta</b> ({r['earned']:,} so'm)" for idx, r in enumerate(top_refs)]
+        duel_lines = [f"{medals[idx] if idx < 5 else '•'} ID: <code>{d['user']}</code> ➔ <b>{d['count']} ta</b> ({d['payout']:,} so'm)" for idx, d in enumerate(top_duels)]
+        
+        ref_str = "\n".join(ref_lines) if ref_lines else "<i>Hozircha ma'lumotlar yo'q</i>"
+        duel_str = "\n".join(duel_lines) if duel_lines else "<i>Hozircha ma'lumotlar yo'q</i>"
+        
+        text = t("leaderboard_title", lang, top_referrers=ref_str, top_duels=duel_str)
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Do'stlarni chaqirish", callback_data="menu_referral")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+        await callback_query.answer()
+
+    # ==================== FORCE SUB (KANALGA MAJBURIY OBUNA) ====================
+    @bot.on_message(filters.command("forcesub"))
+    async def forcesub_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("⛔ Bu buyruq faqat bot administratorlari uchun!")
+            return
+        parts = message.text.strip().split()
+        if len(parts) < 2:
+            current_ch = get_config("force_sub_channel") or "O'rnatilmagan (OFF)"
+            await message.reply_text(
+                f"📢 <b>Majburiy Kanal Obunasi Sozlamalari</b>\n\n"
+                f"Hozirgi kanal: <code>{current_ch}</code>\n\n"
+                f"ℹ️ <b>Foydalanish:</b>\n"
+                f"• <code>/forcesub @kanalingiz</code> — Kanalni biriktirish\n"
+                f"• <code>/forcesub off</code> — Majburiy obunani o'chirish\n\n"
+                f"<i>Eslatma: Bot ushbu kanalda administrator bo'lishi shart!</i>"
+            )
+            return
+        arg = parts[1].strip()
+        if arg.lower() in ("off", "stop", "none", "0"):
+            set_config("force_sub_channel", "")
+            await message.reply_text("✅ Majburiy kanal obunasi o'chirildi.")
+        else:
+            set_config("force_sub_channel", arg)
+            await message.reply_text(f"✅ Majburiy obuna kanali o'rnatildi: <b>{arg}</b>\nBot kanalda admin ekanligiga ishonch hosil qiling.")
+
+    @bot.on_callback_query(filters.regex(r"^sub_check$"))
+    async def sub_check_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        ch = get_config("force_sub_channel")
+        if not ch:
+            await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
+            await callback_query.answer()
+            return
+        try:
+            member = await client.get_chat_member(ch, user_id)
+            if member and getattr(member, "status", None) not in ("left", "kicked"):
+                await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
+                await callback_query.answer("✅ Rahmat! A'zolik tasdiqlandi.")
+                return
+        except Exception as e:
+            print(f"sub check error: {e}")
+        await callback_query.answer(t("sub_not_found", lang), show_alert=True)
+
+    # ==================== INLINE QUERY (GURUHLAR UCHUN VIRAL INVITATION) ====================
+    @bot.on_inline_query()
+    async def handle_inline_query(client, inline_query: InlineQuery):
+        user_id = inline_query.from_user.id
+        me = await client.get_me()
+        bot_user = me.username or "AutoReplyBot"
+        q = inline_query.query.strip().lower()
+        
+        duel_amount = 5000
+        parts = q.split()
+        if len(parts) > 1 and parts[1].isdigit():
+            duel_amount = int(parts[1])
+            
+        results = [
+            InlineQueryResultArticle(
+                title="⚔️ PvP Tanga Tashlash Dueli",
+                description=f"{duel_amount:,} so'm garov bilan do'stingizni duelga chorlang!",
+                input_message_content=InputTextMessageContent(
+                    f"⚔️ <b>PvP Tanga Tashlash (Coin Flip) Chaqiruvi!</b>\n\n"
+                    f"👤 <b>Chaqiruvchi:</b> {inline_query.from_user.first_name}\n"
+                    f"💰 <b>Garov:</b> <code>{duel_amount:,} so'm</code>\n"
+                    f"🏆 <b>G'olib oladi:</b> <code>{int(duel_amount * 2 * 0.9):,} so'm</code>\n\n"
+                    f"<i>Kim duelga kirishga tayyor? Pastdagi tugmani bosing!</i>"
+                ),
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton(f"⚔️ Duelga kirish ({duel_amount:,} so'm)", url=f"https://t.me/{bot_user}?start=duel_{duel_amount}")]
+                ])
+            ),
+            InlineQueryResultArticle(
+                title="🎁 Omadli Quti (Mystery Box)",
+                description="Do'stlaringizga Mystery Box ulashing va mukofot yuting!",
+                input_message_content=InputTextMessageContent(
+                    f"🎁 <b>Omadli Quti (Mystery Box)</b>\n\n"
+                    f"Qutini oching va <b>OpenRouter ($3)</b>, <b>Google Gemini ($5)</b> yoki <b>Katta Keshbek</b> yutib oling!\n\n"
+                    f"👇 <i>Pastdagi tugma orqali bepul omadingizni sinang:</i>"
+                ),
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎁 Qutini ochish", url=f"https://t.me/{bot_user}?start=ref_{user_id}")]
+                ])
+            )
+        ]
+        await inline_query.answer(results=results, cache_time=5)
+
+    # ==================== /dl & /download (VIRAL VIDEO DOWNLOADER) ====================
+    @bot.on_message(filters.command(["dl", "download"]))
+    async def dl_video_cmd(client, message):
+        user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        me = await client.get_me()
+        bot_user = me.username or "AutoReplyBot"
+        
+        parts = message.text.strip().split(maxsplit=1)
+        if len(parts) < 2:
+            await message.reply_text(
+                f"📥 <b>Video yuklab olish (YouTube & Instagram)</b>\n\n"
+                f"ℹ️ <b>Foydalanish:</b>\n"
+                f"<code>/dl &lt;video havolasi&gt;</code>\n\n"
+                f"<i>Masalan: /dl https://www.youtube.com/shorts/... yoki Instagram Reels</i>"
+            )
+            return
+            
+        target_url = parts[1].strip()
+        wait_msg = await message.reply_text("⏳ <i>Video yuklab olinmoqda va tayyorlanmoqda...</i>")
+        
+        os.makedirs("downloads", exist_ok=True)
+        out_path = f"downloads/dl_{user_id}_{uuid.uuid4().hex[:6]}.mp4"
+        
+        try:
+            if is_instagram_url(target_url):
+                info = await download_instagram_reel(target_url)
+                if info and os.path.exists(info.get("video_path", "")):
+                    v_title = info.get("title", "Instagram Reel")
+                    promo = t("dl_promo_caption", lang, bot_user=bot_user)
+                    caption = f"🎬 <b>{v_title[:60]}</b>{promo}"
+                    await message.reply_video(video=info["video_path"], caption=caption, supports_streaming=True)
+                    await wait_msg.delete()
+                    return
+            
+            import yt_dlp
+            ydl_opts = {
+                "outtmpl": out_path,
+                "format": "bestvideo[height<=720][filesize<45M]+bestaudio/best[height<=720][filesize<45M]/best[filesize<45M]/best",
+                "merge_output_format": "mp4",
+                "quiet": True,
+                "no_warnings": True,
+                "max_filesize": 50 * 1024 * 1024
+            }
+            def _dl_yt():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    return ydl.extract_info(target_url, download=True)
+            
+            info = await asyncio.to_thread(_dl_yt)
+            
+            actual_path = out_path
+            if not os.path.exists(out_path):
+                base, _ = os.path.splitext(out_path)
+                for f in os.listdir("downloads"):
+                    if f.startswith(os.path.basename(base)):
+                        actual_path = os.path.join("downloads", f)
+                        break
+                        
+            if os.path.exists(actual_path):
+                v_title = info.get("title", "Video") if isinstance(info, dict) else "Video"
+                promo = t("dl_promo_caption", lang, bot_user=bot_user)
+                caption = f"🎬 <b>{v_title[:60]}</b>{promo}"
+                await message.reply_video(video=actual_path, caption=caption, supports_streaming=True)
+                await wait_msg.delete()
+                try: os.remove(actual_path)
+                except: pass
+            else:
+                await wait_msg.edit_text("❌ Videoni yuklab bo'lmadi. Havolani tekshirib qayta urinib ko'ring.")
+        except Exception as e:
+            await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {e}")
+            if os.path.exists(out_path):
+                try: os.remove(out_path)
+                except: pass
 
     # ==================== /autopost ====================
     
@@ -3709,7 +4109,9 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex("^back_main$"))
     async def cb_back_main(client, cb: CallbackQuery):
-        await cb.message.edit_text("Asosiy menyu:", reply_markup=main_menu_kb(cb.from_user.id))
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        await cb.message.edit_text(t("main_menu", lang), reply_markup=main_menu_kb(user_id))
         await cb.answer()
     
     @bot.on_callback_query(filters.regex("^menu_"))
@@ -3723,11 +4125,8 @@ def create_ytbot():
         
         if menu == "wallet":
             bal = get_user_balance(user_id)
-            text = (
-                f"{e('MONEY')} <b>Sizning Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-                f"{e('STAR')} <b>Telegram Stars</b> yoki {e('CRYPTO')} <b>CryptoPay</b> orqali hisobingizni to'ldirishingiz mumkin.\n\n"
-                f"{e('PIN')} To'lov usulini tanlang:"
-            )
+            lang = get_user_language(user_id)
+            text = t("balance_text", lang, balance=bal)
             await cb.message.edit_text(text, reply_markup=wallet_menu_kb())
             await cb.answer()
             return
@@ -4796,10 +5195,15 @@ def create_ytbot():
             await cb.answer("Video fayli topilmadi yoki muddati tugagan.", show_alert=True)
             return
         await cb.answer("Video yuborilmoqda...")
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        me = await client.get_me()
+        bot_user = me.username or "AutoReplyBot"
+        promo = t("dl_promo_caption", lang, bot_user=bot_user)
         await client.send_video(
             cb.message.chat.id,
             video=data["video_path"],
-            caption=f"{e('CHECK')} <b>Instagram Reels</b>\n\n{data.get('title', '')}"
+            caption=f"{e('CHECK')} <b>Instagram Reels</b>\n\n{data.get('title', '')}{promo}"
         )
 
     @bot.on_callback_query(filters.regex(r"^insta_pub_([a-f0-9]+)$"))

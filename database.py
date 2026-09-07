@@ -485,6 +485,15 @@ def init_db():
         )
     """)
     
+    # 8. Foydalanuvchilar Tili (Multi-Language: uz, ru, en, es)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_languages (
+            tg_user_id BIGINT PRIMARY KEY,
+            language TEXT DEFAULT 'uz',
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()
@@ -2798,6 +2807,108 @@ def log_api_key_usage(api_key: str):
         print(f"log_api_key_usage error: {e}")
     finally:
         conn.close()
+
+
+# ==================== MULTI-LANGUAGE & VIRAL TRAFFIC HELPERS ====================
+
+def set_user_language(tg_user_id: int, lang: str) -> bool:
+    """Foydalanuvchi tanlagan tilni saqlash (uz, ru, en, es, tr)"""
+    conn = get_db()
+    if not conn: return False
+    safe_lang = lang.strip().lower()[:2]
+    if safe_lang not in ("uz", "ru", "en", "es", "tr"):
+        safe_lang = "uz"
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_languages (tg_user_id, language, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET language = EXCLUDED.language, updated_at = NOW()
+        """, (tg_user_id, safe_lang))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"set_user_language error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_language(tg_user_id: int) -> str:
+    """Foydalanuvchi tilini olish (default: uz)"""
+    conn = get_db()
+    if not conn: return "uz"
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT language FROM user_languages WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if not row: return "uz"
+        lang = row["language"] if isinstance(row, dict) else row[0]
+        return lang if lang in ("uz", "ru", "en", "es", "tr") else "uz"
+    except Exception as e:
+        print(f"get_user_language error: {e}")
+        return "uz"
+    finally:
+        conn.close()
+
+def get_top_referrers(limit: int = 5) -> list:
+    """Eng ko'p referal taklif qilgan liderlar ro'yxati"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT referrer_id, COUNT(*) as ref_count, COALESCE(SUM(total_earned_uzs), 0) as total_earned
+            FROM referrals
+            GROUP BY referrer_id
+            ORDER BY ref_count DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall() or []
+        res = []
+        for r in rows:
+            uid = r["referrer_id"] if isinstance(r, dict) else r[0]
+            cnt = r["ref_count"] if isinstance(r, dict) else r[1]
+            earned = r["total_earned"] if isinstance(r, dict) else r[2]
+            masked = str(uid)[:3] + "***" + str(uid)[-2:] if len(str(uid)) >= 5 else str(uid)
+            res.append({"user": masked, "count": int(cnt), "earned": int(earned)})
+        return res
+    except Exception as e:
+        print(f"get_top_referrers error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def get_top_duel_winners(limit: int = 5) -> list:
+    """Eng ko'p duel yutgan chempionlar"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT winner_id, COUNT(*) as win_count, COALESCE(SUM(amount_uzs * 2 * 0.9), 0) as total_payout
+            FROM coinflip_duels
+            WHERE status = 'finished' AND winner_id IS NOT NULL
+            GROUP BY winner_id
+            ORDER BY win_count DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall() or []
+        res = []
+        for r in rows:
+            uid = r["winner_id"] if isinstance(r, dict) else r[0]
+            cnt = r["win_count"] if isinstance(r, dict) else r[1]
+            payout = r["total_payout"] if isinstance(r, dict) else r[2]
+            masked = str(uid)[:3] + "***" + str(uid)[-2:] if len(str(uid)) >= 5 else str(uid)
+            res.append({"user": masked, "count": int(cnt), "payout": int(payout)})
+        return res
+    except Exception as e:
+        print(f"get_top_duel_winners error: {e}")
+        return []
+    finally:
+        conn.close()
+
 
 
 
