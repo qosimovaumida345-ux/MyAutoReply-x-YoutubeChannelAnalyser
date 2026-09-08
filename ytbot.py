@@ -1486,7 +1486,7 @@ def create_ytbot():
     async def help_cmd(client, message):
         await message.reply_text(HELP_MAIN_TEXT, reply_markup=help_menu_kb())
 
-    @bot.on_callback_query(filters.regex(r"^help_(.+)$"))
+    @bot.on_callback_query(filters.regex(r"^help_(?!create_check)(.+)$"))
     async def help_callback(client, callback_query: CallbackQuery):
         sec = callback_query.matches[0].group(1)
         full_key = f"help_{sec}"
@@ -4372,22 +4372,21 @@ def create_ytbot():
             await cb.answer("⚠️ Botdan foydalanish uchun avval 3D biometrik identifikatsiyadan o'ting! /start ni bosing.", show_alert=True)
             return
 
+        lang = get_user_language(user_id)
         menu = cb.data.replace("menu_", "")
         
         if menu == "wallet":
             bal = get_user_balance(user_id)
-            lang = get_user_language(user_id)
             text = t("balance_text", lang, balance=bal)
             await cb.message.edit_text(text, reply_markup=wallet_menu_kb())
             await cb.answer()
             return
 
         if menu == "support_desk":
-            lang = get_user_language(user_id)
             from support_desk import get_support_menu_keyboard
             kb = get_support_menu_keyboard(lang)
             text = (
-                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+                f'<emoji id="5343777479091831702">🤝</emoji> <b>Yordam & Qo\'llab-quvvatlash Markazi</b>\n\n'
                 f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
             )
             await cb.message.edit_text(text, reply_markup=kb)
@@ -4398,8 +4397,8 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             from vouchers_engine import RED_ANTIFRAUD_WARNING
             text = (
-                f"💸 <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
-                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f'<emoji id="5343777479091831702">💸</emoji> <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n'
+                f'<emoji id="5343777479091831702">💰</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
                 f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
                 f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
                 f"⚡ <b>Imkoniyatlar:</b>\n"
@@ -4423,7 +4422,7 @@ def create_ytbot():
             targets = get_instagram_targets(user_id)
             ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
             text = (
-                f"📸 <b>Instagram Account Auto-Cloner</b>\n\n"
+                f'<emoji id="5445284980970636407">📸</emoji> <b>Instagram Account Auto-Cloner</b>\n\n'
                 f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
                 f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
                 f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
@@ -4439,7 +4438,6 @@ def create_ytbot():
             return
 
         if menu == "capcut":
-            lang = get_user_language(user_id)
             from capcut_exchange import get_capcut_menu_text, get_capcut_pro_keyboard
             text = get_capcut_menu_text(user_id, lang)
             kb = get_capcut_pro_keyboard(user_id, lang)
@@ -4453,18 +4451,18 @@ def create_ytbot():
             if not is_sub:
                 bal = get_user_balance(user_id)
                 text = (
-                    "🎬 <b>AI Video Studio ($20 / oy)</b>\n\n"
-                    "Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
-                    "• 🎨 <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
-                    "• 🎙 <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
-                    "• 🎬 <b>Ken Burns FX</b> — Dinamik kamera harakati va audio montaj\n"
-                    "• 🚀 <b>1-Click YouTube Shorts Yuklash</b>\n\n"
-                    f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-                    "💎 <b>Tariflar:</b>\n"
-                    "• 👑 <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
-                    "• ⭐ <b>Telegram Stars:</b> 1,000 ⭐\n"
-                    "• 🎞 <b>1 ta Video:</b> 15,000 so'm / video\n\n"
-                    "Kerakli tarifni tanlang:"
+                    f'<emoji id="5451646226976378470">🎬</emoji> <b>AI Video Studio ($20 / oy)</b>\n\n'
+                    f"Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
+                    f"• 🎨 <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
+                    f"• 🎙 <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
+                    f"• 🎬 <b>Ken Burns FX</b> — Dinamik kamera harakati va audio montaj\n"
+                    f"• 🚀 <b>1-Click YouTube Shorts Yuklash</b>\n\n"
+                    f'<emoji id="5343777479091831702">💳</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
+                    f'<emoji id="5463424023734014980">💎</emoji> <b>Tariflar:</b>\n'
+                    f"• 👑 <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
+                    f'• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars:</b> 1,000 ⭐\n'
+                    f"• 🎞 <b>1 ta Video:</b> 15,000 so'm / video\n\n"
+                    f"Kerakli tarifni tanlang:"
                 )
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
@@ -4480,9 +4478,9 @@ def create_ytbot():
                 from mega_features import USER_STATES
                 USER_STATES[user_id] = {"action": "waiting_ai_prompt"}
                 text = (
-                    "🎬 <b>AI Video Studio (Faol Obuna)</b>\n\n"
-                    "Video yaratish uchun mavzu yoki prompt kiriting:\n"
-                    "<i>Masalan: O'zbekistonning 5 ta sirli joyi, Kosmos sirlari, Muvaffaqiyat qoidalari...</i>"
+                    f'<emoji id="5451646226976378470">🎬</emoji> <b>AI Video Studio (Faol Obuna)</b>\n\n'
+                    f"Video yaratish uchun mavzu yoki prompt kiriting:\n"
+                    f"<i>Masalan: O'zbekistonning 5 ta sirli joyi, Kosmos sirlari, Muvaffaqiyat qoidalari...</i>"
                 )
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
@@ -4498,8 +4496,8 @@ def create_ytbot():
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             spy_text = (
-                "🔍 <b>YouTube Competitor Spy & SEO Stealer</b>\n\n"
-                "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
+                f'<emoji id="5373147426863459828">🔍</emoji> <b>YouTube Competitor Spy & SEO Stealer</b>\n\n'
+                f"Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
             )
             await cb.message.edit_text(spy_text, reply_markup=kb)
             await cb.answer()
@@ -4509,9 +4507,9 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             from cashout import MIN_CASHOUT_UZS
             text = (
-                f"💸 <b>Hisobdan Pul Yechish (Cashout)</b>\n\n"
-                f"💰 <b>Mavjud balansingiz:</b> <code>{bal:,} so'm</code>\n"
-                f"⚠️ <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so'm</code>\n\n"
+                f'<emoji id="5343777479091831702">💸</emoji> <b>Hisobdan Pul Yechish (Cashout)</b>\n\n'
+                f'<emoji id="5343777479091831702">💰</emoji> <b>Mavjud balansingiz:</b> <code>{bal:,} so\'m</code>\n'
+                f'⚠️ <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so\'m</code>\n\n'
                 f"Pul yechish usulini tanlang:"
             )
             kb = InlineKeyboardMarkup([
@@ -5757,7 +5755,7 @@ def create_ytbot():
         await cb.message.edit_text(text, reply_markup=trending_menu_kb(), parse_mode=ParseMode.MARKDOWN)
     
     # Help category callbacks
-    @bot.on_callback_query(filters.regex("^help_"))
+    @bot.on_callback_query(filters.regex(r"^help_(?!create_check)"))
     async def cb_help(client, cb: CallbackQuery):
         cat = cb.data.replace("help_", "")
         helps = {

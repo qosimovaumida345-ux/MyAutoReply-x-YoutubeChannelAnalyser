@@ -413,43 +413,43 @@ TRANSLATIONS = {
     # ==================== BALANCE ====================
     "balance_text": {
         "uz": (
-            "💰 <b>Sizning Balansingiz:</b> <code>{balance:,} so'm</code>\n\n"
+            '<emoji id="5343777479091831702">💰</emoji> <b>Sizning Balansingiz:</b> <code>{balance:,} so\'m</code>\n\n'
             "To'lov turlari:\n"
-            "• 💎 <b>TON (The Open Network)</b>\n"
-            "• ⭐ <b>Telegram Stars</b>\n"
-            "• 🎁 <b>Sovg'a Vaucherlari (/redeem)</b>\n\n"
+            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6319002678990998592">🎁</emoji> <b>Sovg\'a Vaucherlari (/redeem)</b>\n\n'
             "<i>Balansni to'ldirish uchun kerakli to'lov usulini tanlang:</i>"
         ),
         "ru": (
-            "💰 <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n"
+            '<emoji id="5343777479091831702">💰</emoji> <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n'
             "Способы пополнения:\n"
-            "• 💎 <b>TON (The Open Network)</b>\n"
-            "• ⭐ <b>Telegram Stars</b>\n"
-            "• 🎁 <b>Подарочные Ваучеры (/redeem)</b>\n\n"
+            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6319002678990998592">🎁</emoji> <b>Подарочные Ваучеры (/redeem)</b>\n\n'
             "<i>Выберите удобный способ оплаты для пополнения:</i>"
         ),
         "en": (
-            "💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n"
+            '<emoji id="5343777479091831702">💰</emoji> <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n'
             "Payment methods:\n"
-            "• 💎 <b>TON (The Open Network)</b>\n"
-            "• ⭐ <b>Telegram Stars</b>\n"
-            "• 🎁 <b>Gift Vouchers (/redeem)</b>\n\n"
+            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6319002678990998592">🎁</emoji> <b>Gift Vouchers (/redeem)</b>\n\n'
             "<i>Choose your preferred payment method below:</i>"
         ),
         "es": (
-            "💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n"
+            '<emoji id="5343777479091831702">💰</emoji> <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n'
             "Métodos de pago:\n"
-            "• 💎 <b>TON (The Open Network)</b>\n"
-            "• ⭐ <b>Telegram Stars</b>\n"
-            "• 🎁 <b>Vales de Regalo (/redeem)</b>\n\n"
+            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6319002678990998592">🎁</emoji> <b>Vales de Regalo (/redeem)</b>\n\n'
             "<i>Elige tu método de pago preferido a continuación:</i>"
         ),
         "tr": (
-            "💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n"
+            '<emoji id="5343777479091831702">💰</emoji> <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n'
             "Ödeme Yöntemleri:\n"
-            "• 💎 <b>TON (The Open Network)</b>\n"
-            "• ⭐ <b>Telegram Stars</b>\n"
-            "• 🎁 <b>Hediye Kuponları (/redeem)</b>\n\n"
+            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6319002678990998592">🎁</emoji> <b>Hediye Kuponları (/redeem)</b>\n\n'
             "<i>Bakiyenizi yüklemek için aşağıdaki yöntemlerden birini seçin:</i>"
         )
     },

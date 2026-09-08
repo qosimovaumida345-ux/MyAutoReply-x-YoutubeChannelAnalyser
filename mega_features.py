@@ -482,6 +482,39 @@ def load_mega_features(bot: Client):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
+    @bot.on_callback_query(filters.regex(r"^ig_view_([A-Za-z0-9_.]+)$"))
+    async def cb_ig_view_profile(client, cb: CallbackQuery):
+        await cb.answer()
+        target_username = cb.matches[0].group(1)
+        uid = cb.from_user.id
+        targets = get_instagram_targets(uid)
+        matched = next((t for t in targets if t["ig_username"].lower() == target_username.lower()), None)
+        interval = matched.get("check_interval_mins", 60) if matched else 60
+        last_sync = matched.get("last_checked_at", "Hozirgacha tekshirilmadi") if matched else "Noma'lum"
+
+        text = (
+            f"📸 <b>Instagram Profil:</b> <code>@{target_username}</code>\n\n"
+            f"• <b>Holat:</b> 🟢 Faol kuzatuvda\n"
+            f"• <b>Kuzatuv intervali:</b> Har {interval} daqiqada\n"
+            f"• <b>Oxirgi tekshiruv:</b> <code>{last_sync}</code>\n\n"
+            f"Tanlang:"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Hozir Tekshirish & Yuklash", callback_data=f"ig_sync_{target_username}")],
+            [InlineKeyboardButton("🗑 Kuzatuvdan O'chirish", callback_data=f"ig_del_{target_username}")],
+            [InlineKeyboardButton("⬅️ Profillar Ro'yxati", callback_data="ig_manage_profiles")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^ig_sync_([A-Za-z0-9_.]+)$"))
+    async def cb_ig_sync_single(client, cb: CallbackQuery):
+        await cb.answer("Tekshiruv boshlanmoqda...", show_alert=False)
+        target_username = cb.matches[0].group(1)
+        uid = cb.from_user.id
+        wait_m = await cb.message.reply_text(f"🔄 <b>@{target_username} tekshirilmoqda...</b>")
+        res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=cb.message.chat.id)
+        await wait_m.edit_text(f"📸 <b>@{target_username} natijasi:</b>\n{res.get('message', 'Tekshiruv yakunlandi.')}")
+
     @bot.on_callback_query(filters.regex(r"^ig_sync_now$"))
     async def cb_ig_sync_now(client, cb: CallbackQuery):
         await cb.answer()
@@ -1110,6 +1143,11 @@ def load_mega_features(bot: Client):
         action = state.get("action")
         text = message.text.strip()
 
+        # Agar foydalanuvchi buyruq yuborsa (/start, /menu, /help va h.k.), holatdan chiqamiz
+        if text.startswith("/"):
+            USER_STATES.pop(uid, None)
+            return
+
         # 1. AI Support savoli
         if action == "waiting_support_ai":
             USER_STATES.pop(uid, None)
@@ -1217,7 +1255,7 @@ def load_mega_features(bot: Client):
             message.stop_propagation()
 
         # 8. AI Video Prompt
-        elif action in ("waiting_aivideo_prompt", "waiting_aivideo_prompt_single"):
+        elif action in ("waiting_aivideo_prompt", "waiting_ai_prompt", "waiting_aivideo_prompt_single"):
             USER_STATES.pop(uid, None)
             if action == "waiting_aivideo_prompt_single":
                 res_fee = db.deduct_single_ai_video_fee(uid)
@@ -1284,7 +1322,11 @@ def load_mega_features(bot: Client):
                 await wait_m.delete()
                 await message.reply_text(report, reply_markup=kb)
             except Exception as e:
-                await wait_m.edit_text(f"❌ Tahlil xatosi: {e}")
+                err_kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Qayta urinish", callback_data="menu_spy")],
+                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                ])
+                await wait_m.edit_text(f"❌ Tahlil xatosi: {e}\n\nIltimos, to'g'ri YouTube video yoki Shorts havolasini yuboring.", reply_markup=err_kb)
             message.stop_propagation()
 
         # 10. Cashout tafsilotlari

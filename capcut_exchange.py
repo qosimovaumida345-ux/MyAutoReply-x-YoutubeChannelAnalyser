@@ -59,7 +59,7 @@ def get_capcut_menu_text(user_id: int, lang: str = "uz") -> str:
     ) if sub else ""
 
     text = (
-        f"🎬 <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n"
+        f'<emoji id="5451646226976378470">🎬</emoji> <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n'
         f"{sub_status}"
         f"CapCut Pro bilan kompyuter va telefoningizda professional darajada video montaj qiling:\n\n"
         f"✨ <b>Pro Imkoniyatlar:</b>\n"
@@ -68,11 +68,11 @@ def get_capcut_menu_text(user_id: int, lang: str = "uz") -> str:
         f"• 🤖 AI Avtomatik Subtitrlar va Avto-Kesish\n"
         f"• 📐 4K 60FPS eksport va Suv belgisiz (No Watermark)\n"
         f"• ⚡ Cloud Storage va Tezkor renderlash\n\n"
-        f"💎 <b>Rasmiy Tariflar:</b>\n"
-        f"• 📅 <b>1 Oylik:</b> <code>99,000 so'm</code> ($8) yoki 400 ⭐\n"
-        f"• 📅 <b>3 Oylik:</b> <code>249,000 so'm</code> ($19) yoki 1,000 ⭐ <i>(16% tejash)</i>\n"
-        f"• 📅 <b>1 Yillik:</b> <code>799,000 so'm</code> ($62) yoki 3,000 ⭐ <i>(33% tejash)</i>\n\n"
-        f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+        f'<emoji id="5463424023734014980">💎</emoji> <b>Rasmiy Tariflar:</b>\n'
+        f'• 📅 <b>1 Oylik:</b> <code>99,000 so\'m</code> ($8) yoki <emoji id="6215463953925934839">⭐</emoji> 400 Stars\n'
+        f'• 📅 <b>3 Oylik:</b> <code>249,000 so\'m</code> ($19) yoki <emoji id="6215463953925934839">⭐</emoji> 1,000 Stars <i>(16% tejash)</i>\n'
+        f'• 📅 <b>1 Yillik:</b> <code>799,000 so\'m</code> ($62) yoki <emoji id="6215463953925934839">⭐</emoji> 3,000 Stars <i>(33% tejash)</i>\n\n'
+        f'<emoji id="5343777479091831702">💰</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
         f"<i>Xarid qilganingizdan so'ng hisobingizga darhol rasmiy litsenziya kaliti taqdim etiladi!</i>"
     )
     return text
