@@ -4365,7 +4365,7 @@ def create_ytbot():
         await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
         await cb.answer()
     
-    @bot.on_callback_query(filters.regex(r"^menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help)$"))
+    @bot.on_callback_query(filters.regex(r"^menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)$"))
     async def cb_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         if not check_is_admin(cb.from_user) and not is_user_kyc_verified(user_id):
@@ -4379,6 +4379,147 @@ def create_ytbot():
             lang = get_user_language(user_id)
             text = t("balance_text", lang, balance=bal)
             await cb.message.edit_text(text, reply_markup=wallet_menu_kb())
+            await cb.answer()
+            return
+
+        if menu == "support_desk":
+            lang = get_user_language(user_id)
+            from support_desk import get_support_menu_keyboard
+            kb = get_support_menu_keyboard(lang)
+            text = (
+                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+                f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
+            )
+            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.answer()
+            return
+
+        if menu == "vouchers":
+            bal = get_user_balance(user_id)
+            from vouchers_engine import RED_ANTIFRAUD_WARNING
+            text = (
+                f"💸 <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
+                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
+                f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
+                f"⚡ <b>Imkoniyatlar:</b>\n"
+                f"• 🎯 Homiy kanalga majburiy a'zolik sharti\n"
+                f"• 👥 Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
+                f"• 🛡️ Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
+                f"{RED_ANTIFRAUD_WARNING}"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Yangi Chek Yaratish", callback_data="vouchers_create_wizard")],
+                [InlineKeyboardButton("🎁 Chekni Faollashtirish (Kodni kiritish)", callback_data="vouchers_enter_code")],
+                [InlineKeyboardButton("📖 Cheklar Qo'llanmasi", callback_data="help_create_check")],
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.answer()
+            return
+
+        if menu == "ig_cloner":
+            from instagram_cloner import get_instagram_targets
+            targets = get_instagram_targets(user_id)
+            ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
+            text = (
+                f"📸 <b>Instagram Account Auto-Cloner</b>\n\n"
+                f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
+                f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
+                f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
+                [InlineKeyboardButton("🔄 Tekshirish & Yuklash", callback_data="ig_sync_now")],
+                [InlineKeyboardButton("📋 Profillarni Boshqarish", callback_data="ig_manage_profiles")],
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.answer()
+            return
+
+        if menu == "capcut":
+            lang = get_user_language(user_id)
+            from capcut_exchange import get_capcut_menu_text, get_capcut_pro_keyboard
+            text = get_capcut_menu_text(user_id, lang)
+            kb = get_capcut_pro_keyboard(user_id, lang)
+            await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+            await cb.answer()
+            return
+
+        if menu == "ai_video":
+            from database import is_user_ai_video_subscribed
+            is_sub = is_user_ai_video_subscribed(user_id)
+            if not is_sub:
+                bal = get_user_balance(user_id)
+                text = (
+                    "🎬 <b>AI Video Studio ($20 / oy)</b>\n\n"
+                    "Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
+                    "• 🎨 <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
+                    "• 🎙 <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
+                    "• 🎬 <b>Ken Burns FX</b> — Dinamik kamera harakati va audio montaj\n"
+                    "• 🚀 <b>1-Click YouTube Shorts Yuklash</b>\n\n"
+                    f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                    "💎 <b>Tariflar:</b>\n"
+                    "• 👑 <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
+                    "• ⭐ <b>Telegram Stars:</b> 1,000 ⭐\n"
+                    "• 🎞 <b>1 ta Video:</b> 15,000 so'm / video\n\n"
+                    "Kerakli tarifni tanlang:"
+                )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
+                    [InlineKeyboardButton("⭐ 1,000 Stars bilan Olish", callback_data="aivid_buy_stars")],
+                    [InlineKeyboardButton("🎞 1 ta Video Yaratish (15,000 so'm)", callback_data="aivid_buy_single")],
+                    [InlineKeyboardButton("💰 Hisobni To'ldirish", callback_data="menu_wallet")],
+                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                ])
+                await cb.message.edit_text(text, reply_markup=kb)
+                await cb.answer()
+                return
+            else:
+                from mega_features import USER_STATES
+                USER_STATES[user_id] = {"action": "waiting_ai_prompt"}
+                text = (
+                    "🎬 <b>AI Video Studio (Faol Obuna)</b>\n\n"
+                    "Video yaratish uchun mavzu yoki prompt kiriting:\n"
+                    "<i>Masalan: O'zbekistonning 5 ta sirli joyi, Kosmos sirlari, Muvaffaqiyat qoidalari...</i>"
+                )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                ])
+                await cb.message.edit_text(text, reply_markup=kb)
+                await cb.answer()
+                return
+
+        if menu == "spy":
+            from mega_features import USER_STATES
+            USER_STATES[user_id] = {"action": "waiting_spy_url"}
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
+            spy_text = (
+                "🔍 <b>YouTube Competitor Spy & SEO Stealer</b>\n\n"
+                "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
+            )
+            await cb.message.edit_text(spy_text, reply_markup=kb)
+            await cb.answer()
+            return
+
+        if menu == "cashout":
+            bal = get_user_balance(user_id)
+            from cashout import MIN_CASHOUT_UZS
+            text = (
+                f"💸 <b>Hisobdan Pul Yechish (Cashout)</b>\n\n"
+                f"💰 <b>Mavjud balansingiz:</b> <code>{bal:,} so'm</code>\n"
+                f"⚠️ <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so'm</code>\n\n"
+                f"Pul yechish usulini tanlang:"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⭐ Telegram Stars orqali", callback_data="co_method_stars")],
+                [InlineKeyboardButton("💎 TON Kriptovalyuta orqali", callback_data="co_method_ton")],
+                [InlineKeyboardButton("⬅️ Balans Menyusi", callback_data="menu_wallet")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
             await cb.answer()
             return
             

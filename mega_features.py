@@ -92,9 +92,6 @@ def load_mega_features(bot: Client):
         except Exception as e:
             import traceback
             logger.error(f"global_antifraud_cb_gate error: {e}\n{traceback.format_exc()}")
-            try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
-            except: pass
 
     # =========================================================================
     # 1. SUPPORT DESK & LIVE ADMIN BRIDGE
