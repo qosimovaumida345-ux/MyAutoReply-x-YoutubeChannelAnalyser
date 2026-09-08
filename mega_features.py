@@ -151,6 +151,10 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^supp_role_([a-z_]+)$"))
     async def cb_support_role(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         role_key = cb.matches[0].group(1)
         uid = cb.from_user.id
         lang = db.get_user_language(uid)
@@ -164,8 +168,10 @@ def load_mega_features(bot: Client):
             f"Savolingizga zudlik bilan javob olish uchun **«Savol berish (AI)»** tugmasini bosing "
             f"yoki shaxsan adminga xat yo'llang:"
         )
-        await cb.message.edit_text(text, reply_markup=get_role_view_keyboard(role_key, lang))
-        await cb.answer()
+        try:
+            await cb.message.edit_text(text, reply_markup=get_role_view_keyboard(role_key, lang))
+        except Exception:
+            await cb.message.reply_text(text, reply_markup=get_role_view_keyboard(role_key, lang))
 
     @bot.on_callback_query(filters.regex(r"^supp_ask_([a-z_]+)$"))
     async def cb_support_ask_ai(client, cb: CallbackQuery):
@@ -506,18 +512,12 @@ def load_mega_features(bot: Client):
         ])
         await cb.message.edit_text(text, reply_markup=kb)
 
-    @bot.on_callback_query(filters.regex(r"^ig_sync_([A-Za-z0-9_.]+)$"))
-    async def cb_ig_sync_single(client, cb: CallbackQuery):
-        await cb.answer("Tekshiruv boshlanmoqda...", show_alert=False)
-        target_username = cb.matches[0].group(1)
-        uid = cb.from_user.id
-        wait_m = await cb.message.reply_text(f"🔄 <b>@{target_username} tekshirilmoqda...</b>")
-        res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=cb.message.chat.id)
-        await wait_m.edit_text(f"📸 <b>@{target_username} natijasi:</b>\n{res.get('message', 'Tekshiruv yakunlandi.')}")
-
     @bot.on_callback_query(filters.regex(r"^ig_sync_now$"))
     async def cb_ig_sync_now(client, cb: CallbackQuery):
-        await cb.answer()
+        try:
+            await cb.answer("Barcha profillar tekshirilmoqda...", show_alert=False)
+        except Exception:
+            pass
         uid = cb.from_user.id
         targets = get_instagram_targets(uid)
         if not targets:
@@ -526,6 +526,18 @@ def load_mega_features(bot: Client):
         await cb.message.reply_text("🔄 <b>Tekshiruv boshlanmoqda...</b> Yangi videolar avtomatik yuklanadi.")
         for t in targets:
             await sync_instagram_account_now(uid, t["ig_username"], app=client, chat_id=cb.message.chat.id)
+
+    @bot.on_callback_query(filters.regex(r"^ig_sync_(?!now$)([A-Za-z0-9_.]+)$"))
+    async def cb_ig_sync_single(client, cb: CallbackQuery):
+        try:
+            await cb.answer("Tekshiruv boshlanmoqda...", show_alert=False)
+        except Exception:
+            pass
+        target_username = cb.matches[0].group(1)
+        uid = cb.from_user.id
+        wait_m = await cb.message.reply_text(f"🔄 <b>@{target_username} tekshirilmoqda...</b>")
+        res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=cb.message.chat.id)
+        await wait_m.edit_text(f"📸 <b>@{target_username} natijasi:</b>\n{res.get('message', 'Tekshiruv yakunlandi.')}")
 
     # =========================================================================
     # 4. CAPCUT PRO — PULLIK SOTISH TIZIMI
@@ -618,7 +630,8 @@ def load_mega_features(bot: Client):
         if not plan:
             return
 
-        bot_token = os.getenv("BOT_TOKEN")
+        from config import BOT_TOKEN
+        bot_token = BOT_TOKEN or os.getenv("BOT_TOKEN")
         from ytbot import _send_bot_api_invoice
         stars_amount = plan["stars"]
         res = await _send_bot_api_invoice(
@@ -703,9 +716,12 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^enter_promo_code$"))
     async def cb_enter_promo_code(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         USER_STATES[cb.from_user.id] = {"action": "waiting_promo_code"}
         await cb.message.reply_text("🎟 **Iltimos, promokodingizni yozib yuboring:**")
-        await cb.answer()
 
     # =========================================================================
     # 6. 100% BEPUL AI VIDEO GENERATOR (POLLINATIONS + EDGE-TTS)
@@ -886,7 +902,8 @@ def load_mega_features(bot: Client):
     async def cb_aivid_buy_stars(client, cb: CallbackQuery):
         await cb.answer()
         uid = cb.from_user.id
-        bot_token = os.getenv("BOT_TOKEN")
+        from config import BOT_TOKEN
+        bot_token = BOT_TOKEN or os.getenv("BOT_TOKEN")
         from ytbot import _send_bot_api_invoice
         res = await _send_bot_api_invoice(
             bot_token=bot_token,
@@ -1067,12 +1084,15 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^co_method_(stars|ton)$"))
     async def cb_co_select_method(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         method = cb.matches[0].group(1)
         uid = cb.from_user.id
         USER_STATES[uid] = {"action": "waiting_cashout_details", "method": method}
         prompt_txt = "Telegram @username va summani yozing (masalan: `@username 50000`):" if method == "stars" else "TON hamyon manzilingiz va summani yozing (masalan: `EQ... 100000`):"
         await cb.message.reply_text(f"💳 **{method.upper()} orqali yechish:**\n\n{prompt_txt}")
-        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^adm_co_(app|rej)_(\d+)$"))
     async def cb_admin_cashout_action(client, cb: CallbackQuery):
@@ -1123,12 +1143,15 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^mkt_view_deeplink$"))
     async def cb_mkt_view_deeplink(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         USER_STATES[cb.from_user.id] = {"action": "waiting_deeplink_url"}
         await cb.message.reply_text(
             "📲 **Smart YouTube DeepLink & QR Generator**\n\n"
             "YouTube havolangizni yuboring, bot uni mobil ilovada to'g'ridan-to'g'ri ochiladigan formatga o'tkazadi:"
         )
-        await cb.answer()
 
     # =========================================================================
     # UNIVERSAL FSM TEXT HANDLER (STATE INPUTS)

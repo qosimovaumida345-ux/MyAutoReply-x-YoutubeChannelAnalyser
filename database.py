@@ -1,9 +1,25 @@
 import os
+import time
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timezone
 
 from config import DATABASE_URL
+
+# ==================== HIGH-SPEED IN-MEMORY TTL CACHE ====================
+_CACHE_STORE = {}
+
+def _get_cached(key):
+    entry = _CACHE_STORE.get(key)
+    if entry and time.time() < entry[1]:
+        return entry[0]
+    return None
+
+def _set_cached(key, val, ttl_seconds=180):
+    _CACHE_STORE[key] = (val, time.time() + ttl_seconds)
+
+def _invalidate_cached(key):
+    _CACHE_STORE.pop(key, None)
 
 
 def clean_database_url(url: str) -> str:
@@ -1736,14 +1752,20 @@ def get_user_stream_status(tg_user_id):
 # ==================== BALANS VA TO'LOVLAR ====================
 
 def get_user_balance(tg_user_id: int) -> int:
-    """Foydalanuvchining UZS balansini qaytaradi (default: 0)"""
+    """Foydalanuvchining UZS balansini qaytaradi (default: 0) (Kesh bilan tezkor)"""
+    cached = _get_cached(f"bal_{tg_user_id}")
+    if cached is not None:
+        return int(cached)
+
     conn = get_db()
     if not conn: return 0
     try:
         cur = conn.cursor()
         cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
-        return int(row["balance_uzs"]) if row and row["balance_uzs"] is not None else 0
+        val = int(row["balance_uzs"]) if row and row["balance_uzs"] is not None else 0
+        _set_cached(f"bal_{tg_user_id}", val, 30)
+        return val
     except Exception as e:
         print(f"get_user_balance error: {e}")
         return 0
@@ -1753,6 +1775,7 @@ def get_user_balance(tg_user_id: int) -> int:
 
 def add_user_balance(tg_user_id: int, amount_uzs: int) -> int:
     """Foydalanuvchining hisobiga pul qo'shish va yangi balansni qaytarish"""
+    _invalidate_cached(f"bal_{tg_user_id}")
     conn = get_db()
     if not conn: return 0
     try:
@@ -1767,7 +1790,9 @@ def add_user_balance(tg_user_id: int, amount_uzs: int) -> int:
         """, (tg_user_id, amount_uzs))
         row = cur.fetchone()
         conn.commit()
-        return int(row["balance_uzs"]) if row else 0
+        new_val = int(row["balance_uzs"]) if row else 0
+        _set_cached(f"bal_{tg_user_id}", new_val, 30)
+        return new_val
     except Exception as e:
         conn.rollback()
         print(f"add_user_balance error: {e}")
@@ -1778,6 +1803,7 @@ def add_user_balance(tg_user_id: int, amount_uzs: int) -> int:
 
 def deduct_user_balance(tg_user_id: int, amount_uzs: int) -> bool:
     """Balansdan pul yechish. Agar yetarli bo'lsa True, bo'lmasa False"""
+    _invalidate_cached(f"bal_{tg_user_id}")
     if amount_uzs <= 0: return True
     conn = get_db()
     if not conn: return False
@@ -1794,6 +1820,7 @@ def deduct_user_balance(tg_user_id: int, amount_uzs: int) -> bool:
             (amount_uzs, tg_user_id)
         )
         conn.commit()
+        _set_cached(f"bal_{tg_user_id}", current - amount_uzs, 30)
         return True
     except Exception as e:
         conn.rollback()
@@ -2035,6 +2062,7 @@ def save_kyc_verification(tg_user_id: int, phone_number: str, passport_hash: str
                 verified_at = NOW()
         """, (tg_user_id, phone_number, passport_hash, face_hash))
         conn.commit()
+        _set_cached(f"kyc_{tg_user_id}", True, 300)
         return True
     except Exception as e:
         conn.rollback()
@@ -2045,16 +2073,24 @@ def save_kyc_verification(tg_user_id: int, phone_number: str, passport_hash: str
 
 
 def is_user_kyc_verified(tg_user_id: int) -> bool:
-    """Foydalanuvchi KYC dan o'tganmi?"""
+    """Foydalanuvchi KYC dan o'tganmi? (Kesh bilan tezkor)"""
+    cached = _get_cached(f"kyc_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
+
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
         cur.execute("SELECT status FROM kyc_verifications WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
-        if not row: return False
+        if not row:
+            _set_cached(f"kyc_{tg_user_id}", False, 180)
+            return False
         st = row["status"] if isinstance(row, dict) else row[0]
-        return st == "verified"
+        res = bool(st == "verified")
+        _set_cached(f"kyc_{tg_user_id}", res, 300 if res else 60)
+        return res
     except Exception as e:
         print(f"is_user_kyc_verified error: {e}")
         return False
@@ -2622,6 +2658,7 @@ def purchase_vip_subscription(tg_user_id: int) -> dict:
         exp = res["expires_at"] if isinstance(res, dict) else res[0]
 
         conn.commit()
+        _set_cached(f"vip_{tg_user_id}", True, 300)
         return {
             "ok": True,
             "expires_at": str(exp)[:19],
@@ -2635,7 +2672,11 @@ def purchase_vip_subscription(tg_user_id: int) -> dict:
         conn.close()
 
 def is_user_vip(tg_user_id: int) -> bool:
-    """Foydalanuvchi VIP abonentimi?"""
+    """Foydalanuvchi VIP abonentimi? (Kesh bilan tezkor)"""
+    cached = _get_cached(f"vip_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
+
     conn = get_db()
     if not conn: return False
     try:
@@ -2645,7 +2686,9 @@ def is_user_vip(tg_user_id: int) -> bool:
             WHERE tg_user_id = %s AND NOW() < expires_at
         """, (tg_user_id,))
         row = cur.fetchone()
-        return bool(row)
+        res = bool(row)
+        _set_cached(f"vip_{tg_user_id}", res, 180)
+        return res
     except Exception as e:
         print(f"is_user_vip error: {e}")
         return False
@@ -2653,12 +2696,17 @@ def is_user_vip(tg_user_id: int) -> bool:
         conn.close()
 
 def is_user_ai_video_subscribed(tg_user_id: int) -> bool:
-    """Foydalanuvchida $20/oy AI Video generator obunasi mavjudmi?"""
+    """Foydalanuvchida $20/oy AI Video generator obunasi mavjudmi? (Kesh bilan tezkor)"""
     from config import OWNER_ID
     if tg_user_id == OWNER_ID:
         return True
     if is_user_vip(tg_user_id):
         return True
+
+    cached = _get_cached(f"aivid_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
+
     conn = get_db()
     if not conn: return False
     try:
@@ -2668,7 +2716,9 @@ def is_user_ai_video_subscribed(tg_user_id: int) -> bool:
             WHERE tg_user_id = %s AND NOW() < expires_at
         """, (tg_user_id,))
         row = cur.fetchone()
-        return bool(row)
+        res = bool(row)
+        _set_cached(f"aivid_{tg_user_id}", res, 180)
+        return res
     except Exception as e:
         print(f"is_user_ai_video_subscribed error: {e}")
         return False
@@ -3088,6 +3138,7 @@ def set_user_language(tg_user_id: int, lang: str) -> bool:
             SET language = EXCLUDED.language, updated_at = NOW()
         """, (tg_user_id, safe_lang))
         conn.commit()
+        _set_cached(f"lang_{tg_user_id}", safe_lang, 600)
         return True
     except Exception as e:
         conn.rollback()
@@ -3097,16 +3148,24 @@ def set_user_language(tg_user_id: int, lang: str) -> bool:
         conn.close()
 
 def get_user_language(tg_user_id: int) -> str:
-    """Foydalanuvchi tilini olish (default: uz)"""
+    """Foydalanuvchi tilini olish (default: uz) (Kesh bilan tezkor)"""
+    cached = _get_cached(f"lang_{tg_user_id}")
+    if cached is not None:
+        return str(cached)
+
     conn = get_db()
     if not conn: return "uz"
     try:
         cur = conn.cursor()
         cur.execute("SELECT language FROM user_languages WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
-        if not row: return "uz"
+        if not row:
+            _set_cached(f"lang_{tg_user_id}", "uz", 300)
+            return "uz"
         lang = row["language"] if isinstance(row, dict) else row[0]
-        return lang if lang in ("uz", "ru", "en", "es", "tr") else "uz"
+        res = lang if lang in ("uz", "ru", "en", "es", "tr") else "uz"
+        _set_cached(f"lang_{tg_user_id}", res, 600)
+        return res
     except Exception as e:
         print(f"get_user_language error: {e}")
         return "uz"
@@ -3643,13 +3702,19 @@ def claim_conditional_check(check_id: int, tg_user_id: int, amount: int) -> tupl
         conn.close()
 
 def is_user_antifraud_banned(tg_user_id: int) -> bool:
-    """Foydalanuvchi antifraud qora ro'yxatidami?"""
+    """Foydalanuvchi antifraud qora ro'yxatidami? (Kesh bilan tezkor)"""
+    cached = _get_cached(f"antifraud_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
+
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
         cur.execute("SELECT tg_user_id FROM banned_antifraud_users WHERE tg_user_id = %s", (tg_user_id,))
-        return bool(cur.fetchone())
+        res = bool(cur.fetchone())
+        _set_cached(f"antifraud_{tg_user_id}", res, 180)
+        return res
     except Exception as e:
         print(f"is_user_antifraud_banned error: {e}")
         return False
@@ -3668,6 +3733,7 @@ def ban_antifraud_user(tg_user_id: int, reason: str = "Majburiy kanaldan chiqib 
             ON CONFLICT (tg_user_id) DO UPDATE SET reason = EXCLUDED.reason, banned_at = NOW()
         """, (tg_user_id, reason))
         conn.commit()
+        _set_cached(f"antifraud_{tg_user_id}", True, 600)
         return True
     except Exception as e:
         conn.rollback()
@@ -3678,6 +3744,7 @@ def ban_antifraud_user(tg_user_id: int, reason: str = "Majburiy kanaldan chiqib 
 
 def unban_antifraud_user(tg_user_id: int) -> bool:
     """Foydalanuvchini qora ro'yxatdan chiqarish"""
+    _set_cached(f"antifraud_{tg_user_id}", False, 600)
     conn = get_db()
     if not conn: return False
     try:

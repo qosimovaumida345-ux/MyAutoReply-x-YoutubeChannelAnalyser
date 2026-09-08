@@ -547,12 +547,6 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
             reply_to_id = kwargs.get("reply_to_message_id")
             msg_id = await _bot_api_send(bot_token, cid, text, bot_api_kb, reply_to_id)
             if msg_id:
-                try:
-                    msg = await self.get_messages(cid, msg_id)
-                    if msg:
-                        return msg
-                except Exception:
-                    pass
                 from pyrogram.types import Message, Chat
                 return Message(id=int(msg_id), chat=Chat(id=int(cid), type="private"), client=self)
 
@@ -588,12 +582,6 @@ async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode
             bot_api_kb = _build_bot_api_reply_markup(reply_markup, user_id=cid)
             ok = await _bot_api_edit(bot_token, cid, mid, text, bot_api_kb)
             if ok:
-                try:
-                    msg = await self.get_messages(cid, mid)
-                    if msg:
-                        return msg
-                except Exception:
-                    pass
                 from pyrogram.types import Message, Chat
                 return Message(id=int(mid), chat=Chat(id=int(cid), type="private"), client=self)
 
@@ -4372,6 +4360,11 @@ def create_ytbot():
             await cb.answer("⚠️ Botdan foydalanish uchun avval 3D biometrik identifikatsiyadan o'ting! /start ni bosing.", show_alert=True)
             return
 
+        try:
+            await cb.answer()
+        except Exception:
+            pass
+
         lang = get_user_language(user_id)
         menu = cb.data.replace("menu_", "")
         
@@ -4379,7 +4372,6 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             text = t("balance_text", lang, balance=bal)
             await cb.message.edit_text(text, reply_markup=wallet_menu_kb())
-            await cb.answer()
             return
 
         if menu == "support_desk":
@@ -4390,7 +4382,6 @@ def create_ytbot():
                 f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
             )
             await cb.message.edit_text(text, reply_markup=kb)
-            await cb.answer()
             return
 
         if menu == "vouchers":
@@ -4414,7 +4405,6 @@ def create_ytbot():
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             await cb.message.edit_text(text, reply_markup=kb)
-            await cb.answer()
             return
 
         if menu == "ig_cloner":
@@ -4434,7 +4424,6 @@ def create_ytbot():
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             await cb.message.edit_text(text, reply_markup=kb)
-            await cb.answer()
             return
 
         if menu == "capcut":
@@ -4442,7 +4431,6 @@ def create_ytbot():
             text = get_capcut_menu_text(user_id, lang)
             kb = get_capcut_pro_keyboard(user_id, lang)
             await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
-            await cb.answer()
             return
 
         if menu == "ai_video":
@@ -4472,11 +4460,10 @@ def create_ytbot():
                     [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
                 ])
                 await cb.message.edit_text(text, reply_markup=kb)
-                await cb.answer()
                 return
             else:
                 from mega_features import USER_STATES
-                USER_STATES[user_id] = {"action": "waiting_ai_prompt"}
+                USER_STATES[user_id] = {"action": "waiting_aivideo_prompt"}
                 text = (
                     f'<emoji id="5978895591894161700">🎬</emoji> <b>AI Video Studio (Faol Obuna)</b>\n\n'
                     f"Video yaratish uchun mavzu yoki prompt kiriting:\n"
@@ -4486,7 +4473,6 @@ def create_ytbot():
                     [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
                 ])
                 await cb.message.edit_text(text, reply_markup=kb)
-                await cb.answer()
                 return
 
         if menu == "spy":
@@ -4500,7 +4486,6 @@ def create_ytbot():
                 f"Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
             )
             await cb.message.edit_text(spy_text, reply_markup=kb)
-            await cb.answer()
             return
 
         if menu == "cashout":
@@ -4518,7 +4503,6 @@ def create_ytbot():
                 [InlineKeyboardButton("⬅️ Balans Menyusi", callback_data="menu_wallet")]
             ])
             await cb.message.edit_text(text, reply_markup=kb)
-            await cb.answer()
             return
             
         if menu == "marketplace":
@@ -4581,9 +4565,11 @@ def create_ytbot():
         if menu in menus:
             text, kb = menus[menu]
             await cb.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-            await cb.answer()
             return
         cb.continue_propagation()
+
+    from mega_features import load_mega_features
+    load_mega_features(bot)
 
     # ==================== TO'LOV VA MARKETPLACE CALLBACKLARI ====================
     
@@ -7455,8 +7441,6 @@ Javobingni FAQAT JSON formatida ber:
         await message.reply_text("`Yordam uchun /help ni bosing.`", parse_mode=ParseMode.MARKDOWN)
     from super_features import load_super_features
     load_super_features(bot)
-    from mega_features import load_mega_features
-    load_mega_features(bot)
     return bot
 
 
