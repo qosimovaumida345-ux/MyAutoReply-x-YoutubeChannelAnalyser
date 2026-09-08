@@ -59,7 +59,7 @@ def get_capcut_menu_text(user_id: int, lang: str = "uz") -> str:
     ) if sub else ""
 
     text = (
-        f'<emoji id="5451646226976378470">🎬</emoji> <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n'
+        f'<emoji id="5978895591894161700">🎬</emoji> <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n'
         f"{sub_status}"
         f"CapCut Pro bilan kompyuter va telefoningizda professional darajada video montaj qiling:\n\n"
         f"✨ <b>Pro Imkoniyatlar:</b>\n"

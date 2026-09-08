@@ -4386,7 +4386,7 @@ def create_ytbot():
             from support_desk import get_support_menu_keyboard
             kb = get_support_menu_keyboard(lang)
             text = (
-                f'<emoji id="5343777479091831702">🤝</emoji> <b>Yordam & Qo\'llab-quvvatlash Markazi</b>\n\n'
+                f'<emoji id="5339081812821957844">🤝</emoji> <b>Yordam & Qo\'llab-quvvatlash Markazi</b>\n\n'
                 f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
             )
             await cb.message.edit_text(text, reply_markup=kb)
@@ -4397,7 +4397,7 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             from vouchers_engine import RED_ANTIFRAUD_WARNING
             text = (
-                f'<emoji id="5343777479091831702">💸</emoji> <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n'
+                f'<emoji id="5265197972919964944">💸</emoji> <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n'
                 f'<emoji id="5343777479091831702">💰</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
                 f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
                 f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
@@ -4422,7 +4422,7 @@ def create_ytbot():
             targets = get_instagram_targets(user_id)
             ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
             text = (
-                f'<emoji id="5445284980970636407">📸</emoji> <b>Instagram Account Auto-Cloner</b>\n\n'
+                f'<emoji id="4990082283701535678">📸</emoji> <b>Instagram Account Auto-Cloner</b>\n\n'
                 f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
                 f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
                 f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
@@ -4451,7 +4451,7 @@ def create_ytbot():
             if not is_sub:
                 bal = get_user_balance(user_id)
                 text = (
-                    f'<emoji id="5451646226976378470">🎬</emoji> <b>AI Video Studio ($20 / oy)</b>\n\n'
+                    f'<emoji id="5978895591894161700">🎬</emoji> <b>AI Video Studio ($20 / oy)</b>\n\n'
                     f"Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
                     f"• 🎨 <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
                     f"• 🎙 <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
@@ -4478,7 +4478,7 @@ def create_ytbot():
                 from mega_features import USER_STATES
                 USER_STATES[user_id] = {"action": "waiting_ai_prompt"}
                 text = (
-                    f'<emoji id="5451646226976378470">🎬</emoji> <b>AI Video Studio (Faol Obuna)</b>\n\n'
+                    f'<emoji id="5978895591894161700">🎬</emoji> <b>AI Video Studio (Faol Obuna)</b>\n\n'
                     f"Video yaratish uchun mavzu yoki prompt kiriting:\n"
                     f"<i>Masalan: O'zbekistonning 5 ta sirli joyi, Kosmos sirlari, Muvaffaqiyat qoidalari...</i>"
                 )
@@ -4496,7 +4496,7 @@ def create_ytbot():
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             spy_text = (
-                f'<emoji id="5373147426863459828">🔍</emoji> <b>YouTube Competitor Spy & SEO Stealer</b>\n\n'
+                f'<emoji id="5339247212012528642">🕵️</emoji> <b>YouTube Competitor Spy & SEO Stealer</b>\n\n'
                 f"Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
             )
             await cb.message.edit_text(spy_text, reply_markup=kb)
@@ -4507,7 +4507,7 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             from cashout import MIN_CASHOUT_UZS
             text = (
-                f'<emoji id="5343777479091831702">💸</emoji> <b>Hisobdan Pul Yechish (Cashout)</b>\n\n'
+                f'<emoji id="5265197972919964944">💸</emoji> <b>Hisobdan Pul Yechish (Cashout)</b>\n\n'
                 f'<emoji id="5343777479091831702">💰</emoji> <b>Mavjud balansingiz:</b> <code>{bal:,} so\'m</code>\n'
                 f'⚠️ <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so\'m</code>\n\n'
                 f"Pul yechish usulini tanlang:"
