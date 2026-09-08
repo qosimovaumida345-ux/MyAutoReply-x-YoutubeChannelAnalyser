@@ -168,111 +168,335 @@ def convert_md_to_html_and_emojis(text):
         
     return text
 
-def _build_bot_api_reply_markup(reply_markup):
-    """Converts Pyrogram InlineKeyboardMarkup to Telegram Bot API dict with icon_custom_emoji_id"""
-    if not reply_markup or not isinstance(reply_markup, InlineKeyboardMarkup):
+def _is_vip_user(user_id):
+    if not user_id:
+        return False
+    try:
+        from database import is_user_vip
+        return bool(is_user_vip(int(user_id)))
+    except Exception:
+        return False
+
+def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
+    # 1. CapCut Pro
+    if any(k in cb for k in ["menu_capcut", "capcut"]):
+        return "5285497929686069998" if is_vip else "5978895591894161700"
+    # 2. Instagram Cloner
+    if any(k in cb for k in ["menu_ig_cloner", "ig_"]):
+        return "6001420655252213986" if is_vip else "4990082283701535678"
+    # 3. Reels Downloader
+    if any(k in cb for k in ["menu_reels", "dl_reels"]):
+        return "5312147767966054472" if is_vip else "5825658700735451589"
+    # 4. P2P Vouchers / Cheklar
+    if any(k in cb for k in ["menu_vouchers", "claim_chk", "help_create_check"]):
+        return "5420112302210817795" if is_vip else "5265197972919964944"
+    # 5. Check Claim
+    if any(k in cb for k in ["chk_claim", "redeem_check"]):
+        return "5960914406366779993" if is_vip else "5980930633298350051"
+    # 6. Anti-fraud / Xavfsizlik
+    if any(k in cb for k in ["antifraud", "security_lock"]):
+        return "5465443379917629504" if is_vip else "5463358164705489689"
+    # 7. AI Video Studio ($20/oy)
+    if any(k in cb for k in ["menu_ai_video", "aivid_"]):
+        return "5249493957578078525" if is_vip else "5235837920081887219"
+    # 8. Voice / Audio
+    if any(k in cb for k in ["voice_", "tts_"]):
+        return "5766912713586381607" if is_vip else "5895215520000513680"
+    # 9. Raqobatchi Tahlili (Spy & SEO)
+    if any(k in cb for k in ["menu_spy", "spy_"]):
+        return "6107110845399962129" if is_vip else "5339247212012528642"
+    # 10. SEO Tag
+    if any(k in cb for k in ["seo_tags", "tagsgen"]):
+        return "5406711411541823609" if is_vip else "5298877105000439431"
+    # 11. Balansni Yechish (Cashout)
+    if any(k in cb for k in ["menu_cashout", "co_method", "cashout"]):
+        return "5463046637842608206" if is_vip else "4967738760021148319"
+    # 12. Smart YouTube DeepLink & QR
+    if any(k in cb for k in ["menu_deeplink", "deeplink"]):
+        return "5224378350335707737" if is_vip else "5264938002844513934"
+
+    # Core Navigation & Features:
+    if any(k in cb for k in ["menu_support_desk", "supp_"]):
+        return "5443038326535759644"
+    if any(k in cb for k in ["menu_wallet", "pay_"]):
+        return "5463046637842608206" if is_vip else "5343777479091831702"
+    if any(k in cb for k in ["menu_games", "game_"]):
+        return "5235989279024373566"
+    if any(k in cb for k in ["menu_referral"]):
+        return "6319002678990998592"
+    if any(k in cb for k in ["menu_leaderboard"]):
+        return "5226431245918942763"
+    if any(k in cb for k in ["menu_marketplace", "market"]):
+        return "5864068125112144897"
+    if any(k in cb for k in ["help_api", "api_keys"]):
+        return "5287480366330816274"
+    if any(k in cb for k in ["menu_channel"]):
+        return "5431504848992360576"
+    if any(k in cb for k in ["menu_analytics"]):
+        return "5244837092042750681"
+    if any(k in cb for k in ["menu_lang"]):
+        return "6017109689748164760"
+    if any(k in cb for k in ["menu_help"]):
+        return "5452026937172048380"
+    if any(k in cb for k in ["back_main", "main_menu"]):
+        return "6327577233305112811"
+
+    # WebApps:
+    if web_url:
+        if "/kyc/" in web_url or "kyc" in web_url:
+            return "5330194932781050507"
+        return "6327577233305112811"
+
+    # Text based detection
+    if "capcut" in raw_text:
+        return "5285497929686069998" if is_vip else "5978895591894161700"
+    if "instagram" in raw_text or "kloner" in raw_text:
+        return "6001420655252213986" if is_vip else "4990082283701535678"
+    if "reels" in raw_text:
+        return "5312147767966054472" if is_vip else "5825658700735451589"
+    if "chek" in raw_text or "voucher" in raw_text:
+        return "5420112302210817795" if is_vip else "5265197972919964944"
+    if "ai video" in raw_text:
+        return "5249493957578078525" if is_vip else "5235837920081887219"
+    if "raqobatchi" in raw_text or "spy" in raw_text:
+        return "6107110845399962129" if is_vip else "5339247212012528642"
+    if "admin" in raw_text or "yordam & live" in raw_text or "support" in raw_text:
+        return "5443038326535759644"
+    if "yechish" in raw_text or "cashout" in raw_text:
+        return "5463046637842608206" if is_vip else "4967738760021148319"
+    if "deeplink" in raw_text:
+        return "5224378350335707737" if is_vip else "5264938002844513934"
+    if "balans" in raw_text or "to'ldirish" in raw_text or "wallet" in raw_text:
+        return "5463046637842608206" if is_vip else "5343777479091831702"
+    if "o'yinlar" in raw_text or "yutuq" in raw_text:
+        return "5235989279024373566"
+    if "marketplace" in raw_text or "xizmatlar" in raw_text:
+        return "5864068125112144897"
+    if "do'stlarni" in raw_text or "referal" in raw_text:
+        return "6319002678990998592"
+    if "liderlar" in raw_text or "jadval" in raw_text:
+        return "5226431245918942763"
+    if "dashboard" in raw_text:
+        return "6327577233305112811"
+    if "kyc" in raw_text:
+        return "5330194932781050507"
+
+    return None
+
+def _get_button_style(cb, raw_text, web_url=""):
+    if web_url:
+        if "/kyc/" in web_url or "kyc" in web_url:
+            return "danger"
+        return "primary"
+
+    if any(k in cb for k in ["menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg", "marketplace", "market", "menu_marketplace", "menu_vouchers", "menu_cashout", "aivid_buy"]) or any(k in raw_text for k in ["sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace", "balans & to'ldirish", "balans", "obuna", "stars bilan"]):
+        return "success"
+
+    if any(k in cb for k in ["menu_games", "game_duel", "delaccount", "dbreset", "cancel"]) or any(k in raw_text for k in ["duel", "o'yinlar", "who wins", "o'chirish", "bekor", "3d kyc"]):
+        return "danger"
+
+    if any(k in cb for k in ["back_main", "main_menu", "dashboard", "pub_aivid"]) or any(k in raw_text for k in ["web dashboard", "bosh menyu", "orqaga", "yuklash"]):
+        return "primary"
+
+    return None
+
+_LEADING_EMOJI_PATTERN = re.compile(
+    r'^[\s\U00010000-\U0010ffff\u2600-\u27bf\ufe0f\u200d\u2300-\u23ff\u2b50\u2b55\u3030\u303d\u2190-\u21ff\u2934\u2935]+',
+    re.UNICODE
+)
+
+def _clean_button_text(btn_text, icon_id=None):
+    if not btn_text:
+        return ""
+    if icon_id:
+        cleaned = _LEADING_EMOJI_PATTERN.sub('', btn_text).strip()
+        for fb in sorted(FALLBACK_TO_ID.keys(), key=len, reverse=True):
+            if cleaned.startswith(fb):
+                cleaned = cleaned[len(fb):].strip()
+        return cleaned if cleaned else btn_text
+    return btn_text
+
+def _build_bot_api_reply_markup(reply_markup, user_id=None):
+    """Converts Pyrogram InlineKeyboardMarkup or ReplyKeyboardMarkup to Telegram Bot API payload dict"""
+    if not reply_markup:
         return None
+    if isinstance(reply_markup, dict):
+        return reply_markup
+    if not isinstance(reply_markup, InlineKeyboardMarkup):
+        if isinstance(reply_markup, ReplyKeyboardMarkup):
+            kb = []
+            for row in reply_markup.keyboard:
+                row_btns = []
+                for b in row:
+                    b_dict = {"text": b.text}
+                    if getattr(b, "request_contact", False):
+                        b_dict["request_contact"] = True
+                    if getattr(b, "request_location", False):
+                        b_dict["request_location"] = True
+                    row_btns.append(b_dict)
+                kb.append(row_btns)
+            res = {"keyboard": kb, "resize_keyboard": getattr(reply_markup, "resize_keyboard", True)}
+            if getattr(reply_markup, "one_time_keyboard", False):
+                res["one_time_keyboard"] = True
+            return res
+        if isinstance(reply_markup, ReplyKeyboardRemove):
+            return {"remove_keyboard": True}
+        return None
+
+    is_vip = _is_vip_user(user_id)
     keyboard = []
     for row in reply_markup.inline_keyboard:
         row_btns = []
         for btn in row:
             btn_dict = {}
-            text = btn.text or ""
-            icon_id = None
+            raw_text = btn.text or ""
+            cb = getattr(btn, "callback_data", None) or ""
+            if isinstance(cb, bytes):
+                try: cb = cb.decode("utf-8")
+                except: cb = ""
             
-            # Find and extract custom emoji ID from text
-            for fallback, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
-                if fallback in text:
-                    icon_id = str(c_id)
-                    text = text.replace(fallback, "").strip()
-                    break
+            web_url = ""
+            if getattr(btn, "web_app", None) and getattr(btn.web_app, "url", None):
+                web_url = btn.web_app.url
+
+            icon_id = _get_button_icon_id(cb, raw_text.lower(), web_url, is_vip=is_vip)
+            if not icon_id:
+                for fb, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
+                    if fb in raw_text:
+                        icon_id = str(c_id)
+                        break
             
-            btn_dict["text"] = text if text else (btn.text or "")
+            btn_dict["text"] = _clean_button_text(raw_text, icon_id)
             if icon_id:
-                btn_dict["icon_custom_emoji_id"] = icon_id
+                btn_dict["icon_custom_emoji_id"] = str(icon_id)
 
-            # Telegram Bot API 9.4+ button styling (success -> Green, danger -> Red, primary -> Blue)
-            style = getattr(btn, "style", None)
-            if not style:
-                cb = getattr(btn, "callback_data", None) or ""
-                if isinstance(cb, bytes):
-                    try: cb = cb.decode("utf-8")
-                    except: cb = ""
-                raw_text = (btn.text or "").lower()
-                
-                # Green ("success") - Sotib olish, to'ldirish, qutini ochish, tasdiqlash, marketplace
-                if any(k in cb for k in ["pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg", "marketplace", "market"]) or any(k in raw_text for k in ["sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace"]):
-                    style = "success"
-                # Red ("danger") - O'yinlar, Duel, Bekor qilish, O'chirish
-                elif any(k in cb for k in ["menu_games", "game_duel", "delaccount", "dbreset", "cancel"]) or any(k in raw_text for k in ["duel", "o'yinlar", "who wins", "o'chirish", "bekor"]):
-                    style = "danger"
-                # Blue ("primary") - Bosh menyu, Web Dashboard
-                elif any(k in cb for k in ["back_main", "dashboard"]) or any(k in raw_text for k in ["web dashboard", "bosh menyu"]):
-                    style = "primary"
-
-            if style in ("success", "danger", "primary"):
+            style = getattr(btn, "style", None) or _get_button_style(cb, raw_text.lower(), web_url)
+            if style in ("primary", "success", "danger"):
                 btn_dict["style"] = style
-                
+
             if btn.callback_data is not None:
-                btn_dict["callback_data"] = btn.callback_data if isinstance(btn.callback_data, str) else btn.callback_data.decode("utf-8")
+                btn_dict["callback_data"] = cb
             elif btn.url is not None:
                 btn_dict["url"] = btn.url
-            elif btn.web_app is not None:
+            elif getattr(btn, "web_app", None) and getattr(btn.web_app, "url", None):
                 btn_dict["web_app"] = {"url": btn.web_app.url}
-            elif btn.switch_inline_query is not None:
+            elif getattr(btn, "switch_inline_query", None) is not None:
                 btn_dict["switch_inline_query"] = btn.switch_inline_query
-            elif btn.switch_inline_query_current_chat is not None:
+            elif getattr(btn, "switch_inline_query_current_chat", None) is not None:
                 btn_dict["switch_inline_query_current_chat"] = btn.switch_inline_query_current_chat
-                
+
             row_btns.append(btn_dict)
         keyboard.append(row_btns)
     return {"inline_keyboard": keyboard}
 
 async def _bot_api_send(bot_token, chat_id, text, reply_markup=None, reply_to_message_id=None):
+    if not bot_token:
+        return None
     import aiohttp
+    
+    cid = getattr(chat_id, "id", chat_id)
+    if isinstance(cid, (int, str)):
+        cid = int(cid) if str(cid).lstrip("-").isdigit() else str(cid)
+
+    rep_id = None
+    if reply_to_message_id is not None:
+        rep_id = getattr(reply_to_message_id, "id", getattr(reply_to_message_id, "message_id", reply_to_message_id))
+        if rep_id is not None and str(rep_id).isdigit():
+            rep_id = int(rep_id)
+
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     bot_api_text = text.replace('<emoji id="', '<tg-emoji emoji-id="').replace('</emoji>', '</tg-emoji>')
     payload = {
-        "chat_id": chat_id,
+        "chat_id": cid,
         "text": bot_api_text,
         "parse_mode": "HTML",
     }
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
-    if reply_to_message_id:
-        payload["reply_to_message_id"] = reply_to_message_id
+    
+    if reply_markup is not None:
+        if isinstance(reply_markup, dict):
+            payload["reply_markup"] = reply_markup
+        else:
+            bot_markup = _build_bot_api_reply_markup(reply_markup, user_id=cid)
+            if bot_markup:
+                payload["reply_markup"] = bot_markup
+                
+    if rep_id:
+        payload["reply_to_message_id"] = rep_id
+        
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=12, connect=5)) as resp:
                 data = await resp.json()
                 if resp.status == 200 and data.get("ok"):
                     return data["result"]["message_id"]
+                else:
+                    import logging
+                    logging.warning(f"Bot API sendMessage failed: {resp.status} - {data.get('description')}")
     except Exception as e:
         import logging
-        logging.debug(f"Bot API send fallback: {e}")
+        logging.warning(f"Bot API send exception: {e}")
     return None
 
 async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None):
+    if not bot_token:
+        return False
     import aiohttp
+    
+    cid = getattr(chat_id, "id", chat_id)
+    if isinstance(cid, (int, str)):
+        cid = int(cid) if str(cid).lstrip("-").isdigit() else str(cid)
+
+    mid = getattr(message_id, "id", getattr(message_id, "message_id", message_id))
+    if mid is not None and str(mid).isdigit():
+        mid = int(mid)
+    else:
+        return False
+
     url = f"https://api.telegram.org/bot{bot_token}/editMessageText"
     bot_api_text = text.replace('<emoji id="', '<tg-emoji emoji-id="').replace('</emoji>', '</tg-emoji>')
     payload = {
-        "chat_id": chat_id,
-        "message_id": message_id,
+        "chat_id": cid,
+        "message_id": mid,
         "text": bot_api_text,
         "parse_mode": "HTML",
     }
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+    
+    if reply_markup is not None:
+        if isinstance(reply_markup, dict):
+            payload["reply_markup"] = reply_markup
+        else:
+            bot_markup = _build_bot_api_reply_markup(reply_markup, user_id=cid)
+            if bot_markup:
+                payload["reply_markup"] = bot_markup
+
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=12, connect=5)) as resp:
                 data = await resp.json()
                 if resp.status == 200 and data.get("ok"):
                     return True
+                desc = data.get("description", "")
+                if "message is not modified" in desc.lower():
+                    return True
+                if "there is no text in the message to edit" in desc.lower():
+                    caption_url = f"https://api.telegram.org/bot{bot_token}/editMessageCaption"
+                    caption_payload = {
+                        "chat_id": cid,
+                        "message_id": mid,
+                        "caption": bot_api_text,
+                        "parse_mode": "HTML",
+                    }
+                    if "reply_markup" in payload:
+                        caption_payload["reply_markup"] = payload["reply_markup"]
+                    async with session.post(caption_url, json=caption_payload, timeout=aiohttp.ClientTimeout(total=12, connect=5)) as c_resp:
+                        c_data = await c_resp.json()
+                        if c_resp.status == 200 and c_data.get("ok"):
+                            return True
+                import logging
+                logging.warning(f"Bot API editMessageText failed: {resp.status} - {desc}")
     except Exception as e:
         import logging
-        logging.debug(f"Bot API edit fallback: {e}")
+        logging.warning(f"Bot API edit exception: {e}")
     return False
 
 async def _send_bot_api_invoice(bot_token, chat_id, title, description, payload, currency, prices, provider_token=""):
@@ -308,6 +532,19 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
 
+    bot_token = getattr(self, "bot_token", None) or BOT_TOKEN or os.getenv("BOT_TOKEN")
+    if bot_token and reply_markup and isinstance(reply_markup, (InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove)):
+        cid = getattr(chat_id, "id", chat_id)
+        if isinstance(cid, (int, str)):
+            bot_api_kb = _build_bot_api_reply_markup(reply_markup, user_id=cid)
+            reply_to_id = kwargs.get("reply_to_message_id")
+            msg_id = await _bot_api_send(bot_token, cid, text, bot_api_kb, reply_to_id)
+            if msg_id:
+                try:
+                    return await self.get_messages(cid, msg_id)
+                except Exception:
+                    pass
+
     try:
         return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
     except Exception as e:
@@ -331,6 +568,19 @@ async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode
     if parse_mode != ParseMode.DISABLED:
         text = convert_md_to_html_and_emojis(text)
         parse_mode = ParseMode.HTML
+
+    bot_token = getattr(self, "bot_token", None) or BOT_TOKEN or os.getenv("BOT_TOKEN")
+    if bot_token and reply_markup and isinstance(reply_markup, (InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove)):
+        cid = getattr(chat_id, "id", chat_id)
+        mid = getattr(message_id, "id", getattr(message_id, "message_id", message_id))
+        if isinstance(cid, (int, str)) and mid:
+            bot_api_kb = _build_bot_api_reply_markup(reply_markup, user_id=cid)
+            ok = await _bot_api_edit(bot_token, cid, mid, text, bot_api_kb)
+            if ok:
+                try:
+                    return await self.get_messages(cid, mid)
+                except Exception:
+                    pass
 
     try:
         return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)

@@ -1224,11 +1224,12 @@ def is_video_already_posted(tg_user_id, source_video_id):
 
 # ==================== INIT ====================
 
-try:
-    init_db()
-except Exception as e:
-    print(f"Database init xatosi: {e}")
-    print("DATABASE_URL ni tekshiring yoki Render PostgreSQL ni ulang.")
+if __name__ == "__main__":
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Database init xatosi: {e}")
+        print("DATABASE_URL ni tekshiring yoki Render PostgreSQL ni ulang.")
 
 def reset_all_data():
     conn = get_db()
