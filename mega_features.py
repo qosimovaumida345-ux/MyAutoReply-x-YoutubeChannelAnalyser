@@ -113,14 +113,18 @@ def load_mega_features(bot: Client):
         uid = cb.from_user.id
         lang = db.get_user_language(uid)
         kb = get_support_menu_keyboard(lang)
+        msg_text = (
+            f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+            f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
+        )
         try:
-            await cb.message.edit_text(
-                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
-                f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:",
-                reply_markup=kb
-            )
+            await cb.message.edit_text(msg_text, reply_markup=kb)
         except Exception as e:
             logger.error(f"cb_support_desk_root error: {e}")
+            try:
+                await cb.message.reply_text(msg_text, reply_markup=kb)
+            except Exception:
+                pass
 
     @bot.on_callback_query(filters.regex(r"^support_desk_root$"))
     async def cb_support_desk_back(client, cb: CallbackQuery):
@@ -232,7 +236,7 @@ def load_mega_features(bot: Client):
         bal = db.get_user_balance(uid)
         text = (
             f"💸 **P2P Shartli Cheklar Tizimi (@wallet uslubida)**\n\n"
-            f"💰 **Balansingiz:** `<b>{bal:,} so'm</b>`\n\n"
+            f"💰 **Balansingiz:** <code>{bal:,} so'm</code>\n\n"
             f"Siz o'z balansingizdan do'stlaringizga yoki kanalingiz auditoriyasiga chek tarqatishingiz mumkin.\n"
             f"Chekni olish uchun majburiy kanal a'zoligi shartini qo'yishingiz mumkin!\n\n"
             f"Yaratish uchun buyruq:\n"
@@ -247,6 +251,10 @@ def load_mega_features(bot: Client):
             await cb.message.edit_text(text, reply_markup=kb)
         except Exception as e:
             logger.error(f"cb_menu_vouchers error: {e}")
+            try:
+                await cb.message.reply_text(text, reply_markup=kb)
+            except Exception:
+                pass
 
     @bot.on_callback_query(filters.regex(r"^claim_chk_([A-Za-z0-9_-]+)$"))
     async def cb_claim_check(client, cb: CallbackQuery):
@@ -324,6 +332,10 @@ def load_mega_features(bot: Client):
             await cb.message.edit_text(text, reply_markup=kb)
         except Exception as e:
             logger.error(f"cb_menu_ig_cloner error: {e}")
+            try:
+                await cb.message.reply_text(text, reply_markup=kb)
+            except Exception:
+                pass
 
     @bot.on_callback_query(filters.regex(r"^ig_add_profile$"))
     async def cb_ig_add_profile(client, cb: CallbackQuery):
@@ -358,6 +370,10 @@ def load_mega_features(bot: Client):
             await cb.message.edit_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard(), disable_web_page_preview=True)
         except Exception as e:
             logger.error(f"cb_menu_capcut error: {e}")
+            try:
+                await cb.message.reply_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard(), disable_web_page_preview=True)
+            except Exception:
+                pass
 
     @bot.on_callback_query(filters.regex(r"^capcut_get_pro$"))
     async def cb_capcut_get_pro(client, cb: CallbackQuery):
@@ -538,6 +554,10 @@ def load_mega_features(bot: Client):
                 await cb.message.edit_text(text, reply_markup=kb)
             except Exception as e:
                 logger.error(f"cb_menu_ai_video error: {e}")
+                try:
+                    await cb.message.reply_text(text, reply_markup=kb)
+                except Exception:
+                    pass
             return
 
         USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
@@ -554,6 +574,10 @@ def load_mega_features(bot: Client):
             await cb.message.edit_text(text, reply_markup=kb)
         except Exception as e:
             logger.error(f"cb_menu_ai_video prompt error: {e}")
+            try:
+                await cb.message.reply_text(text, reply_markup=kb)
+            except Exception:
+                pass
 
     @bot.on_callback_query(filters.regex(r"^aivid_buy_sub$"))
     async def cb_aivid_buy_sub(client, cb: CallbackQuery):
@@ -714,14 +738,18 @@ def load_mega_features(bot: Client):
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
+        spy_text = (
+            "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
+            "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
+        )
         try:
-            await cb.message.edit_text(
-                "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
-                "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:",
-                reply_markup=kb
-            )
+            await cb.message.edit_text(spy_text, reply_markup=kb)
         except Exception as e:
             logger.error(f"cb_menu_spy error: {e}")
+            try:
+                await cb.message.reply_text(spy_text, reply_markup=kb)
+            except Exception:
+                pass
 
     # =========================================================================
     # 8. CASHOUT ENGINE (STARS & TON PUL YECHISH)

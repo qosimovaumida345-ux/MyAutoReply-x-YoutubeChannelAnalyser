@@ -165,6 +165,13 @@ def convert_md_to_html_and_emojis(text):
         text = text.replace(f"TAGPHX{idx}XPH", tag)
     for idx, em in enumerate(saved_emojis):
         text = text.replace(f"EMOJIPHX{idx}XPH", em)
+
+    # Clean any accidental nested HTML tags inside <code> and <pre> tags (Telegram Bot API disallows them)
+    def _strip_nested_in_code(m):
+        tag = m.group(1)
+        inner = re.sub(r'</?(?:b|strong|i|em|u|ins|s|strike|del|a|span|tg-spoiler|tg-emoji|emoji)[^>]*>', '', m.group(2))
+        return f"<{tag}>{inner}</{tag}>"
+    text = re.sub(r'<(code|pre)>(.*?)</\1>', _strip_nested_in_code, text, flags=re.DOTALL | re.IGNORECASE)
         
     return text
 
@@ -541,9 +548,13 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
             msg_id = await _bot_api_send(bot_token, cid, text, bot_api_kb, reply_to_id)
             if msg_id:
                 try:
-                    return await self.get_messages(cid, msg_id)
+                    msg = await self.get_messages(cid, msg_id)
+                    if msg:
+                        return msg
                 except Exception:
                     pass
+                from pyrogram.types import Message, Chat
+                return Message(id=int(msg_id), chat=Chat(id=int(cid), type="private"), client=self)
 
     try:
         return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
@@ -578,9 +589,13 @@ async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode
             ok = await _bot_api_edit(bot_token, cid, mid, text, bot_api_kb)
             if ok:
                 try:
-                    return await self.get_messages(cid, mid)
+                    msg = await self.get_messages(cid, mid)
+                    if msg:
+                        return msg
                 except Exception:
                     pass
+                from pyrogram.types import Message, Chat
+                return Message(id=int(mid), chat=Chat(id=int(cid), type="private"), client=self)
 
     try:
         return await _orig_edit_message_text(self, chat_id, message_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
