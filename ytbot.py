@@ -357,6 +357,12 @@ def _build_bot_api_reply_markup(reply_markup, user_id=None):
         for btn in row:
             btn_dict = {}
             raw_text = btn.text or ""
+            # Strip <emoji id="...">fallback</emoji> tags from button text
+            # (Telegram doesn't parse HTML in button labels)
+            _ce_tag_match = re.search(r'<emoji\s+id="(\d+)">[^<]*</emoji>', raw_text)
+            _ce_id_from_tag = _ce_tag_match.group(1) if _ce_tag_match else None
+            raw_text = re.sub(r'<emoji\s+id="\d+">[^<]*</emoji>\s*', '', raw_text).strip()
+
             cb = getattr(btn, "callback_data", None) or ""
             if isinstance(cb, bytes):
                 try: cb = cb.decode("utf-8")
@@ -367,6 +373,8 @@ def _build_bot_api_reply_markup(reply_markup, user_id=None):
                 web_url = btn.web_app.url
 
             icon_id = _get_button_icon_id(cb, raw_text.lower(), web_url, is_vip=is_vip)
+            if not icon_id and _ce_id_from_tag:
+                icon_id = _ce_id_from_tag
             if not icon_id:
                 for fb, c_id in sorted(FALLBACK_TO_ID.items(), key=lambda x: len(x[0]), reverse=True):
                     if fb in raw_text:

@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 SUPPORT_ROLES = {
     "developer": {
         "title": {
-            "uz": f"{ce('ADMIN')} Dasturchi / API Integrator",
-            "ru": f"{ce('ADMIN')} Разработчик / API",
-            "en": f"{ce('ADMIN')} Developer / API Integrator",
-            "es": f"{ce('ADMIN')} Desarrollador / API",
-            "tr": f"{ce('ADMIN')} Geliştirici / API Entegratörü"
+            "uz": f"{e('ADMIN')} Dasturchi / API Integrator",
+            "ru": f"{e('ADMIN')} Разработчик / API",
+            "en": f"{e('ADMIN')} Developer / API Integrator",
+            "es": f"{e('ADMIN')} Desarrollador / API",
+            "tr": f"{e('ADMIN')} Geliştirici / API Entegratörü"
         },
         "desc": {
             "uz": "API kalitlar, Reseller API, webhooklar va bot avtomatizatsiyasi.",
@@ -32,11 +32,11 @@ SUPPORT_ROLES = {
     },
     "buyer": {
         "title": {
-            "uz": f"{ce('CARD')} Xaridor / Mijoz",
-            "ru": f"{ce('CARD')} Покупатель / Клиент",
-            "en": f"{ce('CARD')} Buyer / Customer",
-            "es": f"{ce('CARD')} Comprador / Cliente",
-            "tr": f"{ce('CARD')} Alıcı / Müşteri"
+            "uz": f"{e('CARD')} Xaridor / Mijoz",
+            "ru": f"{e('CARD')} Покупатель / Клиент",
+            "en": f"{e('CARD')} Buyer / Customer",
+            "es": f"{e('CARD')} Comprador / Cliente",
+            "tr": f"{e('CARD')} Alıcı / Müşteri"
         },
         "desc": {
             "uz": "Balans to'ldirish, TON/Stars to'lovlari, xizmatlar va cheklar.",
@@ -49,11 +49,11 @@ SUPPORT_ROLES = {
     },
     "new_user": {
         "title": {
-            "uz": f"{ce('IDEA')} Yangi Boshlovchi",
-            "ru": f"{ce('IDEA')} Новичок",
-            "en": f"{ce('IDEA')} Beginner",
-            "es": f"{ce('IDEA')} Principiante",
-            "tr": f"{ce('IDEA')} Yeni Başlayan"
+            "uz": f"{e('IDEA')} Yangi Boshlovchi",
+            "ru": f"{e('IDEA')} Новичок",
+            "en": f"{e('IDEA')} Beginner",
+            "es": f"{e('IDEA')} Principiante",
+            "tr": f"{e('IDEA')} Yeni Başlayan"
         },
         "desc": {
             "uz": "Bot qanday ishlaydi, YouTube ulash, Instagram klonlash bo'yicha ko'rsatma.",
@@ -66,11 +66,11 @@ SUPPORT_ROLES = {
     },
     "faq": {
         "title": {
-            "uz": f"{ce('HELP')} Ko'p So'raladigan Savollar",
-            "ru": f"{ce('HELP')} Часто Задаваемые Вопросы",
-            "en": f"{ce('HELP')} Frequently Asked Questions",
-            "es": f"{ce('HELP')} Preguntas Frecuentes",
-            "tr": f"{ce('HELP')} Sıkça Sorulan Sorular"
+            "uz": f"{e('HELP')} Ko'p So'raladigan Savollar",
+            "ru": f"{e('HELP')} Часто Задаваемые Вопросы",
+            "en": f"{e('HELP')} Frequently Asked Questions",
+            "es": f"{e('HELP')} Preguntas Frecuentes",
+            "tr": f"{e('HELP')} Sıkça Sorulan Sorular"
         },
         "desc": {
             "uz": "Tezkor javoblar, qoidalar va umumiy xavfsizlik.",

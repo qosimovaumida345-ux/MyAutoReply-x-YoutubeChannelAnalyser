@@ -16,7 +16,7 @@ import os
 import re
 import asyncio
 import logging
-from pyrogram import Client, filters
+from pyrogram import Client, filters, StopPropagation, ContinuePropagation
 from pyrogram.enums import ParseMode
 from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
@@ -75,7 +75,7 @@ def load_mega_features(bot: Client):
         uid = message.from_user.id
         if check_antifraud_or_blocked(uid):
             await message.reply_text(
-                "🚫 **HISOBINGIZ BUTUNLAY BLOKLANGAN!**\n\n"
+                f"{ce('LOCK')} **HISOBINGIZ BUTUNLAY BLOKLANGAN!**\n\n"
                 "Siz shartli chek olganingizdan so'ng homiy kanaldan chiqib ketgansiz.\n"
                 "Qat'iy xavfsizlik qoidalariga asosan siz uchun bot xizmatlari va balansingiz muzlatilgan."
             )
@@ -91,10 +91,12 @@ def load_mega_features(bot: Client):
         try:
             uid = cb.from_user.id
             if check_antifraud_or_blocked(uid):
-                await cb.answer("🚫 Siz qoidabuzarlik sababli botdan bloklangansiz!", show_alert=True)
+                await cb.answer("Siz qoidabuzarlik sababli botdan bloklangansiz!", show_alert=True)
                 cb.stop_propagation()
             else:
                 cb.continue_propagation()
+        except (StopPropagation, ContinuePropagation):
+            raise
         except Exception as e:
             import traceback
             logger.error(f"global_antifraud_cb_gate error: {e}\n{traceback.format_exc()}")
@@ -109,7 +111,7 @@ def load_mega_features(bot: Client):
         lang = db.get_user_language(uid)
         kb = get_support_menu_keyboard(lang)
         text = (
-            f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+            f"{ce('ADMIN')} **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
             f"Kerakli bo'limni tanlang. Sun'iy intellekt (Gemini AI) savollaringizga "
             f"24/7 rejimda javob beradi yoki to'g'ridan-to'g'ri admin bilan jonli bog'laydi:"
         )
@@ -123,7 +125,7 @@ def load_mega_features(bot: Client):
             lang = db.get_user_language(uid)
             kb = get_support_menu_keyboard(lang)
             msg_text = (
-                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+                f"{ce('ADMIN')} **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
                 f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
             )
             try:
@@ -1442,6 +1444,8 @@ def load_mega_features(bot: Client):
                 message.stop_propagation()
             else:
                 message.continue_propagation()
+        except (StopPropagation, ContinuePropagation):
+            raise
         except Exception as state_err:
             import traceback
             logger.error(f"universal_state_listener exception for {uid}: {state_err}\n{traceback.format_exc()}")
