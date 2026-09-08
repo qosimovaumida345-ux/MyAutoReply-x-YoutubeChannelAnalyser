@@ -8,7 +8,7 @@ import logging
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import generate_with_fallback_async, OWNER_ID
 import database as db
-from custom_emojis import ce
+from custom_emojis import e, ce
 
 logger = logging.getLogger(__name__)
 
