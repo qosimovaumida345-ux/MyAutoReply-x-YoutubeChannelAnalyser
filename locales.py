@@ -200,11 +200,11 @@ TRANSLATIONS = {
         "tr": "📸 Instagram Otomatik Klonlayıcı"
     },
     "btn_capcut": {
-        "uz": "🎬 CapCut Pro Almashinuv",
-        "ru": "🎬 CapCut Pro Обменник",
-        "en": "🎬 CapCut Pro Exchange Hub",
-        "es": "🎬 Intercambio CapCut Pro",
-        "tr": "🎬 CapCut Pro Değişim Havuzu"
+        "uz": "🎬 CapCut Pro (Pullik)",
+        "ru": "🎬 CapCut Pro (Платный)",
+        "en": "🎬 CapCut Pro (Paid)",
+        "es": "🎬 CapCut Pro (De Pago)",
+        "tr": "🎬 CapCut Pro (Ücretli)"
     },
     "btn_ai_video": {
         "uz": "🎬 AI Video Studio ($20/oy)",

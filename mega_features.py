@@ -42,8 +42,8 @@ from instagram_cloner import (
     remove_instagram_target, sync_instagram_account_now
 )
 from capcut_exchange import (
-    CAPCUT_GUIDE_TEXT, submit_referral_link,
-    get_next_invite_link, get_capcut_menu_keyboard
+    get_capcut_menu_text, get_capcut_pro_keyboard,
+    purchase_capcut_pro, CAPCUT_PRICES
 )
 from promo_engine import admin_create_promo, user_redeem_promo
 from pollinations_engine import build_ai_short_video
@@ -235,16 +235,20 @@ def load_mega_features(bot: Client):
         uid = cb.from_user.id
         bal = db.get_user_balance(uid)
         text = (
-            f"💸 **P2P Shartli Cheklar Tizimi (@wallet uslubida)**\n\n"
-            f"💰 **Balansingiz:** <code>{bal:,} so'm</code>\n\n"
-            f"Siz o'z balansingizdan do'stlaringizga yoki kanalingiz auditoriyasiga chek tarqatishingiz mumkin.\n"
-            f"Chekni olish uchun majburiy kanal a'zoligi shartini qo'yishingiz mumkin!\n\n"
-            f"Yaratish uchun buyruq:\n"
-            f"`/check <summa> <odam_soni> [@kanal]`\n\n"
+            f"💸 <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
+            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
+            f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
+            f"⚡ <b>Imkoniyatlar:</b>\n"
+            f"• 🎯 Homiy kanalga majburiy a'zolik sharti\n"
+            f"• 👥 Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
+            f"• 🛡️ Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
             f"{RED_ANTIFRAUD_WARNING}"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Yangi Chek Yaratish Qo'llanmasi", callback_data="help_create_check")],
+            [InlineKeyboardButton("➕ Yangi Chek Yaratish", callback_data="vouchers_create_wizard")],
+            [InlineKeyboardButton("🎁 Chekni Faollashtirish (Kodni kiritish)", callback_data="vouchers_enter_code")],
+            [InlineKeyboardButton("📖 Cheklar Qo'llanmasi", callback_data="help_create_check")],
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
         try:
@@ -255,6 +259,57 @@ def load_mega_features(bot: Client):
                 await cb.message.reply_text(text, reply_markup=kb)
             except Exception:
                 pass
+
+    @bot.on_callback_query(filters.regex(r"^vouchers_create_wizard$"))
+    async def cb_vouchers_create_wizard(client, cb: CallbackQuery):
+        await cb.answer()
+        USER_STATES[cb.from_user.id] = {"action": "waiting_check_params"}
+        bal = db.get_user_balance(cb.from_user.id)
+        text = (
+            f"➕ <b>Yangi P2P Shartli Chek Yaratish:</b>\n\n"
+            f"💰 Balansingiz: <code>{bal:,} so'm</code>\n\n"
+            f"Iltimos, chek parametrlarini quyidagi formatda yuboring:\n"
+            f"<code>&lt;summa&gt; &lt;odam_soni&gt; [@homiy_kanal]</code>\n\n"
+            f"<b>Misollar:</b>\n"
+            f"• <code>50000 5 @mening_kanalim</code> (50,000 so'm 5 kishiga, kanal obunachilariga)\n"
+            f"• <code>20000 2</code> (20,000 so'm 2 kishiga, kanalsiz ochiq chek)\n\n"
+            f"Chek summasi balansingizdan zudlik bilan yechiladi."
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_vouchers")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^vouchers_enter_code$"))
+    async def cb_vouchers_enter_code(client, cb: CallbackQuery):
+        await cb.answer()
+        USER_STATES[cb.from_user.id] = {"action": "waiting_check_code"}
+        text = (
+            "🎁 <b>P2P Chekni Faollashtirish:</b>\n\n"
+            "Sizga yuborilgan chek kodini yozib yuboring:\n"
+            "(Masalan: <code>CHK-A1B2C3D4</code>)"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_vouchers")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^help_create_check$"))
+    async def cb_help_create_check(client, cb: CallbackQuery):
+        await cb.answer()
+        text = (
+            "📖 <b>P2P Shartli Cheklar & Antifraud Qo'llanmasi:</b>\n\n"
+            "1. <b>Chek yaratish:</b> Siz o'z balansingizdan istalgan summani bir nechta odamga teng ulashib beruvchi chek yaratasiz.\n"
+            "2. <b>Homiy kanal sharti:</b> Agar homiy kanal ko'rsatsangiz, faqat o'sha kanalga obuna bo'lganlargina pulni ola oladi.\n"
+            "3. <b>Antifraud nazorati:</b> Tizim fon rejimida doimiy ravishda pul olgan foydalanuvchilarning kanaldan chiqib ketganligini tekshiradi.\n"
+            "4. <b>Jazo:</b> Pulni olib kanaldan chiqqan foydalanuvchi butunlay bloklanadi va hisobi muzlatiladi.\n\n"
+            f"{RED_ANTIFRAUD_WARNING}"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("➕ Yangi Chek Yaratish", callback_data="vouchers_create_wizard")],
+            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_vouchers")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
 
     @bot.on_callback_query(filters.regex(r"^claim_chk_([A-Za-z0-9_-]+)$"))
     async def cb_claim_check(client, cb: CallbackQuery):
@@ -275,17 +330,17 @@ def load_mega_features(bot: Client):
     async def ig_cloner_cmd(client, message: Message):
         uid = message.from_user.id
         targets = get_instagram_targets(uid)
-        ch_list = "\n".join([f"• @{t['ig_username']} (Interval: {t['check_interval_mins']} daqiqa)" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
+        ch_list = "\n".join([f"• @{t['ig_username']} (Interval: {t.get('check_interval_mins', 60)} daqiqa)" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
 
         text = (
-            f"📸 **Instagram Account Auto-Cloner & Reposter**\n\n"
+            f"📸 <b>Instagram Account Auto-Cloner & Reposter</b>\n\n"
             f"Belgilangan Instagram profiliga yangi Reel yuklanganda, bot uni darhol "
             f"yuklab oladi, 8-qatlamli unikalizatsiya (anti-copyright) qiladi va "
             f"ulangan YouTube kanalingizga avtomatik Shorts qilib joylaydi!\n\n"
-            f"📋 **Kuzatilayotgan profillaringiz:**\n{ch_list}\n\n"
-            f"Yangi profil qo'shish uchun: `/igcloner add @username`\n"
-            f"O'chirish uchun: `/igcloner del @username`\n"
-            f"Hozir sinash uchun: `/igcloner sync @username`"
+            f"📋 <b>Kuzatilayotgan profillaringiz:</b>\n{ch_list}\n\n"
+            f"Yangi profil qo'shish uchun: <code>/igcloner add @username</code>\n"
+            f"O'chirish uchun: <code>/igcloner del @username</code>\n"
+            f"Hozir sinash uchun: <code>/igcloner sync @username</code>"
         )
         parts = message.command
         if len(parts) >= 3:
@@ -307,7 +362,8 @@ def load_mega_features(bot: Client):
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
             [InlineKeyboardButton("🔄 Hozir Tekshirish & Yuklash", callback_data="ig_sync_now")],
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="main_menu")]
+            [InlineKeyboardButton("📋 Profillar Ro'yxati", callback_data="ig_manage_profiles")],
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
         await message.reply_text(text, reply_markup=kb)
 
@@ -318,14 +374,15 @@ def load_mega_features(bot: Client):
         targets = get_instagram_targets(uid)
         ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
         text = (
-            f"📸 **Instagram Account Auto-Cloner**\n\n"
+            f"📸 <b>Instagram Account Auto-Cloner</b>\n\n"
             f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
             f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
-            f"📋 **Profillar:**\n{ch_list}"
+            f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
             [InlineKeyboardButton("🔄 Tekshirish & Yuklash", callback_data="ig_sync_now")],
+            [InlineKeyboardButton("📋 Profillarni Boshqarish", callback_data="ig_manage_profiles")],
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
         try:
@@ -341,7 +398,63 @@ def load_mega_features(bot: Client):
     async def cb_ig_add_profile(client, cb: CallbackQuery):
         await cb.answer()
         USER_STATES[cb.from_user.id] = {"action": "waiting_ig_profile"}
-        await cb.message.reply_text("📸 **Instagram username yuboring:** (masalan: `@cristiano` yoki `selenagomez`)")
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_ig_cloner")]
+        ])
+        await cb.message.edit_text(
+            "📸 <b>Instagram username yuboring:</b>\n\n(Masalan: <code>@cristiano</code> yoki <code>selenagomez</code>)",
+            reply_markup=kb
+        )
+
+    @bot.on_callback_query(filters.regex(r"^ig_manage_profiles$"))
+    async def cb_ig_manage_profiles(client, cb: CallbackQuery):
+        await cb.answer()
+        uid = cb.from_user.id
+        targets = get_instagram_targets(uid)
+        if not targets:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ig_cloner")]
+            ])
+            await cb.message.edit_text("Hozircha kuzatilayotgan profillar yo'q.", reply_markup=kb)
+            return
+
+        buttons = []
+        for t in targets:
+            u_name = t["ig_username"]
+            buttons.append([
+                InlineKeyboardButton(f"@{u_name}", callback_data=f"ig_view_{u_name}"),
+                InlineKeyboardButton(f"🗑 O'chirish", callback_data=f"ig_del_{u_name}")
+            ])
+        buttons.append([InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")])
+        buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ig_cloner")])
+
+        await cb.message.edit_text(
+            "📋 <b>Kuzatilayotgan Instagram profillaringiz:</b>\nO'chirmoqchi bo'lganingiz yonidagi 🗑 tugmasini bosing:",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+    @bot.on_callback_query(filters.regex(r"^ig_del_([A-Za-z0-9_.]+)$"))
+    async def cb_ig_del_profile(client, cb: CallbackQuery):
+        target_username = cb.matches[0].group(1)
+        uid = cb.from_user.id
+        remove_instagram_target(uid, target_username)
+        await cb.answer(f"@{target_username} kuzatuvdan olib tashlandi!", show_alert=True)
+        # Qayta ro'yxatni chiqarish
+        targets = get_instagram_targets(uid)
+        buttons = []
+        for t in targets:
+            u_name = t["ig_username"]
+            buttons.append([
+                InlineKeyboardButton(f"@{u_name}", callback_data=f"ig_view_{u_name}"),
+                InlineKeyboardButton(f"🗑 O'chirish", callback_data=f"ig_del_{u_name}")
+            ])
+        buttons.append([InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")])
+        buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ig_cloner")])
+        await cb.message.edit_text(
+            "📋 <b>Kuzatilayotgan Instagram profillaringiz:</b>",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
     @bot.on_callback_query(filters.regex(r"^ig_sync_now$"))
     async def cb_ig_sync_now(client, cb: CallbackQuery):
@@ -351,60 +464,138 @@ def load_mega_features(bot: Client):
         if not targets:
             await cb.message.reply_text("⚠️ Avval kamida 1 ta Instagram profil qo'shing!")
             return
-        await cb.message.reply_text("🔄 **Tekshiruv boshlanmoqda...** Yangi videolar avtomatik yuklanadi.")
+        await cb.message.reply_text("🔄 <b>Tekshiruv boshlanmoqda...</b> Yangi videolar avtomatik yuklanadi.")
         for t in targets:
             await sync_instagram_account_now(uid, t["ig_username"], app=client, chat_id=cb.message.chat.id)
 
     # =========================================================================
-    # 4. CAPCUT DESKTOP & PRO TOOLS REFERRAL HUB
+    # 4. CAPCUT PRO — PULLIK SOTISH TIZIMI
     # =========================================================================
     @bot.on_message(filters.command(["capcut", "capcutpro"]) & filters.private)
     async def capcut_cmd(client, message: Message):
-        kb = get_capcut_menu_keyboard()
-        await message.reply_text(CAPCUT_GUIDE_TEXT, reply_markup=kb, disable_web_page_preview=True)
+        uid = message.from_user.id
+        lang = db.get_user_language(uid)
+        text = get_capcut_menu_text(uid, lang)
+        kb = get_capcut_pro_keyboard(uid, lang)
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
 
     @bot.on_callback_query(filters.regex(r"^menu_capcut$"))
     async def cb_menu_capcut(client, cb: CallbackQuery):
         await cb.answer()
+        uid = cb.from_user.id
+        lang = db.get_user_language(uid)
+        text = get_capcut_menu_text(uid, lang)
+        kb = get_capcut_pro_keyboard(uid, lang)
         try:
-            await cb.message.edit_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard(), disable_web_page_preview=True)
+            await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
         except Exception as e:
             logger.error(f"cb_menu_capcut error: {e}")
             try:
-                await cb.message.reply_text(CAPCUT_GUIDE_TEXT, reply_markup=get_capcut_menu_keyboard(), disable_web_page_preview=True)
+                await cb.message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
             except Exception:
                 pass
 
-    @bot.on_callback_query(filters.regex(r"^capcut_get_pro$"))
-    async def cb_capcut_get_pro(client, cb: CallbackQuery):
+    @bot.on_callback_query(filters.regex(r"^capcut_buy_(30|90|365)$"))
+    async def cb_capcut_buy(client, cb: CallbackQuery):
         await cb.answer()
+        plan_key = cb.matches[0].group(1)
         uid = cb.from_user.id
-        ref = get_next_invite_link(exclude_user_id=uid)
-        fallback_link = "https://www.capcut.com/capcut_pc_web/fission_receive?code=AIIt3z29586914&lng=en"
-        link = ref.get("invite_link") if ref else fallback_link
+        res = purchase_capcut_pro(uid, plan_key)
+
+        if not res.get("ok"):
+            bal = db.get_user_balance(uid)
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 Balansni To'ldirish", callback_data="menu_wallet")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_capcut")]
+            ])
+            await cb.message.edit_text(
+                f"❌ <b>Mablag' yetarli emas!</b>\n\n"
+                f"{res.get('error')}\n"
+                f"Sizning joriy balansingiz: <code>{bal:,} so'm</code>\n\n"
+                f"Iltimos, avval hisobingizni to'ldiring:",
+                reply_markup=kb
+            )
+            return
+
+        plan_label = res["plan_label"]
+        price_label = res["price_label"]
+        lic_key = res["license_key"]
+        expires_at = res["expires_at"]
+        new_bal = res["new_balance"]
+
         text = (
-            f"🎁 **CapCut Pro Bepul Havolangiz:**\n\n"
-            f"🔗 [CapCut Desktop-ni Yuklab Olish (7 kun bepul Pro)]({link})\n\n"
-            f"Kompyuteringizda ushbu havola orqali CapCut Desktop o'rnating va 7 kun bepul Pro oling!\n"
-            f"O'z taklif havolangizni botga qo'shib muddatni 70 kungacha uzaytirishingiz mumkin."
+            f"🎉 <b>Tabriklaymiz! CapCut Pro {plan_label} muvaffaqiyatli xarid qilindi!</b>\n\n"
+            f"🔑 <b>Sizning Litsenziya Kalitingiz:</b>\n"
+            f"<code>{lic_key}</code>\n\n"
+            f"📅 <b>Amal qilish muddati:</b> <code>{expires_at}</code> gacha\n"
+            f"💰 <b>Yechilgan summa:</b> {price_label}\n"
+            f"⚖️ <b>Qolgan balansingiz:</b> <code>{new_bal:,} so'm</code>\n\n"
+            f"📋 <b>Faollashtirish bo'yicha ko'rsatma:</b>\n"
+            f"1. Kompyuter yoki telefoningizda CapCut dasturini oching\n"
+            f"2. Profilingizga kiring va 'Pro' bo'limini tanlang\n"
+            f"3. Yuqoridagi litsenziya kalitini kiriting\n"
+            f"4. Barcha VIP filtrlar, 4K eksport va AI imkoniyatlaridan cheksiz foydalaning!"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ O'z Havolamni Qo'shish", callback_data="capcut_add_link")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_capcut")]
+            [InlineKeyboardButton("🔑 Mening Obunam", callback_data="capcut_my_status")],
+            [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
         ])
-        try:
-            await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=False)
-        except Exception as e:
-            logger.error(f"cb_capcut_get_pro error: {e}")
+        await cb.message.edit_text(text, reply_markup=kb)
 
-    @bot.on_callback_query(filters.regex(r"^capcut_add_link$"))
-    async def cb_capcut_add_link(client, cb: CallbackQuery):
-        USER_STATES[cb.from_user.id] = {"action": "waiting_capcut_link"}
-        await cb.message.reply_text(
-            "➕ **CapCut Desktop taklif havolangizni yuboring:**\n\n"
-            "(CapCut kompyuter dasturida 'Invite Friends' bo'limidan olingan havola)"
-        )
+    @bot.on_callback_query(filters.regex(r"^capcut_stars_(30|90|365)$"))
+    async def cb_capcut_stars(client, cb: CallbackQuery):
         await cb.answer()
+        plan_key = cb.matches[0].group(1)
+        uid = cb.from_user.id
+        plan = CAPCUT_PRICES.get(plan_key)
+        if not plan:
+            return
+
+        bot_token = os.getenv("BOT_TOKEN")
+        from ytbot import _send_bot_api_invoice
+        stars_amount = plan["stars"]
+        res = await _send_bot_api_invoice(
+            bot_token=bot_token,
+            chat_id=cb.message.chat.id,
+            title=f"CapCut Pro {plan['label']} Litsenziyasi",
+            description=f"{plan['days']} kunlik CapCut Pro rasmiy litsenziyasi va VIP imkoniyatlar",
+            payload=f"capcut_stars_{plan_key}_{uid}",
+            currency="XTR",
+            prices=[{"label": f"CapCut Pro {plan['label']}", "amount": stars_amount}],
+            provider_token=""
+        )
+        if not res:
+            await cb.message.reply_text("❌ Stars hisobini ochishda xatolik yuz berdi. Iltimos, balans orqali xarid qiling.")
+
+    @bot.on_callback_query(filters.regex(r"^capcut_my_status$"))
+    async def cb_capcut_my_status(client, cb: CallbackQuery):
+        await cb.answer()
+        uid = cb.from_user.id
+        sub = db.get_user_capcut_subscription(uid)
+        if not sub:
+            text = (
+                "⚪ <b>Sizda hali faol CapCut Pro obunasi mavjud emas.</b>\n\n"
+                "CapCut Pro xarid qilib barcha VIP vositalardan foydalanishingiz mumkin:"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🛒 Tariflarni Ko'rish", callback_data="menu_capcut")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_capcut")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            return
+
+        text = (
+            f"👑 <b>Sizning CapCut Pro Obunangiz:</b>\n\n"
+            f"• <b>Holat:</b> 🟢 Faol\n"
+            f"• <b>Amal qilish muddati:</b> <code>{sub.get('expires_at')}</code> gacha\n"
+            f"• <b>Litsenziya kaliti:</b> <code>{sub.get('license_key', 'Faol')}</code>\n\n"
+            f"🚀 Cheksiz foydalanishingiz mumkin!"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Obunani Uzaytirish", callback_data="menu_capcut")],
+            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
 
     # =========================================================================
     # 5. ADMIN PROMO CODES (/newpromo) & USER REDEMPTION (/redeem)
@@ -857,7 +1048,7 @@ def load_mega_features(bot: Client):
     # =========================================================================
     # UNIVERSAL FSM TEXT HANDLER (STATE INPUTS)
     # =========================================================================
-    @bot.on_message(filters.text & filters.private, group=10)
+    @bot.on_message(filters.text & filters.private, group=-1)
     async def universal_state_listener(client, message: Message):
         uid = message.from_user.id
         state = USER_STATES.get(uid)
@@ -906,21 +1097,66 @@ def load_mega_features(bot: Client):
                 await message.reply_text(f"❌ Foydalanuvchiga yuborishda xato: {err}")
             message.stop_propagation()
 
-        # 4. CapCut taklif havolasi kiritish
-        elif action == "waiting_capcut_link":
+        # 4. P2P Chek Yaratish (Wizard)
+        elif action == "waiting_check_params":
             USER_STATES.pop(uid, None)
-            ok, res = submit_referral_link(uid, text)
-            await message.reply_text(res)
+            parts = text.split()
+            if len(parts) < 2:
+                await message.reply_text("❌ Format xato! Masalan: `50000 5 @kanal` yoki `20000 2`")
+                message.stop_propagation()
+                return
+            try:
+                total_amt = int(parts[0])
+                claims_cnt = int(parts[1])
+                req_ch = parts[2] if len(parts) > 2 else None
+            except ValueError:
+                await message.reply_text("❌ Summa va odam soni raqam bo'lishi kerak!")
+                message.stop_propagation()
+                return
+
+            if total_amt < 1000 or claims_cnt < 1:
+                await message.reply_text("❌ Minimal summa: 1,000 so'm, odam soni kamida 1 ta bo'lishi kerak!")
+                message.stop_propagation()
+                return
+
+            ok, msg, code = create_p2p_check(uid, total_amt, claims_cnt, req_ch)
+            if not ok:
+                await message.reply_text(f"❌ Xatolik: {msg}")
+                message.stop_propagation()
+                return
+
+            share_kb = get_check_claim_keyboard(code, req_ch)
+            ch_text = f"\n📢 <b>Shart:</b> @{req_ch.strip().lstrip('@')} kanaliga a'zo bo'lish" if req_ch else ""
+            res_text = (
+                f"💸 <b>Yangi P2P Shartli Chek Yaratildi!</b>\n\n"
+                f"💰 <b>Umumiy summa:</b> <code>{total_amt:,} so'm</code>\n"
+                f"👥 <b>Qabul qiluvchilar:</b> <code>{claims_cnt} ta</code>\n"
+                f"💵 <b>Har biriga:</b> <code>{int(total_amt/claims_cnt):,} so'm</code>{ch_text}\n\n"
+                f"🔗 <b>Chek Kodi:</b> <code>{code}</code>\n\n"
+                f"{RED_ANTIFRAUD_WARNING}"
+            )
+            await message.reply_text(res_text, reply_markup=share_kb)
             message.stop_propagation()
 
-        # 5. Promokod kiritish
+        # 5. P2P Chek Kodini kiritish
+        elif action == "waiting_check_code":
+            USER_STATES.pop(uid, None)
+            clean_code = text.strip().upper()
+            ok, res = await process_check_claim(client, uid, clean_code)
+            if not ok:
+                await message.reply_text(f"❌ {res}")
+            else:
+                await message.reply_text(res)
+            message.stop_propagation()
+
+        # 6. Promokod kiritish
         elif action == "waiting_promo_code":
             USER_STATES.pop(uid, None)
             ok, res = user_redeem_promo(uid, text)
             await message.reply_text(res)
             message.stop_propagation()
 
-        # 6. Instagram profil qo'shish
+        # 7. Instagram profil qo'shish
         elif action == "waiting_ig_profile":
             USER_STATES.pop(uid, None)
             clean_ig = text.lstrip("@").strip()
@@ -928,7 +1164,7 @@ def load_mega_features(bot: Client):
             await message.reply_text(f"✅ `@{clean_ig}` Instagram profili kuzatuvga qo'shildi! Endi yangi videolar avtomat YouTube ga o'tkaziladi.")
             message.stop_propagation()
 
-        # 7. AI Video Prompt
+        # 8. AI Video Prompt
         elif action in ("waiting_aivideo_prompt", "waiting_aivideo_prompt_single"):
             USER_STATES.pop(uid, None)
             if action == "waiting_aivideo_prompt_single":
@@ -942,7 +1178,7 @@ def load_mega_features(bot: Client):
                 message.stop_propagation()
                 return
 
-            wait_m = await message.reply_text("⏳ **AI video yaratilmoqda...**\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
+            wait_m = await message.reply_text("⏳ <b>AI video yaratilmoqda...</b>\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
             try:
                 lang = db.get_user_language(uid)
                 video_data = await build_ai_short_video(text, lang=lang)
@@ -957,7 +1193,7 @@ def load_mega_features(bot: Client):
                 await client.send_video(
                     chat_id=message.chat.id,
                     video=v_path,
-                    caption=f"🎬 **{title}**\n\n{video_data['script']}",
+                    caption=f"🎬 <b>{title}</b>\n\n{video_data['script']}",
                     reply_markup=kb,
                     supports_streaming=True
                 )
@@ -967,10 +1203,10 @@ def load_mega_features(bot: Client):
                 await wait_m.edit_text(f"❌ Xatolik yuz berdi: {e}")
             message.stop_propagation()
 
-        # 8. Competitor Spy URL
+        # 9. Competitor Spy URL
         elif action == "waiting_spy_url":
             USER_STATES.pop(uid, None)
-            wait_m = await message.reply_text("🕵️‍♂️ **Raqobatchi metama'lumotlari tahlil qilinmoqda...**")
+            wait_m = await message.reply_text("🕵️‍♂️ <b>Raqobatchi metama'lumotlari tahlil qilinmoqda...</b>")
             try:
                 lang = db.get_user_language(uid)
                 res = await analyze_and_steal_seo(text, lang=lang)
@@ -978,23 +1214,27 @@ def load_mega_features(bot: Client):
                 tags_str = ", ".join(meta["tags"]) if meta["tags"] else "Yashirin teglar topilmadi."
 
                 report = (
-                    f"🎯 **RAQOBATCHI TAHLILI NATIJASI:**\n\n"
-                    f"🎬 **Sarlavha:** {meta['title']}\n"
-                    f"👤 **Kanal:** {meta['channel']}\n"
-                    f"👁 **Ko'rishlar:** `{meta['view_count']:,}` ta\n"
-                    f"👍 **Layklar:** `{meta['like_count']:,}` ta\n\n"
-                    f"🏷 **YASHIRIN TEGLAR (Keywords):**\n`{tags_str}`\n\n"
+                    f"🎯 <b>RAQOBATCHI TAHLILI NATIJASI:</b>\n\n"
+                    f"🎬 <b>Sarlavha:</b> {meta['title']}\n"
+                    f"👤 <b>Kanal:</b> {meta['channel']}\n"
+                    f"👁 <b>Ko'rishlar:</b> <code>{meta['view_count']:,} ta</code>\n"
+                    f"👍 <b>Layklar:</b> <code>{meta['like_count']:,} ta</code>\n\n"
+                    f"🏷 <b>YASHIRIN TEGLAR (Keywords):</b>\n<code>{tags_str}</code>\n\n"
                     f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"🧠 **GEMINI AI SEO TAVSIYALARI:**\n\n"
+                    f"🧠 <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
                     f"{res['ai_analysis']}"
                 )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔍 Boshqa Video Tahlili", callback_data="menu_spy")],
+                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                ])
                 await wait_m.delete()
-                await message.reply_text(report)
+                await message.reply_text(report, reply_markup=kb)
             except Exception as e:
                 await wait_m.edit_text(f"❌ Tahlil xatosi: {e}")
             message.stop_propagation()
 
-        # 9. Cashout tafsilotlari
+        # 10. Cashout tafsilotlari
         elif action == "waiting_cashout_details":
             USER_STATES.pop(uid, None)
             method = state.get("method", "ton")
@@ -1020,7 +1260,7 @@ def load_mega_features(bot: Client):
                 await notify_admin_new_cashout(client, 999, message.from_user, method, target_addr, amt, equiv)
             message.stop_propagation()
 
-        # 10. DeepLink URL
+        # 11. DeepLink URL
         elif action == "waiting_deeplink_url":
             USER_STATES.pop(uid, None)
             dl_info = generate_smart_deeplinks(text)
@@ -1028,11 +1268,11 @@ def load_mega_features(bot: Client):
             await generate_qr_code_image(dl_info["universal_url"], qr_file)
 
             caption = (
-                f"📲 **Smart DeepLink Tayyor!**\n\n"
-                f"🌐 **Universal:** `{dl_info['universal_url']}`\n"
-                f"🤖 **Android Intent:** `{dl_info['android_intent']}`\n"
-                f"🍏 **iOS DeepLink:** `{dl_info['ios_deeplink']}`\n\n"
-                f"💡 *QR kodni yuklab oling va istalgan joyda ulashing!*"
+                f"📲 <b>Smart DeepLink Tayyor!</b>\n\n"
+                f"🌐 <b>Universal:</b> <code>{dl_info['universal_url']}</code>\n"
+                f"🤖 <b>Android Intent:</b> <code>{dl_info['android_intent']}</code>\n"
+                f"🍏 <b>iOS DeepLink:</b> <code>{dl_info['ios_deeplink']}</code>\n\n"
+                f"💡 <i>QR kodni yuklab oling va istalgan joyda ulashing!</i>"
             )
             if os.path.exists(qr_file):
                 await client.send_photo(chat_id=message.chat.id, photo=qr_file, caption=caption)

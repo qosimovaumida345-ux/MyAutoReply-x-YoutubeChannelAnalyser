@@ -542,6 +542,18 @@ def init_db():
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS capcut_subscriptions (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            plan_days INT NOT NULL,
+            price_uzs BIGINT NOT NULL,
+            license_key TEXT,
+            expires_at TIMESTAMP NOT NULL,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
 
     # 11. Support Desk (Gemini AI & Live Admin Tickets)
     cur.execute("""
@@ -3281,6 +3293,23 @@ def record_ig_synced_post(sync_channel_id: int, ig_post_id: str, media_url: str 
         conn.close()
 
 
+def update_ig_sync_timestamp(sync_channel_id: int) -> bool:
+    """IG sync kanalining last_checked_at vaqtini yangilash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE ig_sync_channels SET last_checked_at = NOW() WHERE id = %s", (sync_channel_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"update_ig_sync_timestamp error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 # ==================== 2. CAPCUT DESKTOP & PRO TOOLS REFERRAL POOL ====================
 
 def add_capcut_link(tg_user_id: int, invite_link: str, service_name: str = "capcut") -> bool:
@@ -3380,6 +3409,54 @@ def increment_capcut_claims(pool_id: int) -> bool:
 
 add_capcut_referral = add_capcut_link
 get_active_capcut_referral = get_next_capcut_link
+
+def add_capcut_subscription(tg_user_id: int, plan_days: int, price_uzs: int, license_key: str = None) -> dict:
+    """CapCut Pro obunasini bazada saqlash yoki muddatini uzaytirish"""
+    conn = get_db()
+    if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO capcut_subscriptions (tg_user_id, plan_days, price_uzs, license_key, expires_at, status, created_at)
+            VALUES (%s, %s, %s, %s, NOW() + (%s || ' days')::INTERVAL, 'active', NOW())
+            RETURNING id, expires_at
+        """, (tg_user_id, plan_days, price_uzs, license_key, str(plan_days)))
+        row = cur.fetchone()
+        conn.commit()
+        exp = row["expires_at"] if isinstance(row, dict) else row[1]
+        sub_id = row["id"] if isinstance(row, dict) else row[0]
+        return {"ok": True, "sub_id": sub_id, "expires_at": str(exp)[:19]}
+    except Exception as e:
+        conn.rollback()
+        print(f"add_capcut_subscription error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+def get_user_capcut_subscription(tg_user_id: int) -> dict:
+    """Foydalanuvchining faol CapCut Pro obunasi ma'lumotlari"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM capcut_subscriptions
+            WHERE tg_user_id = %s AND expires_at > NOW() AND status = 'active'
+            ORDER BY expires_at DESC
+            LIMIT 1
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_user_capcut_subscription error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def is_user_capcut_pro(tg_user_id: int) -> bool:
+    """Foydalanuvchida faol CapCut Pro bormi?"""
+    sub = get_user_capcut_subscription(tg_user_id)
+    return bool(sub)
 
 
 # ==================== 3. SUPPORT DESK & LIVE ADMIN BRIDGE ====================

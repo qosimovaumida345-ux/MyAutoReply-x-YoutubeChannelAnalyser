@@ -6877,6 +6877,27 @@ def create_ytbot():
                         )
                     except Exception as aivid_pay_err:
                         print(f"Stars aivid_sub error: {aivid_pay_err}")
+                elif raw_payload.startswith("capcut_stars_"):
+                    try:
+                        parts = raw_payload.split("_")
+                        plan_k = parts[2]
+                        u_id = user_id or int(parts[3])
+                        from capcut_exchange import activate_capcut_pro_stars
+                        act_res = activate_capcut_pro_stars(u_id, plan_k, action.total_amount)
+                        lic = act_res.get("license_key", "BERILMADI")
+                        exp = act_res.get("expires_at", "")
+                        lbl = act_res.get("plan_label", f"{plan_k} kunlik")
+                        await client.send_message(
+                            u_id,
+                            f"🎉 <b>CapCut Pro {lbl} Litsenziyangiz Faollashdi!</b>\n\n"
+                            f"⭐ <b>To'langan Stars:</b> {action.total_amount} ⭐\n"
+                            f"🔑 <b>Litsenziya kaliti:</b> <code>{lic}</code>\n"
+                            f"📅 <b>Amal qilish muddati:</b> {exp}\n\n"
+                            f"💡 <i>Ushbu kalitni CapCut Pro hisobingizga ulash uchun profilingizda kiriting.</i>",
+                            reply_markup=main_menu_kb(u_id)
+                        )
+                    except Exception as cap_pay_err:
+                        print(f"Stars capcut_stars error: {cap_pay_err}")
 
     # ==================== VIDEO FAYL UNIKALIZATSIYA HANDLER ====================
     @bot.on_message((filters.video | filters.document) & filters.private)

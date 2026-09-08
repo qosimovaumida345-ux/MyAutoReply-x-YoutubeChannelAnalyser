@@ -155,7 +155,8 @@ async def forward_to_admin(app, user, role_key: str, message_text: str, lang: st
     username_str = f"@{user.username}" if user.username else "Username yo'q"
 
     # Bazada chipta yaratamiz
-    ticket_id = db.create_support_ticket(user_id, role_intent=role_key)
+    ticket_data = db.create_or_get_open_ticket(user_id, role_intent=role_key)
+    ticket_id = ticket_data.get("id") if ticket_data else None
     if ticket_id:
         db.add_support_message(ticket_id, sender_type="user", message_text=message_text)
 
