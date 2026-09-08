@@ -8,17 +8,18 @@ import logging
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import generate_with_fallback_async, OWNER_ID
 import database as db
+from custom_emojis import ce
 
 logger = logging.getLogger(__name__)
 
 SUPPORT_ROLES = {
     "developer": {
         "title": {
-            "uz": "👨‍💻 Dasturchi / API Integrator",
-            "ru": "👨‍💻 Разработчик / API",
-            "en": "👨‍💻 Developer / API Integrator",
-            "es": "👨‍💻 Desarrollador / API",
-            "tr": "👨‍💻 Geliştirici / API Entegratörü"
+            "uz": f"{ce('ADMIN')} Dasturchi / API Integrator",
+            "ru": f"{ce('ADMIN')} Разработчик / API",
+            "en": f"{ce('ADMIN')} Developer / API Integrator",
+            "es": f"{ce('ADMIN')} Desarrollador / API",
+            "tr": f"{ce('ADMIN')} Geliştirici / API Entegratörü"
         },
         "desc": {
             "uz": "API kalitlar, Reseller API, webhooklar va bot avtomatizatsiyasi.",
@@ -31,11 +32,11 @@ SUPPORT_ROLES = {
     },
     "buyer": {
         "title": {
-            "uz": "💳 Xaridor / Mijoz",
-            "ru": "💳 Покупатель / Клиент",
-            "en": "💳 Buyer / Customer",
-            "es": "💳 Comprador / Cliente",
-            "tr": "💳 Alıcı / Müşteri"
+            "uz": f"{ce('CARD')} Xaridor / Mijoz",
+            "ru": f"{ce('CARD')} Покупатель / Клиент",
+            "en": f"{ce('CARD')} Buyer / Customer",
+            "es": f"{ce('CARD')} Comprador / Cliente",
+            "tr": f"{ce('CARD')} Alıcı / Müşteri"
         },
         "desc": {
             "uz": "Balans to'ldirish, TON/Stars to'lovlari, xizmatlar va cheklar.",
@@ -48,11 +49,11 @@ SUPPORT_ROLES = {
     },
     "new_user": {
         "title": {
-            "uz": "🌱 Yangi Boshlovchi",
-            "ru": "🌱 Новичок",
-            "en": "🌱 Beginner",
-            "es": "🌱 Principiante",
-            "tr": "🌱 Yeni Başlayan"
+            "uz": f"{ce('IDEA')} Yangi Boshlovchi",
+            "ru": f"{ce('IDEA')} Новичок",
+            "en": f"{ce('IDEA')} Beginner",
+            "es": f"{ce('IDEA')} Principiante",
+            "tr": f"{ce('IDEA')} Yeni Başlayan"
         },
         "desc": {
             "uz": "Bot qanday ishlaydi, YouTube ulash, Instagram klonlash bo'yicha ko'rsatma.",
@@ -65,11 +66,11 @@ SUPPORT_ROLES = {
     },
     "faq": {
         "title": {
-            "uz": "❓ Ko'p So'raladigan Savollar",
-            "ru": "❓ Часто Задаваемые Вопросы",
-            "en": "❓ Frequently Asked Questions",
-            "es": "❓ Preguntas Frecuentes",
-            "tr": "❓ Sıkça Sorulan Sorular"
+            "uz": f"{ce('HELP')} Ko'p So'raladigan Savollar",
+            "ru": f"{ce('HELP')} Часто Задаваемые Вопросы",
+            "en": f"{ce('HELP')} Frequently Asked Questions",
+            "es": f"{ce('HELP')} Preguntas Frecuentes",
+            "tr": f"{ce('HELP')} Sıkça Sorulan Sorular"
         },
         "desc": {
             "uz": "Tezkor javoblar, qoidalar va umumiy xavfsizlik.",
@@ -83,11 +84,11 @@ SUPPORT_ROLES = {
 }
 
 WAITING_MESSAGES = {
-    "uz": "⏳ **Xabaringiz adminga yetkazildi!**\n\nIltimos, biroz kuting. Admin tez orada sizga bevosita javob yozadi. Javob xabari shu yerda keladi.",
-    "ru": "⏳ **Ваше сообщение передано администратору!**\n\nПожалуйста, подождите немного. Администратор скоро свяжется с вами напрямую.",
-    "en": "⏳ **Your message has been forwarded to the administrator!**\n\nPlease wait a moment. The administrator will reply to you directly very shortly.",
-    "es": "⏳ **¡Su mensaje ha sido enviado al administrador!**\n\nPor favor espere un momento. El administrador le responderá directamente muy pronto.",
-    "tr": "⏳ **Mesajınız yöneticiye iletildi!**\n\nLütfen biraz bekleyin. Yönetici çok yakında size doğrudan yanıt verecektir."
+    "uz": f"{ce('WAIT')} <b>Xabaringiz adminga yetkazildi!</b>\n\nIltimos, biroz kuting. Admin tez orada sizga bevosita javob yozadi. Javob xabari shu yerda keladi.",
+    "ru": f"{ce('WAIT')} <b>Ваше сообщение передано администратору!</b>\n\nПожалуйста, подождите немного. Администратор скоро свяжется с вами напрямую.",
+    "en": f"{ce('WAIT')} <b>Your message has been forwarded to the administrator!</b>\n\nPlease wait a moment. The administrator will reply to you directly very shortly.",
+    "es": f"{ce('WAIT')} <b>¡Su mensaje ha sido enviado al administrador!</b>\n\nPor favor espere un momento. El administrador le responderá directamente muy pronto.",
+    "tr": f"{ce('WAIT')} <b>Mesajınız yöneticiye iletildi!</b>\n\nLütfen biraz bekleyin. Yönetici çok yakında size doğrudan yanıt verecektir."
 }
 
 def get_support_menu_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
@@ -133,7 +134,8 @@ Foydalanuvchi savoli:
 \"\"\"{user_question}\"\"\"
 """
     try:
-        res = await generate_with_fallback_async(prompt)
+        import asyncio
+        res = await asyncio.wait_for(generate_with_fallback_async(prompt), timeout=12)
         return res.text.strip()
     except Exception as e:
         logger.error(f"Support AI xatosi: {e}")
@@ -156,30 +158,61 @@ async def forward_to_admin(app, user, role_key: str, message_text: str, lang: st
 
     # Bazada chipta yaratamiz
     ticket_data = db.create_or_get_open_ticket(user_id, role_intent=role_key)
-    ticket_id = ticket_data.get("id") if ticket_data else None
+    ticket_id = ticket_data.get("id") if ticket_data else 1
     if ticket_id:
-        db.add_support_message(ticket_id, sender_type="user", message_text=message_text)
+        try:
+            db.add_support_message(ticket_id, sender_type="user", message_text=message_text)
+        except Exception as db_err:
+            logger.error(f"Support message save error: {db_err}")
 
     admin_text = (
-        f"🚨 **YANGI MUROJAAT #{ticket_id or 'NEW'}**\n\n"
-        f"👤 **Foydalanuvchi:** {user_fullname} ({username_str})\n"
-        f"🆔 **Telegram ID:** `{user_id}`\n"
-        f"🌐 **Til:** `{lang}`\n"
-        f"🏷 **Kategoriya:** `{role_key.upper()}`\n\n"
-        f"💬 **Xabar:**\n{message_text}"
+        f"{ce('WARN')} <b>YANGI MUROJAAT #{ticket_id or 'NEW'}</b>\n\n"
+        f"{ce('USER')} <b>Foydalanuvchi:</b> {user_fullname} ({username_str})\n"
+        f"{ce('KEY')} <b>Telegram ID:</b> <code>{user_id}</code>\n"
+        f"{ce('GLOBE')} <b>Til:</b> <code>{lang}</code>\n"
+        f"{ce('SEO_TAG')} <b>Kategoriya:</b> <code>{role_key.upper()}</code>\n\n"
+        f"{ce('COMMENTS')} <b>Xabar:</b>\n{message_text}"
     )
 
     admin_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("💬 Javob berish", callback_data=f"adm_rep_ticket_{ticket_id}_{user_id}")]
     ])
 
-    try:
-        await app.send_message(
-            chat_id=OWNER_ID,
-            text=admin_text,
-            reply_markup=admin_keyboard
-        )
-    except Exception as e:
-        logger.error(f"Adminga xabar yuborishda xato: {e}")
+    sent_ok = False
+    if OWNER_ID:
+        try:
+            await app.send_message(
+                chat_id=OWNER_ID,
+                text=admin_text,
+                reply_markup=admin_keyboard
+            )
+            sent_ok = True
+        except Exception as e:
+            logger.error(f"Adminga Pyrogram orqali xabar yuborishda xato: {e}")
+
+        # Fallback via direct Bot API if Pyrogram fails
+        if not sent_ok:
+            try:
+                import os, aiohttp
+                bot_token = os.getenv("BOT_TOKEN", "")
+                if bot_token:
+                    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+                    payload = {
+                        "chat_id": OWNER_ID,
+                        "text": admin_text,
+                        "parse_mode": "HTML",
+                        "reply_markup": {
+                            "inline_keyboard": [
+                                [{"text": "💬 Javob berish", "callback_data": f"adm_rep_ticket_{ticket_id}_{user_id}"}]
+                            ]
+                        }
+                    }
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                            data = await resp.json()
+                            if data.get("ok"):
+                                sent_ok = True
+            except Exception as e2:
+                logger.error(f"Adminga Bot API orqali xabar yuborishda xato: {e2}")
 
     return ticket_id

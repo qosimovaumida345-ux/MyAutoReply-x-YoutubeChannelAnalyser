@@ -23,7 +23,7 @@ from pyrogram.types import (
     CallbackQuery, Message
 )
 from config import OWNER_ID
-from custom_emojis import e
+from custom_emojis import e, ce
 from locales import t
 import database as db
 
@@ -43,7 +43,7 @@ from instagram_cloner import (
 )
 from capcut_exchange import (
     get_capcut_menu_text, get_capcut_pro_keyboard,
-    purchase_capcut_pro, CAPCUT_PRICES
+    purchase_capcut_pro, CAPCUT_PRICES, LEGAL_DISCLAIMER_WARNING
 )
 from promo_engine import admin_create_promo, user_redeem_promo
 from pollinations_engine import build_ai_short_video
@@ -67,9 +67,10 @@ def check_antifraud_or_blocked(user_id: int) -> bool:
 def load_mega_features(bot: Client):
 
     # ==================== ANTIFRAUD TEKSHIRUVI (GLOBAL FILTER) ====================
-    @bot.on_message(group=-1)
+    @bot.on_message(group=-2)
     async def global_antifraud_gate(client, message: Message):
         if not message.from_user:
+            message.continue_propagation()
             return
         uid = message.from_user.id
         if check_antifraud_or_blocked(uid):
@@ -79,19 +80,25 @@ def load_mega_features(bot: Client):
                 "Qat'iy xavfsizlik qoidalariga asosan siz uchun bot xizmatlari va balansingiz muzlatilgan."
             )
             message.stop_propagation()
+        else:
+            message.continue_propagation()
 
-    @bot.on_callback_query(group=-1)
+    @bot.on_callback_query(group=-2)
     async def global_antifraud_cb_gate(client, cb: CallbackQuery):
         if not cb.from_user:
+            cb.continue_propagation()
             return
         try:
             uid = cb.from_user.id
             if check_antifraud_or_blocked(uid):
                 await cb.answer("🚫 Siz qoidabuzarlik sababli botdan bloklangansiz!", show_alert=True)
                 cb.stop_propagation()
+            else:
+                cb.continue_propagation()
         except Exception as e:
             import traceback
             logger.error(f"global_antifraud_cb_gate error: {e}\n{traceback.format_exc()}")
+            cb.continue_propagation()
 
     # =========================================================================
     # 1. SUPPORT DESK & LIVE ADMIN BRIDGE
@@ -132,7 +139,7 @@ def load_mega_features(bot: Client):
             import traceback
             logger.error(f"cb_support_desk_root error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+                await cb.message.reply_text(f"{ce('WARN')} Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
             except: pass
 
     @bot.on_callback_query(filters.regex(r"^support_desk_root$"))
@@ -142,7 +149,7 @@ def load_mega_features(bot: Client):
         lang = db.get_user_language(uid)
         try:
             await cb.message.edit_text(
-                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\nKerakli yo'nalishni tanlang:",
+                f"{ce('ADMIN')} <b>Yordam & Qo'llab-quvvatlash Markazi</b>\n\nKerakli yo'nalishni tanlang:",
                 reply_markup=get_support_menu_keyboard(lang)
             )
         except Exception as e:
@@ -164,8 +171,8 @@ def load_mega_features(bot: Client):
 
         text = (
             f"{title}\n\n"
-            f"ℹ️ {desc}\n\n"
-            f"Savolingizga zudlik bilan javob olish uchun **«Savol berish (AI)»** tugmasini bosing "
+            f"{ce('INFO')} {desc}\n\n"
+            f"Savolingizga zudlik bilan javob olish uchun <b>«Savol berish (AI)»</b> tugmasini bosing "
             f"yoki shaxsan adminga xat yo'llang:"
         )
         try:
@@ -178,7 +185,7 @@ def load_mega_features(bot: Client):
         role_key = cb.matches[0].group(1)
         uid = cb.from_user.id
         USER_STATES[uid] = {"action": "waiting_support_ai", "role": role_key}
-        await cb.message.reply_text("✍️ **Savolingizni yozib yuboring:**\n(Gemini AI sizga professional javob tayyorlaydi)")
+        await cb.message.reply_text(f"{ce('MEMO')} <b>Savolingizni yozib yuboring:</b>\n(Gemini AI sizga professional javob tayyorlaydi)")
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^supp_live_([a-z_]+)$"))
@@ -186,7 +193,7 @@ def load_mega_features(bot: Client):
         role_key = cb.matches[0].group(1)
         uid = cb.from_user.id
         USER_STATES[uid] = {"action": "waiting_support_live", "role": role_key}
-        await cb.message.reply_text("👤 **Adminga yetkazilishi kerak bo'lgan xabaringizni yozing:**\n(Xabar bevosita bosh adminga yuboriladi)")
+        await cb.message.reply_text(f"{ce('USER')} <b>Adminga yetkazilishi kerak bo'lgan xabaringizni yozing:</b>\n(Xabar bevosita bosh adminga yuboriladi)")
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^adm_rep_ticket_(\d+)_(\d+)$"))
@@ -201,7 +208,7 @@ def load_mega_features(bot: Client):
             "ticket_id": ticket_id,
             "target_user_id": target_uid
         }
-        await cb.message.reply_text(f"✍️ **Foydalanuvchiga ({target_uid}) yuboriladigan javob xabaringizni yozing:**")
+        await cb.message.reply_text(f"{ce('MEMO')} <b>Foydalanuvchiga ({target_uid}) yuboriladigan javob xabaringizni yozing:</b>")
         await cb.answer()
 
     # =========================================================================
@@ -213,10 +220,10 @@ def load_mega_features(bot: Client):
         parts = message.command
         if len(parts) < 3:
             await message.reply_text(
-                "💸 **P2P Shartli Chek Yaratish:**\n\n"
-                "Format: `/check <umumiy_summa> <odam_soni> [@homiy_kanal]`\n\n"
-                "Misol: `/check 50000 5 @mening_kanalim`\n"
-                "(50,000 so'm 5 kishiga 10,000 so'mdan tarqatiladi. Kanal obunachilari oladi)."
+                f"{ce('CASH')} <b>P2P Shartli Chek Yaratish:</b>\n\n"
+                f"Format: <code>/check &lt;umumiy_summa&gt; &lt;odam_soni&gt; [@homiy_kanal]</code>\n\n"
+                f"Misol: <code>/check 50000 5 @mening_kanalim</code>\n"
+                f"(50,000 so'm 5 kishiga 10,000 so'mdan tarqatiladi. Kanal obunachilari oladi)."
             )
             return
 
@@ -225,22 +232,22 @@ def load_mega_features(bot: Client):
             claims_count = int(parts[2])
             req_channel = parts[3] if len(parts) > 3 else None
         except ValueError:
-            await message.reply_text("❌ Summa va odam soni raqam bo'lishi kerak!")
+            await message.reply_text(f"{ce('ERROR')} Summa va odam soni raqam bo'lishi kerak!")
             return
 
         ok, msg, code = create_p2p_check(uid, total_amt, claims_count, req_channel)
         if not ok:
-            await message.reply_text(f"❌ Xatolik: {msg}")
+            await message.reply_text(f"{ce('ERROR')} Xatolik: {msg}")
             return
 
         share_kb = get_check_claim_keyboard(code, req_channel)
-        ch_text = f"\n📢 **Shart:** @{req_channel.strip().lstrip('@')} kanaliga a'zo bo'lish" if req_channel else ""
+        ch_text = f"\n{ce('CHANNEL')} <b>Shart:</b> @{req_channel.strip().lstrip('@')} kanaliga a'zo bo'lish" if req_channel else ""
         text = (
-            f"💸 **Yangi Chek Yaratildi!**\n\n"
-            f"💰 **Umumiy summa:** `{total_amt:,}` so'm\n"
-            f"👥 **Qabul qiluvchilar soni:** `{claims_count}` ta\n"
-            f"💵 **Har biriga:** `{int(total_amt/claims_count):,}` so'm{ch_text}\n\n"
-            f"🔗 **Chek Kodi:** `{code}`\n\n"
+            f"{ce('CASH')} <b>Yangi Chek Yaratildi!</b>\n\n"
+            f"{ce('MONEY')} <b>Umumiy summa:</b> <code>{total_amt:,}</code> so'm\n"
+            f"{ce('FRIENDS')} <b>Qabul qiluvchilar soni:</b> <code>{claims_count}</code> ta\n"
+            f"{ce('COIN')} <b>Har biriga:</b> <code>{int(total_amt/claims_count):,}</code> so'm{ch_text}\n\n"
+            f"{ce('LINK')} <b>Chek Kodi:</b> <code>{code}</code>\n\n"
             f"{RED_ANTIFRAUD_WARNING}"
         )
         await message.reply_text(text, reply_markup=share_kb)
@@ -252,14 +259,14 @@ def load_mega_features(bot: Client):
             uid = cb.from_user.id
             bal = db.get_user_balance(uid)
             text = (
-                f"💸 <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
-                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f"{ce('CASH')} <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
+                f"{ce('MONEY')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
                 f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
                 f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
-                f"⚡ <b>Imkoniyatlar:</b>\n"
-                f"• 🎯 Homiy kanalga majburiy a'zolik sharti\n"
-                f"• 👥 Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
-                f"• 🛡️ Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
+                f"{ce('LIGHTNING')} <b>Imkoniyatlar:</b>\n"
+                f"• {ce('TARGET')} Homiy kanalga majburiy a'zolik sharti\n"
+                f"• {ce('FRIENDS')} Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
+                f"• {ce('SHIELD')} Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
                 f"{RED_ANTIFRAUD_WARNING}"
             )
             kb = InlineKeyboardMarkup([
@@ -281,7 +288,7 @@ def load_mega_features(bot: Client):
             import traceback
             logger.error(f"cb_menu_vouchers error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+                await cb.message.reply_text(f"{ce('WARN')} Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
             except: pass
 
     @bot.on_callback_query(filters.regex(r"^vouchers_create_wizard$"))
@@ -290,8 +297,8 @@ def load_mega_features(bot: Client):
         USER_STATES[cb.from_user.id] = {"action": "waiting_check_params"}
         bal = db.get_user_balance(cb.from_user.id)
         text = (
-            f"➕ <b>Yangi P2P Shartli Chek Yaratish:</b>\n\n"
-            f"💰 Balansingiz: <code>{bal:,} so'm</code>\n\n"
+            f"{ce('PLUS')} <b>Yangi P2P Shartli Chek Yaratish:</b>\n\n"
+            f"{ce('MONEY')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"Iltimos, chek parametrlarini quyidagi formatda yuboring:\n"
             f"<code>&lt;summa&gt; &lt;odam_soni&gt; [@homiy_kanal]</code>\n\n"
             f"<b>Misollar:</b>\n"
@@ -309,9 +316,9 @@ def load_mega_features(bot: Client):
         await cb.answer()
         USER_STATES[cb.from_user.id] = {"action": "waiting_check_code"}
         text = (
-            "🎁 <b>P2P Chekni Faollashtirish:</b>\n\n"
-            "Sizga yuborilgan chek kodini yozib yuboring:\n"
-            "(Masalan: <code>CHK-A1B2C3D4</code>)"
+            f"{ce('GIFT')} <b>P2P Chekni Faollashtirish:</b>\n\n"
+            f"Sizga yuborilgan chek kodini yozib yuboring:\n"
+            f"(Masalan: <code>CHK-A1B2C3D4</code>)"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_vouchers")]
@@ -322,11 +329,11 @@ def load_mega_features(bot: Client):
     async def cb_help_create_check(client, cb: CallbackQuery):
         await cb.answer()
         text = (
-            "📖 <b>P2P Shartli Cheklar & Antifraud Qo'llanmasi:</b>\n\n"
-            "1. <b>Chek yaratish:</b> Siz o'z balansingizdan istalgan summani bir nechta odamga teng ulashib beruvchi chek yaratasiz.\n"
-            "2. <b>Homiy kanal sharti:</b> Agar homiy kanal ko'rsatsangiz, faqat o'sha kanalga obuna bo'lganlargina pulni ola oladi.\n"
-            "3. <b>Antifraud nazorati:</b> Tizim fon rejimida doimiy ravishda pul olgan foydalanuvchilarning kanaldan chiqib ketganligini tekshiradi.\n"
-            "4. <b>Jazo:</b> Pulni olib kanaldan chiqqan foydalanuvchi butunlay bloklanadi va hisobi muzlatiladi.\n\n"
+            f"{ce('HELP')} <b>P2P Shartli Cheklar & Antifraud Qo'llanmasi:</b>\n\n"
+            f"1. <b>Chek yaratish:</b> Siz o'z balansingizdan istalgan summani bir nechta odamga teng ulashib beruvchi chek yaratasiz.\n"
+            f"2. <b>Homiy kanal sharti:</b> Agar homiy kanal ko'rsatsangiz, faqat o'sha kanalga obuna bo'lganlargina pulni ola oladi.\n"
+            f"3. <b>Antifraud nazorati:</b> Tizim fon rejimida doimiy ravishda pul olgan foydalanuvchilarning kanaldan chiqib ketganligini tekshiradi.\n"
+            f"4. <b>Jazo:</b> Pulni olib kanaldan chiqqan foydalanuvchi butunlay bloklanadi va hisobi muzlatiladi.\n\n"
             f"{RED_ANTIFRAUD_WARNING}"
         )
         kb = InlineKeyboardMarkup([
@@ -357,11 +364,11 @@ def load_mega_features(bot: Client):
         ch_list = "\n".join([f"• @{t['ig_username']} (Interval: {t.get('check_interval_mins', 60)} daqiqa)" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
 
         text = (
-            f"📸 <b>Instagram Account Auto-Cloner & Reposter</b>\n\n"
+            f"{ce('INSTAGRAM_LOGO')} <b>Instagram Account Auto-Cloner & Reposter</b>\n\n"
             f"Belgilangan Instagram profiliga yangi Reel yuklanganda, bot uni darhol "
             f"yuklab oladi, 8-qatlamli unikalizatsiya (anti-copyright) qiladi va "
             f"ulangan YouTube kanalingizga avtomatik Shorts qilib joylaydi!\n\n"
-            f"📋 <b>Kuzatilayotgan profillaringiz:</b>\n{ch_list}\n\n"
+            f"{ce('LIST')} <b>Kuzatilayotgan profillaringiz:</b>\n{ch_list}\n\n"
             f"Yangi profil qo'shish uchun: <code>/igcloner add @username</code>\n"
             f"O'chirish uchun: <code>/igcloner del @username</code>\n"
             f"Hozir sinash uchun: <code>/igcloner sync @username</code>"
@@ -372,11 +379,11 @@ def load_mega_features(bot: Client):
             target_username = parts[2].strip().lstrip("@")
             if action == "add":
                 add_instagram_target(uid, target_username)
-                await message.reply_text(f"✅ `@{target_username}` muvaffaqiyatli kuzatuvga qo'shildi!")
+                await message.reply_text(f"{ce('CHECK')} <code>@{target_username}</code> muvaffaqiyatli kuzatuvga qo'shildi!")
                 return
             elif action == "del":
                 remove_instagram_target(uid, target_username)
-                await message.reply_text(f"🗑 `@{target_username}` kuzatuvdan olib tashlandi.")
+                await message.reply_text(f"{ce('CROSS')} <code>@{target_username}</code> kuzatuvdan olib tashlandi.")
                 return
             elif action == "sync":
                 res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=message.chat.id)
@@ -399,10 +406,10 @@ def load_mega_features(bot: Client):
             targets = get_instagram_targets(uid)
             ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
             text = (
-                f"📸 <b>Instagram Account Auto-Cloner</b>\n\n"
+                f"{ce('INSTAGRAM_LOGO')} <b>Instagram Account Auto-Cloner</b>\n\n"
                 f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
                 f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
-                f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
+                f"{ce('LIST')} <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
@@ -423,7 +430,7 @@ def load_mega_features(bot: Client):
             import traceback
             logger.error(f"cb_menu_ig_cloner error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+                await cb.message.reply_text(f"{ce('WARN')} Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
             except: pass
 
     @bot.on_callback_query(filters.regex(r"^ig_add_profile$"))
@@ -434,7 +441,7 @@ def load_mega_features(bot: Client):
             [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_ig_cloner")]
         ])
         await cb.message.edit_text(
-            "📸 <b>Instagram username yuboring:</b>\n\n(Masalan: <code>@cristiano</code> yoki <code>selenagomez</code>)",
+            f"{ce('INSTAGRAM_LOGO')} <b>Instagram username yuboring:</b>\n\n(Masalan: <code>@cristiano</code> yoki <code>selenagomez</code>)",
             reply_markup=kb
         )
 
@@ -462,7 +469,7 @@ def load_mega_features(bot: Client):
         buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ig_cloner")])
 
         await cb.message.edit_text(
-            "📋 <b>Kuzatilayotgan Instagram profillaringiz:</b>\nO'chirmoqchi bo'lganingiz yonidagi 🗑 tugmasini bosing:",
+            f"{ce('LIST')} <b>Kuzatilayotgan Instagram profillaringiz:</b>\nO'chirmoqchi bo'lganingiz yonidagi 🗑 tugmasini bosing:",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
@@ -484,7 +491,7 @@ def load_mega_features(bot: Client):
         buttons.append([InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")])
         buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ig_cloner")])
         await cb.message.edit_text(
-            "📋 <b>Kuzatilayotgan Instagram profillaringiz:</b>",
+            f"{ce('LIST')} <b>Kuzatilayotgan Instagram profillaringiz:</b>",
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
@@ -499,8 +506,8 @@ def load_mega_features(bot: Client):
         last_sync = matched.get("last_checked_at", "Hozirgacha tekshirilmadi") if matched else "Noma'lum"
 
         text = (
-            f"📸 <b>Instagram Profil:</b> <code>@{target_username}</code>\n\n"
-            f"• <b>Holat:</b> 🟢 Faol kuzatuvda\n"
+            f"{ce('INSTAGRAM_LOGO')} <b>Instagram Profil:</b> <code>@{target_username}</code>\n\n"
+            f"• <b>Holat:</b> {ce('VERIFIED')} Faol kuzatuvda\n"
             f"• <b>Kuzatuv intervali:</b> Har {interval} daqiqada\n"
             f"• <b>Oxirgi tekshiruv:</b> <code>{last_sync}</code>\n\n"
             f"Tanlang:"
@@ -521,9 +528,9 @@ def load_mega_features(bot: Client):
         uid = cb.from_user.id
         targets = get_instagram_targets(uid)
         if not targets:
-            await cb.message.reply_text("⚠️ Avval kamida 1 ta Instagram profil qo'shing!")
+            await cb.message.reply_text(f"{ce('WARN')} Avval kamida 1 ta Instagram profil qo'shing!")
             return
-        await cb.message.reply_text("🔄 <b>Tekshiruv boshlanmoqda...</b> Yangi videolar avtomatik yuklanadi.")
+        await cb.message.reply_text(f"{ce('WAIT')} <b>Tekshiruv boshlanmoqda...</b> Yangi videolar avtomatik yuklanadi.")
         for t in targets:
             await sync_instagram_account_now(uid, t["ig_username"], app=client, chat_id=cb.message.chat.id)
 
@@ -535,9 +542,9 @@ def load_mega_features(bot: Client):
             pass
         target_username = cb.matches[0].group(1)
         uid = cb.from_user.id
-        wait_m = await cb.message.reply_text(f"🔄 <b>@{target_username} tekshirilmoqda...</b>")
+        wait_m = await cb.message.reply_text(f"{ce('WAIT')} <b>@{target_username} tekshirilmoqda...</b>")
         res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=cb.message.chat.id)
-        await wait_m.edit_text(f"📸 <b>@{target_username} natijasi:</b>\n{res.get('message', 'Tekshiruv yakunlandi.')}")
+        await wait_m.edit_text(f"{ce('INSTAGRAM_LOGO')} <b>@{target_username} natijasi:</b>\n{res.get('message', 'Tekshiruv yakunlandi.')}")
 
     # =========================================================================
     # 4. CAPCUT PRO — PULLIK SOTISH TIZIMI
@@ -571,7 +578,7 @@ def load_mega_features(bot: Client):
             import traceback
             logger.error(f"cb_menu_capcut error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+                await cb.message.reply_text(f"{ce('WARN')} Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
             except: pass
 
     @bot.on_callback_query(filters.regex(r"^capcut_buy_(30|90|365)$"))
@@ -588,9 +595,9 @@ def load_mega_features(bot: Client):
                 [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_capcut")]
             ])
             await cb.message.edit_text(
-                f"❌ <b>Mablag' yetarli emas!</b>\n\n"
+                f"{ce('ERROR')} <b>Mablag' yetarli emas!</b>\n\n"
                 f"{res.get('error')}\n"
-                f"Sizning joriy balansingiz: <code>{bal:,} so'm</code>\n\n"
+                f"{ce('MONEY')} Sizning joriy balansingiz: <code>{bal:,} so'm</code>\n\n"
                 f"Iltimos, avval hisobingizni to'ldiring:",
                 reply_markup=kb
             )
@@ -603,17 +610,18 @@ def load_mega_features(bot: Client):
         new_bal = res["new_balance"]
 
         text = (
-            f"🎉 <b>Tabriklaymiz! CapCut Pro {plan_label} muvaffaqiyatli xarid qilindi!</b>\n\n"
-            f"🔑 <b>Sizning Litsenziya Kalitingiz:</b>\n"
+            f"{ce('PARTY')} <b>Tabriklaymiz! CapCut Pro {plan_label} muvaffaqiyatli xarid qilindi!</b>\n\n"
+            f"{ce('KEY')} <b>Sizning Litsenziya Kalitingiz:</b>\n"
             f"<code>{lic_key}</code>\n\n"
-            f"📅 <b>Amal qilish muddati:</b> <code>{expires_at}</code> gacha\n"
-            f"💰 <b>Yechilgan summa:</b> {price_label}\n"
-            f"⚖️ <b>Qolgan balansingiz:</b> <code>{new_bal:,} so'm</code>\n\n"
-            f"📋 <b>Faollashtirish bo'yicha ko'rsatma:</b>\n"
+            f"{ce('CALENDAR')} <b>Amal qilish muddati:</b> <code>{expires_at}</code> gacha\n"
+            f"{ce('MONEY')} <b>Yechilgan summa:</b> {price_label}\n"
+            f"{ce('REPORT')} <b>Qolgan balansingiz:</b> <code>{new_bal:,} so'm</code>\n\n"
+            f"{ce('LIST')} <b>Faollashtirish bo'yicha ko'rsatma:</b>\n"
             f"1. Kompyuter yoki telefoningizda CapCut dasturini oching\n"
             f"2. Profilingizga kiring va 'Pro' bo'limini tanlang\n"
             f"3. Yuqoridagi litsenziya kalitini kiriting\n"
-            f"4. Barcha VIP filtrlar, 4K eksport va AI imkoniyatlaridan cheksiz foydalaning!"
+            f"4. Barcha VIP filtrlar, 4K eksport va AI imkoniyatlaridan cheksiz foydalaning!\n\n"
+            f"{LEGAL_DISCLAIMER_WARNING}"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🔑 Mening Obunam", callback_data="capcut_my_status")],
@@ -645,7 +653,7 @@ def load_mega_features(bot: Client):
             provider_token=""
         )
         if not res:
-            await cb.message.reply_text("❌ Stars hisobini ochishda xatolik yuz berdi. Iltimos, balans orqali xarid qiling.")
+            await cb.message.reply_text(f"{ce('ERROR')} Stars hisobini ochishda xatolik yuz berdi. Iltimos, balans orqali xarid qiling.")
 
     @bot.on_callback_query(filters.regex(r"^capcut_my_status$"))
     async def cb_capcut_my_status(client, cb: CallbackQuery):
@@ -654,8 +662,8 @@ def load_mega_features(bot: Client):
         sub = db.get_user_capcut_subscription(uid)
         if not sub:
             text = (
-                "⚪ <b>Sizda hali faol CapCut Pro obunasi mavjud emas.</b>\n\n"
-                "CapCut Pro xarid qilib barcha VIP vositalardan foydalanishingiz mumkin:"
+                f"{ce('INFO')} <b>Sizda hali faol CapCut Pro obunasi mavjud emas.</b>\n\n"
+                f"CapCut Pro xarid qilib barcha VIP vositalardan foydalanishingiz mumkin:"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🛒 Tariflarni Ko'rish", callback_data="menu_capcut")],
@@ -665,11 +673,12 @@ def load_mega_features(bot: Client):
             return
 
         text = (
-            f"👑 <b>Sizning CapCut Pro Obunangiz:</b>\n\n"
-            f"• <b>Holat:</b> 🟢 Faol\n"
+            f"{ce('CROWN')} <b>Sizning CapCut Pro Obunangiz:</b>\n\n"
+            f"• <b>Holat:</b> {ce('VERIFIED')} Faol\n"
             f"• <b>Amal qilish muddati:</b> <code>{sub.get('expires_at')}</code> gacha\n"
             f"• <b>Litsenziya kaliti:</b> <code>{sub.get('license_key', 'Faol')}</code>\n\n"
-            f"🚀 Cheksiz foydalanishingiz mumkin!"
+            f"{ce('ROCKET')} Cheksiz foydalanishingiz mumkin!\n\n"
+            f"{LEGAL_DISCLAIMER_WARNING}"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🔄 Obunani Uzaytirish", callback_data="menu_capcut")],
@@ -683,12 +692,12 @@ def load_mega_features(bot: Client):
     @bot.on_message(filters.command("newpromo") & filters.private)
     async def new_promo_cmd(client, message: Message):
         if message.from_user.id != OWNER_ID:
-            await message.reply_text("❌ Faqat bosh admin promokod yarata oladi.")
+            await message.reply_text(f"{ce('ERROR')} Faqat bosh admin promokod yarata oladi.")
             return
 
         parts = message.command
         if len(parts) < 3:
-            await message.reply_text("Format: `/newpromo <KOD> <BONUS_UZS> [MAKS_FOYDALANISH]`\nMasalan: `/newpromo MEGA2026 25000 100`")
+            await message.reply_text(f"Format: <code>/newpromo &lt;KOD&gt; &lt;BONUS_UZS&gt; [MAKS_FOYDALANISH]</code>\nMasalan: <code>/newpromo MEGA2026 25000 100</code>")
             return
 
         code = parts[1]
@@ -696,7 +705,7 @@ def load_mega_features(bot: Client):
             bonus = int(parts[2])
             limit = int(parts[3]) if len(parts) > 3 else 100
         except ValueError:
-            await message.reply_text("❌ Bonus va limit raqam bo'lishi kerak!")
+            await message.reply_text(f"{ce('ERROR')} Bonus va limit raqam bo'lishi kerak!")
             return
 
         ok, res = admin_create_promo(code, bonus, limit)
@@ -707,7 +716,7 @@ def load_mega_features(bot: Client):
         parts = message.command
         if len(parts) < 2:
             USER_STATES[message.from_user.id] = {"action": "waiting_promo_code"}
-            await message.reply_text("🎟 **Promokodingizni kiriting:**")
+            await message.reply_text(f"{ce('TICKET')} <b>Promokodingizni kiriting:</b>")
             return
 
         code = parts[1]
@@ -721,7 +730,7 @@ def load_mega_features(bot: Client):
         except Exception:
             pass
         USER_STATES[cb.from_user.id] = {"action": "waiting_promo_code"}
-        await cb.message.reply_text("🎟 **Iltimos, promokodingizni yozib yuboring:**")
+        await cb.message.reply_text(f"{ce('TICKET')} <b>Iltimos, promokodingizni yozib yuboring:</b>")
 
     # =========================================================================
     # 6. 100% BEPUL AI VIDEO GENERATOR (POLLINATIONS + EDGE-TTS)
@@ -733,17 +742,18 @@ def load_mega_features(bot: Client):
         bal = db.get_user_balance(uid)
         if not is_sub and bal < 15000:
             text = (
-                "🎬 **AI Video Studio ($20 / oy)**\n\n"
-                "Ushbu xizmat pullik bo'lib, professional 9:16 vertikal Shorts/Reels tayyorlaydi:\n"
-                "• 🎨 **Flux.1 Ultra AI** — 4K tasvirlar\n"
-                "• 🎙 **Neural Edge-TTS** — 5 ta tilda tabiiy diktor ovozi\n"
-                "• 🎬 **FFmpeg Ken Burns FX** — Dinamik animatsiya va audio montaj\n\n"
-                "💎 **Tariflar:**\n"
-                "• 👑 **Oylik Cheksiz Obuna:** <b>$20 / oy</b> (256,000 so'm)\n"
-                "• ⭐ **Telegram Stars:** 1,000 ⭐\n"
-                "• 🎞 **1 ta Video:** 15,000 so'm / video\n\n"
-                f"💳 **Balansingiz:** <code>{bal:,} so'm</code>\n\n"
-                "Tarifni tanlang:"
+                f"{ce('VIDEO')} <b>AI Video Studio ($20 / oy)</b>\n\n"
+                f"Ushbu xizmat pullik bo'lib, professional 9:16 vertikal Shorts/Reels tayyorlaydi:\n"
+                f"• {ce('FLUX')} <b>Flux.1 Ultra AI</b> — 4K tasvirlar\n"
+                f"• {ce('VOICE')} <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
+                f"• {ce('VIDEO')} <b>FFmpeg Ken Burns FX</b> — Dinamik animatsiya va audio montaj\n\n"
+                f"{ce('TON')} <b>Tariflar:</b>\n"
+                f"• {ce('CROWN')} <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
+                f"• {ce('STAR')} <b>Telegram Stars:</b> 1,000 ⭐\n"
+                f"• {ce('CLIPPER')} <b>1 ta Video:</b> 15,000 so'm / video\n\n"
+                f"{ce('MONEY')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f"{ce('WARN')} <i>OGOHLANTIRISH: Raqamli mahsulotlar uchun qaytarib berilmaydi (NO REFUNDS).</i>\n\n"
+                f"Tarifni tanlang:"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
@@ -760,8 +770,8 @@ def load_mega_features(bot: Client):
             USER_STATES[uid] = {"action": "waiting_aivideo_prompt" if is_sub else "waiting_aivideo_prompt_single"}
             note = "Faol $20/oy obuna (Cheksiz)" if is_sub else "1 ta video: 15,000 so'm (balansdan yechiladi)"
             await message.reply_text(
-                f"🎬 **AI Video Studio ({note})**\n\n"
-                "✍️ **Video mavzusini yozing:** (masalan: *Kosmos sirlari va qora tuynuklar*)"
+                f"{ce('VIDEO')} <b>AI Video Studio ({note})</b>\n\n"
+                f"{ce('MEMO')} <b>Video mavzusini yozing:</b> (masalan: <i>Kosmos sirlari va qora tuynuklar</i>)"
             )
             return
 
@@ -769,10 +779,10 @@ def load_mega_features(bot: Client):
         if not is_sub:
             res_fee = db.deduct_single_ai_video_fee(uid)
             if not res_fee.get("ok"):
-                await message.reply_text(f"❌ {res_fee.get('error', 'Balans yetarli emas')}")
+                await message.reply_text(f"{ce('ERROR')} {res_fee.get('error', 'Balans yetarli emas')}")
                 return
 
-        wait_m = await message.reply_text("⏳ **AI video yaratilmoqda...**\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
+        wait_m = await message.reply_text(f"{ce('WAIT')} <b>AI video yaratilmoqda...</b>\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
         try:
             lang = db.get_user_language(uid)
             video_data = await build_ai_short_video(prompt, lang=lang)
@@ -787,7 +797,7 @@ def load_mega_features(bot: Client):
             await client.send_video(
                 chat_id=message.chat.id,
                 video=v_path,
-                caption=f"🎬 **{title}**\n\n{video_data['script']}",
+                caption=f"{ce('VIDEO')} <b>{title}</b>\n\n{video_data['script']}\n\n{ce('WARN')} <i>Qaytarib berilmaydi (NO REFUNDS).</i>",
                 reply_markup=kb,
                 supports_streaming=True
             )
@@ -795,7 +805,7 @@ def load_mega_features(bot: Client):
         except Exception as e:
             import traceback
             logger.error(f"AI Video xato: {e}\n{traceback.format_exc()}")
-            await wait_m.edit_text(f"❌ Xatolik yuz berdi: {e}")
+            await wait_m.edit_text(f"{ce('ERROR')} Xatolik yuz berdi: {e}")
 
     @bot.on_callback_query(filters.regex(r"^menu_ai_video$"))
     async def cb_menu_ai_video(client, cb: CallbackQuery):
@@ -806,18 +816,19 @@ def load_mega_features(bot: Client):
             if not is_sub:
                 bal = db.get_user_balance(uid)
                 text = (
-                    "🎬 **AI Video Studio ($20 / oy)**\n\n"
-                    "Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
-                    "• 🎨 **Flux.1 Ultra AI** — 9:16 kinematografik 4K tasvirlar\n"
-                    "• 🎙 **Neural Edge-TTS** — 5 ta tilda tabiiy diktor ovozi\n"
-                    "• 🎬 **Ken Burns FX** — Dinamik kamera harakati va audio montaj\n"
-                    "• 🚀 **1-Click YouTube Shorts Yuklash**\n\n"
-                    f"💳 **Sizning balansingiz:** <code>{bal:,} so'm</code>\n\n"
-                    "💎 **Tariflar:**\n"
-                    "• 👑 **Oylik Cheksiz Obuna:** <b>$20 / oy</b> (256,000 so'm)\n"
-                    "• ⭐ **Telegram Stars:** 1,000 ⭐\n"
-                    "• 🎞 **1 ta Video:** 15,000 so'm / video\n\n"
-                    "Kerakli tarifni tanlang:"
+                    f"{ce('VIDEO')} <b>AI Video Studio ($20 / oy)</b>\n\n"
+                    f"Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
+                    f"• {ce('FLUX')} <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
+                    f"• {ce('VOICE')} <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
+                    f"• {ce('VIDEO')} <b>Ken Burns FX</b> — Dinamik kamera harakati va audio montaj\n"
+                    f"• {ce('ROCKET')} <b>1-Click YouTube Shorts Yuklash</b>\n\n"
+                    f"{ce('CARD')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                    f"{ce('TON')} <b>Tariflar:</b>\n"
+                    f"• {ce('CROWN')} <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
+                    f"• {ce('STAR')} <b>Telegram Stars:</b> 1,000 ⭐\n"
+                    f"• {ce('CLIPPER')} <b>1 ta Video:</b> 15,000 so'm / video\n\n"
+                    f"{ce('WARN')} <i>OGOHLANTIRISH: Raqamli mahsulotlar uchun to'lov qaytarilmaydi (NO REFUNDS).</i>\n\n"
+                    f"Kerakli tarifni tanlang:"
                 )
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
@@ -839,10 +850,10 @@ def load_mega_features(bot: Client):
 
             USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
             text = (
-                "🎬 **AI Video Studio (Faol Obuna)**\n\n"
-                "Sizda faol obuna mavjud! Cheksiz video yaratish rejimi yoqilgan.\n\n"
-                "✍️ **Video yaratish uchun mavzuni yozib yuboring:**\n"
-                "(Masalan: *Kosmos sirlari va qora tuynuklar* yoki *Qiziqarli faktlar*)"
+                f"{ce('VIDEO')} <b>AI Video Studio (Faol Obuna)</b>\n\n"
+                f"Sizda faol obuna mavjud! Cheksiz video yaratish rejimi yoqilgan.\n\n"
+                f"{ce('MEMO')} <b>Video yaratish uchun mavzuni yozib yuboring:</b>\n"
+                f"(Masalan: <i>Kosmos sirlari va qora tuynuklar</i> yoki <i>Qiziqarli faktlar</i>)"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
@@ -860,7 +871,7 @@ def load_mega_features(bot: Client):
             import traceback
             logger.error(f"cb_menu_ai_video error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+                await cb.message.reply_text(f"{ce('WARN')} Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
             except: pass
 
     @bot.on_callback_query(filters.regex(r"^aivid_buy_sub$"))
@@ -875,7 +886,7 @@ def load_mega_features(bot: Client):
                 [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ai_video")]
             ])
             await cb.message.edit_text(
-                f"❌ <b>Mablag' yetarli emas!</b>\n\n"
+                f"{ce('ERROR')} <b>Mablag' yetarli emas!</b>\n\n"
                 f"AI Video Studio $20/oy (256,000 so'm) obunasi uchun balansingiz yetarli emas.\n"
                 f"• Kerak: <code>256,000 so'm</code>\n"
                 f"• Balansingiz: <code>{bal:,} so'm</code>\n\n"
@@ -891,10 +902,11 @@ def load_mega_features(bot: Client):
             [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(
-            f"🎉 <b>Tabriklaymiz! AI Video Studio obunangiz faollashdi!</b>\n\n"
+            f"{ce('PARTY')} <b>Tabriklaymiz! AI Video Studio obunangiz faollashdi!</b>\n\n"
             f"• Amal qilish muddati: <code>{exp}</code> gacha (30 kun)\n"
             f"• Cheksiz video generatsiya faol!\n\n"
-            f"Endi video mavzusini chatga yozib yuborishingiz mumkin:",
+            f"Endi video mavzusini chatga yozib yuborishingiz mumkin:\n\n"
+            f"{ce('WARN')} <i>OGOHLANTIRISH: Raqamli xizmatlar uchun to'lov qaytarilmaydi (NO REFUNDS).</i>",
             reply_markup=kb
         )
 
@@ -916,7 +928,7 @@ def load_mega_features(bot: Client):
             provider_token=""
         )
         if not res:
-            await cb.message.reply_text("❌ Stars hisobini ochishda xatolik yuz berdi. Iltimos, /balance orqali balansingizni to'ldiring.")
+            await cb.message.reply_text(f"{ce('ERROR')} Stars hisobini ochishda xatolik yuz berdi. Iltimos, /balance orqali balansingizni to'ldiring.")
 
     @bot.on_callback_query(filters.regex(r"^aivid_buy_single$"))
     async def cb_aivid_buy_single(client, cb: CallbackQuery):
@@ -929,7 +941,7 @@ def load_mega_features(bot: Client):
                 [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ai_video")]
             ])
             await cb.message.edit_text(
-                f"❌ <b>Mablag' yetarli emas!</b>\n\n"
+                f"{ce('ERROR')} <b>Mablag' yetarli emas!</b>\n\n"
                 f"1 ta video yaratish narxi: <code>15,000 so'm</code>\n"
                 f"Sizning balansingiz: <code>{bal:,} so'm</code>\n\n"
                 f"Iltimos, avval hisobingizni to'ldiring:",
@@ -942,9 +954,10 @@ def load_mega_features(bot: Client):
             [InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_ai_video")]
         ])
         await cb.message.edit_text(
-            f"🎞 <b>1 ta AI Video Generatsiyasi (15,000 so'm)</b>\n\n"
+            f"{ce('VIDEO')} <b>1 ta AI Video Generatsiyasi (15,000 so'm)</b>\n\n"
             f"Mavzuni yuborganingizdan so'ng balansingizdan 15,000 so'm yechiladi va video tayyorlanadi.\n\n"
-            f"✍️ <b>Video mavzusini yozib yuboring:</b>",
+            f"{ce('MEMO')} <b>Video mavzusini yozib yuboring:</b>\n\n"
+            f"{ce('WARN')} <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>",
             reply_markup=kb
         )
 
@@ -955,12 +968,12 @@ def load_mega_features(bot: Client):
         v_name = cb.matches[0].group(1)
         v_path = os.path.join("downloads", v_name)
         if not os.path.exists(v_path):
-            await cb.message.reply_text("❌ Video fayli topilmadi.")
+            await cb.message.reply_text(f"{ce('ERROR')} Video fayli topilmadi.")
             return
 
         yt_conn = db.get_yt_connection(uid)
         if not yt_conn or not yt_conn.get("access_token"):
-            await cb.message.reply_text("⚠️ Avval /ytlogin orqali YouTube kanalingizni ulang!")
+            await cb.message.reply_text(f"{ce('WARN')} Avval /ytlogin orqali YouTube kanalingizni ulang!")
             return
 
         try:
@@ -971,9 +984,9 @@ def load_mega_features(bot: Client):
                 "Generated with AI Video Studio ($20/mo)\n#shorts #ai #viral",
                 yt_conn
             )
-            await cb.message.reply_text(f"✅ **Muvaffaqiyatli yuklandi!**\n🔗 [YouTube da ko'rish](https://youtu.be/{yt_id})")
+            await cb.message.reply_text(f"{ce('CHECK')} <b>Muvaffaqiyatli yuklandi!</b>\n{ce('LINK')} <a href=\"https://youtu.be/{yt_id}\">YouTube da ko'rish</a>")
         except Exception as e:
-            await cb.message.reply_text(f"❌ Yuklashda xato: {e}")
+            await cb.message.reply_text(f"{ce('ERROR')} Yuklashda xato: {e}")
 
     # =========================================================================
     # 7. YOUTUBE COMPETITOR SPY & SEO STEALER
@@ -984,16 +997,16 @@ def load_mega_features(bot: Client):
         if len(parts) < 2:
             USER_STATES[message.from_user.id] = {"action": "waiting_spy_url"}
             await message.reply_text(
-                "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
-                "Raqobatchining videosidan yashirin teglarni va kalit so'zlarni ko'chirib olish "
-                "hamda Gemini AI orqali uni ortda qoldiruvchi CTR sarlavhalar olish uchun "
-                "video havolasini yuboring:\n\n"
-                "Masalan: `/spy https://youtu.be/...`"
+                f"{ce('SEARCH')} <b>YouTube Competitor Spy & SEO Stealer</b>\n\n"
+                f"Raqobatchining videosidan yashirin teglarni va kalit so'zlarni ko'chirib olish "
+                f"hamda Gemini AI orqali uni ortda qoldiruvchi CTR sarlavhalar olish uchun "
+                f"video yoki kanal havolasini yuboring:\n\n"
+                f"Masalan: <code>/spy https://youtu.be/...</code>"
             )
             return
 
         video_url = parts[1]
-        wait_m = await message.reply_text("🕵️‍♂️ **Raqobatchi metama'lumotlari va yashirin teglari tahlil qilinmoqda...**")
+        wait_m = await message.reply_text(f"{ce('SPY_HAT')} <b>Raqobatchi metama'lumotlari va yashirin teglari tahlil qilinmoqda...</b>")
         try:
             lang = db.get_user_language(message.from_user.id)
             res = await analyze_and_steal_seo(video_url, lang=lang)
@@ -1001,20 +1014,20 @@ def load_mega_features(bot: Client):
             tags_str = ", ".join(meta["tags"]) if meta["tags"] else "Yashirin teglar topilmadi."
 
             report = (
-                f"🎯 **RAQOBATCHI TAHLILI NATIJASI:**\n\n"
-                f"🎬 **Sarlavha:** {meta['title']}\n"
-                f"👤 **Kanal:** {meta['channel']}\n"
-                f"👁 **Ko'rishlar:** `{meta['view_count']:,}` ta\n"
-                f"👍 **Layklar:** `{meta['like_count']:,}` ta\n\n"
-                f"🏷 **YASHIRIN TEGLAR (Keywords):**\n`{tags_str}`\n\n"
+                f"{ce('TARGET')} <b>RAQOBATCHI TAHLILI NATIJASI:</b>\n\n"
+                f"{ce('VIDEO')} <b>Sarlavha:</b> {meta['title']}\n"
+                f"{ce('USER')} <b>Kanal:</b> {meta['channel']}\n"
+                f"{ce('VIEWS')} <b>Ko'rishlar:</b> <code>{meta['view_count']:,} ta</code>\n"
+                f"{ce('LIKE')} <b>Layklar:</b> <code>{meta['like_count']:,} ta</code>\n\n"
+                f"{ce('SEO_TAG')} <b>YASHIRIN TEGLAR (Keywords):</b>\n<code>{tags_str}</code>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"🧠 **GEMINI AI SEO TAVSIYALARI:**\n\n"
+                f"{ce('BRAIN')} <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
                 f"{res['ai_analysis']}"
             )
             await wait_m.delete()
             await message.reply_text(report)
         except Exception as e:
-            await wait_m.edit_text(f"❌ Tahlil xatosi: {e}")
+            await wait_m.edit_text(f"{ce('ERROR')} Tahlil xatosi: {e}")
 
     @bot.on_callback_query(filters.regex(r"^menu_spy$"))
     async def cb_menu_spy(client, cb: CallbackQuery):
@@ -1025,8 +1038,8 @@ def load_mega_features(bot: Client):
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             spy_text = (
-                "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
-                "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
+                f"{ce('SEARCH')} <b>YouTube Competitor Spy & SEO Stealer</b>\n\n"
+                f"Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
             )
             try:
                 await cb.message.edit_text(spy_text, reply_markup=kb)
@@ -1041,7 +1054,7 @@ def load_mega_features(bot: Client):
             import traceback
             logger.error(f"cb_menu_spy error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+                await cb.message.reply_text(f"{ce('WARN')} Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
             except: pass
 
     # =========================================================================
@@ -1052,9 +1065,9 @@ def load_mega_features(bot: Client):
         uid = message.from_user.id
         bal = db.get_user_balance(uid)
         text = (
-            f"💸 **Hisobdan Pul Yechish (Cashout)**\n\n"
-            f"💰 **Mavjud balansingiz:** `{bal:,}` so'm\n"
-            f"⚠️ **Minimal yechish summasi:** `{MIN_CASHOUT_UZS:,}` so'm\n\n"
+            f"{ce('CASH')} <b>Hisobdan Pul Yechish (Cashout)</b>\n\n"
+            f"{ce('MONEY')} <b>Mavjud balansingiz:</b> <code>{bal:,}</code> so'm\n"
+            f"{ce('WARN')} <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,}</code> so'm\n\n"
             f"Pul yechish usulini tanlang:"
         )
         kb = InlineKeyboardMarkup([
@@ -1069,9 +1082,9 @@ def load_mega_features(bot: Client):
         uid = cb.from_user.id
         bal = db.get_user_balance(uid)
         text = (
-            f"💸 **Hisobdan Pul Yechish (Cashout)**\n\n"
-            f"💰 **Mavjud balansingiz:** `{bal:,}` so'm\n"
-            f"⚠️ **Minimal yechish:** `{MIN_CASHOUT_UZS:,}` so'm\n\n"
+            f"{ce('CASH')} <b>Hisobdan Pul Yechish (Cashout)</b>\n\n"
+            f"{ce('MONEY')} <b>Mavjud balansingiz:</b> <code>{bal:,}</code> so'm\n"
+            f"{ce('WARN')} <b>Minimal yechish:</b> <code>{MIN_CASHOUT_UZS:,}</code> so'm\n\n"
             f"Qaysi usulda yechib olmoqchisiz?"
         )
         kb = InlineKeyboardMarkup([
@@ -1092,7 +1105,7 @@ def load_mega_features(bot: Client):
         uid = cb.from_user.id
         USER_STATES[uid] = {"action": "waiting_cashout_details", "method": method}
         prompt_txt = "Telegram @username va summani yozing (masalan: `@username 50000`):" if method == "stars" else "TON hamyon manzilingiz va summani yozing (masalan: `EQ... 100000`):"
-        await cb.message.reply_text(f"💳 **{method.upper()} orqali yechish:**\n\n{prompt_txt}")
+        await cb.message.reply_text(f"{ce('CARD')} <b>{method.upper()} orqali yechish:</b>\n\n{prompt_txt}")
 
     @bot.on_callback_query(filters.regex(r"^adm_co_(app|rej)_(\d+)$"))
     async def cb_admin_cashout_action(client, cb: CallbackQuery):
@@ -1104,7 +1117,7 @@ def load_mega_features(bot: Client):
         req_id = int(cb.matches[0].group(2))
         ok, res = await handle_admin_cashout_decision(client, req_id, action, cb.from_user.id)
         await cb.answer(res, show_alert=True)
-        await cb.message.edit_text(f"{cb.message.text}\n\n👉 **Holat:** {res}")
+        await cb.message.edit_text(f"{cb.message.text}\n\n👉 <b>Holat:</b> {res}")
 
     # =========================================================================
     # 9. SMART DEEPLINK & QR CODE GENERATOR
@@ -1115,10 +1128,10 @@ def load_mega_features(bot: Client):
         if len(parts) < 2:
             USER_STATES[message.from_user.id] = {"action": "waiting_deeplink_url"}
             await message.reply_text(
-                "📲 **Smart YouTube DeepLink & QR Generator**\n\n"
-                "YouTube video yoki kanalingiz havolasini yuboring. Bot mobil ilovada "
-                "to'g'ridan-to'g'ri ochiluvchi aqlli havola va yuqori sifatli QR kod yasab beradi:\n\n"
-                "Masalan: `/deeplink https://youtu.be/...`"
+                f"{ce('DEEPLINK')} <b>Smart YouTube DeepLink & QR Generator</b>\n\n"
+                f"YouTube video yoki kanalingiz havolasini yuboring. Bot mobil ilovada "
+                f"to'g'ridan-to'g'ri ochiluvchi aqlli havola va yuqori sifatli QR kod yasab beradi:\n\n"
+                f"Masalan: <code>/deeplink https://youtu.be/...</code>"
             )
             return
 
@@ -1128,11 +1141,12 @@ def load_mega_features(bot: Client):
         await generate_qr_code_image(dl_info["universal_url"], qr_file)
 
         caption = (
-            f"📲 **Smart DeepLink Tayyor!**\n\n"
-            f"🌐 **Universal:** `{dl_info['universal_url']}`\n"
-            f"🤖 **Android Intent:** `{dl_info['android_intent']}`\n"
-            f"🍏 **iOS DeepLink:** `{dl_info['ios_deeplink']}`\n\n"
-            f"💡 *Ushbu QR kod yoki havolani Instagram Stories yoki Telegramda ulashing — foydalanuvchilar to'g'ridan-to'g'ri YouTube mobil ilovasida ochiladi!*"
+            f"{ce('DEEPLINK')} <b>Smart DeepLink Tayyor!</b>\n\n"
+            f"{ce('WEB')} <b>Universal:</b> <code>{dl_info['universal_url']}</code>\n"
+            f"{ce('MOBILE')} <b>Android Intent:</b> <code>{dl_info['android_intent']}</code>\n"
+            f"{ce('MOBILE')} <b>iOS DeepLink:</b> <code>{dl_info['ios_deeplink']}</code>\n\n"
+            f"{ce('IDEA')} <i>Ushbu QR kod yoki havolani Instagram Stories yoki Telegramda ulashing — foydalanuvchilar to'g'ridan-to'g'ri YouTube mobil ilovasida ochiladi!</i>\n\n"
+            f"{ce('WARN')} <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
         )
         if os.path.exists(qr_file):
             await client.send_photo(chat_id=message.chat.id, photo=qr_file, caption=caption)
@@ -1149,8 +1163,8 @@ def load_mega_features(bot: Client):
             pass
         USER_STATES[cb.from_user.id] = {"action": "waiting_deeplink_url"}
         await cb.message.reply_text(
-            "📲 **Smart YouTube DeepLink & QR Generator**\n\n"
-            "YouTube havolangizni yuboring, bot uni mobil ilovada to'g'ridan-to'g'ri ochiladigan formatga o'tkazadi:"
+            f"{ce('DEEPLINK')} <b>Smart YouTube DeepLink & QR Generator</b>\n\n"
+            f"YouTube havolangizni yuboring, bot uni mobil ilovada to'g'ridan-to'g'ri ochiladigan formatga o'tkazadi:"
         )
 
     # =========================================================================
@@ -1158,9 +1172,13 @@ def load_mega_features(bot: Client):
     # =========================================================================
     @bot.on_message(filters.text & filters.private, group=-1)
     async def universal_state_listener(client, message: Message):
+        if not message.from_user:
+            message.continue_propagation()
+            return
         uid = message.from_user.id
         state = USER_STATES.get(uid)
         if not state:
+            message.continue_propagation()
             return
 
         action = state.get("action")
@@ -1169,233 +1187,263 @@ def load_mega_features(bot: Client):
         # Agar foydalanuvchi buyruq yuborsa (/start, /menu, /help va h.k.), holatdan chiqamiz
         if text.startswith("/"):
             USER_STATES.pop(uid, None)
+            message.continue_propagation()
             return
 
-        # 1. AI Support savoli
-        if action == "waiting_support_ai":
-            USER_STATES.pop(uid, None)
-            role = state.get("role", "faq")
-            lang = db.get_user_language(uid)
-            wait_m = await message.reply_text("⏳ `Gemini AI javob tayyorlamoqda...`")
-            ans = await generate_support_answer(text, role, lang)
-            await wait_m.delete()
-            await message.reply_text(f"🤖 **AI Maslahatchi Javobi:**\n\n{ans}")
-            message.stop_propagation()
-
-        # 2. Live Admin xabari
-        elif action == "waiting_support_live":
-            USER_STATES.pop(uid, None)
-            role = state.get("role", "general")
-            lang = db.get_user_language(uid)
-            ticket_id = await forward_to_admin(client, message.from_user, role, text, lang)
-            wait_notice = WAITING_MESSAGES.get(lang, WAITING_MESSAGES["uz"])
-            await message.reply_text(f"{wait_notice}\n\n🎫 Murojaat raqami: `#{ticket_id}`")
-            message.stop_propagation()
-
-        # 3. Admin javobi foydalanuvchiga
-        elif action == "admin_replying" and uid == OWNER_ID:
-            USER_STATES.pop(uid, None)
-            ticket_id = state.get("ticket_id")
-            target_uid = state.get("target_user_id")
-            db.add_support_message(ticket_id, sender_type="admin", message_text=text)
-            user_msg = (
-                f"📩 **ADMIN JAVOBI (Murojaat #{ticket_id}):**\n\n"
-                f"{text}\n\n"
-                f"Qo'shimcha savollaringiz bo'lsa, /support orqali yozishingiz mumkin."
-            )
-            try:
-                await client.send_message(chat_id=target_uid, text=user_msg)
-                await message.reply_text(f"✅ Javobingiz foydalanuvchiga ({target_uid}) muvaffaqiyatli yetkazildi!")
-            except Exception as err:
-                await message.reply_text(f"❌ Foydalanuvchiga yuborishda xato: {err}")
-            message.stop_propagation()
-
-        # 4. P2P Chek Yaratish (Wizard)
-        elif action == "waiting_check_params":
-            USER_STATES.pop(uid, None)
-            parts = text.split()
-            if len(parts) < 2:
-                await message.reply_text("❌ Format xato! Masalan: `50000 5 @kanal` yoki `20000 2`")
+        try:
+            # 1. AI Support savoli
+            if action == "waiting_support_ai":
+                USER_STATES.pop(uid, None)
+                role = state.get("role", "faq")
+                lang = db.get_user_language(uid)
+                wait_m = await message.reply_text(f"{ce('WAIT')} <code>Gemini AI javob tayyorlamoqda...</code>")
+                try:
+                    ans = await asyncio.wait_for(generate_support_answer(text, role, lang), timeout=15)
+                except Exception as ai_err:
+                    logger.error(f"Support AI timeout/error: {ai_err}")
+                    ans = "Kechirasiz, sun'iy intellekt xizmati hozirda band. Iltimos, admin bilan to'g'ridan-to'g'ri bog'laning!"
+                try:
+                    await wait_m.delete()
+                except Exception:
+                    pass
+                await message.reply_text(f"{ce('BOT')} <b>AI Maslahatchi Javobi:</b>\n\n{ans}")
                 message.stop_propagation()
-                return
-            try:
-                total_amt = int(parts[0])
-                claims_cnt = int(parts[1])
-                req_ch = parts[2] if len(parts) > 2 else None
-            except ValueError:
-                await message.reply_text("❌ Summa va odam soni raqam bo'lishi kerak!")
+
+            # 2. Live Admin xabari
+            elif action == "waiting_support_live":
+                USER_STATES.pop(uid, None)
+                role = state.get("role", "general")
+                lang = db.get_user_language(uid)
+                ticket_id = await forward_to_admin(client, message.from_user, role, text, lang)
+                wait_notice = WAITING_MESSAGES.get(lang, WAITING_MESSAGES["uz"])
+                await message.reply_text(f"{wait_notice}\n\n{ce('TICKET')} Murojaat raqami: <code>#{ticket_id}</code>")
                 message.stop_propagation()
-                return
 
-            if total_amt < 1000 or claims_cnt < 1:
-                await message.reply_text("❌ Minimal summa: 1,000 so'm, odam soni kamida 1 ta bo'lishi kerak!")
+            # 3. Admin javobi foydalanuvchiga
+            elif action == "admin_replying" and (uid == OWNER_ID or db.is_admin(uid)):
+                USER_STATES.pop(uid, None)
+                ticket_id = state.get("ticket_id")
+                target_uid = state.get("target_user_id")
+                db.add_support_message(ticket_id, sender_type="admin", message_text=text)
+                user_msg = (
+                    f"{ce('INVOICE')} <b>ADMIN JAVOBI (Murojaat #{ticket_id}):</b>\n\n"
+                    f"{text}\n\n"
+                    f"Qo'shimcha savollaringiz bo'lsa, /support orqali yozishingiz mumkin."
+                )
+                try:
+                    await client.send_message(chat_id=target_uid, text=user_msg)
+                    await message.reply_text(f"{ce('CHECK')} Javobingiz foydalanuvchiga ({target_uid}) muvaffaqiyatli yetkazildi!")
+                except Exception as err:
+                    await message.reply_text(f"{ce('ERROR')} Foydalanuvchiga yuborishda xato: {err}")
                 message.stop_propagation()
-                return
 
-            ok, msg, code = create_p2p_check(uid, total_amt, claims_cnt, req_ch)
-            if not ok:
-                await message.reply_text(f"❌ Xatolik: {msg}")
-                message.stop_propagation()
-                return
-
-            share_kb = get_check_claim_keyboard(code, req_ch)
-            ch_text = f"\n📢 <b>Shart:</b> @{req_ch.strip().lstrip('@')} kanaliga a'zo bo'lish" if req_ch else ""
-            res_text = (
-                f"💸 <b>Yangi P2P Shartli Chek Yaratildi!</b>\n\n"
-                f"💰 <b>Umumiy summa:</b> <code>{total_amt:,} so'm</code>\n"
-                f"👥 <b>Qabul qiluvchilar:</b> <code>{claims_cnt} ta</code>\n"
-                f"💵 <b>Har biriga:</b> <code>{int(total_amt/claims_cnt):,} so'm</code>{ch_text}\n\n"
-                f"🔗 <b>Chek Kodi:</b> <code>{code}</code>\n\n"
-                f"{RED_ANTIFRAUD_WARNING}"
-            )
-            await message.reply_text(res_text, reply_markup=share_kb)
-            message.stop_propagation()
-
-        # 5. P2P Chek Kodini kiritish
-        elif action == "waiting_check_code":
-            USER_STATES.pop(uid, None)
-            clean_code = text.strip().upper()
-            ok, res = await process_check_claim(client, uid, clean_code)
-            if not ok:
-                await message.reply_text(f"❌ {res}")
-            else:
-                await message.reply_text(res)
-            message.stop_propagation()
-
-        # 6. Promokod kiritish
-        elif action == "waiting_promo_code":
-            USER_STATES.pop(uid, None)
-            ok, res = user_redeem_promo(uid, text)
-            await message.reply_text(res)
-            message.stop_propagation()
-
-        # 7. Instagram profil qo'shish
-        elif action == "waiting_ig_profile":
-            USER_STATES.pop(uid, None)
-            clean_ig = text.lstrip("@").strip()
-            add_instagram_target(uid, clean_ig)
-            await message.reply_text(f"✅ `@{clean_ig}` Instagram profili kuzatuvga qo'shildi! Endi yangi videolar avtomat YouTube ga o'tkaziladi.")
-            message.stop_propagation()
-
-        # 8. AI Video Prompt
-        elif action in ("waiting_aivideo_prompt", "waiting_ai_prompt", "waiting_aivideo_prompt_single"):
-            USER_STATES.pop(uid, None)
-            if action == "waiting_aivideo_prompt_single":
-                res_fee = db.deduct_single_ai_video_fee(uid)
-                if not res_fee.get("ok"):
-                    await message.reply_text(f"❌ {res_fee.get('error', 'Balansingiz yetarli emas!')}")
+            # 4. P2P Chek Yaratish (Wizard)
+            elif action == "waiting_check_params":
+                USER_STATES.pop(uid, None)
+                parts = text.split()
+                if len(parts) < 2:
+                    await message.reply_text(f"{ce('ERROR')} Format xato! Masalan: <code>50000 5 @kanal</code> yoki <code>20000 2</code>")
                     message.stop_propagation()
                     return
-            elif not db.is_user_ai_video_subscribed(uid):
-                await message.reply_text("❌ Ushbu xizmatdan foydalanish uchun AI Video Studio obunasi ($20/oy) talab qilinadi. /aivideo orqali xarid qiling.")
-                message.stop_propagation()
-                return
+                try:
+                    total_amt = int(parts[0])
+                    claims_cnt = int(parts[1])
+                    req_ch = parts[2] if len(parts) > 2 else None
+                except ValueError:
+                    await message.reply_text(f"{ce('ERROR')} Summa va odam soni raqam bo'lishi kerak!")
+                    message.stop_propagation()
+                    return
 
-            wait_m = await message.reply_text("⏳ <b>AI video yaratilmoqda...</b>\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30-40 soniya)")
-            try:
-                lang = db.get_user_language(uid)
-                video_data = await build_ai_short_video(text, lang=lang)
-                v_path = video_data["video_path"]
-                title = video_data["title"]
+                if total_amt < 1000 or claims_cnt < 1:
+                    await message.reply_text(f"{ce('ERROR')} Minimal summa: 1,000 so'm, odam soni kamida 1 ta bo'lishi kerak!")
+                    message.stop_propagation()
+                    return
 
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚀 YouTube Kanalimga Yuklash", callback_data=f"pub_aivid_{os.path.basename(v_path)}")],
-                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-                ])
+                ok, msg, code = create_p2p_check(uid, total_amt, claims_cnt, req_ch)
+                if not ok:
+                    await message.reply_text(f"{ce('ERROR')} Xatolik: {msg}")
+                    message.stop_propagation()
+                    return
 
-                await client.send_video(
-                    chat_id=message.chat.id,
-                    video=v_path,
-                    caption=f"🎬 <b>{title}</b>\n\n{video_data['script']}",
-                    reply_markup=kb,
-                    supports_streaming=True
+                share_kb = get_check_claim_keyboard(code, req_ch)
+                ch_text = f"\n{ce('CHANNEL')} <b>Shart:</b> @{req_ch.strip().lstrip('@')} kanaliga a'zo bo'lish" if req_ch else ""
+                res_text = (
+                    f"{ce('CASH')} <b>Yangi P2P Shartli Chek Yaratildi!</b>\n\n"
+                    f"{ce('MONEY')} <b>Umumiy summa:</b> <code>{total_amt:,} so'm</code>\n"
+                    f"{ce('FRIENDS')} <b>Qabul qiluvchilar:</b> <code>{claims_cnt} ta</code>\n"
+                    f"{ce('COIN')} <b>Har biriga:</b> <code>{int(total_amt/claims_cnt):,} so'm</code>{ch_text}\n\n"
+                    f"{ce('LINK')} <b>Chek Kodi:</b> <code>{code}</code>\n\n"
+                    f"{RED_ANTIFRAUD_WARNING}"
                 )
-                await wait_m.delete()
-            except Exception as e:
-                import traceback
-                logger.error(f"AI Video xato: {e}\n{traceback.format_exc()}")
-                await wait_m.edit_text(f"❌ Xatolik yuz berdi: {e}")
-            message.stop_propagation()
+                await message.reply_text(res_text, reply_markup=share_kb)
+                message.stop_propagation()
 
-        # 9. Competitor Spy URL
-        elif action == "waiting_spy_url":
-            USER_STATES.pop(uid, None)
-            wait_m = await message.reply_text("🕵️‍♂️ <b>Raqobatchi metama'lumotlari tahlil qilinmoqda...</b>")
-            try:
-                lang = db.get_user_language(uid)
-                res = await analyze_and_steal_seo(text, lang=lang)
-                meta = res["meta"]
-                tags_str = ", ".join(meta["tags"]) if meta["tags"] else "Yashirin teglar topilmadi."
+            # 5. P2P Chek Kodini kiritish
+            elif action == "waiting_check_code":
+                USER_STATES.pop(uid, None)
+                clean_code = text.strip().upper()
+                ok, res = await process_check_claim(client, uid, clean_code)
+                if not ok:
+                    await message.reply_text(f"{ce('ERROR')} {res}")
+                else:
+                    await message.reply_text(f"{ce('CHECK')} {res}")
+                message.stop_propagation()
 
-                report = (
-                    f"🎯 <b>RAQOBATCHI TAHLILI NATIJASI:</b>\n\n"
-                    f"🎬 <b>Sarlavha:</b> {meta['title']}\n"
-                    f"👤 <b>Kanal:</b> {meta['channel']}\n"
-                    f"👁 <b>Ko'rishlar:</b> <code>{meta['view_count']:,} ta</code>\n"
-                    f"👍 <b>Layklar:</b> <code>{meta['like_count']:,} ta</code>\n\n"
-                    f"🏷 <b>YASHIRIN TEGLAR (Keywords):</b>\n<code>{tags_str}</code>\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"🧠 <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
-                    f"{res['ai_analysis']}"
+            # 6. Promokod kiritish
+            elif action == "waiting_promo_code":
+                USER_STATES.pop(uid, None)
+                ok, res = user_redeem_promo(uid, text)
+                await message.reply_text(res)
+                message.stop_propagation()
+
+            # 7. Instagram profil qo'shish
+            elif action == "waiting_ig_profile":
+                USER_STATES.pop(uid, None)
+                clean_ig = text.lstrip("@").strip()
+                add_instagram_target(uid, clean_ig)
+                await message.reply_text(f"{ce('CHECK')} <code>@{clean_ig}</code> Instagram profili kuzatuvga qo'shildi! Endi yangi videolar avtomat YouTube ga o'tkaziladi.")
+                message.stop_propagation()
+
+            # 8. AI Video Prompt
+            elif action in ("waiting_aivideo_prompt", "waiting_ai_prompt", "waiting_aivideo_prompt_single"):
+                USER_STATES.pop(uid, None)
+                is_sub = db.is_user_ai_video_subscribed(uid)
+                if action == "waiting_aivideo_prompt_single" or not is_sub:
+                    res_fee = db.deduct_single_ai_video_fee(uid)
+                    if not res_fee.get("ok"):
+                        await message.reply_text(
+                            f"{ce('ERROR')} {res_fee.get('error', 'Balansingiz yetarli emas!')}\n\n"
+                            f"1 ta AI video yaratish narxi: 15,000 so'm yoki /aivideo orqali oylik obuna xarid qiling."
+                        )
+                        message.stop_propagation()
+                        return
+
+                wait_m = await message.reply_text(f"{ce('WAIT')} <b>AI video yaratilmoqda...</b>\n(Flux rasm + Diktor ovozi + FFmpeg montaj ~30 soniya)")
+                try:
+                    lang = db.get_user_language(uid)
+                    video_data = await build_ai_short_video(text, lang=lang)
+                    v_path = video_data["video_path"]
+                    title = video_data["title"]
+
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🚀 YouTube Kanalimga Yuklash", callback_data=f"pub_aivid_{os.path.basename(v_path)}")],
+                        [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                    ])
+
+                    caption_text = (
+                        f"{ce('VIDEO')} <b>{title}</b>\n\n"
+                        f"{video_data['script']}\n\n"
+                        f"{ce('WARN')} <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
+                    )
+
+                    await client.send_video(
+                        chat_id=message.chat.id,
+                        video=v_path,
+                        caption=caption_text,
+                        reply_markup=kb,
+                        supports_streaming=True
+                    )
+                    try:
+                        await wait_m.delete()
+                    except Exception:
+                        pass
+                except Exception as e:
+                    import traceback
+                    logger.error(f"AI Video xato: {e}\n{traceback.format_exc()}")
+                    await wait_m.edit_text(f"{ce('ERROR')} Xatolik yuz berdi: {e}")
+                message.stop_propagation()
+
+            # 9. Competitor Spy URL
+            elif action == "waiting_spy_url":
+                USER_STATES.pop(uid, None)
+                wait_m = await message.reply_text(f"{ce('SPY_HAT')} <b>Raqobatchi metama'lumotlari tahlil qilinmoqda...</b>")
+                try:
+                    lang = db.get_user_language(uid)
+                    res = await analyze_and_steal_seo(text, lang=lang)
+                    meta = res["meta"]
+                    tags_str = ", ".join(meta["tags"]) if meta["tags"] else "Yashirin teglar topilmadi."
+
+                    report = (
+                        f"{ce('TARGET')} <b>RAQOBATCHI TAHLILI NATIJASI:</b>\n\n"
+                        f"{ce('VIDEO')} <b>Sarlavha:</b> {meta['title']}\n"
+                        f"{ce('USER')} <b>Kanal:</b> {meta['channel']}\n"
+                        f"{ce('VIEWS')} <b>Ko'rishlar:</b> <code>{meta['view_count']:,} ta</code>\n"
+                        f"{ce('LIKE')} <b>Layklar:</b> <code>{meta['like_count']:,} ta</code>\n\n"
+                        f"{ce('SEO_TAG')} <b>YASHIRIN TEGLAR (Keywords):</b>\n<code>{tags_str}</code>\n\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n"
+                        f"{ce('BRAIN')} <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
+                        f"{res['ai_analysis']}\n\n"
+                        f"{ce('WARN')} <i>Eslatma: Tahlil ommaviy ma'lumotlar asosida taqdim etiladi.</i>"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔍 Boshqa Video Tahlili", callback_data="menu_spy")],
+                        [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                    ])
+                    try:
+                        await wait_m.delete()
+                    except Exception:
+                        pass
+                    await message.reply_text(report, reply_markup=kb)
+                except Exception as e:
+                    err_kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔄 Qayta urinish", callback_data="menu_spy")],
+                        [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                    ])
+                    await wait_m.edit_text(f"{ce('ERROR')} Tahlil xatosi: {e}\n\nIltimos, to'g'ri YouTube video yoki Shorts havolasini yuboring.", reply_markup=err_kb)
+                message.stop_propagation()
+
+            # 10. Cashout tafsilotlari
+            elif action == "waiting_cashout_details":
+                USER_STATES.pop(uid, None)
+                method = state.get("method", "ton")
+                tokens = text.split()
+                if len(tokens) < 2:
+                    await message.reply_text(f"{ce('ERROR')} Format xato! Masalan: <code>EQ... 50000</code> yoki <code>@username 50000</code>")
+                    message.stop_propagation()
+                    return
+                target_addr = tokens[0]
+                try:
+                    amt = int(tokens[1])
+                except ValueError:
+                    await message.reply_text(f"{ce('ERROR')} Summa raqam bo'lishi kerak!")
+                    message.stop_propagation()
+                    return
+
+                ok, res, equiv = request_user_cashout(uid, method, target_addr, amt)
+                if not ok:
+                    await message.reply_text(f"{ce('ERROR')} Xatolik: {res}")
+                else:
+                    await message.reply_text(f"{ce('CHECK')} {res}\n{ce('MONEY')} Ekvivalent: <code>{equiv}</code>")
+                    # Adminga xabar yuborish
+                    await notify_admin_new_cashout(client, 999, message.from_user, method, target_addr, amt, equiv)
+                message.stop_propagation()
+
+            # 11. DeepLink URL
+            elif action == "waiting_deeplink_url":
+                USER_STATES.pop(uid, None)
+                dl_info = generate_smart_deeplinks(text)
+                qr_file = f"downloads/qr_{uid}.png"
+                await generate_qr_code_image(dl_info["universal_url"], qr_file)
+
+                caption = (
+                    f"{ce('DEEPLINK')} <b>Smart DeepLink Tayyor!</b>\n\n"
+                    f"{ce('WEB')} <b>Universal:</b> <code>{dl_info['universal_url']}</code>\n"
+                    f"{ce('BOT')} <b>Android Intent:</b> <code>{dl_info['android_intent']}</code>\n"
+                    f"{ce('MOBILE')} <b>iOS DeepLink:</b> <code>{dl_info['ios_deeplink']}</code>\n\n"
+                    f"{ce('IDEA')} <i>QR kodni yuklab oling va istalgan joyda ulashing!</i>\n\n"
+                    f"{ce('WARN')} <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
                 )
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔍 Boshqa Video Tahlili", callback_data="menu_spy")],
-                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-                ])
-                await wait_m.delete()
-                await message.reply_text(report, reply_markup=kb)
-            except Exception as e:
-                err_kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔄 Qayta urinish", callback_data="menu_spy")],
-                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-                ])
-                await wait_m.edit_text(f"❌ Tahlil xatosi: {e}\n\nIltimos, to'g'ri YouTube video yoki Shorts havolasini yuboring.", reply_markup=err_kb)
-            message.stop_propagation()
-
-        # 10. Cashout tafsilotlari
-        elif action == "waiting_cashout_details":
-            USER_STATES.pop(uid, None)
-            method = state.get("method", "ton")
-            tokens = text.split()
-            if len(tokens) < 2:
-                await message.reply_text("❌ Format xato! Masalan: `EQ... 50000` yoki `@username 50000`")
+                if os.path.exists(qr_file):
+                    await client.send_photo(chat_id=message.chat.id, photo=qr_file, caption=caption)
+                    try: os.remove(qr_file)
+                    except: pass
+                else:
+                    await message.reply_text(caption)
                 message.stop_propagation()
-                return
-            target_addr = tokens[0]
-            try:
-                amt = int(tokens[1])
-            except ValueError:
-                await message.reply_text("❌ Summa raqam bo'lishi kerak!")
-                message.stop_propagation()
-                return
-
-            ok, res, equiv = request_user_cashout(uid, method, target_addr, amt)
-            if not ok:
-                await message.reply_text(f"❌ Xatolik: {res}")
             else:
-                await message.reply_text(f"✅ {res}\n💰 Ekvivalent: `{equiv}`")
-                # Adminga xabar yuborish
-                await notify_admin_new_cashout(client, 999, message.from_user, method, target_addr, amt, equiv)
-            message.stop_propagation()
-
-        # 11. DeepLink URL
-        elif action == "waiting_deeplink_url":
-            USER_STATES.pop(uid, None)
-            dl_info = generate_smart_deeplinks(text)
-            qr_file = f"downloads/qr_{uid}.png"
-            await generate_qr_code_image(dl_info["universal_url"], qr_file)
-
-            caption = (
-                f"📲 <b>Smart DeepLink Tayyor!</b>\n\n"
-                f"🌐 <b>Universal:</b> <code>{dl_info['universal_url']}</code>\n"
-                f"🤖 <b>Android Intent:</b> <code>{dl_info['android_intent']}</code>\n"
-                f"🍏 <b>iOS DeepLink:</b> <code>{dl_info['ios_deeplink']}</code>\n\n"
-                f"💡 <i>QR kodni yuklab oling va istalgan joyda ulashing!</i>"
-            )
-            if os.path.exists(qr_file):
-                await client.send_photo(chat_id=message.chat.id, photo=qr_file, caption=caption)
-                try: os.remove(qr_file)
-                except: pass
-            else:
-                await message.reply_text(caption)
+                message.continue_propagation()
+        except Exception as state_err:
+            import traceback
+            logger.error(f"universal_state_listener exception for {uid}: {state_err}\n{traceback.format_exc()}")
+            await message.reply_text(f"{ce('ERROR')} Xatolik yuz berdi: {state_err}\nIltimos, qaytadan urinib ko'ring yoki /support orqali yordam so'rang.")
             message.stop_propagation()

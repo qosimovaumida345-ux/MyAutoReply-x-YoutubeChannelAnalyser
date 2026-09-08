@@ -13,6 +13,7 @@ import yt_dlp
 import database as db
 from autopost import upload_to_youtube
 from instagram_processor import get_ffmpeg_binary
+from custom_emojis import ce
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,7 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
             continue
 
         if app and chat_id:
-            try: await app.send_message(chat_id, f"📥 `Yangi Reel topildi (#{pid}). 8-qatlamli unikalizatsiya va YouTube ga yuklash boshlandi...`")
+            try: await app.send_message(chat_id, f"{ce('DOWNLOAD')} <code>Yangi Reel topildi (#{pid}). 8-qatlamli unikalizatsiya va YouTube ga yuklash boshlandi...</code>")
             except: pass
 
         try:
@@ -239,9 +240,9 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
                     yt_url = f"https://youtu.be/{yt_id}"
                     await app.send_message(
                         chat_id,
-                        f"✅ **Muvaffaqiyatli yuklandi!**\n"
-                        f"🎬 **Sarlavha:** {processed['title']}\n"
-                        f"🔗 **YouTube havola:** [Ko'rish]({yt_url})"
+                        f"{ce('CHECK')} <b>Muvaffaqiyatli yuklandi!</b>\n"
+                        f"{ce('VIDEO')} <b>Sarlavha:</b> {processed['title']}\n"
+                        f"{ce('LINK')} <b>YouTube havola:</b> <a href=\"{yt_url}\">Ko'rish</a>"
                     )
                 except: pass
 
@@ -253,7 +254,7 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
         except Exception as upload_err:
             logger.error(f"IG Reel #{pid} yuklashda xato: {upload_err}")
             if app and chat_id:
-                try: await app.send_message(chat_id, f"⚠️ Reel #{pid} yuklashda xatolik: {upload_err}")
+                try: await app.send_message(chat_id, f"{ce('WARN')} Reel #{pid} yuklashda xatolik: {upload_err}")
                 except: pass
 
     db.update_ig_sync_timestamp(sync_channel_id)

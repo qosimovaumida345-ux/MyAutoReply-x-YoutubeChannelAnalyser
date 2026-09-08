@@ -10,16 +10,16 @@ import asyncio
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ChatMemberStatus
 import database as db
-from custom_emojis import e
+from custom_emojis import e, ce
 
 logger = logging.getLogger(__name__)
 
 RED_ANTIFRAUD_WARNING = (
-    "⚠️ **DIQQAT: QAT'IY XAVFSIZLIK QOIDASI!**\n\n"
-    "Ushbu chek mablag'ini qabul qilgandan so'ng, agar siz ko'rsatilgan homiy kanaldan "
-    "chiqib ketsangiz — **bot siz uchun BUTUNLAY BLOKLANADI** va barcha xizmatlaringiz, "
-    "balansingiz zudlik bilan muzlatiladi!\n\n"
-    "Iltimos, mablag'ni olishdan avval kanal a'zoligingizni doimiy saqlab qolishingizga ishonch hosil qiling."
+    f"{ce('ANTIFRAUD_SIREN')} <b>DIQQAT: QAT'IY XAVFSIZLIK QOIDASI!</b>\n\n"
+    f"Ushbu chek mablag'ini qabul qilgandan so'ng, agar siz ko'rsatilgan homiy kanaldan "
+    f"chiqib ketsangiz — {ce('LOCK')} <b>bot siz uchun BUTUNLAY BLOKLANADI</b> va barcha xizmatlaringiz, "
+    f"balansingiz zudlik bilan muzlatiladi!\n\n"
+    f"Iltimos, mablag'ni olishdan avval kanal a'zoligingizni doimiy saqlab qolishingizga ishonch hosil qiling."
 )
 
 def generate_check_code() -> str:
@@ -71,32 +71,32 @@ async def process_check_claim(app, user_id: int, check_code: str) -> tuple:
     """
     # 1. User allaqachon bloklanganmi?
     if db.is_user_antifraud_banned(user_id):
-        return False, "🚫 Siz qoidabuzarlik (kanaldan chiqib ketish) sababli botdan bloklangansiz! Chek ola olmaysiz."
+        return False, f"{ce('ERROR')} Siz qoidabuzarlik (kanaldan chiqib ketish) sababli botdan bloklangansiz! Chek ola olmaysiz."
 
     check = db.get_conditional_check(check_code)
     if not check:
-        return False, "Bunday chek topilmadi yoki muddati tugagan."
+        return False, f"{ce('ERROR')} Bunday chek topilmadi yoki muddati tugagan."
 
     if not check["is_active"]:
-        return False, "Ushbu chekdan barcha foydalanuvchilar olib bo'lgan."
+        return False, f"{ce('ERROR')} Ushbu chekdan barcha foydalanuvchilar olib bo'lgan."
 
     # 2. Homiy kanal obunasi talab qilinadimi?
     req_ch = check.get("required_channel")
     if req_ch:
         is_member = await verify_channel_membership(app, req_ch, user_id)
         if not is_member:
-            return False, f"⚠️ Ushbu chekni olish uchun avval @{req_ch} kanaliga obuna bo'lishingiz shart!\n\n{RED_ANTIFRAUD_WARNING}"
+            return False, f"{ce('WARN')} Ushbu chekni olish uchun avval @{req_ch} kanaliga obuna bo'lishingiz shart!\n\n{RED_ANTIFRAUD_WARNING}"
 
     # 3. Bazada claim qilish
     ok, msg = db.claim_conditional_check(check["id"], user_id, check["amount_per_user_uzs"])
     if not ok:
-        return False, msg
+        return False, f"{ce('ERROR')} {msg}"
 
     amount = check["amount_per_user_uzs"]
     congrats = (
-        f"🎉 **Tabriklaymiz! Chek hisobingizga o'tkazildi!**\n\n"
-        f"💰 **Miqdor:** `{amount:,}` so'm\n"
-        f"💳 Yangi balansingizga qo'shildi.\n\n"
+        f"{ce('PARTY')} <b>Tabriklaymiz! Chek hisobingizga o'tkazildi!</b>\n\n"
+        f"{ce('MONEY')} <b>Miqdor:</b> <code>{amount:,}</code> so'm\n"
+        f"{ce('CARD')} Yangi balansingizga qo'shildi.\n\n"
         f"{RED_ANTIFRAUD_WARNING}"
     )
     return True, congrats
@@ -129,7 +129,7 @@ async def run_antifraud_sentinel_once(app):
                 db.ban_antifraud_user(uid, reason=f"Homiy kanal (@{channel}) dan chiqib ketgani sababli botdan chetlashtirildi")
                 try:
                     ban_notification = (
-                        f"🚫 **HISOBINGIZ BUTUNLAY BLOKLANDI!**\n\n"
+                        f"{ce('LOCK')} <b>HISOBINGIZ BUTUNLAY BLOKLANDI!</b>\n\n"
                         f"Siz shartli chek olganingizdan so'ng homiy kanal (@{channel}) dan chiqib ketdingiz.\n"
                         f"Xavfsizlik tizimi qoidalariga binoan hisobingiz va botdagi barcha xizmatlaringiz muzlatildi."
                     )

@@ -61,7 +61,7 @@ from games_monetization import (
     order_whitelabel_bot, get_user_whitelabel_bots
 )
 from autopost import autopost_worker, get_auth_url, upload_to_youtube
-from custom_emojis import EMOJI_MAP, e
+from custom_emojis import EMOJI_MAP, e, ce
 from crypto_pay import create_crypto_pay_invoice, CRYPTO_PACKAGES
 from instagram_processor import download_instagram_reel, is_instagram_url, get_ffmpeg_binary
 from mass_engagement import _do_like, _do_comment, _do_subscribe, generate_gemini_comment, extract_video_id
@@ -4388,14 +4388,14 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             from vouchers_engine import RED_ANTIFRAUD_WARNING
             text = (
-                f'<emoji id="5265197972919964944">💸</emoji> <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n'
-                f'<emoji id="5343777479091831702">💰</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
+                f'{ce("CASH")} <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n'
+                f'{ce("MONEY")} <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
                 f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
                 f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
-                f"⚡ <b>Imkoniyatlar:</b>\n"
-                f"• 🎯 Homiy kanalga majburiy a'zolik sharti\n"
-                f"• 👥 Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
-                f"• 🛡️ Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
+                f"{ce('LIGHTNING')} <b>Imkoniyatlar:</b>\n"
+                f"• {ce('TARGET')} Homiy kanalga majburiy a'zolik sharti\n"
+                f"• {ce('FRIENDS')} Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
+                f"• {ce('SHIELD')} Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
                 f"{RED_ANTIFRAUD_WARNING}"
             )
             kb = InlineKeyboardMarkup([
@@ -4412,10 +4412,10 @@ def create_ytbot():
             targets = get_instagram_targets(user_id)
             ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
             text = (
-                f'<emoji id="4990082283701535678">📸</emoji> <b>Instagram Account Auto-Cloner</b>\n\n'
+                f'{ce("INSTAGRAM_LOGO")} <b>Instagram Account Auto-Cloner</b>\n\n'
                 f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
                 f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
-                f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
+                f"{ce('LIST')} <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
@@ -4439,17 +4439,18 @@ def create_ytbot():
             if not is_sub:
                 bal = get_user_balance(user_id)
                 text = (
-                    f'<emoji id="5978895591894161700">🎬</emoji> <b>AI Video Studio ($20 / oy)</b>\n\n'
+                    f'{ce("VIDEO")} <b>AI Video Studio ($20 / oy)</b>\n\n'
                     f"Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
-                    f"• 🎨 <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
-                    f"• 🎙 <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
-                    f"• 🎬 <b>Ken Burns FX</b> — Dinamik kamera harakati va audio montaj\n"
-                    f"• 🚀 <b>1-Click YouTube Shorts Yuklash</b>\n\n"
-                    f'<emoji id="5343777479091831702">💳</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
-                    f'<emoji id="5463424023734014980">💎</emoji> <b>Tariflar:</b>\n'
-                    f"• 👑 <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
-                    f'• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars:</b> 1,000 ⭐\n'
-                    f"• 🎞 <b>1 ta Video:</b> 15,000 so'm / video\n\n"
+                    f"• {ce('FLUX')} <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n"
+                    f"• {ce('VOICE')} <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n"
+                    f"• {ce('VIDEO')} <b>Ken Burns FX</b> — Dinamik kamera harakati va audio montaj\n"
+                    f"• {ce('ROCKET')} <b>1-Click YouTube Shorts Yuklash</b>\n\n"
+                    f'{ce("CARD")} <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
+                    f'{ce("TON")} <b>Tariflar:</b>\n'
+                    f"• {ce('CROWN')} <b>Oylik Cheksiz Obuna:</b> <b>$20 / oy</b> (256,000 so'm)\n"
+                    f'• {ce("STAR")} <b>Telegram Stars:</b> 1,000 ⭐\n'
+                    f"• {ce('CLIPPER')} <b>1 ta Video:</b> 15,000 so'm / video\n\n"
+                    f"{ce('WARN')} <i>OGOHLANTIRISH: Raqamli mahsulotlar uchun to'lov qaytarilmaydi (NO REFUNDS).</i>\n\n"
                     f"Kerakli tarifni tanlang:"
                 )
                 kb = InlineKeyboardMarkup([
@@ -4465,7 +4466,7 @@ def create_ytbot():
                 from mega_features import USER_STATES
                 USER_STATES[user_id] = {"action": "waiting_aivideo_prompt"}
                 text = (
-                    f'<emoji id="5978895591894161700">🎬</emoji> <b>AI Video Studio (Faol Obuna)</b>\n\n'
+                    f'{ce("VIDEO")} <b>AI Video Studio (Faol Obuna)</b>\n\n'
                     f"Video yaratish uchun mavzu yoki prompt kiriting:\n"
                     f"<i>Masalan: O'zbekistonning 5 ta sirli joyi, Kosmos sirlari, Muvaffaqiyat qoidalari...</i>"
                 )
@@ -4482,7 +4483,7 @@ def create_ytbot():
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             spy_text = (
-                f'<emoji id="5339247212012528642">🕵️</emoji> <b>YouTube Competitor Spy & SEO Stealer</b>\n\n'
+                f'{ce("SPY_HAT")} <b>YouTube Competitor Spy & SEO Stealer</b>\n\n'
                 f"Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
             )
             await cb.message.edit_text(spy_text, reply_markup=kb)
@@ -4492,9 +4493,9 @@ def create_ytbot():
             bal = get_user_balance(user_id)
             from cashout import MIN_CASHOUT_UZS
             text = (
-                f'<emoji id="5265197972919964944">💸</emoji> <b>Hisobdan Pul Yechish (Cashout)</b>\n\n'
-                f'<emoji id="5343777479091831702">💰</emoji> <b>Mavjud balansingiz:</b> <code>{bal:,} so\'m</code>\n'
-                f'⚠️ <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so\'m</code>\n\n'
+                f'{ce("CASH")} <b>Hisobdan Pul Yechish (Cashout)</b>\n\n'
+                f'{ce("MONEY")} <b>Mavjud balansingiz:</b> <code>{bal:,} so\'m</code>\n'
+                f'{ce("WARN")} <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so\'m</code>\n\n'
                 f"Pul yechish usulini tanlang:"
             )
             kb = InlineKeyboardMarkup([
@@ -4514,25 +4515,27 @@ def create_ytbot():
             gq_stock = stock.get("groq", 0)
             pr_stock = get_proxies_stock_count()
             text = (
-                f"{e('CASH')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
-                f"{e('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
-                f"<b>🌐 Proxy & Server Quvvati:</b>\n"
-                f"• {e('PROXY')} <b>Dedicated Private Proxy:</b> $3 (38,000 so'm) — <i>Zaxirada: {pr_stock} ta</i>\n"
-                f"• {e('STREAM')} <b>24/7 Autostream Cloud Slot:</b> $0.5 / soat (6,000 so'm/soat)\n\n"
-                f"<b>🤖 AI API Kalitlar:</b>\n"
-                f"• {e('OPENROUTER')} <b>OpenRouter API ($3):</b> 38,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
-                f"• {e('GEMINI')} <b>Google Gemini API ($5):</b> 64,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
-                f"• {e('GROQ')} <b>Groq Cloud API (gptoss 120b):</b> 10,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
-                f"<b>🎨 AI Kreativ & Kontent:</b>\n"
-                f"• {e('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> $2/hafta (25,000 so'm, 25 ta rasm)\n"
-                f"• {e('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> $3 (38,000 so'm)\n"
-                f"• {e('CLIPPER')} <b>3 ta Vertical Shorts Kesish:</b> $1 (12,800 so'm) / video\n\n"
-                f"<b>⚡ Kanal Rivojlantirish & DeepLink:</b>\n"
-                f"• {e('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 3,000 so'm\n"
-                f"• {e('LIGHTNING')} <b>Video Unikalizatsiya & Content ID:</b> 1,500 so'm\n"
-                f"• 👑 <b>VIP Cheksiz Pro Obuna:</b> $15 / oy (192,000 so'm)\n"
-                f"• 💎 <b>Referal & 10% Keshbek Tizimi</b>\n\n"
-                f"{e('PIN')} Kerakli mahsulot yoki xizmatni tanlang:"
+                f"{ce('CASH')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
+                f"{ce('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
+                f"<b>{ce('WEB')} Proxy & Server Quvvati:</b>\n"
+                f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> $3 (38,000 so'm) — <i>Zaxirada: {pr_stock} ta</i> <code>[NO REFUND]</code>\n"
+                f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> $0.5 / soat (6,000 so'm/soat) <code>[NO REFUND]</code>\n\n"
+                f"<b>{ce('BOT')} AI API Kalitlar:</b>\n"
+                f"• {ce('OPENROUTER')} <b>OpenRouter API ($3):</b> 38,000 so'm — <i>Zaxirada: {op_stock} ta</i> <code>[NO REFUND]</code>\n"
+                f"• {ce('GEMINI')} <b>Google Gemini API ($5):</b> 64,000 so'm — <i>Zaxirada: {gm_stock} ta</i> <code>[NO REFUND]</code>\n"
+                f"• {ce('GROQ')} <b>Groq Cloud API (gptoss 120b):</b> 10,000 so'm — <i>Zaxirada: {gq_stock} ta</i> <code>[NO REFUND]</code>\n\n"
+                f"<b>{ce('FLUX')} AI Kreativ & Kontent:</b>\n"
+                f"• {ce('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> $2/hafta (25,000 so'm, 25 ta rasm) <code>[NO REFUND]</code>\n"
+                f"• {ce('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> $3 (38,000 so'm) <code>[NO REFUND]</code>\n"
+                f"• {ce('CLIPPER')} <b>3 ta Vertical Shorts Kesish:</b> $1 (12,800 so'm) / video <code>[NO REFUND]</code>\n\n"
+                f"<b>{ce('LIGHTNING')} Kanal Rivojlantirish & DeepLink:</b>\n"
+                f"• {ce('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 3,000 so'm <code>[NO REFUND]</code>\n"
+                f"• {ce('LIGHTNING')} <b>Video Unikalizatsiya & Content ID:</b> 1,500 so'm <code>[NO REFUND]</code>\n"
+                f"• {ce('CROWN')} <b>VIP Cheksiz Pro Obuna:</b> $15 / oy (192,000 so'm) <code>[NO REFUND]</code>\n"
+                f"• {ce('DIAMOND')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
+                f"{ce('WARN')} <b>OGOHLANTIRISH & OMMAVIY OFERTA:</b>\n"
+                f"<i>Barcha raqamli mahsulotlar promo-aksiyalar doirasida taqdim etiladi. Eskirgan (expired) yoki ishlamaydigan kodlar uchun ma'muriyat javobgar emas va mablag' mutlaqo qaytarilmaydi (NO REFUNDS). Xarid qilish orqali barcha shartlarga o'z ixtiyoringiz bilan to'liq rozilik bildirasiz.</i>\n\n"
+                f"{ce('PIN')} Kerakli mahsulot yoki xizmatni tanlang:"
             )
             await cb.message.edit_text(text, reply_markup=marketplace_menu_kb())
             await cb.answer()
@@ -7402,7 +7405,8 @@ Javobingni FAQAT JSON formatida ber:
     "action": "command" yoki "text",
     "result": "buyruq matni (masalan /compare ch1 ch2) YOKI foydalanuvchiga do'stona javob"
 }}"""
-            res = generate_with_fallback(prompt)
+            from config import generate_with_fallback_async
+            res = await asyncio.wait_for(generate_with_fallback_async(prompt), timeout=8)
             if res and res.text:
                 json_match = re.search(r'\{[\s\S]*\}', res.text)
                 if json_match:
@@ -7432,13 +7436,21 @@ Javobingni FAQAT JSON formatida ber:
                         elif cmd_name == "instagram":
                             await instagram_cmd(client, message)
                         return
-                    else:
-                        await message.reply_text(f"`{val}`", parse_mode=ParseMode.MARKDOWN)
+                    elif val:
+                        await message.reply_text(f"{val}")
                         return
         except Exception as e:
-            print(f"AI routing xato: {e}")
+            logger.error(f"AI routing xato: {e}")
         
-        await message.reply_text("`Yordam uchun /help ni bosing.`", parse_mode=ParseMode.MARKDOWN)
+        try:
+            lang = get_user_language(user_id)
+        except Exception:
+            lang = "uz"
+        await message.reply_text(
+            "🤖 <b>Assalomu alaykum!</b> Sizga qanday yordam bera olaman?\n\n"
+            "Kerakli bo'limni tanlash uchun quyidagi bosh menyudan foydalaning yoki /help bosing:",
+            reply_markup=main_menu_kb(lang)
+        )
     from super_features import load_super_features
     load_super_features(bot)
     return bot

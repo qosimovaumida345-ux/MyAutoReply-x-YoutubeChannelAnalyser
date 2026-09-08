@@ -11,6 +11,7 @@ import uuid
 import logging
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import database as db
+from custom_emojis import ce
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,14 @@ CAPCUT_PRICES = {
     },
 }
 
+LEGAL_DISCLAIMER_WARNING = (
+    f"{ce('WARN')} <b>OGOHLANTIRISH & OMMAVIY OFERTA (DISCLAIMER):</b>\n"
+    f"Barcha raqamli litsenziyalar, promo-kodlar va mahsulotlar promo-aksiyalar hamda reseller dasturlari "
+    f"doirasida taqdim etiladi. Agar promo-kod muddati o'tgan (expired) bo'lsa, uchinchi tomon platformasi (CapCut) "
+    f"tomonidan rad etilsa yoki mintaqaviy cheklovga uchrasa — ma'muriyat javobgar emas va mablag' mutlaqo qaytarilmaydi (NO REFUNDS). "
+    f"Xarid qilish orqali siz ushbu shartlarga o'z ixtiyoringiz bilan 100% to'liq rozilik bildirasiz va keyinchalik hech qanday e'tiroz yoki da'vo qilmaysiz."
+)
+
 def generate_capcut_license_key() -> str:
     """Noyob CapCut Pro litsenziya kalitini generatsiya qilish"""
     raw = uuid.uuid4().hex.upper()
@@ -53,27 +62,28 @@ def get_capcut_menu_text(user_id: int, lang: str = "uz") -> str:
     sub = db.get_user_capcut_subscription(user_id)
     
     sub_status = (
-        f"👑 <b>Sizda faol CapCut Pro mavjud!</b>\n"
-        f"📅 Tugash muddati: <code>{sub.get('expires_at')}</code>\n"
-        f"🔑 Litsenziya: <code>{sub.get('license_key', 'Faol')}</code>\n\n"
+        f"{ce('CROWN')} <b>Sizda faol CapCut Pro mavjud!</b>\n"
+        f"{ce('CALENDAR')} Tugash muddati: <code>{sub.get('expires_at')}</code>\n"
+        f"{ce('KEY')} Litsenziya: <code>{sub.get('license_key', 'Faol')}</code>\n\n"
     ) if sub else ""
 
     text = (
-        f'<emoji id="5978895591894161700">🎬</emoji> <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n'
+        f"{ce('CAPCUT_LOGO')} <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n"
         f"{sub_status}"
         f"CapCut Pro bilan kompyuter va telefoningizda professional darajada video montaj qiling:\n\n"
-        f"✨ <b>Pro Imkoniyatlar:</b>\n"
-        f"• 🎨 10,000+ VIP effektlar, animatsiyalar va filtrlar\n"
-        f"• 🎵 Litsenziyalangan mualliflik huquqisiz audio kutubxona\n"
-        f"• 🤖 AI Avtomatik Subtitrlar va Avto-Kesish\n"
-        f"• 📐 4K 60FPS eksport va Suv belgisiz (No Watermark)\n"
-        f"• ⚡ Cloud Storage va Tezkor renderlash\n\n"
-        f'<emoji id="5463424023734014980">💎</emoji> <b>Rasmiy Tariflar:</b>\n'
-        f'• 📅 <b>1 Oylik:</b> <code>99,000 so\'m</code> ($8) yoki <emoji id="6215463953925934839">⭐</emoji> 400 Stars\n'
-        f'• 📅 <b>3 Oylik:</b> <code>249,000 so\'m</code> ($19) yoki <emoji id="6215463953925934839">⭐</emoji> 1,000 Stars <i>(16% tejash)</i>\n'
-        f'• 📅 <b>1 Yillik:</b> <code>799,000 so\'m</code> ($62) yoki <emoji id="6215463953925934839">⭐</emoji> 3,000 Stars <i>(33% tejash)</i>\n\n'
-        f'<emoji id="5343777479091831702">💰</emoji> <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
-        f"<i>Xarid qilganingizdan so'ng hisobingizga darhol rasmiy litsenziya kaliti taqdim etiladi!</i>"
+        f"{ce('GEMINI')} <b>Pro Imkoniyatlar:</b>\n"
+        f"• {ce('FLUX')} 10,000+ VIP effektlar, animatsiyalar va filtrlar\n"
+        f"• {ce('AUDIO')} Litsenziyalangan mualliflik huquqisiz audio kutubxona\n"
+        f"• {ce('BOT')} AI Avtomatik Subtitrlar va Avto-Kesish\n"
+        f"• {ce('VIDEO')} 4K 60FPS eksport va Suv belgisiz (No Watermark)\n"
+        f"• {ce('LIGHTNING')} Cloud Storage va Tezkor renderlash\n\n"
+        f"{ce('TON')} <b>Rasmiy Tariflar:</b>\n"
+        f"• {ce('CALENDAR')} <b>1 Oylik:</b> <code>99,000 so'm</code> ($8) yoki {ce('STAR')} 400 Stars <i>(NO REFUNDS)</i>\n"
+        f"• {ce('CALENDAR')} <b>3 Oylik:</b> <code>249,000 so'm</code> ($19) yoki {ce('STAR')} 1,000 Stars <i>(16% tejash, NO REFUNDS)</i>\n"
+        f"• {ce('CALENDAR')} <b>1 Yillik:</b> <code>799,000 so'm</code> ($62) yoki {ce('STAR')} 3,000 Stars <i>(33% tejash, NO REFUNDS)</i>\n\n"
+        f"{ce('MONEY')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+        f"<i>Xarid qilganingizdan so'ng hisobingizga darhol litsenziya kaliti taqdim etiladi!</i>\n\n"
+        f"{LEGAL_DISCLAIMER_WARNING}"
     )
     return text
 
