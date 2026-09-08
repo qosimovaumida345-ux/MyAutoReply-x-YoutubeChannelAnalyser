@@ -84,13 +84,17 @@ def load_mega_features(bot: Client):
     async def global_antifraud_cb_gate(client, cb: CallbackQuery):
         if not cb.from_user:
             return
-        uid = cb.from_user.id
         try:
+            uid = cb.from_user.id
             if check_antifraud_or_blocked(uid):
                 await cb.answer("🚫 Siz qoidabuzarlik sababli botdan bloklangansiz!", show_alert=True)
                 cb.stop_propagation()
         except Exception as e:
-            logger.error(f"global_antifraud_cb_gate error: {e}")
+            import traceback
+            logger.error(f"global_antifraud_cb_gate error: {e}\n{traceback.format_exc()}")
+            try:
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     # =========================================================================
     # 1. SUPPORT DESK & LIVE ADMIN BRIDGE
@@ -110,21 +114,29 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_support_desk$"))
     async def cb_support_desk_root(client, cb: CallbackQuery):
         await cb.answer()
-        uid = cb.from_user.id
-        lang = db.get_user_language(uid)
-        kb = get_support_menu_keyboard(lang)
-        msg_text = (
-            f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
-            f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
-        )
         try:
-            await cb.message.edit_text(msg_text, reply_markup=kb)
-        except Exception as e:
-            logger.error(f"cb_support_desk_root error: {e}")
+            uid = cb.from_user.id
+            lang = db.get_user_language(uid)
+            kb = get_support_menu_keyboard(lang)
+            msg_text = (
+                f"🤝 **Yordam & Qo'llab-quvvatlash Markazi**\n\n"
+                f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
+            )
             try:
-                await cb.message.reply_text(msg_text, reply_markup=kb)
-            except Exception:
-                pass
+                await cb.message.edit_text(msg_text, reply_markup=kb)
+            except Exception as e:
+                import traceback
+                logger.error(f"cb_support_desk_root edit error: {e}\n{traceback.format_exc()}")
+                try:
+                    await cb.message.reply_text(msg_text, reply_markup=kb)
+                except Exception:
+                    pass
+        except Exception as e:
+            import traceback
+            logger.error(f"cb_support_desk_root error: {e}\n{traceback.format_exc()}")
+            try:
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     @bot.on_callback_query(filters.regex(r"^support_desk_root$"))
     async def cb_support_desk_back(client, cb: CallbackQuery):
@@ -137,7 +149,8 @@ def load_mega_features(bot: Client):
                 reply_markup=get_support_menu_keyboard(lang)
             )
         except Exception as e:
-            logger.error(f"cb_support_desk_back error: {e}")
+            import traceback
+            logger.error(f"cb_support_desk_back error: {e}\n{traceback.format_exc()}")
 
     @bot.on_callback_query(filters.regex(r"^supp_role_([a-z_]+)$"))
     async def cb_support_role(client, cb: CallbackQuery):
@@ -232,33 +245,41 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_vouchers$"))
     async def cb_menu_vouchers(client, cb: CallbackQuery):
         await cb.answer()
-        uid = cb.from_user.id
-        bal = db.get_user_balance(uid)
-        text = (
-            f"💸 <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
-            f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
-            f"⚡ <b>Imkoniyatlar:</b>\n"
-            f"• 🎯 Homiy kanalga majburiy a'zolik sharti\n"
-            f"• 👥 Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
-            f"• 🛡️ Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
-            f"{RED_ANTIFRAUD_WARNING}"
-        )
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Yangi Chek Yaratish", callback_data="vouchers_create_wizard")],
-            [InlineKeyboardButton("🎁 Chekni Faollashtirish (Kodni kiritish)", callback_data="vouchers_enter_code")],
-            [InlineKeyboardButton("📖 Cheklar Qo'llanmasi", callback_data="help_create_check")],
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-        ])
         try:
-            await cb.message.edit_text(text, reply_markup=kb)
-        except Exception as e:
-            logger.error(f"cb_menu_vouchers error: {e}")
+            uid = cb.from_user.id
+            bal = db.get_user_balance(uid)
+            text = (
+                f"💸 <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n"
+                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
+                f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
+                f"⚡ <b>Imkoniyatlar:</b>\n"
+                f"• 🎯 Homiy kanalga majburiy a'zolik sharti\n"
+                f"• 👥 Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
+                f"• 🛡️ Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
+                f"{RED_ANTIFRAUD_WARNING}"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Yangi Chek Yaratish", callback_data="vouchers_create_wizard")],
+                [InlineKeyboardButton("🎁 Chekni Faollashtirish (Kodni kiritish)", callback_data="vouchers_enter_code")],
+                [InlineKeyboardButton("📖 Cheklar Qo'llanmasi", callback_data="help_create_check")],
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
             try:
-                await cb.message.reply_text(text, reply_markup=kb)
-            except Exception:
-                pass
+                await cb.message.edit_text(text, reply_markup=kb)
+            except Exception as e:
+                import traceback
+                logger.error(f"cb_menu_vouchers edit error: {e}\n{traceback.format_exc()}")
+                try:
+                    await cb.message.reply_text(text, reply_markup=kb)
+                except Exception:
+                    pass
+        except Exception as e:
+            import traceback
+            logger.error(f"cb_menu_vouchers error: {e}\n{traceback.format_exc()}")
+            try:
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     @bot.on_callback_query(filters.regex(r"^vouchers_create_wizard$"))
     async def cb_vouchers_create_wizard(client, cb: CallbackQuery):
@@ -370,29 +391,37 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_ig_cloner$"))
     async def cb_menu_ig_cloner(client, cb: CallbackQuery):
         await cb.answer()
-        uid = cb.from_user.id
-        targets = get_instagram_targets(uid)
-        ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
-        text = (
-            f"📸 <b>Instagram Account Auto-Cloner</b>\n\n"
-            f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
-            f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
-            f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
-        )
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
-            [InlineKeyboardButton("🔄 Tekshirish & Yuklash", callback_data="ig_sync_now")],
-            [InlineKeyboardButton("📋 Profillarni Boshqarish", callback_data="ig_manage_profiles")],
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-        ])
         try:
-            await cb.message.edit_text(text, reply_markup=kb)
-        except Exception as e:
-            logger.error(f"cb_menu_ig_cloner error: {e}")
+            uid = cb.from_user.id
+            targets = get_instagram_targets(uid)
+            ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
+            text = (
+                f"📸 <b>Instagram Account Auto-Cloner</b>\n\n"
+                f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
+                f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
+                f"📋 <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Yangi Profil Qo'shish", callback_data="ig_add_profile")],
+                [InlineKeyboardButton("🔄 Tekshirish & Yuklash", callback_data="ig_sync_now")],
+                [InlineKeyboardButton("📋 Profillarni Boshqarish", callback_data="ig_manage_profiles")],
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
             try:
-                await cb.message.reply_text(text, reply_markup=kb)
-            except Exception:
-                pass
+                await cb.message.edit_text(text, reply_markup=kb)
+            except Exception as e:
+                import traceback
+                logger.error(f"cb_menu_ig_cloner edit error: {e}\n{traceback.format_exc()}")
+                try:
+                    await cb.message.reply_text(text, reply_markup=kb)
+                except Exception:
+                    pass
+        except Exception as e:
+            import traceback
+            logger.error(f"cb_menu_ig_cloner error: {e}\n{traceback.format_exc()}")
+            try:
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     @bot.on_callback_query(filters.regex(r"^ig_add_profile$"))
     async def cb_ig_add_profile(client, cb: CallbackQuery):
@@ -482,18 +511,26 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_capcut$"))
     async def cb_menu_capcut(client, cb: CallbackQuery):
         await cb.answer()
-        uid = cb.from_user.id
-        lang = db.get_user_language(uid)
-        text = get_capcut_menu_text(uid, lang)
-        kb = get_capcut_pro_keyboard(uid, lang)
         try:
-            await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
-        except Exception as e:
-            logger.error(f"cb_menu_capcut error: {e}")
+            uid = cb.from_user.id
+            lang = db.get_user_language(uid)
+            text = get_capcut_menu_text(uid, lang)
+            kb = get_capcut_pro_keyboard(uid, lang)
             try:
-                await cb.message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
-            except Exception:
-                pass
+                await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+            except Exception as e:
+                import traceback
+                logger.error(f"cb_menu_capcut edit error: {e}\n{traceback.format_exc()}")
+                try:
+                    await cb.message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
+                except Exception:
+                    pass
+        except Exception as e:
+            import traceback
+            logger.error(f"cb_menu_capcut error: {e}\n{traceback.format_exc()}")
+            try:
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     @bot.on_callback_query(filters.regex(r"^capcut_buy_(30|90|365)$"))
     async def cb_capcut_buy(client, cb: CallbackQuery):
@@ -710,65 +747,75 @@ def load_mega_features(bot: Client):
             )
             await wait_m.delete()
         except Exception as e:
-            logger.error(f"AI Video xato: {e}")
+            import traceback
+            logger.error(f"AI Video xato: {e}\n{traceback.format_exc()}")
             await wait_m.edit_text(f"❌ Xatolik yuz berdi: {e}")
 
     @bot.on_callback_query(filters.regex(r"^menu_ai_video$"))
     async def cb_menu_ai_video(client, cb: CallbackQuery):
         await cb.answer()
-        uid = cb.from_user.id
-        is_sub = db.is_user_ai_video_subscribed(uid)
-        if not is_sub:
-            bal = db.get_user_balance(uid)
+        try:
+            uid = cb.from_user.id
+            is_sub = db.is_user_ai_video_subscribed(uid)
+            if not is_sub:
+                bal = db.get_user_balance(uid)
+                text = (
+                    "🎬 **AI Video Studio ($20 / oy)**\n\n"
+                    "Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
+                    "• 🎨 **Flux.1 Ultra AI** — 9:16 kinematografik 4K tasvirlar\n"
+                    "• 🎙 **Neural Edge-TTS** — 5 ta tilda tabiiy diktor ovozi\n"
+                    "• 🎬 **Ken Burns FX** — Dinamik kamera harakati va audio montaj\n"
+                    "• 🚀 **1-Click YouTube Shorts Yuklash**\n\n"
+                    f"💳 **Sizning balansingiz:** <code>{bal:,} so'm</code>\n\n"
+                    "💎 **Tariflar:**\n"
+                    "• 👑 **Oylik Cheksiz Obuna:** <b>$20 / oy</b> (256,000 so'm)\n"
+                    "• ⭐ **Telegram Stars:** 1,000 ⭐\n"
+                    "• 🎞 **1 ta Video:** 15,000 so'm / video\n\n"
+                    "Kerakli tarifni tanlang:"
+                )
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
+                    [InlineKeyboardButton("⭐ 1,000 Stars bilan Olish", callback_data="aivid_buy_stars")],
+                    [InlineKeyboardButton("🎞 1 ta Video Yaratish (15,000 so'm)", callback_data="aivid_buy_single")],
+                    [InlineKeyboardButton("💰 Hisobni To'ldirish", callback_data="menu_wallet")],
+                    [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+                ])
+                try:
+                    await cb.message.edit_text(text, reply_markup=kb)
+                except Exception as e:
+                    import traceback
+                    logger.error(f"cb_menu_ai_video error: {e}\n{traceback.format_exc()}")
+                    try:
+                        await cb.message.reply_text(text, reply_markup=kb)
+                    except Exception:
+                        pass
+                return
+
+            USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
             text = (
-                "🎬 **AI Video Studio ($20 / oy)**\n\n"
-                "Ushbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n"
-                "• 🎨 **Flux.1 Ultra AI** — 9:16 kinematografik 4K tasvirlar\n"
-                "• 🎙 **Neural Edge-TTS** — 5 ta tilda tabiiy diktor ovozi\n"
-                "• 🎬 **Ken Burns FX** — Dinamik kamera harakati va audio montaj\n"
-                "• 🚀 **1-Click YouTube Shorts Yuklash**\n\n"
-                f"💳 **Sizning balansingiz:** <code>{bal:,} so'm</code>\n\n"
-                "💎 **Tariflar:**\n"
-                "• 👑 **Oylik Cheksiz Obuna:** <b>$20 / oy</b> (256,000 so'm)\n"
-                "• ⭐ **Telegram Stars:** 1,000 ⭐\n"
-                "• 🎞 **1 ta Video:** 15,000 so'm / video\n\n"
-                "Kerakli tarifni tanlang:"
+                "🎬 **AI Video Studio (Faol Obuna)**\n\n"
+                "Sizda faol obuna mavjud! Cheksiz video yaratish rejimi yoqilgan.\n\n"
+                "✍️ **Video yaratish uchun mavzuni yozib yuboring:**\n"
+                "(Masalan: *Kosmos sirlari va qora tuynuklar* yoki *Qiziqarli faktlar*)"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("👑 Oylik Obuna ($20 - 256,000 so'm)", callback_data="aivid_buy_sub")],
-                [InlineKeyboardButton("⭐ 1,000 Stars bilan Olish", callback_data="aivid_buy_stars")],
-                [InlineKeyboardButton("🎞 1 ta Video Yaratish (15,000 so'm)", callback_data="aivid_buy_single")],
-                [InlineKeyboardButton("💰 Hisobni To'ldirish", callback_data="menu_wallet")],
                 [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
             ])
             try:
                 await cb.message.edit_text(text, reply_markup=kb)
             except Exception as e:
-                logger.error(f"cb_menu_ai_video error: {e}")
+                import traceback
+                logger.error(f"cb_menu_ai_video prompt error: {e}\n{traceback.format_exc()}")
                 try:
                     await cb.message.reply_text(text, reply_markup=kb)
                 except Exception:
                     pass
-            return
-
-        USER_STATES[uid] = {"action": "waiting_aivideo_prompt"}
-        text = (
-            "🎬 **AI Video Studio (Faol Obuna)**\n\n"
-            "Sizda faol obuna mavjud! Cheksiz video yaratish rejimi yoqilgan.\n\n"
-            "✍️ **Video yaratish uchun mavzuni yozib yuboring:**\n"
-            "(Masalan: *Kosmos sirlari va qora tuynuklar* yoki *Qiziqarli faktlar*)"
-        )
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-        ])
-        try:
-            await cb.message.edit_text(text, reply_markup=kb)
         except Exception as e:
-            logger.error(f"cb_menu_ai_video prompt error: {e}")
+            import traceback
+            logger.error(f"cb_menu_ai_video error: {e}\n{traceback.format_exc()}")
             try:
-                await cb.message.reply_text(text, reply_markup=kb)
-            except Exception:
-                pass
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     @bot.on_callback_query(filters.regex(r"^aivid_buy_sub$"))
     async def cb_aivid_buy_sub(client, cb: CallbackQuery):
@@ -925,22 +972,30 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^menu_spy$"))
     async def cb_menu_spy(client, cb: CallbackQuery):
         await cb.answer()
-        USER_STATES[cb.from_user.id] = {"action": "waiting_spy_url"}
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
-        ])
-        spy_text = (
-            "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
-            "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
-        )
         try:
-            await cb.message.edit_text(spy_text, reply_markup=kb)
-        except Exception as e:
-            logger.error(f"cb_menu_spy error: {e}")
+            USER_STATES[cb.from_user.id] = {"action": "waiting_spy_url"}
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")]
+            ])
+            spy_text = (
+                "🔍 **YouTube Competitor Spy & SEO Stealer**\n\n"
+                "Tahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:"
+            )
             try:
-                await cb.message.reply_text(spy_text, reply_markup=kb)
-            except Exception:
-                pass
+                await cb.message.edit_text(spy_text, reply_markup=kb)
+            except Exception as e:
+                import traceback
+                logger.error(f"cb_menu_spy edit error: {e}\n{traceback.format_exc()}")
+                try:
+                    await cb.message.reply_text(spy_text, reply_markup=kb)
+                except Exception:
+                    pass
+        except Exception as e:
+            import traceback
+            logger.error(f"cb_menu_spy error: {e}\n{traceback.format_exc()}")
+            try:
+                await cb.message.reply_text("⚠️ Xatolik yuz berdi, admin xabardor qilindi. Iltimos qayta urinib ko'ring.")
+            except: pass
 
     # =========================================================================
     # 8. CASHOUT ENGINE (STARS & TON PUL YECHISH)
@@ -1199,7 +1254,8 @@ def load_mega_features(bot: Client):
                 )
                 await wait_m.delete()
             except Exception as e:
-                logger.error(f"AI Video xato: {e}")
+                import traceback
+                logger.error(f"AI Video xato: {e}\n{traceback.format_exc()}")
                 await wait_m.edit_text(f"❌ Xatolik yuz berdi: {e}")
             message.stop_propagation()
 
