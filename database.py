@@ -666,6 +666,38 @@ def init_db():
             processed_at TIMESTAMP
         )
     """)
+
+    # 16. TON Connect Wallet (Mini App orqali ulangan hamyonlar)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_ton_wallets (
+            tg_user_id BIGINT PRIMARY KEY,
+            wallet_address TEXT NOT NULL,
+            wallet_name TEXT,
+            chain TEXT DEFAULT 'mainnet',
+            connected_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 17. NFT Items (3D Model + Polygon Lazy Mint)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS nft_items (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            glb_file_id TEXT,
+            preview_image_id TEXT,
+            ipfs_metadata_uri TEXT,
+            polygon_token_id BIGINT,
+            voucher_data TEXT,
+            price_matic NUMERIC DEFAULT 0,
+            price_uzs BIGINT DEFAULT 0,
+            status TEXT DEFAULT 'draft',
+            buyer_user_id BIGINT,
+            minted_tx_hash TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
     
     conn.commit()
     cur.close()
@@ -3848,16 +3880,16 @@ def redeem_promo_code(code: str, tg_user_id: int) -> tuple:
 # ==================== 6. CASHOUT (STARS & TON PUL YECHISH) ====================
 
 def create_cashout_request(tg_user_id: int, method: str, target_address: str, amount_uzs: int, currency_equiv: str = "") -> tuple:
-    """Balansni yechish uchun so'rov qoldirish"""
+    """Balansni yechish uchun so'rov qoldirish. Qaytaradi: (ok, msg, req_id)"""
     conn = get_db()
-    if not conn: return False, "DB xatosi"
+    if not conn: return False, "DB xatosi", 0
     try:
         cur = conn.cursor()
         cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
         row = cur.fetchone()
         bal = (row["balance_uzs"] if isinstance(row, dict) else row[0]) if row else 0
         if bal < amount_uzs:
-            return False, "Balansingizda mablag' yetarli emas!"
+            return False, "Balansingizda mablag' yetarli emas!", 0
 
         cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs - %s, updated_at = NOW() WHERE tg_user_id = %s", (amount_uzs, tg_user_id))
         cur.execute("""
@@ -3865,14 +3897,17 @@ def create_cashout_request(tg_user_id: int, method: str, target_address: str, am
             VALUES (%s, %s, %s, %s, %s, 'pending')
             RETURNING id
         """, (tg_user_id, method, target_address.strip(), amount_uzs, currency_equiv))
+        id_row = cur.fetchone()
+        req_id = (id_row["id"] if isinstance(id_row, dict) else id_row[0]) if id_row else 0
         conn.commit()
-        return True, "Pul yechish so'rovingiz qabul qilindi. Admin tekshiruvidan so'ng o'tkazib beriladi!"
+        return True, "Pul yechish so'rovingiz qabul qilindi. Admin tekshiruvidan so'ng o'tkazib beriladi!", req_id
     except Exception as e:
         conn.rollback()
         print(f"create_cashout_request error: {e}")
-        return False, str(e)
+        return False, str(e), 0
     finally:
         conn.close()
+
 
 def get_pending_cashout_requests(limit: int = 20) -> list:
     """Kutilayotgan pul yechish so'rovlari"""
@@ -3915,6 +3950,178 @@ def process_cashout_request(request_id: int, status: str) -> bool:
         conn.close()
 
 
+# ==================== 7. TON CONNECT WALLET ====================
+
+def save_user_ton_wallet(tg_user_id: int, wallet_address: str, wallet_name: str = "", chain: str = "mainnet") -> bool:
+    """Foydalanuvchining ulangan TON hamyonini saqlash yoki yangilash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_ton_wallets (tg_user_id, wallet_address, wallet_name, chain, connected_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE SET
+                wallet_address = EXCLUDED.wallet_address,
+                wallet_name = EXCLUDED.wallet_name,
+                chain = EXCLUDED.chain,
+                connected_at = NOW()
+        """, (tg_user_id, wallet_address.strip(), wallet_name, chain))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"save_user_ton_wallet error: {e}")
+        return False
+    finally:
+        conn.close()
 
 
+def get_user_ton_wallet(tg_user_id: int) -> dict | None:
+    """Foydalanuvchining ulangan TON hamyonini olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM user_ton_wallets WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_user_ton_wallet error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def delete_user_ton_wallet(tg_user_id: int) -> bool:
+    """Foydalanuvchining ulangan TON hamyonini o'chirish/uzish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM user_ton_wallets WHERE tg_user_id = %s", (tg_user_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"delete_user_ton_wallet error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ==================== 8. 3D NFT STUDIO ITEMS ====================
+
+def create_nft_item(tg_user_id: int, title: str, description: str = "", glb_file_id: str = "",
+                    preview_image_id: str = "", ipfs_metadata_uri: str = "",
+                    polygon_token_id: int = 0, voucher_data: str = "",
+                    price_uzs: int = 0, price_matic: float = 0.0) -> int:
+    """Yangi 3D NFT elementini bazaga kiritish (qaytaradi: nft_item_id)"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO nft_items (
+                tg_user_id, title, description, glb_file_id, preview_image_id,
+                ipfs_metadata_uri, polygon_token_id, voucher_data,
+                price_uzs, price_matic, status, created_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', NOW())
+            RETURNING id
+        """, (
+            tg_user_id, title, description, glb_file_id, preview_image_id,
+            ipfs_metadata_uri, polygon_token_id, voucher_data,
+            price_uzs, price_matic
+        ))
+        row = cur.fetchone()
+        item_id = (row["id"] if isinstance(row, dict) else row[0]) if row else 0
+        conn.commit()
+        return item_id
+    except Exception as e:
+        conn.rollback()
+        print(f"create_nft_item error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_nft_item(item_id: int) -> dict | None:
+    """Bitta NFT elementini ID bo'yicha olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM nft_items WHERE id = %s", (item_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_nft_item error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_nfts(tg_user_id: int) -> list:
+    """Foydalanuvchining barcha yaratgan NFT larini olish"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM nft_items WHERE tg_user_id = %s ORDER BY id DESC", (tg_user_id,))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_user_nfts error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def get_listed_nfts(limit: int = 20) -> list:
+    """Sotuvga qo'yilgan (status='listed') NFT lar ro'yxati"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM nft_items WHERE status = 'listed' ORDER BY id DESC LIMIT %s", (limit,))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_listed_nfts error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def update_nft_status(item_id: int, status: str, price_uzs: int = None,
+                      buyer_user_id: int = None, tx_hash: str = None) -> bool:
+    """NFT holatini yangilash (draft, listed, sold, cancelled)"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        updates = ["status = %s"]
+        params = [status]
+        if price_uzs is not None:
+            updates.append("price_uzs = %s")
+            params.append(price_uzs)
+        if buyer_user_id is not None:
+            updates.append("buyer_user_id = %s")
+            params.append(buyer_user_id)
+        if tx_hash is not None:
+            updates.append("minted_tx_hash = %s")
+            params.append(tx_hash)
+        params.append(item_id)
+
+        query = f"UPDATE nft_items SET {', '.join(updates)} WHERE id = %s"
+        cur.execute(query, tuple(params))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"update_nft_status error: {e}")
+        return False
+    finally:
+        conn.close()
 

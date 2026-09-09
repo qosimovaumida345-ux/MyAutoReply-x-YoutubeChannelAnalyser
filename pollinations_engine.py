@@ -1,8 +1,8 @@
 """
-100% Free AI Video Generator Engine.
-Pollinations AI (Flux model) + Edge-TTS + FFmpeg Ken Burns Effect
-orqali 0 xarajat bilan to'liq avtomatik 9:16 vertikal Shorts/Reels video yaratish
-va 1-bosishda YouTube kanalga yuklash tizimi.
+100% Free AI Video Generator Engine (OOM-Safe Edition).
+Pollinations AI (Flux model) + Edge-TTS + FFmpeg
+orqali 0 xarajat bilan to'liq avtomatik 9:16 vertikal Shorts/Reels video yaratish.
+Render (512MB RAM, 1 CPU) uchun optimallashtirilgan.
 """
 
 import os
@@ -25,30 +25,46 @@ VOICE_MAP = {
     "tr": "tr-TR-AhmetNeural"
 }
 
-async def generate_ai_image_pollinations(prompt: str, output_path: str, width: int = 1080, height: int = 1920) -> bool:
-    """Pollinations ochiq API orqali yuqori aniqlikdagi tasvir yaratish"""
-    encoded_prompt = urllib.parse.quote(prompt)
-    seed = random.randint(1000, 999999)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model=flux&nologo=true&seed={seed}"
+# Shorts uchun optimal o'lcham (RAM tejash: 1080x1920 emas)
+VIDEO_WIDTH = 720
+VIDEO_HEIGHT = 1280
 
+
+async def generate_ai_image_pollinations(prompt: str, output_path: str,
+                                          width: int = VIDEO_WIDTH,
+                                          height: int = VIDEO_HEIGHT) -> bool:
+    """Pollinations ochiq API orqali tasvir yaratish (60s timeout, 2 urinish)"""
+    encoded_prompt = urllib.parse.quote(prompt)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
 
-    try:
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=45)) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    if len(content) > 5000:
-                        with open(output_path, "wb") as f:
-                            f.write(content)
-                        return True
-                logger.warning(f"Pollinations javobi: status {resp.status}")
-                return False
-    except Exception as e:
-        logger.error(f"Pollinations rasm yuklashda xato: {e}")
-        return False
+    for attempt in range(2):
+        seed = random.randint(1000, 999999)
+        url = (
+            f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+            f"?width={width}&height={height}&model=flux&nologo=true&seed={seed}"
+        )
+        try:
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                    if resp.status == 200:
+                        content = await resp.read()
+                        if len(content) > 5000:
+                            with open(output_path, "wb") as f:
+                                f.write(content)
+                            return True
+                    logger.warning(f"Pollinations urinish {attempt+1}: status {resp.status}")
+        except asyncio.TimeoutError:
+            logger.warning(f"Pollinations urinish {attempt+1}: timeout (60s)")
+        except Exception as e:
+            logger.error(f"Pollinations urinish {attempt+1} xato: {e}")
+        # 2-urinishda 2 soniya kutish
+        if attempt == 0:
+            await asyncio.sleep(2)
+
+    return False
+
 
 async def generate_voiceover_edge(text: str, output_path: str, lang: str = "uz") -> bool:
     """Edge-TTS orqali bepul va jonli ovozli matn yaratish"""
@@ -61,12 +77,12 @@ async def generate_voiceover_edge(text: str, output_path: str, lang: str = "uz")
         logger.error(f"Edge-TTS ovoz generatsiya xatosi: {e}")
         return False
 
+
 async def get_audio_duration(audio_path: str) -> float:
     """Audio fayl davomiyligini aniqlash"""
     ffmpeg_exe = get_ffmpeg_binary()
     ffprobe_exe = ffmpeg_exe.replace("ffmpeg", "ffprobe")
     if not os.path.exists(ffprobe_exe):
-        # Taxminiy davomiylik hisobi: fayl hajmiga qarab (128kbps = ~16KB/s)
         size = os.path.getsize(audio_path)
         return max(5.0, min(60.0, size / 16000.0))
 
@@ -88,13 +104,15 @@ async def get_audio_duration(audio_path: str) -> float:
     except Exception:
         return 12.0
 
-async def build_ai_short_video(user_prompt: str, lang: str = "uz", output_dir: str = "downloads") -> dict:
+
+async def build_ai_short_video(user_prompt: str, lang: str = "uz",
+                                output_dir: str = "downloads") -> dict:
     """
-    To'liq jarayon:
+    OOM-Safe AI Video Pipeline:
     1. Gemini AI orqali visual prompt va script ssenariysini yozish
-    2. Pollinations Flux orqali 9:16 vertikal kadr olish
+    2. Pollinations Flux orqali 720x1280 vertikal kadr olish (2 urinish)
     3. Edge-TTS orqali diktor ovozi yaratish
-    4. FFmpeg orqali dinamik Ken Burns (zoom-pan) animatsiya bilan MP4 formatga birlashtirish
+    4. FFmpeg: rasm + ovoz → MP4 (zoompan OLIB TASHLANDI — OOM oldini olish)
     """
     os.makedirs(output_dir, exist_ok=True)
     task_token = random.randint(10000, 99999)
@@ -114,6 +132,7 @@ Quyidagi formatda aniq 3 ta qismdan iborat matn qaytar (faqat ko'rsatilgan tegla
         res = await generate_with_fallback_async(planning_prompt)
         raw_text = res.text
     except Exception as e:
+        logger.warning(f"Gemini planning xato: {e}")
         raw_text = ""
 
     # Parse
@@ -132,61 +151,76 @@ Quyidagi formatda aniq 3 ta qismdan iborat matn qaytar (faqat ko'rsatilgan tegla
     audio_path = os.path.join(output_dir, f"ai_audio_{task_token}.mp3")
     final_video = os.path.join(output_dir, f"ai_short_{task_token}.mp4")
 
-    # 2. Rasm generatsiyasi
+    # 2. Rasm generatsiyasi (720x1280 — Shorts uchun optimal)
     img_ok = await generate_ai_image_pollinations(visual_prompt, img_path)
     if not img_ok:
-        raise RuntimeError("AI tasvir yaratib bo'lmadi!")
+        raise RuntimeError("AI tasvir yaratib bo'lmadi! Pollinations xizmatida muammo.")
 
     # 3. Ovoz generatsiyasi
     audio_ok = await generate_voiceover_edge(script, audio_path, lang)
     if not audio_ok:
+        # Rasm faylini tozalash
+        try:
+            os.remove(img_path)
+        except OSError:
+            pass
         raise RuntimeError("AI ovoz yaratib bo'lmadi!")
 
     duration = await get_audio_duration(audio_path)
-    fps = 25
-    total_frames = int(duration * fps) + 15
 
-    # 4. FFmpeg Ken Burns Effect (Zoompan 1080x1920)
+    # 4. FFmpeg: Rasm + Ovoz → MP4 (OOM-Safe — zoompan OLIB TASHLANDI)
+    # scale+pad: rasmni aniq 720x1280 ga moslashtiradi
+    # ultrafast + 1 thread: minimal RAM va CPU sarflaydi
     ffmpeg_exe = get_ffmpeg_binary()
     vf = (
-        f"zoompan=z='min(zoom+0.0015,1.35)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1080x1920:fps={fps},"
-        f"eq=contrast=1.02:saturation=1.05"
+        f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:"
+        f"force_original_aspect_ratio=decrease,"
+        f"pad={VIDEO_WIDTH}:{VIDEO_HEIGHT}:(ow-iw)/2:(oh-ih)/2:black,"
+        f"format=yuv420p"
     )
 
     cmd = [
-        ffmpeg_exe,
-        "-y",
+        ffmpeg_exe, "-y",
         "-loop", "1",
         "-i", img_path,
         "-i", audio_path,
         "-vf", vf,
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "22",
+        "-preset", "ultrafast",
+        "-crf", "26",
+        "-threads", "1",
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", "96k",
         "-t", str(duration + 0.5),
-        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         "-shortest",
         final_video
     ]
 
+    logger.info(f"FFmpeg render boshlandi: {task_token} ({duration:.1f}s audio)")
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL
+        stderr=asyncio.subprocess.PIPE
     )
-    await proc.communicate()
+    _, stderr_data = await proc.communicate()
 
-    # Tozalash
-    try:
-        if os.path.exists(img_path): os.remove(img_path)
-        if os.path.exists(audio_path): os.remove(audio_path)
-    except: pass
+    if proc.returncode != 0:
+        err_msg = stderr_data.decode(errors="ignore")[-500:] if stderr_data else "Unknown"
+        logger.error(f"FFmpeg render xato (code {proc.returncode}): {err_msg}")
+
+    # Tozalash (rasm va audio)
+    for tmp in (img_path, audio_path):
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
 
     if not os.path.exists(final_video) or os.path.getsize(final_video) < 5000:
         raise RuntimeError("FFmpeg orqali video render qilib bo'lmadi.")
 
+    logger.info(f"AI Video tayyor: {final_video} ({os.path.getsize(final_video)} bytes)")
     return {
         "video_path": final_video,
         "title": title,

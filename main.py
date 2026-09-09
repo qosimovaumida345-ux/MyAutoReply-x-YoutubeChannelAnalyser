@@ -1369,6 +1369,95 @@ async def handle_kyc_submit(request):
         return web.json_response({"ok": False, "message": f"Server xatosi: {str(e)}"}, status=500)
 
 
+async def handle_tc_manifest(request):
+    """TON Connect Manifest JSON taqdim etish"""
+    from ton_connect_page import get_ton_manifest
+    host = request.headers.get("Host", "localhost")
+    scheme = request.headers.get("X-Forwarded-Proto", request.scheme)
+    base_url = f"{scheme}://{host}"
+    manifest = get_ton_manifest(base_url)
+    return web.json_response(manifest, headers={
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "no-cache"
+    })
+
+
+async def handle_tonconnect_page(request):
+    """TON Connect Telegram Mini App HTML sahifasi"""
+    from ton_connect_page import get_ton_connect_html
+    from database import get_user_ton_wallet
+    user_id = 0
+    try:
+        user_id = int(request.query.get("user_id", 0))
+    except (ValueError, TypeError):
+        pass
+    
+    current_wallet = get_user_ton_wallet(user_id) if user_id else None
+    host = request.headers.get("Host", "localhost")
+    scheme = request.headers.get("X-Forwarded-Proto", request.scheme)
+    base_url = f"{scheme}://{host}"
+    html = get_ton_connect_html(user_id=user_id, current_wallet=current_wallet, base_url=base_url)
+    return web.Response(text=html, content_type="text/html")
+
+
+async def handle_api_tonconnect_save(request):
+    """Mini App orqali ulangan TON hamyonni saqlash"""
+    from database import save_user_ton_wallet
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        address = str(data.get("address", "")).strip()
+        wallet_name = str(data.get("wallet_name", "TON Wallet")).strip()
+        chain = str(data.get("chain", "mainnet")).strip()
+
+        if not user_id:
+            return web.json_response({"ok": False, "message": "user_id topilmadi"}, status=400)
+        if not address or len(address) < 20:
+            return web.json_response({"ok": False, "message": "Noto'g'ri TON hamyon manzili"}, status=400)
+
+        ok = save_user_ton_wallet(user_id, address, wallet_name, chain)
+        if not ok:
+            return web.json_response({"ok": False, "message": "Bazaga saqlashda xatolik"}, status=500)
+
+        if ytbot_instance:
+            masked_addr = address[:6] + "..." + address[-6:] if len(address) > 12 else address
+            msg = (
+                f"💎 <b>TON Hamyoningiz Muvaffaqiyatli Ulandi!</b>\n\n"
+                f"👛 <b>Hamyon:</b> {wallet_name}\n"
+                f"📬 <b>Manzil:</b> <code>{address}</code> ({masked_addr})\n"
+                f"🌐 <b>Tarmoq:</b> TON {chain.capitalize()}\n\n"
+                f"⚡ <i>Endi pul yechish (Cashout) va 3D NFT savdosida ushbu manzil avtomatik ishlatiladi!</i>"
+            )
+            asyncio.create_task(ytbot_instance.send_message(user_id, msg))
+
+        return web.json_response({"ok": True, "message": "Hamyon muvaffaqiyatli saqlandi!"})
+    except Exception as e:
+        print(f"handle_api_tonconnect_save error: {e}")
+        return web.json_response({"ok": False, "message": str(e)}, status=500)
+
+
+async def handle_api_tonconnect_disconnect(request):
+    """Ulangan TON hamyonni uzish"""
+    from database import delete_user_ton_wallet
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        if not user_id:
+            return web.json_response({"ok": False, "message": "user_id topilmadi"}, status=400)
+
+        delete_user_ton_wallet(user_id)
+        if ytbot_instance:
+            asyncio.create_task(ytbot_instance.send_message(
+                user_id,
+                "🔗 <b>TON hamyoningiz hisobingizdan uzildi.</b>\n"
+                "Istalgan vaqtda qayta ulashingiz mumkin."
+            ))
+        return web.json_response({"ok": True, "message": "Hamyon uzildi"})
+    except Exception as e:
+        print(f"handle_api_tonconnect_disconnect error: {e}")
+        return web.json_response({"ok": False, "message": str(e)}, status=500)
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
@@ -1381,7 +1470,7 @@ async def start_web_server(port):
     app.router.add_get("/api/health-score", handle_api_health_score)
     app.router.add_get("/api/best-time", handle_api_best_time)
     app.router.add_post("/api/autopost-create", handle_api_autopost_create)
-    app.router.add_get("/api/video-formats", handle_api_video_formats)
+    app.router.add_video_formats = app.router.add_get("/api/video-formats", handle_api_video_formats)
     app.router.add_get("/api/download-file", handle_api_download_file)
     app.router.add_post("/api/reset-db", handle_api_reset_db)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
@@ -1391,6 +1480,12 @@ async def start_web_server(port):
     app.router.add_get("/kyc/verify", handle_kyc_page)
     app.router.add_get("/kyc/status", handle_kyc_status)
     app.router.add_post("/kyc/submit", handle_kyc_submit)
+    
+    # Yangi: TON Connect Mini App & Manifest
+    app.router.add_get("/tonconnect-manifest.json", handle_tc_manifest)
+    app.router.add_get("/tonconnect/page", handle_tonconnect_page)
+    app.router.add_post("/api/tonconnect/save", handle_api_tonconnect_save)
+    app.router.add_post("/api/tonconnect/disconnect", handle_api_tonconnect_disconnect)
     
     # Yangi: Reseller & Developer REST API (/api/v1/...)
     try:
@@ -1403,7 +1498,7 @@ async def start_web_server(port):
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    print(f"🌐 Web server {port}-portda ishga tushdi (OAuth callback, CryptoPay webhook & KYC tayyor)")
+    print(f"🌐 Web server {port}-portda ishga tushdi (OAuth callback, CryptoPay, TON Connect & KYC tayyor)")
     return runner
 
 
@@ -1714,6 +1809,7 @@ async def main():
                         BotCommand("categories", "YouTube kategoriyalari ro'yxati"),
                         BotCommand("id", "URL dan video/kanal ID olish"),
                         BotCommand("live", "Jonli efir holatini tekshirish"),
+                        BotCommand("nft", "3D NFT Studio (Bepul yaratish)"),
                     ])
                 except Exception as e:
                     print(f"Bot commands xatosi: {e}")

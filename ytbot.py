@@ -221,6 +221,9 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     # 12. Smart YouTube DeepLink & QR
     if any(k in cb for k in ["menu_deeplink", "deeplink"]):
         return "5224378350335707737" if is_vip else "5264938002844513934"
+    # 13. 3D NFT Studio
+    if any(k in cb for k in ["menu_nft", "nft_"]):
+        return "5373305417084478144" if is_vip else "5370960570889578848"
 
     # Core Navigation & Features:
     if any(k in cb for k in ["menu_support_desk", "supp_"]):
@@ -302,7 +305,7 @@ def _get_button_style(cb, raw_text, web_url=""):
     if any(k in cb for k in ["menu_games", "game_duel", "delaccount", "dbreset", "cancel"]) or any(k in raw_text for k in ["duel", "o'yinlar", "who wins", "o'chirish", "bekor", "3d kyc"]):
         return "danger"
 
-    if any(k in cb for k in ["back_main", "main_menu", "dashboard", "pub_aivid"]) or any(k in raw_text for k in ["web dashboard", "bosh menyu", "orqaga", "yuklash"]):
+    if any(k in cb for k in ["back_main", "main_menu", "dashboard", "pub_aivid", "menu_nft", "nft_"]) or any(k in raw_text for k in ["web dashboard", "bosh menyu", "orqaga", "yuklash"]):
         return "primary"
 
     return None
@@ -873,21 +876,34 @@ def main_menu_kb(user_id=None):
         [InlineKeyboardButton(t("btn_ig_cloner", lang), callback_data="menu_ig_cloner"),
          InlineKeyboardButton(t("btn_capcut", lang), callback_data="menu_capcut")],
         [InlineKeyboardButton(t("btn_ai_video", lang), callback_data="menu_ai_video"),
-         InlineKeyboardButton(t("btn_spy", lang), callback_data="menu_spy")],
-        [InlineKeyboardButton(t("btn_referral", lang), callback_data="menu_referral"),
-         InlineKeyboardButton(t("btn_leaderboard", lang), callback_data="menu_leaderboard")],
-        [InlineKeyboardButton(t("btn_marketplace", lang), callback_data="menu_marketplace"),
-         InlineKeyboardButton("🔑 Developer API", callback_data="help_api")],
-        [InlineKeyboardButton("📢 Kanal & Video", callback_data="menu_channel"),
-         InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics")],
-        [InlineKeyboardButton(t("btn_lang", lang), callback_data="menu_lang"),
-         InlineKeyboardButton(t("btn_help", lang), callback_data="menu_help")],
+         InlineKeyboardButton(t("btn_nft", lang), callback_data="menu_nft")],
+        [InlineKeyboardButton(t("btn_spy", lang), callback_data="menu_spy"),
+         InlineKeyboardButton(t("btn_referral", lang), callback_data="menu_referral")],
+        [InlineKeyboardButton(t("btn_leaderboard", lang), callback_data="menu_leaderboard"),
+         InlineKeyboardButton(t("btn_marketplace", lang), callback_data="menu_marketplace")],
+        [InlineKeyboardButton("🔑 Developer API", callback_data="help_api"),
+         InlineKeyboardButton("📢 Kanal & Video", callback_data="menu_channel")],
+        [InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics"),
+         InlineKeyboardButton(t("btn_lang", lang), callback_data="menu_lang")],
+        [InlineKeyboardButton(t("btn_help", lang), callback_data="menu_help")],
     ])
 
-def wallet_menu_kb():
+def wallet_menu_kb(user_id=None):
+    import os
+    from database import get_user_ton_wallet
+    web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+    ton_wallet = get_user_ton_wallet(user_id) if user_id else None
+    if ton_wallet:
+        addr = ton_wallet.get("wallet_address", "")
+        masked = f"{addr[:4]}...{addr[-4:]}" if len(addr) > 10 else "Ulandi"
+        ton_btn_text = f"💎 TON Hamyon ({masked})"
+    else:
+        ton_btn_text = "💎 TON Hamyonni Ulash"
+
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
         [InlineKeyboardButton("💎 TON (The Open Network) orqali", callback_data="pay_crypto_menu")],
+        [InlineKeyboardButton(ton_btn_text, web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={user_id or 0}"))],
         [InlineKeyboardButton("💸 Balansni Yechish (Cashout)", callback_data="menu_cashout")],
         [InlineKeyboardButton("🎟 Promokod kiritish (/redeem)", callback_data="enter_promo_code")],
         [InlineKeyboardButton("📋 To'lovlar tarixi", callback_data="pay_history")],
@@ -1526,7 +1542,32 @@ def create_ytbot():
             f"hisobingizni bir zumda to'ldirishingiz mumkin.\n\n"
             f"{e('PIN')} To'lov usulini tanlang:"
         )
-        await message.reply_text(text, reply_markup=wallet_menu_kb())
+        await message.reply_text(text, reply_markup=wallet_menu_kb(user_id))
+
+    @bot.on_message(filters.web_app_data & filters.private)
+    async def web_app_data_handler(client, message):
+        user_id = message.from_user.id
+        raw_data = getattr(message.web_app_data, "data", "")
+        if not raw_data:
+            return
+        try:
+            import json
+            from database import save_user_ton_wallet
+            payload = json.loads(raw_data)
+            if payload.get("action") == "ton_connected" or payload.get("address"):
+                addr = payload.get("address", "").strip()
+                w_name = payload.get("wallet", "TON Wallet")
+                if addr:
+                    save_user_ton_wallet(user_id, addr, w_name)
+                    masked = addr[:6] + "..." + addr[-6:] if len(addr) > 12 else addr
+                    await message.reply_text(
+                        f"💎 <b>TON Hamyoningiz Muvaffaqiyatli Saqlandi!</b>\n\n"
+                        f"👛 <b>Hamyon:</b> {w_name}\n"
+                        f"📬 <b>Manzil:</b> <code>{addr}</code> ({masked})\n\n"
+                        f"⚡ <i>Endi pul yechish (Cashout) va 3D NFT savdosida ushbu manzil avtomatik ishlatiladi!</i>"
+                    )
+        except Exception as e:
+            logger.warning(f"web_app_data_handler error: {e}")
 
     # ==================== /marketplace & /xizmatlar ====================
     @bot.on_message(filters.command(["marketplace", "xizmatlar"]))
@@ -4379,7 +4420,7 @@ def create_ytbot():
         if menu == "wallet":
             bal = get_user_balance(user_id)
             text = t("balance_text", lang, balance=bal)
-            await cb.message.edit_text(text, reply_markup=wallet_menu_kb())
+            await cb.message.edit_text(text, reply_markup=wallet_menu_kb(user_id))
             return
 
         if menu == "support_desk":

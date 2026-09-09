@@ -18,15 +18,15 @@ STARS_PER_10K_UZS = 40     # 10 000 so'm = ~40 Telegram Stars
 TON_PRICE_UZS = 70_000     # 1 TON = ~70 000 so'm
 
 def request_user_cashout(tg_user_id: int, method: str, target_address: str, amount_uzs: int) -> tuple:
-    """Pul yechish arizasini topshirish va balansni zaxiralash"""
+    """Pul yechish arizasini topshirish va balansni zaxiralash. Qaytaradi: (ok, msg, equiv_str, req_id)"""
     if amount_uzs < MIN_CASHOUT_UZS:
-        return False, f"Minimal yechish summasi: {MIN_CASHOUT_UZS:,} so'm."
+        return False, f"Minimal yechish summasi: {MIN_CASHOUT_UZS:,} so'm.", "", 0
 
     clean_target = target_address.strip()
     if method == "ton" and len(clean_target) < 30:
-        return False, "Noto'g'ri TON hamyon manzili! (EQ... yoki UQ... bilan boshlanishi kerak)"
+        return False, "Noto'g'ri TON hamyon manzili! (EQ... yoki UQ... bilan boshlanishi kerak)", "", 0
     elif method == "stars" and len(clean_target) < 3:
-        return False, "Noto'g'ri Telegram username yoki foydalanuvchi ma'lumoti!"
+        return False, "Noto'g'ri Telegram username yoki foydalanuvchi ma'lumoti!", "", 0
 
     # Ekvivalentni hisoblash
     if method == "stars":
@@ -36,8 +36,9 @@ def request_user_cashout(tg_user_id: int, method: str, target_address: str, amou
         ton_est = round(amount_uzs / TON_PRICE_UZS, 3)
         equiv_str = f"~{ton_est} TON"
 
-    ok, msg = db.create_cashout_request(tg_user_id, method, clean_target, amount_uzs, equiv_str)
-    return ok, msg, equiv_str
+    ok, msg, req_id = db.create_cashout_request(tg_user_id, method, clean_target, amount_uzs, equiv_str)
+    return ok, msg, equiv_str, req_id
+
 
 async def notify_admin_new_cashout(app, req_id: int, user, method: str, target_address: str, amount_uzs: int, equiv_str: str):
     """Yangi pul yechish arizasi haqida Adminga xabar va tasdiqlash tugmalarini yuborish"""

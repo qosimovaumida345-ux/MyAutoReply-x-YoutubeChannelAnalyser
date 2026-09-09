@@ -234,6 +234,20 @@ TRANSLATIONS = {
         "es": "📲 Generador DeepLink y QR",
         "tr": "📲 DeepLink ve QR Oluşturucu"
     },
+    "btn_nft": {
+        "uz": "🖼️ 3D NFT Studio",
+        "ru": "🖼️ 3D NFT Студия",
+        "en": "🖼️ 3D NFT Studio",
+        "es": "🖼️ Estudio 3D NFT",
+        "tr": "🖼️ 3D NFT Stüdyosu"
+    },
+    "nft_menu_title": {
+        "uz": "🖼️ <b>Web3 3D NFT Studio (Polygon & TON)</b>\n━━━━━━━━━━━━━━━━━━━━\n💎 <b>0 Gas Fee:</b> EIP-712 Lazy Minting orqali bepul 3D NFT yarating!\n📦 <b>Format:</b> Haqiqiy 3D <code>.glb</code> model + HD Render + IPFS Metadata\n🏪 <b>Bozor:</b> O'zingiz yaratgan NFT larni boshqalarga soting yoki kolleksiya qiling!",
+        "ru": "🖼️ <b>Web3 3D NFT Студия (Polygon и TON)</b>\n━━━━━━━━━━━━━━━━━━━━\n💎 <b>0 Комиссий:</b> Создавайте 3D NFT бесплатно через EIP-712 Lazy Minting!\n📦 <b>Формат:</b> Настоящая 3D <code>.glb</code> модель + HD Рендер + IPFS Метаданные\n🏪 <b>Рынок:</b> Продавайте свои NFT или коллекционируйте!",
+        "en": "🖼️ <b>Web3 3D NFT Studio (Polygon & TON)</b>\n━━━━━━━━━━━━━━━━━━━━\n💎 <b>0 Gas Fee:</b> Create 3D NFTs for free via EIP-712 Lazy Minting!\n📦 <b>Format:</b> Genuine 3D <code>.glb</code> model + HD Render + IPFS Metadata\n🏪 <b>Market:</b> Sell your minted NFTs to others or build your collection!",
+        "es": "🖼️ <b>Estudio 3D NFT Web3 (Polygon y TON)</b>\n━━━━━━━━━━━━━━━━━━━━\n💎 <b>Sin Gas:</b> ¡Crea NFTs 3D gratis con EIP-712 Lazy Minting!\n📦 <b>Formato:</b> Modelo 3D <code>.glb</code> real + Render HD + Metadatos IPFS\n🏪 <b>Mercado:</b> ¡Vende tus NFTs o crea tu colección!",
+        "tr": "🖼️ <b>Web3 3D NFT Stüdyosu (Polygon ve TON)</b>\n━━━━━━━━━━━━━━━━━━━━\n💎 <b>0 Gas Ücreti:</b> EIP-712 Lazy Minting ile ücretsiz 3D NFT oluşturun!\n📦 <b>Format:</b> Gerçek 3D <code>.glb</code> model + HD Render + IPFS Metaverisi\n🏪 <b>Pazar:</b> NFT'lerinizi satın veya koleksiyon yapın!"
+    },
 
     # ==================== REFERRAL ====================
     "referral_title": {

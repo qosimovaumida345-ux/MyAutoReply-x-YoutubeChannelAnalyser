@@ -54,6 +54,7 @@ from cashout import (
 )
 from deeplink_engine import generate_smart_deeplinks, generate_qr_code_image
 from autopost import upload_to_youtube
+from nft_engine import generate_3d_nft
 
 logger = logging.getLogger(__name__)
 
@@ -1106,7 +1107,20 @@ def load_mega_features(bot: Client):
         method = cb.matches[0].group(1)
         uid = cb.from_user.id
         USER_STATES[uid] = {"action": "waiting_cashout_details", "method": method}
-        prompt_txt = "Telegram @username va summani yozing (masalan: `@username 50000`):" if method == "stars" else "TON hamyon manzilingiz va summani yozing (masalan: `EQ... 100000`):"
+        if method == "stars":
+            prompt_txt = "Telegram @username va summani yozing (masalan: `@username 50000`):"
+        else:
+            w = db.get_user_ton_wallet(uid)
+            if w and w.get("wallet_address"):
+                saved_addr = w["wallet_address"]
+                masked = f"{saved_addr[:6]}...{saved_addr[-6:]}"
+                prompt_txt = (
+                    f"💎 <b>Ulangan TON Hamyoningiz:</b> <code>{saved_addr}</code> ({masked})\n\n"
+                    f"👉 Ushbu hamyonga yechish uchun <b>faqat summani</b> yozing (masalan: <code>100000</code>)\n"
+                    f"Yoki boshqa hamyon manzilini ko'rsating (masalan: <code>EQ... 100000</code>):"
+                )
+            else:
+                prompt_txt = "TON hamyon manzilingiz va summani yozing (masalan: `EQ... 100000`):"
         await cb.message.reply_text(f"{ce('CARD')} <b>{method.upper()} orqali yechish:</b>\n\n{prompt_txt}")
 
     @bot.on_callback_query(filters.regex(r"^adm_co_(app|rej)_(\d+)$"))
@@ -1168,6 +1182,238 @@ def load_mega_features(bot: Client):
             f"{ce('DEEPLINK')} <b>Smart YouTube DeepLink & QR Generator</b>\n\n"
             f"YouTube havolangizni yuboring, bot uni mobil ilovada to'g'ridan-to'g'ri ochiladigan formatga o'tkazadi:"
         )
+
+    # =========================================================================
+    # 13. 3D NFT STUDIO (POLYGON LAZY MINT & TON)
+    # =========================================================================
+    async def handle_generate_nft_flow(client, origin, uid: int, prompt: str):
+        wait_msg = await origin.reply_text(
+            f"⏳ <b>3D Model va EIP-712 Lazy Mint Voucher yaratilmoqda...</b>\n\n"
+            f"🔍 <i>G'oya:</i> <code>{prompt}</code>\n"
+            f"🎨 <i>Hunyuan3D & Octane render tayyorlanmoqda...</i>\n\n"
+            f"Iltimos, 10-15 soniya kuting."
+        )
+
+        try:
+            w = db.get_user_ton_wallet(uid)
+            creator_addr = w.get("wallet_address", "") if w else ""
+
+            nft_data = await generate_3d_nft(prompt, uid, creator_wallet=creator_addr)
+            
+            # Save to database
+            item_id = db.create_nft_item(
+                tg_user_id=uid,
+                title=nft_data["title"],
+                description=nft_data["description"],
+                glb_file_id=nft_data["glb_path"],
+                preview_image_id=nft_data["preview_path"],
+                ipfs_metadata_uri=nft_data["ipfs_uri"],
+                polygon_token_id=nft_data["token_id"],
+                voucher_data=nft_data["voucher_str"],
+                price_uzs=0
+            )
+
+            caption = (
+                f"🖼️ <b>3D NFT Muvaffaqiyatli Yaratildi!</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                f"🏷️ <b>Nomi:</b> <b>{nft_data['title']}</b>\n"
+                f"💎 <b>Shakl:</b> {nft_data['shape'].capitalize()}\n"
+                f"⛓️ <b>Tarmoq:</b> Polygon Mainnet (Chain 137)\n"
+                f"📜 <b>Mint:</b> EIP-712 Lazy Minting (0 Gas Fee ✅)\n"
+                f"📦 <b>Token ID:</b> <code>#{nft_data['token_id']}</code>\n"
+                f"📡 <b>IPFS:</b> <code>{nft_data['ipfs_uri']}</code>\n"
+                f"👤 <b>Yaratuvchi:</b> <code>{nft_data['creator_address'][:12]}...</code>\n\n"
+                f"📝 <b>Tavsif:</b> <i>{nft_data['description']}</i>\n━━━━━━━━━━━━━━━━━━━━\n"
+                f"👇 <i>Quyida 3D model (.glb) fayli va boshqaruv:</i>"
+            )
+
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🏷️ Sotuvga Qo'yish", callback_data=f"nft_list_prompt_{item_id}")],
+                [InlineKeyboardButton("🖼️ Mening NFT larim", callback_data="nft_my_items"),
+                 InlineKeyboardButton("🎨 Yana Yaratish", callback_data="nft_create_new")],
+                [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
+            ])
+
+            chat_id = origin.chat.id if hasattr(origin, "chat") else origin.from_user.id
+            if os.path.exists(nft_data["preview_path"]):
+                await client.send_photo(
+                    chat_id=chat_id,
+                    photo=nft_data["preview_path"],
+                    caption=caption,
+                    reply_markup=kb
+                )
+            else:
+                await origin.reply_text(caption, reply_markup=kb)
+
+            if os.path.exists(nft_data["glb_path"]):
+                await client.send_document(
+                    chat_id=chat_id,
+                    document=nft_data["glb_path"],
+                    file_name=f"{nft_data['title'].replace(' ', '_')}.glb",
+                    caption=f"🧊 <b>3D Model (.glb):</b> {nft_data['title']}\n<i>Ushbu faylni istalgan 3D viewer yoki Web3 ilovada ochishingiz mumkin.</i>"
+                )
+
+            await wait_msg.delete()
+        except Exception as err:
+            logger.error(f"NFT generation error: {err}")
+            await wait_msg.edit_text(f"❌ <b>Xatolik yuz berdi:</b> {err}\nIltimos, qayta urinib ko'ring.")
+
+    @bot.on_message(filters.command("nft") & filters.private)
+    async def nft_cmd(client, message: Message):
+        uid = message.from_user.id
+        parts = message.text.split(maxsplit=1)
+        if len(parts) > 1:
+            prompt = parts[1].strip()
+            await handle_generate_nft_flow(client, message, uid, prompt)
+            return
+
+        lang = db.get_user_language(uid) or "uz"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎨 Yangi 3D NFT Yaratish (Bepul)", callback_data="nft_create_new")],
+            [InlineKeyboardButton("🖼️ Mening 3D NFT larim", callback_data="nft_my_items"),
+             InlineKeyboardButton("🛒 NFT Bozori", callback_data="nft_market")],
+            [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
+        ])
+        await message.reply_text(t("nft_menu_title", lang), reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^menu_nft$"))
+    async def cb_menu_nft(client, cb: CallbackQuery):
+        uid = cb.from_user.id
+        lang = db.get_user_language(uid) or "uz"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎨 Yangi 3D NFT Yaratish (Bepul)", callback_data="nft_create_new")],
+            [InlineKeyboardButton("🖼️ Mening 3D NFT larim", callback_data="nft_my_items"),
+             InlineKeyboardButton("🛒 NFT Bozori", callback_data="nft_market")],
+            [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
+        ])
+        try:
+            await cb.message.edit_text(t("nft_menu_title", lang), reply_markup=kb)
+        except Exception:
+            await cb.message.reply_text(t("nft_menu_title", lang), reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^nft_create_new$"))
+    async def cb_nft_create_new(client, cb: CallbackQuery):
+        uid = cb.from_user.id
+        USER_STATES[uid] = {"action": "waiting_nft_prompt"}
+        await cb.answer()
+        await cb.message.reply_text(
+            f"🖼️ <b>3D NFT Studio — Yangi Artefakt Yaratish</b>\n\n"
+            f"O'zingiz xohlagan 3D model g'oyasini yozing (o'zbek yoki ingliz tilida):\n\n"
+            f"<b>Misollar:</b>\n"
+            f"• <code>Cyberpunk Samurai Robot</code>\n"
+            f"• <code>Oltin Qanotli Kubok</code>\n"
+            f"• <code>Futuristik Neon Olmos</code>\n"
+            f"• <code>Kosmik Skreyling Artefakt</code>\n\n"
+            f"⚡ <i>0 Gas Fee (EIP-712 Lazy Minting) — Polygon tarmog'ida mutlaqo bepul yaratiladi!</i>"
+        )
+
+    @bot.on_callback_query(filters.regex(r"^nft_my_items$"))
+    async def cb_nft_my_items(client, cb: CallbackQuery):
+        uid = cb.from_user.id
+        items = db.get_user_nfts(uid)
+        if not items:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎨 Yangi 3D NFT Yaratish", callback_data="nft_create_new")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_nft")]
+            ])
+            await cb.message.edit_text(
+                "🖼️ <b>Sizda hali yaratilgan 3D NFT lar mavjud emas.</b>\n\n"
+                "Birinchi 3D NFT ingizni 0 xarajat bilan yaratish uchun pastdagi tugmani bosing!",
+                reply_markup=kb
+            )
+            await cb.answer()
+            return
+
+        text = f"🖼️ <b>Sizning 3D NFT Kolleksiyangiz ({len(items)} ta):</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        btns = []
+        for it in items[:8]:
+            status_ico = "🟢" if it.get("status") == "listed" else "📦"
+            price_txt = f" — {it.get('price_uzs', 0):,} so'm" if it.get("status") == "listed" else ""
+            text += f"{status_ico} <b>{it.get('title', 'NFT')}</b> (#{it.get('polygon_token_id', 0)}){price_txt}\n"
+            if it.get("status") != "listed":
+                btns.append([InlineKeyboardButton(f"🏷️ Sotuvga: {it.get('title')[:18]}", callback_data=f"nft_list_prompt_{it['id']}")])
+
+        btns.append([InlineKeyboardButton("🎨 Yangi 3D NFT Yaratish", callback_data="nft_create_new")])
+        btns.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_nft")])
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(btns))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^nft_market$"))
+    async def cb_nft_market(client, cb: CallbackQuery):
+        items = db.get_listed_nfts(limit=10)
+        if not items:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎨 O'z NFTingizni Yaratib Soting", callback_data="nft_create_new")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_nft")]
+            ])
+            await cb.message.edit_text(
+                "🛒 <b>3D NFT Bozori (Marketplace)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                "Hozircha sotuvda faol NFT lar yo'q. O'zingiz NFT yaratib birinchi bo'lib sotuvga qo'yishingiz mumkin!",
+                reply_markup=kb
+            )
+            await cb.answer()
+            return
+
+        text = "🛒 <b>3D NFT Bozori (Faol Lotlar):</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+        btns = []
+        for it in items:
+            text += f"💎 <b>{it.get('title')}</b>\n💰 Narxi: <code>{it.get('price_uzs', 0):,}</code> so'm\n📜 Token: #{it.get('polygon_token_id', 0)}\n\n"
+            btns.append([InlineKeyboardButton(f"Sotib olish ({it.get('price_uzs', 0):,} so'm) 🛍️", callback_data=f"nft_buy_{it['id']}")])
+
+        btns.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_nft")])
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(btns))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^nft_list_prompt_(\d+)$"))
+    async def cb_nft_list_prompt(client, cb: CallbackQuery):
+        item_id = int(cb.matches[0].group(1))
+        uid = cb.from_user.id
+        USER_STATES[uid] = {"action": "waiting_nft_price", "item_id": item_id}
+        await cb.answer()
+        await cb.message.reply_text(
+            f"🏷️ <b>NFT ni Bozorga Chiqarish</b>\n\n"
+            f"Ushbu 3D NFT uchun sotuv narxini so'mda kiriting (masalan: <code>50000</code>):"
+        )
+
+    @bot.on_callback_query(filters.regex(r"^nft_buy_(\d+)$"))
+    async def cb_nft_buy(client, cb: CallbackQuery):
+        item_id = int(cb.matches[0].group(1))
+        uid = cb.from_user.id
+        item = db.get_nft_item(item_id)
+        if not item or item.get("status") != "listed":
+            await cb.answer("Bu NFT mavjud emas yoki allaqachon sotilgan!", show_alert=True)
+            return
+        
+        if item.get("tg_user_id") == uid:
+            await cb.answer("O'zingizning NFTingizni sotib ololmaysiz!", show_alert=True)
+            return
+
+        price = int(item.get("price_uzs", 0))
+        user_bal = db.get_user_balance(uid)
+        if user_bal < price:
+            await cb.answer(f"Balansingiz yetarli emas! Sizda {user_bal:,} so'm, narxi {price:,} so'm.", show_alert=True)
+            return
+
+        seller_id = item["tg_user_id"]
+        db.update_user_balance(uid, -price)
+        db.update_user_balance(seller_id, price)
+        db.update_nft_status(item_id, status="sold", buyer_user_id=uid)
+
+        await cb.answer("Tabriklaymiz! 3D NFT muvaffaqiyatli xarid qilindi! 🎉", show_alert=True)
+        await cb.message.reply_text(
+            f"🎉 <b>Xaridingiz Muvaffaqiyatli Yakunlandi!</b>\n\n"
+            f"Siz <b>{item.get('title')}</b> 3D NFT sini <code>{price:,}</code> so'mga sotib oldingiz.\n"
+            f"NFT endi sizning kolleksiyangizda!"
+        )
+        try:
+            await client.send_message(
+                seller_id,
+                f"🎊 <b>NFTingiz Sotildi!</b>\n\n"
+                f"Sizning <b>{item.get('title')}</b> 3D NFTingiz <code>{price:,}</code> so'mga sotildi.\n"
+                f"Mablag' balansingizga qo'shildi!"
+            )
+        except Exception:
+            pass
 
     # =========================================================================
     # UNIVERSAL FSM TEXT HANDLER (STATE INPUTS)
@@ -1399,25 +1645,36 @@ def load_mega_features(bot: Client):
                 USER_STATES.pop(uid, None)
                 method = state.get("method", "ton")
                 tokens = text.split()
-                if len(tokens) < 2:
+                if len(tokens) == 1 and method == "ton" and tokens[0].isdigit():
+                    # Foydalanuvchi ulangan hamyoni uchun faqat summani kiritdi
+                    w = db.get_user_ton_wallet(uid)
+                    if w and w.get("wallet_address"):
+                        target_addr = w["wallet_address"]
+                        amt = int(tokens[0])
+                    else:
+                        await message.reply_text(f"{ce('ERROR')} Hamyon manzili kiritilmadi! Masalan: <code>EQ... 100000</code>")
+                        message.stop_propagation()
+                        return
+                elif len(tokens) < 2:
                     await message.reply_text(f"{ce('ERROR')} Format xato! Masalan: <code>EQ... 50000</code> yoki <code>@username 50000</code>")
                     message.stop_propagation()
                     return
-                target_addr = tokens[0]
-                try:
-                    amt = int(tokens[1])
-                except ValueError:
-                    await message.reply_text(f"{ce('ERROR')} Summa raqam bo'lishi kerak!")
-                    message.stop_propagation()
-                    return
+                else:
+                    target_addr = tokens[0]
+                    try:
+                        amt = int(tokens[1])
+                    except ValueError:
+                        await message.reply_text(f"{ce('ERROR')} Summa raqam bo'lishi kerak!")
+                        message.stop_propagation()
+                        return
 
-                ok, res, equiv = request_user_cashout(uid, method, target_addr, amt)
+                ok, res, equiv, req_id = request_user_cashout(uid, method, target_addr, amt)
                 if not ok:
                     await message.reply_text(f"{ce('ERROR')} Xatolik: {res}")
                 else:
                     await message.reply_text(f"{ce('CHECK')} {res}\n{ce('MONEY')} Ekvivalent: <code>{equiv}</code>")
-                    # Adminga xabar yuborish
-                    await notify_admin_new_cashout(client, 999, message.from_user, method, target_addr, amt, equiv)
+                    # Adminga xabar yuborish (haqiqiy req_id bilan)
+                    await notify_admin_new_cashout(client, req_id, message.from_user, method, target_addr, amt, equiv)
                 message.stop_propagation()
 
             # 11. DeepLink URL
@@ -1441,6 +1698,41 @@ def load_mega_features(bot: Client):
                     except: pass
                 else:
                     await message.reply_text(caption)
+                message.stop_propagation()
+
+            # 12. 3D NFT Prompt
+            elif action == "waiting_nft_prompt":
+                USER_STATES.pop(uid, None)
+                await handle_generate_nft_flow(client, message, uid, text.strip())
+                message.stop_propagation()
+
+            # 13. NFT narxi (bozorga qo'yish)
+            elif action == "waiting_nft_price":
+                USER_STATES.pop(uid, None)
+                item_id = state.get("item_id")
+                clean_txt = text.replace(" ", "").replace(",", "").replace("so'm", "").strip()
+                try:
+                    price_val = int(clean_txt)
+                    if price_val <= 0:
+                        raise ValueError("0 dan katta bo'lishi kerak")
+                except ValueError:
+                    await message.reply_text(f"{ce('ERROR')} Narx noto'g'ri kiritildi! Ijobiy raqam kiriting (masalan: <code>50000</code>).")
+                    message.stop_propagation()
+                    return
+
+                ok = db.update_nft_status(item_id, status="listed", price_uzs=price_val)
+                if ok:
+                    await message.reply_text(
+                        f"✅ <b>3D NFT Bozorga Muvaffaqiyatli Chiqarildi!</b>\n\n"
+                        f"💰 <b>Belgilangan narx:</b> <code>{price_val:,}</code> so'm\n"
+                        f"Boshqa foydalanuvchilar /nft bo'limi orqali sotib olishlari mumkin.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("🛒 NFT Bozorini Ko'rish", callback_data="nft_market")],
+                            [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
+                        ])
+                    )
+                else:
+                    await message.reply_text(f"{ce('ERROR')} NFT holatini yangilashda xatolik yuz berdi.")
                 message.stop_propagation()
             else:
                 message.continue_propagation()
