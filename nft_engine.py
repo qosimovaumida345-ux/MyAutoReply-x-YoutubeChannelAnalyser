@@ -17,6 +17,8 @@ import time
 import math
 import io
 import logging
+import asyncio
+import shutil
 from PIL import Image, ImageDraw
 from pollinations_engine import generate_ai_image_pollinations
 from config import generate_with_fallback_async
@@ -85,6 +87,273 @@ def get_texture_bytes(preview_image_path: str = None, label: str = "CYBER-NFT") 
             logger.warning(f"Failed to use preview image for texture: {e}")
 
     return create_procedural_texture(label=label)
+
+
+def inject_animation_into_glb(glb_path: str, out_path: str = None) -> str:
+    """
+    Injects GLTF 2.0 keyframe translation (hover) & rotation (360° loop) tracks
+    directly into any standard binary .glb file (e.g. from TripoSR AI).
+    Target: node 0. Duration: 4.0 seconds looping.
+    """
+    if out_path is None:
+        out_path = glb_path
+
+    with open(glb_path, 'rb') as f:
+        data = f.read()
+
+    magic, ver, total_len = struct.unpack('<4sII', data[:12])
+    json_len, json_type = struct.unpack('<II', data[12:20])
+    json_bytes = data[20:20+json_len]
+    gltf = json.loads(json_bytes.decode('utf-8'))
+
+    bin_header_offset = 20 + json_len
+    bin_len, bin_type = struct.unpack('<II', data[bin_header_offset:bin_header_offset+8])
+    bin_data = bytearray(data[bin_header_offset+8:bin_header_offset+8+bin_len])
+
+    time_keys = [0.0, 1.0, 2.0, 3.0, 4.0]
+    trans_keys = [
+        0.0,  0.00, 0.0,
+        0.0,  0.25, 0.0,
+        0.0,  0.00, 0.0,
+        0.0, -0.25, 0.0,
+        0.0,  0.00, 0.0
+    ]
+    rot_keys = [
+        0.0, 0.0, 0.0, 1.0,
+        0.0, math.sin(math.pi/4), 0.0, math.cos(math.pi/4),
+        0.0, math.sin(math.pi/2), 0.0, math.cos(math.pi/2),
+        0.0, math.sin(3*math.pi/4), 0.0, math.cos(3*math.pi/4),
+        0.0, 0.0, 0.0, -1.0
+    ]
+
+    pad_existing = (4 - (len(bin_data) % 4)) % 4
+    bin_data.extend(b'\x00' * pad_existing)
+
+    time_bytes = struct.pack(f'<{len(time_keys)}f', *time_keys)
+    trans_bytes = struct.pack(f'<{len(trans_keys)}f', *trans_keys)
+    rot_bytes = struct.pack(f'<{len(rot_keys)}f', *rot_keys)
+
+    anim_parts = [time_bytes, trans_bytes, rot_bytes]
+    new_bv_indices = []
+
+    for p in anim_parts:
+        pad = (4 - (len(p) % 4)) % 4
+        padded = p + b'\x00' * pad
+        offset = len(bin_data)
+        bin_data.extend(padded)
+
+        bv_idx = len(gltf['bufferViews'])
+        gltf['bufferViews'].append({
+            'buffer': 0,
+            'byteOffset': offset,
+            'byteLength': len(p)
+        })
+        new_bv_indices.append(bv_idx)
+
+    acc_time_idx = len(gltf['accessors'])
+    gltf['accessors'].append({
+        'bufferView': new_bv_indices[0],
+        'byteOffset': 0,
+        'componentType': 5126,
+        'count': len(time_keys),
+        'type': 'SCALAR',
+        'max': [4.0],
+        'min': [0.0]
+    })
+
+    acc_trans_idx = len(gltf['accessors'])
+    gltf['accessors'].append({
+        'bufferView': new_bv_indices[1],
+        'byteOffset': 0,
+        'componentType': 5126,
+        'count': len(trans_keys)//3,
+        'type': 'VEC3',
+        'max': [0.0, 0.25, 0.0],
+        'min': [0.0, -0.25, 0.0]
+    })
+
+    acc_rot_idx = len(gltf['accessors'])
+    gltf['accessors'].append({
+        'bufferView': new_bv_indices[2],
+        'byteOffset': 0,
+        'componentType': 5126,
+        'count': len(rot_keys)//4,
+        'type': 'VEC4',
+        'max': [1.0, 1.0, 1.0, 1.0],
+        'min': [-1.0, -1.0, -1.0, -1.0]
+    })
+
+    gltf['animations'] = [{
+        'name': 'Hover_and_360_Spin_Loop',
+        'channels': [
+            {'sampler': 0, 'target': {'node': 0, 'path': 'translation'}},
+            {'sampler': 1, 'target': {'node': 0, 'path': 'rotation'}}
+        ],
+        'samplers': [
+            {'input': acc_time_idx, 'interpolation': 'LINEAR', 'output': acc_trans_idx},
+            {'input': acc_time_idx, 'interpolation': 'LINEAR', 'output': acc_rot_idx}
+        ]
+    }]
+
+    gltf['buffers'][0]['byteLength'] = len(bin_data)
+
+    new_json_bytes = json.dumps(gltf, separators=(',', ':')).encode('utf-8')
+    pad_json = (4 - (len(new_json_bytes) % 4)) % 4
+    new_json_bytes += b' ' * pad_json
+
+    total_out_len = 12 + 8 + len(new_json_bytes) + 8 + len(bin_data)
+    new_header = struct.pack('<4sII', b'glTF', 2, total_out_len)
+    new_json_chunk = struct.pack('<II', len(new_json_bytes), 0x4E4F534A) + new_json_bytes
+    new_bin_chunk = struct.pack('<II', len(bin_data), 0x004E4942) + bytes(bin_data)
+
+    with open(out_path, 'wb') as f:
+        f.write(new_header + new_json_chunk + new_bin_chunk)
+
+    return out_path
+
+
+def _run_triposr_sync(image_path: str, output_path: str) -> bool:
+    """Synchronous worker for stabilityai/TripoSR via gradio_client."""
+    from gradio_client import Client, handle_file
+    logger.info("Calling stabilityai/TripoSR free 3D generation API...")
+    client = Client("stabilityai/TripoSR")
+    proc_img = client.predict(
+        handle_file(image_path),
+        True,
+        0.85,
+        api_name="/preprocess"
+    )
+    obj_out, glb_out = client.predict(
+        handle_file(proc_img),
+        256,
+        api_name="/generate"
+    )
+    if glb_out and os.path.exists(glb_out):
+        shutil.copyfile(glb_out, output_path)
+        logger.info(f"TripoSR 3D mesh successfully created: {output_path}")
+        return True
+    return False
+
+
+async def generate_real_ai_3d_glb(image_path: str, output_path: str) -> bool:
+    """Asynchronously generates real AI 3D mesh using stabilityai/TripoSR."""
+    try:
+        return await asyncio.to_thread(_run_triposr_sync, image_path, output_path)
+    except Exception as e:
+        logger.error(f"Stability AI TripoSR generation failed: {e}")
+        return False
+
+
+def detect_and_slice_multi_angle(image_path: str, output_dir: str = "downloads") -> dict:
+    """
+    Detects if an image is a multi-view turnaround sheet (Front + Back or Front + Side + Back).
+    If wide (aspect ratio >= 1.35):
+      - Slices front view as front.png
+      - Slices rear view as back.png
+      - Returns {'front': front_path, 'back': back_path, 'is_multi': True}
+    If single image:
+      - Returns {'front': image_path, 'back': None, 'is_multi': False}
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    try:
+        with Image.open(image_path) as im:
+            w, h = im.size
+            ratio = w / h
+            if ratio >= 1.35:
+                base = os.path.splitext(os.path.basename(image_path))[0]
+                if ratio < 2.5:  # 2 views: Left is Front, Right is Back
+                    front_box = (0, 0, w // 2, h)
+                    back_box = (w // 2, 0, w, h)
+                else:  # 3 or 4 views: 1st is Front, last is Back
+                    num_cols = 4 if ratio >= 3.4 else 3
+                    col_w = w // num_cols
+                    front_box = (0, 0, col_w, h)
+                    back_box = (col_w * (num_cols - 1), 0, w, h)
+
+                f_img = im.crop(front_box)
+                b_img = im.crop(back_box)
+                f_path = os.path.join(output_dir, f"{base}_slice_front.png")
+                b_path = os.path.join(output_dir, f"{base}_slice_back.png")
+                f_img.save(f_path)
+                b_img.save(b_path)
+                logger.info(f"Multi-angle sheet detected and sliced: front={f_path}, back={b_path}")
+                return {"front": f_path, "back": b_path, "is_multi": True}
+    except Exception as e:
+        logger.warning(f"Multi-angle detection fallback: {e}")
+
+    return {"front": image_path, "back": None, "is_multi": False}
+
+
+def apply_dual_angle_textures(glb_path: str, front_img_path: str, back_img_path: str, out_path: str = None) -> str:
+    """
+    Projects the real Back image onto the rear vertices of the GLB 3D mesh (Z < 0).
+    Eliminates blind AI guessing ('fol ochish') by mapping actual back pixels directly.
+    """
+    if out_path is None:
+        out_path = glb_path
+
+    if not back_img_path or not os.path.exists(back_img_path):
+        return out_path
+
+    with open(glb_path, 'rb') as f:
+        data = f.read()
+
+    magic, ver, total_len = struct.unpack('<4sII', data[:12])
+    json_len, json_type = struct.unpack('<II', data[12:20])
+    gltf = json.loads(data[20:20+json_len].decode('utf-8'))
+
+    bin_header_offset = 20 + json_len
+    bin_len, bin_type = struct.unpack('<II', data[bin_header_offset:bin_header_offset+8])
+    bin_data = bytearray(data[bin_header_offset+8:bin_header_offset+8+bin_len])
+
+    prim = gltf['meshes'][0]['primitives'][0]
+    if 'COLOR_0' not in prim['attributes'] or 'POSITION' not in prim['attributes']:
+        return out_path
+
+    pos_acc = gltf['accessors'][prim['attributes']['POSITION']]
+    col_acc = gltf['accessors'][prim['attributes']['COLOR_0']]
+
+    pos_bv = gltf['bufferViews'][pos_acc['bufferView']]
+    col_bv = gltf['bufferViews'][col_acc['bufferView']]
+
+    vertex_count = pos_acc['count']
+    pos_offset = pos_bv['byteOffset'] + pos_acc.get('byteOffset', 0)
+    col_offset = col_bv['byteOffset'] + col_acc.get('byteOffset', 0)
+
+    try:
+        back_im = Image.open(back_img_path).convert('RGBA')
+        bw, bh = back_im.size
+        back_pixels = back_im.load()
+
+        min_x, max_x = pos_acc['min'][0], pos_acc['max'][0]
+        min_y, max_y = pos_acc['min'][1], pos_acc['max'][1]
+        dx = (max_x - min_x) if max_x > min_x else 1.0
+        dy = (max_y - min_y) if max_y > min_y else 1.0
+
+        for i in range(vertex_count):
+            px = pos_offset + i * 12
+            x, y, z = struct.unpack('<fff', bin_data[px:px+12])
+            # Rear vertices facing backward
+            if z < -0.02:
+                u = max(0.0, min(1.0, 1.0 - (x - min_x) / dx))
+                v = max(0.0, min(1.0, 1.0 - (y - min_y) / dy))
+                ix = int(u * (bw - 1))
+                iy = int(v * (bh - 1))
+                r, g, b, a = back_pixels[ix, iy]
+                cx = col_offset + i * 4
+                bin_data[cx:cx+4] = struct.pack('4B', r, g, b, 255)
+
+        new_bin_chunk = struct.pack('<II', len(bin_data), 0x004E4942) + bytes(bin_data)
+        json_chunk = data[12:20+json_len]
+        new_header = struct.pack('<4sII', b'glTF', 2, 12 + len(json_chunk) + len(new_bin_chunk))
+
+        with open(out_path, 'wb') as out_f:
+            out_f.write(new_header + json_chunk + new_bin_chunk)
+        logger.info(f"Dual-angle rear texture projection successfully applied to {out_path}")
+    except Exception as e:
+        logger.error(f"Dual angle texture projection error: {e}")
+
+    return out_path
 
 
 def build_animated_glb(
@@ -467,13 +736,14 @@ async def generate_3d_nft(
     prompt: str,
     user_id: int,
     creator_wallet: str = "",
-    output_dir: str = "downloads"
+    output_dir: str = "downloads",
+    custom_image_path: str = None
 ) -> dict:
     """
     Full 3D NFT Creation Pipeline:
-    1. Gemini: Analyzes archetype (weapon / katana / drone / crystal) + concept lore
-    2. Pollinations Flux: Generates 1:1 HD 3D concept render preview (1024x1024)
-    3. HD 3D Engine: Embeds PBR texture + builds multi-component animated .glb model
+    1. Gemini: Analyzes Telegram NFT collectible concept lore and title
+    2. Image Source: Uses custom user image OR generates 1:1 HD Telegram Gift concept art
+    3. AI 3D Engine: Stability AI TripoSR creates real 3D mesh directly from image + injects 360° spin & hover animation
     4. IPFS: Generates decentralized metadata URI
     5. EIP-712: Generates zero-gas Lazy Mint voucher on Polygon
     """
@@ -481,43 +751,44 @@ async def generate_3d_nft(
     task_token = random.randint(10000, 99999)
     token_id = int(time.time() * 1000) % 1000000000 + random.randint(100, 999)
 
-    # 1. AI Concept & Archetype Analysis
+    # 1. AI Concept & Archetype Analysis (Telegram NFT Collectibles / Gifts Style)
     ai_prompt = f"""
-Sen Web3 3D NFT va O'yin Artisti (Game Asset Designer)san.
+Sen Telegram NFT Gifts & Web3 Collectibles (Telegram Sovg'alar va Nodir Artefaktlar) bo'yicha Bosh 3D Dizaynersan.
 Foydalanuvchi g'oyasi: "{prompt}"
 
-Quyidagi formatda faqat ko'rsatilgan teglar bilan 4 ta qism qaytar:
-<ARCHETYPE>weapon yoki sword yoki drone yoki crystal</ARCHETYPE>
-<TITLE>Qisqa va jozibador 3D NFT nomi</TITLE>
-<VISUAL>3D render, octane render, unreal engine 5, 8k, photorealistic detailed 3D asset of {prompt}, cyberpunk neon holographic lighting, volumetric depth, centered on dark void background</VISUAL>
-<LORE>Ushbu afsonaviy artefakt haqida qiziqarli 2 jumlalik tavsif</LORE>
+Telegram Gifts uslubi (Telegram Stars, Golden Crown, Cyber Duck, Crystal Heart, Diamond Skull, Golden Plane):
+- Juda jozibador, ixcham, qimmatbaho va estetik 3D figura (Vinyl art toy, blind box, pop mart uslubi)
+- Yaltiroq materiallar: yaltiroq oltin (gold metallic), xrom, neon nurlar, yoqut/olmos kristall elementlar
+- 3D neyron to'r yasash uchun mos: toza oq fonda, studiya yorug'ligida, markazda, aniq ixcham siluet
 
-Qoidalar:
-- Agar qurol, to'pponcha, miltiq, blaster bo'lsa -> ARCHETYPE: weapon
-- Agar qilich, pichoq, katana, nayza bo'lsa -> ARCHETYPE: sword
-- Agar robot, dron, kema, mech, transport bo'lsa -> ARCHETYPE: drone
-- Boshqa hollarda -> ARCHETYPE: crystal
+Quyidagi formatda faqat ko'rsatilgan teglar bilan 4 ta qism qaytar:
+<ARCHETYPE>star yoki crown yoki duck yoki trophy yoki crystal yoki relic</ARCHETYPE>
+<TITLE>Telegram NFT nomi (masalan: Golden Star, Imperial Crown, Neon Relic)</TITLE>
+<VISUAL>Telegram gift NFT collectible 3D icon of {prompt}, luxurious metallic gold and glowing neon gem crystals, smooth rounded surfaces, 3D vinyl art toy style, centered, isolated on solid pure white background, soft studio lighting, sharp edges, octane 8k render</VISUAL>
+<LORE>Ushbu Telegram kolleksiyasi haqida 2 jumlalik qiziqarli tavsif</LORE>
 """
-    title = f"Cyber {prompt[:25]}"
+    title = f"Telegram NFT {prompt[:25]}"
     archetype = "crystal"
-    visual = f"octane 3D render of {prompt}, unreal engine 5, cyberpunk neon lighting, volumetric glow, centered on black background"
-    lore = f"{prompt} asosida yaratilgan noyob raqamli 3D artefakt."
+    visual = f"Telegram gift NFT collectible 3D icon of {prompt}, luxurious metallic gold and glowing neon gem crystals, smooth rounded surfaces, 3D vinyl art toy style, centered, isolated on solid pure white background, soft studio lighting, sharp edges, octane 8k render"
+    lore = f"{prompt} asosida yaratilgan noyob Telegram 3D NFT artefakti."
 
     # Heuristic fallback archetype detection
     p_lower = prompt.lower()
-    if any(k in p_lower for k in ["qurol", "miltiq", "to'pponcha", "gun", "rifle", "blaster", "pistol", "cannon", "sniper", "weapon"]):
-        archetype = "weapon"
-    elif any(k in p_lower for k in ["qilich", "pichoq", "nayza", "sword", "blade", "katana", "saber", "dagger"]):
-        archetype = "sword"
-    elif any(k in p_lower for k in ["dron", "robot", "mech", "kema", "drone", "bot", "sentinel"]):
-        archetype = "drone"
+    if any(k in p_lower for k in ["yulduz", "star", "qurol", "gun", "blaster"]):
+        archetype = "star"
+    elif any(k in p_lower for k in ["toj", "crown", "king", "shox"]):
+        archetype = "crown"
+    elif any(k in p_lower for k in ["o'rdak", "ordak", "duck", "bot", "mascot"]):
+        archetype = "duck"
+    elif any(k in p_lower for k in ["kubok", "trophy", "cup", "sovga", "gift"]):
+        archetype = "trophy"
 
     try:
         res = await generate_with_fallback_async(ai_prompt)
         raw = res.text
         if "<ARCHETYPE>" in raw and "</ARCHETYPE>" in raw:
             cand = raw.split("<ARCHETYPE>")[1].split("</ARCHETYPE>")[0].strip().lower()
-            if cand in ("weapon", "sword", "drone", "crystal"):
+            if cand in ("star", "crown", "duck", "trophy", "crystal", "relic"):
                 archetype = cand
         if "<TITLE>" in raw and "</TITLE>" in raw:
             title = raw.split("<TITLE>")[1].split("</TITLE>")[0].strip()
@@ -528,20 +799,43 @@ Qoidalar:
     except Exception as e:
         logger.warning(f"AI Concept error: {e}")
 
-    # 2. HD 3D Preview Rasm
-    preview_path = os.path.join(output_dir, f"nft_preview_{task_token}.jpg")
-    img_ok = await generate_ai_image_pollinations(visual, preview_path, width=1024, height=1024)
-    if not img_ok:
-        await generate_ai_image_pollinations(f"3D {prompt} holographic artifact", preview_path, width=720, height=720)
+    # 2. Concept Image (User uploaded custom image OR AI generated Dual-Angle Telegram NFT visual)
+    preview_path = os.path.join(output_dir, f"nft_preview_{task_token}.png")
+    if custom_image_path and os.path.exists(custom_image_path):
+        shutil.copyfile(custom_image_path, preview_path)
+    else:
+        # Generate side-by-side Dual Angle (Front + Back) so rear is not guessed blindly
+        dual_visual = f"Telegram gift NFT collectible 3D icon of {prompt}, side-by-side 2 views: left half showing front view, right half showing back view with rear details, luxurious metallic gold and neon gem crystals, smooth rounded 3D toy style, centered, isolated on solid pure white background, studio lighting, octane 8k render"
+        img_ok = await generate_ai_image_pollinations(dual_visual, preview_path, width=1024, height=512)
+        if not img_ok:
+            img_ok = await generate_ai_image_pollinations(visual, preview_path, width=512, height=512)
+            if not img_ok:
+                await generate_ai_image_pollinations(f"Telegram gift NFT 3D {prompt}, isolated on solid white background", preview_path, width=512, height=512)
 
-    # 3. High-Definition Animated 3D GLB Model (Texture embedded + 360° Looping Animation!)
+    # 3. Multi-Angle Detection & Slicing (Front & Back)
+    slices = detect_and_slice_multi_angle(preview_path, output_dir=output_dir)
+    primary_image = slices['front']
+
+    # 4. Real AI 3D Mesh Generation (Stability AI TripoSR)
     glb_path = os.path.join(output_dir, f"nft_model_{task_token}.glb")
-    build_animated_glb(
-        output_path=glb_path,
-        archetype=archetype,
-        name=title.replace(" ", "_"),
-        texture_image_path=preview_path
-    )
+    real_ai_success = await generate_real_ai_3d_glb(primary_image, glb_path)
+
+    if real_ai_success and os.path.exists(glb_path) and os.path.getsize(glb_path) >= 1000:
+        # Apply real rear texture if back view is present
+        if slices.get('is_multi') and slices.get('back') and os.path.exists(slices['back']):
+            logger.info(f"Applying real rear texture from back slice: {slices['back']}")
+            apply_dual_angle_textures(glb_path, slices['front'], slices['back'], glb_path)
+
+        # Inject 360° spin & levitation hover loop animation
+        inject_animation_into_glb(glb_path, glb_path)
+    else:
+        logger.warning("Falling back to procedural 3D model engine.")
+        build_animated_glb(
+            output_path=glb_path,
+            archetype=archetype,
+            name=title.replace(" ", "_"),
+            texture_image_path=preview_path
+        )
 
     # 4. IPFS Metadata
     with open(glb_path, "rb") as gf:
