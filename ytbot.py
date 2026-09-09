@@ -1554,10 +1554,11 @@ def create_ytbot():
             return
         try:
             import json
-            from database import save_user_ton_wallet
+            from database import save_user_ton_wallet, to_user_friendly_address
             payload = json.loads(raw_data)
             if payload.get("action") == "ton_connected" or payload.get("address"):
                 addr = payload.get("address", "").strip()
+                addr = to_user_friendly_address(addr)
                 w_name = payload.get("wallet", "TON Wallet")
                 if addr:
                     save_user_ton_wallet(user_id, addr, w_name)

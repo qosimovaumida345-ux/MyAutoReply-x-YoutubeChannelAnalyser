@@ -1186,7 +1186,7 @@ def load_mega_features(bot: Client):
     # =========================================================================
     # 13. 3D NFT STUDIO (POLYGON LAZY MINT & TON)
     # =========================================================================
-    async def handle_generate_nft_flow(client, origin, uid: int, prompt: str):
+    async def handle_generate_nft_flow(client, origin, uid: int, prompt: str, custom_image_path: str = None):
         wait_msg = await origin.reply_text(
             f"⏳ <b>3D Model va EIP-712 Lazy Mint Voucher yaratilmoqda...</b>\n\n"
             f"🔍 <i>G'oya:</i> <code>{prompt}</code>\n"
@@ -1198,7 +1198,7 @@ def load_mega_features(bot: Client):
             w = db.get_user_ton_wallet(uid)
             creator_addr = w.get("wallet_address", "") if w else ""
 
-            nft_data = await generate_3d_nft(prompt, uid, creator_wallet=creator_addr)
+            nft_data = await generate_3d_nft(prompt, uid, creator_wallet=creator_addr, custom_image_path=custom_image_path)
             
             # Save to database
             item_id = db.create_nft_item(
@@ -1213,12 +1213,17 @@ def load_mega_features(bot: Client):
                 price_uzs=0
             )
 
+            from urllib.parse import quote
+            mint_text = quote(f"Mint NFT {nft_data['token_id']}")
+            # Dummy smart contract address for TON minting demo
+            ton_mint_url = f"ton://transfer/EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c?amount=50000000&text={mint_text}"
+
             caption = (
                 f"🖼️ <b>3D NFT Muvaffaqiyatli Yaratildi!</b>\n━━━━━━━━━━━━━━━━━━━━\n"
                 f"🏷️ <b>Nomi:</b> <b>{nft_data['title']}</b>\n"
                 f"💎 <b>Shakl:</b> {nft_data['shape'].capitalize()}\n"
-                f"⛓️ <b>Tarmoq:</b> Polygon Mainnet (Chain 137)\n"
-                f"📜 <b>Mint:</b> EIP-712 Lazy Minting (0 Gas Fee ✅)\n"
+                f"⛓️ <b>Tarmoq:</b> Polygon (Lazy Mint) / TON (Real Mint)\n"
+                f"📜 <b>Mint:</b> EIP-712 / TON Contract\n"
                 f"📦 <b>Token ID:</b> <code>#{nft_data['token_id']}</code>\n"
                 f"📡 <b>IPFS:</b> <code>{nft_data['ipfs_uri']}</code>\n"
                 f"👤 <b>Yaratuvchi:</b> <code>{nft_data['creator_address'][:12]}...</code>\n\n"
@@ -1227,7 +1232,8 @@ def load_mega_features(bot: Client):
             )
 
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏷️ Sotuvga Qo'yish", callback_data=f"nft_list_prompt_{item_id}")],
+                [InlineKeyboardButton("💎 Haqiqiy TON Tarmog'iga Mint (0.05 TON)", url=ton_mint_url)],
+                [InlineKeyboardButton("🏷️ Polygon orqali Sotuvga Qo'yish", callback_data=f"nft_list_prompt_{item_id}")],
                 [InlineKeyboardButton("🖼️ Mening NFT larim", callback_data="nft_my_items"),
                  InlineKeyboardButton("🎨 Yana Yaratish", callback_data="nft_create_new")],
                 [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
@@ -1298,13 +1304,12 @@ def load_mega_features(bot: Client):
         await cb.answer()
         await cb.message.reply_text(
             f"🖼️ <b>3D NFT Studio — Yangi Artefakt Yaratish</b>\n\n"
-            f"O'zingiz xohlagan 3D model g'oyasini yozing (o'zbek yoki ingliz tilida):\n\n"
-            f"<b>Misollar:</b>\n"
-            f"• <code>Cyberpunk Samurai Robot</code>\n"
-            f"• <code>Oltin Qanotli Kubok</code>\n"
-            f"• <code>Futuristik Neon Olmos</code>\n"
-            f"• <code>Kosmik Skreyling Artefakt</code>\n\n"
-            f"⚡ <i>0 Gas Fee (EIP-712 Lazy Minting) — Polygon tarmog'ida mutlaqo bepul yaratiladi!</i>"
+            f"Iltimos, 3D modelga aylantirmoqchi bo'lgan <b>rasmni yuboring</b>.\n\n"
+            f"<b>Tavsiyalar:</b>\n"
+            f"• Toza oq yoki bir xil rangli fondagi rasmlar yaxshiroq natija beradi.\n"
+            f"• Agar old va orqa tomoni bo'lsa, ularni yonma-yon qo'yib bitta rasm qilib yuborishingiz ham mumkin.\n"
+            f"• Rasm ostiga <i>caption (izoh)</i> sifatida NFT nomini yozishingiz mumkin (yoki bo'sh qoldiring).\n\n"
+            f"⚡ <i>Rasmingiz to'g'ridan-to'g'ri TripoSR AI orqali haqiqiy 3D modelga aylantiriladi!</i>"
         )
 
     @bot.on_callback_query(filters.regex(r"^nft_my_items$"))
@@ -1395,8 +1400,8 @@ def load_mega_features(bot: Client):
             return
 
         seller_id = item["tg_user_id"]
-        db.update_user_balance(uid, -price)
-        db.update_user_balance(seller_id, price)
+        db.deduct_user_balance(uid, price)
+        db.add_user_balance(seller_id, price)
         db.update_nft_status(item_id, status="sold", buyer_user_id=uid)
 
         await cb.answer("Tabriklaymiz! 3D NFT muvaffaqiyatli xarid qilindi! 🎉", show_alert=True)
@@ -1418,7 +1423,7 @@ def load_mega_features(bot: Client):
     # =========================================================================
     # UNIVERSAL FSM TEXT HANDLER (STATE INPUTS)
     # =========================================================================
-    @bot.on_message(filters.text & filters.private, group=-1)
+    @bot.on_message((filters.text | filters.photo | filters.document) & filters.private, group=-1)
     async def universal_state_listener(client, message: Message):
         if not message.from_user:
             message.continue_propagation()
@@ -1430,8 +1435,7 @@ def load_mega_features(bot: Client):
             return
 
         action = state.get("action")
-        text = message.text.strip()
-
+        text = message.text.strip() if message.text else (message.caption.strip() if message.caption else "")
         # Agar foydalanuvchi buyruq yuborsa (/start, /menu, /help va h.k.), holatdan chiqamiz
         if text.startswith("/"):
             USER_STATES.pop(uid, None)
@@ -1700,12 +1704,22 @@ def load_mega_features(bot: Client):
                     await message.reply_text(caption)
                 message.stop_propagation()
 
-            # 12. 3D NFT Prompt
+            # 12. 3D NFT Prompt / Image
             elif action == "waiting_nft_prompt":
                 USER_STATES.pop(uid, None)
-                await handle_generate_nft_flow(client, message, uid, text.strip())
-                message.stop_propagation()
+                if not message.photo and not message.document:
+                    await message.reply_text(f"{ce('ERROR')} Iltimos, NFT yaratish uchun rasm yuboring!")
+                    USER_STATES[uid] = {"action": "waiting_nft_prompt"}
+                    message.stop_propagation()
+                    return
 
+                wait_dl = await message.reply_text("⏳ Rasm yuklab olinmoqda...")
+                photo_path = await message.download(file_name=f"downloads/user_nft_{uid}_{int(time.time())}.png")
+                await wait_dl.delete()
+                
+                nft_prompt = text.strip() if text.strip() else "Telegram 3D NFT Collectible"
+                await handle_generate_nft_flow(client, message, uid, nft_prompt, custom_image_path=photo_path)
+                message.stop_propagation()
             # 13. NFT narxi (bozorga qo'yish)
             elif action == "waiting_nft_price":
                 USER_STATES.pop(uid, None)

@@ -1402,11 +1402,12 @@ async def handle_tonconnect_page(request):
 
 async def handle_api_tonconnect_save(request):
     """Mini App orqali ulangan TON hamyonni saqlash"""
-    from database import save_user_ton_wallet
+    from database import save_user_ton_wallet, to_user_friendly_address
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         address = str(data.get("address", "")).strip()
+        address = to_user_friendly_address(address)
         wallet_name = str(data.get("wallet_name", "TON Wallet")).strip()
         chain = str(data.get("chain", "mainnet")).strip()
 

@@ -3952,8 +3952,38 @@ def process_cashout_request(request_id: int, status: str) -> bool:
 
 # ==================== 7. TON CONNECT WALLET ====================
 
+import base64
+
+def crc16(data: bytes) -> bytes:
+    crc = 0x0000
+    for byte in data:
+        crc ^= byte << 8
+        for _ in range(8):
+            if crc & 0x8000:
+                crc = (crc << 1) ^ 0x1021
+            else:
+                crc <<= 1
+            crc &= 0xFFFF
+    return crc.to_bytes(2, byteorder='big')
+
+def to_user_friendly_address(raw_addr: str) -> str:
+    if not isinstance(raw_addr, str) or ":" not in raw_addr:
+        return raw_addr
+    try:
+        wc_str, hex_str = raw_addr.split(":", 1)
+        if len(hex_str) != 64:
+            return raw_addr
+        wc = int(wc_str)
+        # 0x51 is for non-bounceable user-friendly address
+        payload = bytes([0x51, wc & 0xFF]) + bytes.fromhex(hex_str)
+        crc = crc16(payload)
+        return base64.urlsafe_b64encode(payload + crc).decode('utf-8').replace('=', '')
+    except Exception:
+        return raw_addr
+
 def save_user_ton_wallet(tg_user_id: int, wallet_address: str, wallet_name: str = "", chain: str = "mainnet") -> bool:
     """Foydalanuvchining ulangan TON hamyonini saqlash yoki yangilash"""
+    wallet_address = to_user_friendly_address(wallet_address.strip())
     conn = get_db()
     if not conn: return False
     try:
