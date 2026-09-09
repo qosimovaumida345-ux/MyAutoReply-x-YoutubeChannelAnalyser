@@ -1544,7 +1544,9 @@ def create_ytbot():
         )
         await message.reply_text(text, reply_markup=wallet_menu_kb(user_id))
 
-    @bot.on_message(filters.web_app_data & filters.private)
+    web_app_data_filter = filters.create(lambda _, __, m: bool(getattr(m, "web_app_data", None)))
+
+    @bot.on_message(web_app_data_filter & filters.private)
     async def web_app_data_handler(client, message):
         user_id = message.from_user.id
         raw_data = getattr(message.web_app_data, "data", "")
