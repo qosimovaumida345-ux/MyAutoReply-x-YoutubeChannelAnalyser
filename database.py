@@ -710,6 +710,7 @@ def init_db():
         conn = get_db()
         cur = conn.cursor()
         cur.execute("ALTER TABLE user_balances ADD COLUMN IF NOT EXISTS balance_ton NUMERIC DEFAULT 0;")
+        cur.execute("ALTER TABLE nft_items ADD COLUMN IF NOT EXISTS nft_address TEXT DEFAULT '';")
         conn.commit()
         cur.close()
         conn.close()
@@ -4225,15 +4226,19 @@ def get_listed_nfts(limit: int = 20) -> list:
         conn.close()
 
 
-def update_nft_status(item_id: int, status: str, price_uzs: int = None,
-                      buyer_user_id: int = None, tx_hash: str = None) -> bool:
+def update_nft_status(item_id: int, status: str = None, price_uzs: int = None,
+                      buyer_user_id: int = None, tx_hash: str = None,
+                      nft_address: str = None) -> bool:
     """NFT holatini yangilash (draft, listed, sold, cancelled)"""
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
-        updates = ["status = %s"]
-        params = [status]
+        updates = []
+        params = []
+        if status is not None:
+            updates.append("status = %s")
+            params.append(status)
         if price_uzs is not None:
             updates.append("price_uzs = %s")
             params.append(price_uzs)
@@ -4243,8 +4248,14 @@ def update_nft_status(item_id: int, status: str, price_uzs: int = None,
         if tx_hash is not None:
             updates.append("minted_tx_hash = %s")
             params.append(tx_hash)
+        if nft_address is not None:
+            updates.append("nft_address = %s")
+            params.append(nft_address)
+        
+        if not updates:
+            return True
+            
         params.append(item_id)
-
         query = f"UPDATE nft_items SET {', '.join(updates)} WHERE id = %s"
         cur.execute(query, tuple(params))
         conn.commit()
@@ -4255,4 +4266,27 @@ def update_nft_status(item_id: int, status: str, price_uzs: int = None,
         return False
     finally:
         conn.close()
+
+
+def get_pending_nft_mints() -> list:
+    """Kutilayotgan (pending_mint) va TON manzili bor NFT larni olish"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, tg_user_id, buyer_user_id, title, description, nft_address, status, created_at
+            FROM nft_items
+            WHERE status = 'pending_mint'
+              AND nft_address IS NOT NULL
+              AND nft_address != ''
+            ORDER BY id ASC
+        """)
+        return [dict(r) for r in (cur.fetchall() or [])]
+    except Exception as e:
+        print(f"get_pending_nft_mints error: {e}")
+        return []
+    finally:
+        conn.close()
+
 

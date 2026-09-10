@@ -4,10 +4,22 @@ from tonsdk.contract.token.nft import NFTItem
 import base64
 
 def build_nft_content_cell(uri: str) -> Cell:
-    # 0x01 prefix for off-chain metadata
+    """TEP-64 standartiga mos off-chain metadata cell (0x01 prefiksi va snake string)"""
     c = Cell()
-    c.bits.write_uint8(1)
-    c.bits.write_string(uri)
+    c.bits.write_uint8(1)  # Off-chain metadata prefix
+    data = uri.encode('utf-8')
+    avail = (1023 - c.bits.length) // 8
+    chunk = data[:avail]
+    c.bits.write_bytes(chunk)
+    offset = len(chunk)
+    cur = c
+    while offset < len(data):
+        next_cell = Cell()
+        chunk = data[offset : offset + 127]
+        next_cell.bits.write_bytes(chunk)
+        offset += len(chunk)
+        cur.refs.append(next_cell)
+        cur = next_cell
     return c
 
 def generate_nft_deploy_link(owner_wallet_address: str, ipfs_uri: str, amount_nano: int = 50000000) -> dict:

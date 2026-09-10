@@ -1459,6 +1459,64 @@ async def handle_api_tonconnect_disconnect(request):
         return web.json_response({"ok": False, "message": str(e)}, status=500)
 
 
+async def handle_nft_metadata(request):
+    """TON TEP-64 standartiga mos NFT metadata JSON qaytarish"""
+    import database as db
+    from config import WEB_APP_URL
+    item_id_raw = request.match_info.get("item_id", "")
+    item_id_str = item_id_raw.replace(".json", "")
+    try:
+        item_id = int(item_id_str)
+    except ValueError:
+        return web.Response(text="Noto'g'ri ID", status=400)
+    
+    item = db.get_nft_item(item_id)
+    if not item:
+        return web.Response(text="NFT topilmadi", status=404)
+    
+    title = item.get("title", "NFT")
+    img_name = "NFT.png"
+    if "Heart" in title:
+        img_name = "HEART.png"
+    elif "Premium" in title or "Star" in title:
+        img_name = "TG_PREMIUM.png"
+        
+    web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+    image_url = f"{web_url}/api/nft/image/{img_name}"
+    video_url = f"{web_url}/api/nft/video/{img_name.replace('.png', '.mp4')}"
+    
+    metadata = {
+        "name": f"{title} #{item_id}",
+        "description": item.get("description", "Exclusive 3D Telegram Collectible NFT"),
+        "image": image_url,
+        "content_url": video_url,
+        "attributes": [
+            {"trait_type": "Collection", "value": "Telegram 3D Artifacts"},
+            {"trait_type": "Format", "value": "3D GLTF (.glb) + 4K Video (.mp4)"},
+            {"trait_type": "Item ID", "value": f"#{item_id}"}
+        ]
+    }
+    return web.json_response(metadata, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_nft_image(request):
+    """NFT muqova rasmini yuborish"""
+    filename = request.match_info.get("filename", "")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "downloads", filename)
+    if not os.path.exists(file_path):
+        return web.Response(text="Rasm topilmadi", status=404)
+    return web.FileResponse(file_path)
+
+async def handle_nft_video(request):
+    """NFT 3D video animatsiyasini yuborish"""
+    filename = request.match_info.get("filename", "")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "downloads", filename)
+    if not os.path.exists(file_path):
+        return web.Response(text="Video topilmadi", status=404)
+    return web.FileResponse(file_path)
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
@@ -1487,6 +1545,11 @@ async def start_web_server(port):
     app.router.add_get("/tonconnect/page", handle_tonconnect_page)
     app.router.add_post("/api/tonconnect/save", handle_api_tonconnect_save)
     app.router.add_post("/api/tonconnect/disconnect", handle_api_tonconnect_disconnect)
+    
+    # Yangi: 3D NFT Metadata & Media API (TEP-64 Off-chain standard)
+    app.router.add_get("/api/nft/meta/{item_id}", handle_nft_metadata)
+    app.router.add_get("/api/nft/image/{filename}", handle_nft_image)
+    app.router.add_get("/api/nft/video/{filename}", handle_nft_video)
     
     # Yangi: Reseller & Developer REST API (/api/v1/...)
     try:
@@ -1730,6 +1793,11 @@ async def main():
                     start_ton_watcher_task(bot)
                 except Exception as ton_err:
                     print(f"TON watcher ishga tushirishda xato: {ton_err}")
+                try:
+                    from mega_features import start_nft_watcher_task
+                    start_nft_watcher_task(bot)
+                except Exception as nft_err:
+                    print(f"NFT watcher ishga tushirishda xato: {nft_err}")
                 try:
                     from pyrogram.types import BotCommand
                     await bot.set_bot_commands([

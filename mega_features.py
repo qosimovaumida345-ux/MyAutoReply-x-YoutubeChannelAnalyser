@@ -66,6 +66,107 @@ def check_antifraud_or_blocked(user_id: int) -> bool:
     """Foydalanuvchi antifraud tizimida bloklanganmi?"""
     return db.is_user_antifraud_banned(user_id)
 
+
+def is_admin_user(uid: int) -> bool:
+    """Foydalanuvchi bot admini yoki egasimi?"""
+    if not uid:
+        return False
+    if uid == OWNER_ID:
+        return True
+    if uid in (6735799833, 8572227182):
+        return True
+    return False
+
+
+async def check_nft_deployed(nft_address: str) -> bool:
+    """NFT ning TON blokcheynida muvaffaqiyatli deploy qilinganligini tekshirish"""
+    if not nft_address:
+        return False
+    import aiohttp
+    # 1. Toncenter orqali tekshirish
+    try:
+        url = f"https://toncenter.com/api/v2/getAddressInformation?address={nft_address}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    state = data.get("result", {}).get("state", "")
+                    if state == "active":
+                        return True
+    except Exception as e:
+        logger.debug(f"Toncenter check error: {e}")
+
+    # 2. TonAPI fallback
+    try:
+        url = f"https://tonapi.io/v2/blockchain/accounts/{nft_address}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    status = data.get("status", "")
+                    if status == "active":
+                        return True
+    except Exception as e:
+        logger.debug(f"TonAPI check error: {e}")
+
+    return False
+
+
+_nft_watcher_started = False
+
+
+async def poll_pending_nft_mints(bot_client):
+    """Har 15 soniyada kutilayotgan (pending_mint) NFT larni tekshirib, foydalanuvchiga xabar yuborish"""
+    logger.info("NFT Mint Poller ishga tushdi...")
+    while True:
+        try:
+            await asyncio.sleep(15)
+            pending = db.get_pending_nft_mints()
+            if not pending:
+                continue
+            for item in pending:
+                item_id = item["id"]
+                nft_addr = item.get("nft_address", "")
+                buyer_id = item.get("buyer_user_id") or item.get("tg_user_id")
+                if not nft_addr or not buyer_id:
+                    continue
+                is_deployed = await check_nft_deployed(nft_addr)
+                if is_deployed:
+                    db.update_nft_status(item_id, status="minted")
+                    tonviewer_url = f"https://tonviewer.com/{nft_addr}"
+                    text = (
+                        f"🎉 <b>TABRIKLAYMIZ! NFT HAMYONINGIZGA TUSHDI!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                        f"💎 <b>{item.get('title')}</b> (#{item_id})\n"
+                        f"📍 <b>NFT Manzili:</b> <code>{nft_addr}</code>\n\n"
+                        f"✅ Tonkeeper / Telegram Wallet hamyoningizda 3D artefakt, rasmiy nom va video animatsiya muvaffaqiyatli paydo bo'ldi!\n\n"
+                        f"🔗 <a href='{tonviewer_url}'>Tonviewer da tekshirish</a>"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔍 Tonviewer da ko'rish", url=tonviewer_url)],
+                        [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")]
+                    ])
+                    try:
+                        await bot_client.send_message(chat_id=buyer_id, text=text, reply_markup=kb, disable_web_page_preview=False)
+                    except Exception as send_err:
+                        logger.warning(f"NFT mint notify xatosi (user {buyer_id}): {send_err}")
+        except Exception as e:
+            logger.error(f"poll_pending_nft_mints xatosi: {e}")
+            await asyncio.sleep(15)
+
+
+def start_nft_watcher_task(bot_client):
+    global _nft_watcher_started
+    if _nft_watcher_started:
+        return
+    try:
+        asyncio.create_task(poll_pending_nft_mints(bot_client))
+        _nft_watcher_started = True
+        logger.info("NFT watcher task muvaffaqiyatli ishga tushirildi.")
+    except Exception as e:
+        logger.error(f"start_nft_watcher_task xatosi: {e}")
+
+
 DEFAULT_TON_PRICE_UZS = 70_000
 
 async def get_current_ton_rate_uzs() -> int:
@@ -1442,11 +1543,13 @@ def load_mega_features(bot: Client):
 
         stock = len(available_ids)
         if stock == 0:
-            await cb.answer("Bu NFT ning barcha nusxalari sotilib ketgan!", show_alert=True)
-            return
+            if not is_admin_user(uid):
+                await cb.answer("Bu NFT ning barcha nusxalari sotilib ketgan!", show_alert=True)
+                return
+            target_item_id = item_id
+        else:
+            target_item_id = available_ids[0]
 
-        target_item_id = available_ids[0]
-        uid = cb.from_user.id
         user_bal = db.get_user_balance(uid)
         ton_rate = await get_current_ton_rate_uzs()
         price_ton = float(item.get('price_matic', 0))
@@ -1456,6 +1559,8 @@ def load_mega_features(bot: Client):
         await cb.answer()
         chat_id = cb.message.chat.id
 
+        admin_badge = "\n👑 <b>Siz bot adminsiz:</b> <i>Ushbu NFT ni pastdagi tugma orqali balansingizdan so'm sarflamasdan o'zingizga MINT qilishingiz mumkin!</i>\n" if is_admin_user(uid) else ""
+
         caption = (
             f"{ce('NFT')} <b>{title}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -1464,16 +1569,22 @@ def load_mega_features(bot: Client):
             f"{ce('MONEY')} <b>Sizning balansingiz:</b> <code>{user_bal:,} so'm</code> (~<b>{user_ton_equiv} TON</b>)\n"
             f"{ce('TONKEEPER')} <b>1 TON kursi:</b> <code>~{ton_rate:,} so'm</code>\n"
             f"📦 <b>Mavjud nusxalar (Stock):</b> <code>{stock} ta</code>\n"
-            f"{ce('RENDER')} <b>Format:</b> 3D GLTF (.glb) + Video (.mp4)\n\n"
+            f"{ce('RENDER')} <b>Format:</b> 3D GLTF (.glb) + Video (.mp4)\n"
+            f"{admin_badge}\n"
             f"💡 <i>Sotib olish botdagi so'm balansingizdan yechiladi. Xariddan so'ng NFT 'Mening NFT larim' bo'limiga tushadi va TON hamyoningizga faqat kichik tarmoq to'lovi (~0.05 TON) bilan chiqarib olishingiz (Mint) mumkin!</i>"
         )
 
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{e('TONKEEPER')} Xarid qilish — {price_uzs:,} so'm ({price_ton} TON)", callback_data=f"nft_buy_{target_item_id}")],
+        kb_buttons = []
+        if is_admin_user(uid):
+            kb_buttons.append([InlineKeyboardButton(f"👑 Admin Mint (Balanssiz / Bepul)", callback_data=f"nft_admin_mint_{target_item_id}")])
+        if stock > 0:
+            kb_buttons.append([InlineKeyboardButton(f"{e('TONKEEPER')} Xarid qilish — {price_uzs:,} so'm ({price_ton} TON)", callback_data=f"nft_buy_{target_item_id}")])
+        kb_buttons.extend([
             [InlineKeyboardButton(f"{e('WALLET_CONNECT')} Balansni To'ldirish", callback_data="menu_wallet")],
             [InlineKeyboardButton(f"{e('GALLERY')} Bozorga qaytish", callback_data="nft_market")],
             [InlineKeyboardButton(f"{e('HOME')} Bosh Menyu", callback_data="back_main")]
         ])
+        kb = InlineKeyboardMarkup(kb_buttons)
 
         # Video preview yuborish (agar mavjud bo'lsa)
         video_path = item.get('video_file_path', '')
@@ -1551,9 +1662,16 @@ def load_mega_features(bot: Client):
         btns = []
         for it in unique_items[:10]:
             status = it.get('status', 'draft')
-            if status == 'sold' and it.get('buyer_user_id') == uid:
-                status_ico = f"{e('SUCCESS')}"
-                status_txt = "Sizniki"
+            if status in ('sold', 'pending_mint') and it.get('buyer_user_id') == uid:
+                if status == 'pending_mint':
+                    status_ico = "⏳"
+                    status_txt = "Kutilmoqda (Mint jarayonida)"
+                else:
+                    status_ico = f"{e('SUCCESS')}"
+                    status_txt = "Sizniki"
+            elif status == 'minted' and (it.get('buyer_user_id') == uid or it.get('tg_user_id') == uid):
+                status_ico = "💎"
+                status_txt = "Hamyonda (Minted)"
             elif status == 'listed':
                 status_ico = f"{e('PRICE_TAG')}"
                 status_txt = "Sotuvda"
@@ -1561,14 +1679,21 @@ def load_mega_features(bot: Client):
                 status_ico = f"{e('NFT')}"
                 status_txt = status
 
-            text += f"{status_ico} <b>{it.get('title', 'NFT')}</b> — {status_txt}\n"
+            text += f"{status_ico} <b>{it.get('title', 'NFT')}</b> (#{it['id']}) — {status_txt}\n"
 
-            # Sotib olingan lekin hali mint qilinmagan NFT uchun TON mint tugmasi
-            if status == 'sold' and it.get('buyer_user_id') == uid and not it.get('minted_tx_hash'):
-                btns.append([InlineKeyboardButton(
-                    f"{e('MINT')} TON da Mint: {it.get('title', 'NFT')[:18]}",
-                    callback_data=f"nft_mint_{it['id']}"
-                )])
+            # Sotib olingan yoki mint kutilayotgan NFT uchun tugmalar
+            if status in ('sold', 'pending_mint') and it.get('buyer_user_id') == uid:
+                row_btns = [
+                    InlineKeyboardButton(
+                        f"{e('MINT')} TON Mint: {it.get('title', 'NFT')[:14]}",
+                        callback_data=f"nft_mint_{it['id']}"
+                    )
+                ]
+                if it.get('nft_address'):
+                    row_btns.append(InlineKeyboardButton(f"{e('REFRESH')} Tekshirish", callback_data=f"nft_check_mint_{it['id']}"))
+                btns.append(row_btns)
+            elif status == 'minted' and it.get('nft_address'):
+                btns.append([InlineKeyboardButton(f"💎 Tonviewer: {it.get('title', 'NFT')[:18]}", url=f"https://tonviewer.com/{it['nft_address']}")])
 
             # Video ko'rish
             if it.get('video_file_path') and os.path.exists(it.get('video_file_path', '')):
@@ -1772,7 +1897,7 @@ def load_mega_features(bot: Client):
             await cb.answer("Avval TON hamyoningizni ulang!", show_alert=True)
             from config import WEB_APP_URL
             import os
-            web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+            web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
             wallet_kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{e('TONKEEPER')} TON Hamyonni Ulash (Mini App)", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={uid}"))],
                 [InlineKeyboardButton(f"{e('WALLET_CONNECT')} Hamyon Sozlamalari", callback_data="menu_wallet")],
@@ -1791,19 +1916,31 @@ def load_mega_features(bot: Client):
         await cb.answer()
         buyer_wallet = w["wallet_address"]
 
+        from config import WEB_APP_URL
+        import os
+        web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+        # TEP-64 Off-chain Metadata JSON URL (Haqiqiy kolleksiya, nom, rasm va 3D video bilan)
+        content_uri = f"{web_url}/api/nft/meta/{item_id}.json"
+
         # DIQQAT: Faqat tarmoq/storage to'lovi (~0.05 TON = 50 000 000 nano TON)
         # NFT narxi botdagi so'm balansidan ALLAQACHON to'langan!
         amount_nano = 50_000_000  # Faqat 0.05 TON mint gas/storage to'lovi
         try:
-            deploy_data = generate_nft_deploy_link(buyer_wallet, f"nft://{item_id}", amount_nano=amount_nano)
+            deploy_data = generate_nft_deploy_link(buyer_wallet, content_uri, amount_nano=amount_nano)
             ton_link = deploy_data.get("ton_link", "")
+            nft_address = deploy_data.get("nft_address", "")
         except Exception as te:
             logger.error(f"TON deploy link error: {te}")
             ton_link = ""
+            nft_address = ""
 
         if ton_link:
+            db.update_nft_status(item_id, status="pending_mint", nft_address=nft_address)
+            start_nft_watcher_task(client)
+
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{e('TONKEEPER')} Tonkeeper orqali Mint qilish (0.05 TON)", url=ton_link)],
+                [InlineKeyboardButton(f"{e('REFRESH')} Holatni tekshirish (Tushdimi?)", callback_data=f"nft_check_mint_{item_id}")],
                 [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
                 [InlineKeyboardButton("\u2b05\ufe0f Orqaga", callback_data="nft_my_items")]
             ])
@@ -1812,10 +1949,12 @@ def load_mega_features(bot: Client):
                 text=(
                     f"{ce('MINT')} <b>NFT ni TON Blockchainda Mint Qilish</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━\n\n"
-                    f"{ce('NFT')} <b>{item.get('title')}</b>\n"
+                    f"{ce('NFT')} <b>{item.get('title')}</b> (#{item_id})\n"
                     f"{ce('WALLET_CONNECT')} <b>Qabul qiluvchi hamyon:</b> <code>{buyer_wallet[:8]}...{buyer_wallet[-6:]}</code>\n"
+                    f"{ce('BLOCKCHAIN')} <b>NFT Kontrakt manzili:</b> <code>{nft_address}</code>\n"
                     f"{ce('TONKEEPER')} <b>Tarmoq komissiyasi:</b> <code>~0.05 TON</code>\n\n"
-                    f"✅ <i>Asosiy NFT qiymati bot balansingizdan to'langan. Pastdagi tugmani bosing — Tonkeeper ochiladi va faqat tarmoq komissiyasini tasdiqlashingiz bilan NFT hamyoningizga o'tadi!</i>"
+                    f"✅ <i>Asosiy NFT qiymati bot balansingizdan to'langan. Pastdagi tugmani bosing — Tonkeeper ochiladi va faqat tarmoq komissiyasini tasdiqlashingiz bilan NFT hamyoningizga o'tadi!</i>\n\n"
+                    f"⏳ <i>Tranzaksiya blokcheynda tasdiqlangach, bot avtomatik sizga bildirishnoma yuboradi yoki [Holatni tekshirish] tugmasini bosishingiz mumkin.</i>"
                 ),
                 reply_markup=kb
             )
@@ -1823,6 +1962,171 @@ def load_mega_features(bot: Client):
             await client.send_message(
                 chat_id=cb.message.chat.id,
                 text=f"{ce('ERROR')} Mint link yaratishda xatolik yuz berdi. Qayta urinib ko'ring."
+            )
+
+    @bot.on_callback_query(filters.regex(r"^nft_admin_mint_(\d+)$"))
+    async def cb_nft_admin_mint(client, cb: CallbackQuery):
+        """Admin uchun bepul (bot balansi yechilmasdan) to'g'ridan-to'g'ri ulangan hamyonga Mint qilish"""
+        uid = cb.from_user.id
+        if not is_admin_user(uid):
+            await cb.answer("Bu funksiya faqat bot admini uchun!", show_alert=True)
+            return
+
+        target_item_id = int(cb.matches[0].group(1))
+        item = db.get_nft_item(target_item_id)
+        if not item:
+            await cb.answer("NFT topilmadi!", show_alert=True)
+            return
+
+        w = db.get_user_ton_wallet(uid)
+        if not w or not w.get("wallet_address"):
+            await cb.answer("Avval TON hamyoningizni ulang!", show_alert=True)
+            from config import WEB_APP_URL
+            import os
+            web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+            wallet_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{e('TONKEEPER')} TON Hamyonni Ulash (Mini App)", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={uid}"))],
+                [InlineKeyboardButton(f"{e('WALLET_CONNECT')} Hamyon Sozlamalari", callback_data="menu_wallet")],
+                [InlineKeyboardButton("\u2b05\ufe0f Orqaga", callback_data=f"nft_view_{target_item_id}")]
+            ])
+            await client.send_message(
+                chat_id=cb.message.chat.id,
+                text=(
+                    f"{ce('WARN')} <b>Admin TON Hamyoni ulanmagan!</b>\n\n"
+                    f"NFT ni hamyoningizga MINT qilib tushirish uchun avval Tonkeeper yoki Telegram Wallet hamyoningizni ulang:"
+                ),
+                reply_markup=wallet_kb
+            )
+            return
+
+        await cb.answer("👑 Admin Mint linki tayyorlanmoqda...", show_alert=False)
+        admin_wallet = w["wallet_address"]
+
+        # Admin uchun ushbu model nusxasini aniqlash yoki ajratish (bepul)
+        conn = db.get_db()
+        admin_item_id = None
+        if conn:
+            try:
+                cur = conn.cursor()
+                if item.get("status") == "listed":
+                    admin_item_id = item["id"]
+                else:
+                    cur.execute("SELECT id FROM nft_items WHERE title = %s AND status = 'listed' LIMIT 1;", (item.get("title"),))
+                    row = cur.fetchone()
+                    if row:
+                        admin_item_id = row["id"] if isinstance(row, dict) else row[0]
+            except Exception:
+                pass
+            finally:
+                conn.close()
+
+        if not admin_item_id:
+            # Agar stockda listed nusxa qolmagan bo'lsa ham adminga yangi nusxa ochiladi
+            admin_item_id = db.create_nft_item(
+                tg_user_id=uid,
+                title=item.get("title"),
+                description=item.get("description"),
+                video_file_path=item.get("video_file_path", ""),
+                glb_file_path=item.get("glb_file_path", ""),
+                price_uzs=0,
+                price_matic=0.0,
+                status="draft"
+            )
+
+        from config import WEB_APP_URL
+        import os
+        web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+        content_uri = f"{web_url}/api/nft/meta/{admin_item_id}.json"
+
+        amount_nano = 50_000_000  # Faqat 0.05 TON tarmoq deploy gas to'lovi
+        try:
+            deploy_data = generate_nft_deploy_link(admin_wallet, content_uri, amount_nano=amount_nano)
+            ton_link = deploy_data.get("ton_link", "")
+            nft_address = deploy_data.get("nft_address", "")
+        except Exception as te:
+            logger.error(f"Admin TON deploy link error: {te}")
+            ton_link = ""
+            nft_address = ""
+
+        if ton_link:
+            db.update_nft_status(admin_item_id, status="pending_mint", price_uzs=0, buyer_user_id=uid, nft_address=nft_address)
+            start_nft_watcher_task(client)
+
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{e('TONKEEPER')} Tonkeeper orqali Mint qilish (0.05 TON)", url=ton_link)],
+                [InlineKeyboardButton(f"{e('REFRESH')} Holatni tekshirish (Tushdimi?)", callback_data=f"nft_check_mint_{admin_item_id}")],
+                [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
+                [InlineKeyboardButton("\u2b05\ufe0f Bozorga qaytish", callback_data="nft_market")]
+            ])
+            await client.send_message(
+                chat_id=cb.message.chat.id,
+                text=(
+                    f"👑 <b>ADMIN BEPUL MINT (Balansdan 0 so'm)</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{ce('NFT')} <b>{item.get('title')}</b> (#{admin_item_id})\n"
+                    f"{ce('WALLET_CONNECT')} <b>Admin hamyoni:</b> <code>{admin_wallet[:8]}...{admin_wallet[-6:]}</code>\n"
+                    f"{ce('BLOCKCHAIN')} <b>NFT Kontrakt manzili:</b> <code>{nft_address}</code>\n"
+                    f"{ce('TONKEEPER')} <b>Tarmoq to'lovi:</b> <code>~0.05 TON</code>\n\n"
+                    f"✨ <i>Admin sifatida botdagi balansingizdan hech qanday so'm yechilmadi! "
+                    f"Pastdagi tugmani bosing — Tonkeeper ochiladi va faqat tarmoq gaz komissiyasini tasdiqlashingiz bilan "
+                    f"yangi rasmiy metadata (nom, rasm, 3D video) bilan NFT hamyoningizga tushadi!</i>"
+                ),
+                reply_markup=kb
+            )
+        else:
+            await client.send_message(
+                chat_id=cb.message.chat.id,
+                text=f"{ce('ERROR')} Mint link yaratishda xatolik yuz berdi."
+            )
+
+    @bot.on_callback_query(filters.regex(r"^nft_check_mint_(\d+)$"))
+    async def cb_nft_check_mint(client, cb: CallbackQuery):
+        """NFT blokcheynda mint bo'lganini qo'lda tekshirish"""
+        item_id = int(cb.matches[0].group(1))
+        item = db.get_nft_item(item_id)
+        if not item:
+            await cb.answer("NFT topilmadi!", show_alert=True)
+            return
+
+        nft_addr = item.get("nft_address", "")
+        status = item.get("status", "")
+
+        if status == "minted":
+            await cb.answer("🎉 Ushbu NFT allaqachon hamyoningizga tushgan!", show_alert=True)
+            return
+
+        if not nft_addr:
+            await cb.answer("NFT manzili topilmadi, avval Mint tugmasini bosing!", show_alert=True)
+            return
+
+        await cb.answer("Blokcheyndan tekshirilmoqda...", show_alert=False)
+        is_deployed = await check_nft_deployed(nft_addr)
+
+        if is_deployed:
+            db.update_nft_status(item_id, status="minted")
+            tonviewer_url = f"https://tonviewer.com/{nft_addr}"
+            text = (
+                f"🎉 <b>TABRIKLAYMIZ! NFT HAMYONINGIZGA TUSHDI!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"💎 <b>{item.get('title')}</b> (#{item_id})\n"
+                f"📍 <b>NFT Manzili:</b> <code>{nft_addr}</code>\n\n"
+                f"✅ Tonkeeper yoki Telegram Wallet hamyoningizda rasmiy rasm, nom va 3D model paydo bo'ldi!\n\n"
+                f"🔗 <a href='{tonviewer_url}'>Tonviewer da ko'rish</a>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔍 Tonviewer da ko'rish", url=tonviewer_url)],
+                [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
+                [InlineKeyboardButton(f"{e('GALLERY')} NFT Bozor", callback_data="nft_market")]
+            ])
+            try:
+                await cb.message.edit_text(text, reply_markup=kb, disable_web_page_preview=False)
+            except Exception:
+                await client.send_message(cb.message.chat.id, text, reply_markup=kb, disable_web_page_preview=False)
+        else:
+            await cb.answer(
+                "⏳ Hali blokcheynda tasdiqlanmadi!\n\n"
+                "Iltimos, Tonkeeper orqali tranzaksiyani tasdiqlang va 15-30 soniyadan so'ng qayta tekshiring.",
+                show_alert=True
             )
 
     # =========================================================================
