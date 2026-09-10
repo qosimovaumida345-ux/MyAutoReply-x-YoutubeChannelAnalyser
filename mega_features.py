@@ -14,6 +14,7 @@ Mega Features Hub for YouTube Automation & Analytics Bot.
 
 import os
 import re
+import time
 import asyncio
 import logging
 from pyrogram import Client, filters, StopPropagation, ContinuePropagation
@@ -1213,10 +1214,12 @@ def load_mega_features(bot: Client):
                 price_uzs=0
             )
 
-            from urllib.parse import quote
-            mint_text = quote(f"Mint NFT {nft_data['token_id']}")
-            # Dummy smart contract address for TON minting demo
-            ton_mint_url = f"ton://transfer/EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c?amount=50000000&text={mint_text}"
+            from ton_nft_deployer import generate_nft_deploy_link
+            
+            # Haqiqiy TON hamyon (agar saqlanmagan bo'lsa default bot hamyon qilinadi yoki 0: bilan boshlanadi)
+            deploy_owner = creator_addr if creator_addr else "0:0000000000000000000000000000000000000000000000000000000000000000"
+            deploy_data = generate_nft_deploy_link(deploy_owner, nft_data['ipfs_uri'], amount_nano=50000000)
+            ton_mint_url = deploy_data.get("ton_link", "")
 
             caption = (
                 f"🖼️ <b>3D NFT Muvaffaqiyatli Yaratildi!</b>\n━━━━━━━━━━━━━━━━━━━━\n"
@@ -1231,13 +1234,17 @@ def load_mega_features(bot: Client):
                 f"👇 <i>Quyida 3D model (.glb) fayli va boshqaruv:</i>"
             )
 
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("💎 Haqiqiy TON Tarmog'iga Mint (0.05 TON)", url=ton_mint_url)],
+            kb_buttons = []
+            if ton_mint_url:
+                kb_buttons.append([InlineKeyboardButton("💎 Haqiqiy TON Tarmog'iga Mint (0.05 TON)", url=ton_mint_url)])
+            
+            kb_buttons.extend([
                 [InlineKeyboardButton("🏷️ Polygon orqali Sotuvga Qo'yish", callback_data=f"nft_list_prompt_{item_id}")],
                 [InlineKeyboardButton("🖼️ Mening NFT larim", callback_data="nft_my_items"),
                  InlineKeyboardButton("🎨 Yana Yaratish", callback_data="nft_create_new")],
                 [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
             ])
+            kb = InlineKeyboardMarkup(kb_buttons)
 
             chat_id = origin.chat.id if hasattr(origin, "chat") else origin.from_user.id
             if os.path.exists(nft_data["preview_path"]):
