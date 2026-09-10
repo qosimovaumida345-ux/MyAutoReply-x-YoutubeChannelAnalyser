@@ -1476,9 +1476,9 @@ async def handle_nft_metadata(request):
     
     title = item.get("title", "NFT")
     img_name = "NFT.png"
-    if "Heart" in title:
+    if "Heart" in title or "Yurak" in title:
         img_name = "HEART.png"
-    elif "Premium" in title or "Star" in title:
+    elif "Premium" in title or "Star" in title or "Yulduz" in title:
         img_name = "TG_PREMIUM.png"
         
     web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
@@ -1490,6 +1490,14 @@ async def handle_nft_metadata(request):
         "description": item.get("description", "Exclusive 3D Telegram Collectible NFT"),
         "image": image_url,
         "content_url": video_url,
+        "animation_url": video_url,
+        "collection": {
+            "name": "Telegram 3D Artifacts",
+            "family": "Telegram Artifacts",
+            "description": "Telegram eksklyuziv 3D artefaktlar to'plami",
+            "image": image_url
+        },
+        "collection_name": "Telegram 3D Artifacts",
         "attributes": [
             {"trait_type": "Collection", "value": "Telegram 3D Artifacts"},
             {"trait_type": "Format", "value": "3D GLTF (.glb) + 4K Video (.mp4)"},
@@ -1502,19 +1510,31 @@ async def handle_nft_image(request):
     """NFT muqova rasmini yuborish"""
     filename = request.match_info.get("filename", "")
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "downloads", filename)
+    file_path = os.path.join(base_dir, "nft_assets", filename)
+    if not os.path.exists(file_path):
+        file_path = os.path.join(base_dir, "downloads", filename)
     if not os.path.exists(file_path):
         return web.Response(text="Rasm topilmadi", status=404)
-    return web.FileResponse(file_path)
+    return web.FileResponse(file_path, headers={
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400",
+        "Access-Control-Allow-Origin": "*"
+    })
 
 async def handle_nft_video(request):
     """NFT 3D video animatsiyasini yuborish"""
     filename = request.match_info.get("filename", "")
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "downloads", filename)
+    file_path = os.path.join(base_dir, "nft_assets", filename)
+    if not os.path.exists(file_path):
+        file_path = os.path.join(base_dir, "downloads", filename)
     if not os.path.exists(file_path):
         return web.Response(text="Video topilmadi", status=404)
-    return web.FileResponse(file_path)
+    return web.FileResponse(file_path, headers={
+        "Content-Type": "video/mp4",
+        "Cache-Control": "public, max-age=86400",
+        "Access-Control-Allow-Origin": "*"
+    })
 
 
 async def start_web_server(port):

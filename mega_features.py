@@ -78,38 +78,82 @@ def is_admin_user(uid: int) -> bool:
     return False
 
 
-async def check_nft_deployed(nft_address: str) -> bool:
-    """NFT ning TON blokcheynida muvaffaqiyatli deploy qilinganligini tekshirish"""
-    if not nft_address:
-        return False
-    import aiohttp
-    # 1. Toncenter orqali tekshirish
-    try:
-        url = f"https://toncenter.com/api/v2/getAddressInformation?address={nft_address}"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    state = data.get("result", {}).get("state", "")
-                    if state == "active":
-                        return True
-    except Exception as e:
-        logger.debug(f"Toncenter check error: {e}")
+class NftDeployStatus(dict):
+    def __bool__(self):
+        return bool(self.get("deployed", False))
 
-    # 2. TonAPI fallback
+async def check_nft_deployed(nft_address: str) -> NftDeployStatus:
+    """NFT ning TON blokcheynida (Mainnet yoki Testnet) muvaffaqiyatli deploy qilinganligini tekshirish"""
+    if not nft_address:
+        return NftDeployStatus(deployed=False, network="", viewer_url="")
+    import aiohttp
+    timeout = aiohttp.ClientTimeout(total=4)
+    
+    # 1. Mainnet TonAPI
     try:
         url = f"https://tonapi.io/v2/blockchain/accounts/{nft_address}"
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.get(url, timeout=timeout) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    status = data.get("status", "")
-                    if status == "active":
-                        return True
+                    if data.get("status") == "active":
+                        return NftDeployStatus(
+                            deployed=True,
+                            network="mainnet",
+                            viewer_url=f"https://tonviewer.com/{nft_address}"
+                        )
     except Exception as e:
-        logger.debug(f"TonAPI check error: {e}")
+        logger.debug(f"TonAPI mainnet check error: {e}")
 
-    return False
+    # 2. Testnet TonAPI
+    try:
+        url = f"https://testnet.tonapi.io/v2/blockchain/accounts/{nft_address}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=timeout) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("status") == "active":
+                        return NftDeployStatus(
+                            deployed=True,
+                            network="testnet",
+                            viewer_url=f"https://testnet.tonviewer.com/{nft_address}"
+                        )
+    except Exception as e:
+        logger.debug(f"TonAPI testnet check error: {e}")
+
+    # 3. Fallback: Toncenter (Mainnet)
+    try:
+        url = f"https://toncenter.com/api/v2/getAddressInformation?address={nft_address}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=timeout) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("result", {}).get("state") == "active":
+                        return NftDeployStatus(
+                            deployed=True,
+                            network="mainnet",
+                            viewer_url=f"https://tonviewer.com/{nft_address}"
+                        )
+    except Exception as e:
+        logger.debug(f"Toncenter mainnet check error: {e}")
+
+    # 4. Fallback: Toncenter (Testnet)
+    try:
+        url = f"https://testnet.toncenter.com/api/v2/getAddressInformation?address={nft_address}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=timeout) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    if data.get("result", {}).get("state") == "active":
+                        return NftDeployStatus(
+                            deployed=True,
+                            network="testnet",
+                            viewer_url=f"https://testnet.tonviewer.com/{nft_address}"
+                        )
+    except Exception as e:
+        logger.debug(f"Toncenter testnet check error: {e}")
+
+    return NftDeployStatus(deployed=False, network="", viewer_url="")
 
 
 _nft_watcher_started = False
@@ -130,20 +174,22 @@ async def poll_pending_nft_mints(bot_client):
                 buyer_id = item.get("buyer_user_id") or item.get("tg_user_id")
                 if not nft_addr or not buyer_id:
                     continue
-                is_deployed = await check_nft_deployed(nft_addr)
-                if is_deployed:
+                deploy_status = await check_nft_deployed(nft_addr)
+                if deploy_status:
                     db.update_nft_status(item_id, status="minted")
-                    tonviewer_url = f"https://tonviewer.com/{nft_addr}"
+                    tonviewer_url = deploy_status.get("viewer_url") or f"https://tonviewer.com/{nft_addr}"
+                    network_label = "Testnet" if deploy_status.get("network") == "testnet" else "Mainnet"
                     text = (
                         f"🎉 <b>TABRIKLAYMIZ! NFT HAMYONINGIZGA TUSHDI!</b>\n"
                         f"━━━━━━━━━━━━━━━━━━━━\n\n"
                         f"💎 <b>{item.get('title')}</b> (#{item_id})\n"
+                        f"🌐 <b>Tarmoq:</b> <code>{network_label}</code>\n"
                         f"📍 <b>NFT Manzili:</b> <code>{nft_addr}</code>\n\n"
                         f"✅ Tonkeeper / Telegram Wallet hamyoningizda 3D artefakt, rasmiy nom va video animatsiya muvaffaqiyatli paydo bo'ldi!\n\n"
-                        f"🔗 <a href='{tonviewer_url}'>Tonviewer da tekshirish</a>"
+                        f"🔗 <a href='{tonviewer_url}'>Tonviewer ({network_label}) da tekshirish</a>"
                     )
                     kb = InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🔍 Tonviewer da ko'rish", url=tonviewer_url)],
+                        [InlineKeyboardButton(f"🔍 Tonviewer ({network_label}) da ko'rish", url=tonviewer_url)],
                         [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")]
                     ])
                     try:
@@ -2101,21 +2147,23 @@ def load_mega_features(bot: Client):
             return
 
         await cb.answer("Blokcheyndan tekshirilmoqda...", show_alert=False)
-        is_deployed = await check_nft_deployed(nft_addr)
+        deploy_status = await check_nft_deployed(nft_addr)
 
-        if is_deployed:
+        if deploy_status:
             db.update_nft_status(item_id, status="minted")
-            tonviewer_url = f"https://tonviewer.com/{nft_addr}"
+            tonviewer_url = deploy_status.get("viewer_url") or f"https://tonviewer.com/{nft_addr}"
+            network_label = "Testnet" if deploy_status.get("network") == "testnet" else "Mainnet"
             text = (
                 f"🎉 <b>TABRIKLAYMIZ! NFT HAMYONINGIZGA TUSHDI!</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"💎 <b>{item.get('title')}</b> (#{item_id})\n"
+                f"🌐 <b>Tarmoq:</b> <code>{network_label}</code>\n"
                 f"📍 <b>NFT Manzili:</b> <code>{nft_addr}</code>\n\n"
                 f"✅ Tonkeeper yoki Telegram Wallet hamyoningizda rasmiy rasm, nom va 3D model paydo bo'ldi!\n\n"
-                f"🔗 <a href='{tonviewer_url}'>Tonviewer da ko'rish</a>"
+                f"🔗 <a href='{tonviewer_url}'>Tonviewer ({network_label}) da ko'rish</a>"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔍 Tonviewer da ko'rish", url=tonviewer_url)],
+                [InlineKeyboardButton(f"🔍 Tonviewer ({network_label}) da ko'rish", url=tonviewer_url)],
                 [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
                 [InlineKeyboardButton(f"{e('GALLERY')} NFT Bozor", callback_data="nft_market")]
             ])

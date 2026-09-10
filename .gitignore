@@ -32,3 +32,6 @@ cookies.txt
 
 # Downloads & Temp
 downloads/
+scratch/
+scratch*
+*/scratch/*
