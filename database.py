@@ -696,10 +696,83 @@ def init_db():
             buyer_user_id BIGINT,
             minted_tx_hash TEXT,
             video_file_path TEXT DEFAULT '',
-            glb_file_path TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    
+    # 18. HUMO Karta To'lovlari (P2P SMS avtomatlashtirish)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS humo_deposits (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            amount_uzs INTEGER NOT NULL,
+            unique_amount_uzs INTEGER NOT NULL,
+            sender_card_last4 VARCHAR(10),
+            card_number VARCHAR(30),
+            status VARCHAR(20) DEFAULT 'pending',
+            sms_raw_text TEXT,
+            sender_name VARCHAR(100),
+            rrn_code VARCHAR(50),
+            created_at TIMESTAMP DEFAULT NOW(),
+            completed_at TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_humo_deposits_pending ON humo_deposits (status, unique_amount_uzs)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_humo_deposits_user ON humo_deposits (tg_user_id, status)")
+
+    # 18. 1xBet Style Casino Games (Apple of Fortune, Mines, 21, Kamikaze)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS casino_game_sessions (
+            id SERIAL PRIMARY KEY,
+            session_id VARCHAR(64) UNIQUE NOT NULL,
+            tg_user_id BIGINT NOT NULL,
+            game_type VARCHAR(32) NOT NULL,
+            bet_amount_uzs BIGINT NOT NULL,
+            current_multiplier NUMERIC(10, 2) DEFAULT 1.0,
+            status VARCHAR(32) DEFAULT 'active',
+            server_seed TEXT NOT NULL,
+            encrypted_hash VARCHAR(64) NOT NULL,
+            game_state JSONB NOT NULL DEFAULT '{}'::jsonb,
+            win_amount_uzs BIGINT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_casino_sessions_user ON casino_game_sessions(tg_user_id, status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_casino_sessions_type ON casino_game_sessions(game_type)")
+
+    # 19. Global Live Crash (Aviator) Engine
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS crash_rounds (
+            id SERIAL PRIMARY KEY,
+            round_number BIGINT NOT NULL,
+            crash_multiplier NUMERIC(10, 2) NOT NULL,
+            server_seed TEXT NOT NULL,
+            encrypted_hash VARCHAR(64) NOT NULL,
+            status VARCHAR(32) DEFAULT 'betting',
+            started_at TIMESTAMP DEFAULT NOW(),
+            crashed_at TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_crash_rounds_status ON crash_rounds(status)")
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS crash_bets (
+            id SERIAL PRIMARY KEY,
+            round_id BIGINT REFERENCES crash_rounds(id) ON DELETE CASCADE,
+            tg_user_id BIGINT NOT NULL,
+            user_name TEXT,
+            slot_num INT NOT NULL DEFAULT 1,
+            bet_amount_uzs BIGINT NOT NULL,
+            auto_cashout_multiplier NUMERIC(10, 2) DEFAULT 0,
+            cashed_out_multiplier NUMERIC(10, 2) DEFAULT 0,
+            win_amount_uzs BIGINT DEFAULT 0,
+            status VARCHAR(32) DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_round ON crash_bets(round_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_user ON crash_bets(tg_user_id, round_id)")
     
     conn.commit()
     cur.close()
@@ -2044,6 +2117,274 @@ def get_user_payment_history(tg_user_id: int, limit: int = 10):
     except Exception as e:
         print(f"get_user_payment_history error: {e}")
         return []
+    finally:
+        conn.close()
+
+
+# ==================== HUMO P2P DEPOSIT ENGINE ====================
+
+def create_humo_deposit(tg_user_id: int, amount_uzs: int, sender_card_last4: str = None) -> dict:
+    """Humo karta orqali to'lov uchun yangi buyurtma yaratish (Micro-offset kolliziyaga qarshi himoya bilan)"""
+    from config import HUMO_CARD_NUMBER
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        # Avval eski pending buyurtmalarni bekor qilish
+        cur.execute("""
+            UPDATE humo_deposits
+            SET status = 'cancelled'
+            WHERE tg_user_id = %s AND status = 'pending'
+        """, (tg_user_id,))
+        
+        # O'tgan 15 daqiqa ichida faol bo'lgan shu summadagi micro-offsetlarni olish
+        cur.execute("""
+            SELECT unique_amount_uzs - amount_uzs as offset_val
+            FROM humo_deposits
+            WHERE status = 'pending' 
+              AND amount_uzs = %s 
+              AND created_at > NOW() - INTERVAL '15 minutes'
+        """, (amount_uzs,))
+        rows = cur.fetchall()
+        used_offsets = {r["offset_val"] for r in rows if r and r["offset_val"] is not None}
+        
+        # 1 dan 99 gacha bo'sh turgan eng kichik offsetni topish
+        offset = 1
+        for i in range(1, 100):
+            if i not in used_offsets:
+                offset = i
+                break
+        else:
+            import random
+            offset = random.randint(100, 199)
+            
+        unique_amount = amount_uzs + offset
+        
+        cur.execute("""
+            INSERT INTO humo_deposits (tg_user_id, amount_uzs, unique_amount_uzs, sender_card_last4, card_number, status, created_at)
+            VALUES (%s, %s, %s, %s, %s, 'pending', NOW())
+            RETURNING *
+        """, (tg_user_id, amount_uzs, unique_amount, sender_card_last4, HUMO_CARD_NUMBER))
+        row = cur.fetchone()
+        conn.commit()
+        return dict(row) if row else None
+    except Exception as e:
+        conn.rollback()
+        print(f"create_humo_deposit error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def get_user_pending_humo_deposit(tg_user_id: int) -> dict:
+    """Foydalanuvchining faol (15 daqiqa ichidagi) pending to'lovini olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM humo_deposits
+            WHERE tg_user_id = %s 
+              AND status = 'pending'
+              AND created_at > NOW() - INTERVAL '20 minutes'
+            ORDER BY created_at DESC LIMIT 1
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_user_pending_humo_deposit error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def get_humo_deposit_by_id(deposit_id: int) -> dict:
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM humo_deposits WHERE id = %s", (deposit_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_humo_deposit_by_id error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def cancel_humo_deposit(deposit_id: int, tg_user_id: int) -> bool:
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE humo_deposits
+            SET status = 'cancelled'
+            WHERE id = %s AND tg_user_id = %s AND status = 'pending'
+        """, (deposit_id, tg_user_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        print(f"cancel_humo_deposit error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
+    """
+    @HUMOcardbot dan kelgan ma'lumotlar asosida 100% avtomatik tarzda mos buyurtmani topib,
+    balansga qo'shish va tranzaksiyani yakunlash.
+    """
+    if not parsed_data or not parsed_data.get("amount_uzs"):
+        return None
+        
+    amount = parsed_data["amount_uzs"]
+    sender_card = parsed_data.get("sender_card_last4")
+    sender_name = parsed_data.get("sender_name")
+    rrn_code = parsed_data.get("rrn_code")
+    raw_text = parsed_data.get("raw_text", "")
+    
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        matched_deposit = None
+        
+        # 1-Qidiruv (Eng aniq): Aniq unique_amount_uzs bo'yicha (masalan 50 014 so'm)
+        cur.execute("""
+            SELECT * FROM humo_deposits
+            WHERE status = 'pending'
+              AND unique_amount_uzs = %s
+              AND created_at > NOW() - INTERVAL '45 minutes'
+            ORDER BY created_at ASC LIMIT 1
+            FOR UPDATE
+        """, (amount,))
+        row = cur.fetchone()
+        if row:
+            matched_deposit = dict(row)
+            
+        # 2-Qidiruv (Agar user micro-offsetsiz yaxlit to'lagan bo'lsa va karta oxirgi 4 raqami mos kelsa)
+        if not matched_deposit and sender_card:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status = 'pending'
+                  AND amount_uzs = %s
+                  AND sender_card_last4 = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                ORDER BY created_at ASC LIMIT 1
+                FOR UPDATE
+            """, (amount, sender_card))
+            row = cur.fetchone()
+            if row:
+                matched_deposit = dict(row)
+                
+        # 3-Qidiruv: Agar RRN kod avval kiritilgan bo'lsa
+        if not matched_deposit and rrn_code:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status = 'pending'
+                  AND rrn_code = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                ORDER BY created_at ASC LIMIT 1
+                FOR UPDATE
+            """, (rrn_code,))
+            row = cur.fetchone()
+            if row:
+                matched_deposit = dict(row)
+                
+        if not matched_deposit:
+            conn.rollback()
+            return None
+            
+        deposit_id = matched_deposit["id"]
+        tg_user_id = matched_deposit["tg_user_id"]
+        
+        # Tranzaksiyani completed qilish
+        cur.execute("""
+            UPDATE humo_deposits
+            SET status = 'completed',
+                sms_raw_text = %s,
+                sender_name = COALESCE(%s, sender_name),
+                sender_card_last4 = COALESCE(%s, sender_card_last4),
+                rrn_code = COALESCE(%s, rrn_code),
+                completed_at = NOW()
+            WHERE id = %s
+            RETURNING *
+        """, (raw_text, sender_name, sender_card, rrn_code, deposit_id))
+        completed_row = dict(cur.fetchone())
+        
+        # Balansga qo'shish
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+            RETURNING balance_uzs
+        """, (tg_user_id, amount))
+        bal_row = cur.fetchone()
+        new_balance = int(bal_row["balance_uzs"]) if bal_row else 0
+        _set_cached(f"bal_{tg_user_id}", new_balance, 30)
+        
+        # payment_transactions jadvaliga ham yozib qo'yish
+        cur.execute("""
+            INSERT INTO payment_transactions (tg_user_id, payment_type, amount_original, currency, amount_uzs, status, invoice_id, payload, created_at, updated_at)
+            VALUES (%s, 'humo_card', %s, 'UZS', %s, 'completed', %s, %s, NOW(), NOW())
+        """, (tg_user_id, float(amount), amount, f"humo_{deposit_id}", rrn_code or raw_text[:50]))
+        
+        conn.commit()
+        
+        # Referral cashback (10%)
+        try:
+            process_referral_cashback(tg_user_id, amount)
+        except Exception as ref_e:
+            print(f"Humo referral cashback error: {ref_e}")
+            
+        completed_row["new_balance"] = new_balance
+        return completed_row
+    except Exception as e:
+        conn.rollback()
+        print(f"match_and_complete_humo_deposit error: {e}")
+        return None
+    finally:
+        conn.close()
+
+def set_deposit_sender_card(deposit_id: int, tg_user_id: int, card_last4: str) -> bool:
+    """Foydalanuvchi to'layotgan kartasining oxirgi 4 raqamini saqlash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE humo_deposits
+            SET sender_card_last4 = %s
+            WHERE id = %s AND tg_user_id = %s AND status = 'pending'
+        """, (card_last4, deposit_id, tg_user_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        print(f"set_deposit_sender_card error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def set_deposit_rrn_code(deposit_id: int, tg_user_id: int, rrn_code: str) -> bool:
+    """Foydalanuvchi chekdagi RRN kodini kiritganda saqlash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE humo_deposits
+            SET rrn_code = %s
+            WHERE id = %s AND tg_user_id = %s AND status = 'pending'
+        """, (rrn_code, deposit_id, tg_user_id))
+        conn.commit()
+        return cur.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        print(f"set_deposit_rrn_code error: {e}")
+        return False
     finally:
         conn.close()
 

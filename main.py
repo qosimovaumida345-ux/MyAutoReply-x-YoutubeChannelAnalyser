@@ -1913,6 +1913,22 @@ async def main():
                     print(f"🌟 Yuklangan maxsus emojilar soni: {len(AUTO_EMOJI_MAP)}")
                 except Exception as e:
                     print(f"Maxsus emojilarni yuklashda xatolik: {e}")
+
+                # HUMO SMS Listener ni backgroundda ishga tushirish
+                try:
+                    from humo_listener import start_humo_listener_background
+                    start_humo_listener_background(bot)
+                except Exception as e:
+                    print(f"Humo listener startup error: {e}")
+
+                # Live Crash (Aviator) Real-Time Server Engine
+                try:
+                    from games_casino import run_crash_background_worker
+                    asyncio.create_task(run_crash_background_worker())
+                    print("🚀 Live Crash (Aviator) background dvigateli ishga tushirildi")
+                except Exception as e:
+                    print(f"Crash background worker error: {e}")
+
                 await asyncio.Event().wait()
             tasks.append(run_bot())
             print("🎬 YouTube Analytics Bot qo'shildi")

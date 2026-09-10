@@ -2491,6 +2491,77 @@ def load_mega_features(bot: Client):
                 else:
                     await message.reply_text(f"{ce('ERROR')} NFT holatini yangilashda xatolik yuz berdi.")
                 message.stop_propagation()
+
+            # 14. HUMO ixtiyoriy summa kiritish
+            elif action == "waiting_humo_custom_amount":
+                USER_STATES.pop(uid, None)
+                import re
+                clean_num = re.sub(r"[^\d]", "", text)
+                if not clean_num:
+                    await message.reply_text(f"{ce('ERROR')} Iltimos, to'lov summasini faqat raqamlarda kiriting (masalan: <code>75000</code>).")
+                    message.stop_propagation()
+                    return
+                amount_val = int(clean_num)
+                if amount_val < 1000:
+                    await message.reply_text(f"{ce('ERROR')} Minimal to'ldirish summasi: 1,000 so'm!")
+                    message.stop_propagation()
+                    return
+                if amount_val > 20000000:
+                    await message.reply_text(f"{ce('ERROR')} Maksimal bir martalik to'ldirish summasi: 20,000,000 so'm!")
+                    message.stop_propagation()
+                    return
+                
+                from ytbot import render_humo_invoice
+                dep = db.create_humo_deposit(uid, amount_val)
+                if not dep:
+                    await message.reply_text(f"{ce('ERROR')} Buyurtma yaratishda xatolik yuz berdi. Birozdan so'ng qayta urinib ko'ring.")
+                    message.stop_propagation()
+                    return
+                
+                inv_text, inv_kb = render_humo_invoice(dep)
+                await message.reply_text(inv_text, reply_markup=inv_kb)
+                message.stop_propagation()
+
+            # 15. HUMO jo'natuvchi karta oxirgi 4 raqami
+            elif action == "waiting_humo_sender_card":
+                USER_STATES.pop(uid, None)
+                dep_id = state.get("dep_id")
+                import re
+                digits = re.sub(r"[^\d]", "", text)
+                if len(digits) < 4:
+                    await message.reply_text(f"{ce('ERROR')} Karta raqamining oxirgi 4 ta raqamini kiriting (masalan: <code>4492</code>)!")
+                    message.stop_propagation()
+                    return
+                last4 = digits[-4:]
+                db.set_deposit_sender_card(dep_id, uid, last4)
+                dep = db.get_humo_deposit_by_id(dep_id)
+                if dep:
+                    from ytbot import render_humo_invoice
+                    inv_text, inv_kb = render_humo_invoice(dep)
+                    await message.reply_text(f"{ce('SUCCESS')} Karta oxirgi 4 raqami (<code>*{last4}</code>) muvaffaqiyatli saqlandi!\n\n{inv_text}", reply_markup=inv_kb)
+                else:
+                    await message.reply_text(f"{ce('SUCCESS')} Karta raqami (<code>*{last4}</code>) saqlandi!")
+                message.stop_propagation()
+
+            # 16. HUMO chek RRN kodi
+            elif action == "waiting_humo_rrn":
+                USER_STATES.pop(uid, None)
+                dep_id = state.get("dep_id")
+                import re
+                rrn_code = re.sub(r"[^\w]", "", text).strip()
+                if len(rrn_code) < 4:
+                    await message.reply_text(f"{ce('ERROR')} RRN / Tranzaksiya kodi kamida 4 ta belgidan iborat bo'lishi kerak!")
+                    message.stop_propagation()
+                    return
+                db.set_deposit_rrn_code(dep_id, uid, rrn_code)
+                dep = db.get_humo_deposit_by_id(dep_id)
+                if dep:
+                    from ytbot import render_humo_invoice
+                    inv_text, inv_kb = render_humo_invoice(dep)
+                    await message.reply_text(f"{ce('SUCCESS')} Tranzaksiya RRN kodi (<code>{rrn_code}</code>) muvaffaqiyatli saqlandi!\n\n{inv_text}", reply_markup=inv_kb)
+                else:
+                    await message.reply_text(f"{ce('SUCCESS')} Chek kodi (<code>{rrn_code}</code>) saqlandi!")
+                message.stop_propagation()
             else:
                 message.continue_propagation()
         except (StopPropagation, ContinuePropagation):

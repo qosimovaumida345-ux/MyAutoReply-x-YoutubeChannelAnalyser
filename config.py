@@ -12,6 +12,11 @@ SESSION_STRING = os.getenv("SESSION_STRING", "")
 # ==================== TELEGRAM BOT ====================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
+# ==================== HUMOCARD SMS LISTENER ====================
+HUMO_SESSION_STRING = os.getenv("HUMO_SESSION_STRING", "").strip()
+HUMO_CARD_NUMBER = os.getenv("HUMO_CARD_NUMBER", "9860 1266 0245 6058").strip()
+HUMO_CARD_HOLDER = os.getenv("HUMO_CARD_HOLDER", "Qosimova Umida").strip()
+
 # ==================== GEMINI AI ====================
 GEMINI_KEYS = [k.strip() for k in os.getenv("GEMINI_KEYS", "").split(",") if k.strip()]
 

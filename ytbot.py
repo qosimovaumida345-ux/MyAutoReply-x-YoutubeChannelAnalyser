@@ -6,6 +6,12 @@ import asyncio
 import math
 import json
 from datetime import datetime, timedelta
+
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
 from pyrogram import Client, filters, StopPropagation
 from pyrogram.errors import MessageNotModified
 from pyrogram.enums import ParseMode, ChatAction
@@ -849,12 +855,16 @@ def lang_menu_kb():
 
 def games_menu_kb(user_id=None):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎁 Omadli Quti (Mystery Box)", callback_data="box_open"),
-         InlineKeyboardButton("🎰 Omad G'ildiragi (Wheel)", callback_data="spin_free")],
-        [InlineKeyboardButton("⚔️ PvP Tanga Tashlash (Duel)", callback_data="game_duel_info"),
-         InlineKeyboardButton("🎟️ Jekpot Mega Lotereya", callback_data="lottery_refresh")],
-        [InlineKeyboardButton("🏆 Liderlar Jadvali (Top)", callback_data="menu_leaderboard"),
-         InlineKeyboardButton("🎁 Do'stlarni chaqirish", callback_data="menu_referral")],
+        [InlineKeyboardButton("🍏 Apple of Fortune (1xBet)", callback_data="game_apple_menu"),
+         InlineKeyboardButton("💣 Mines (Saper)", callback_data="game_mines_menu")],
+        [InlineKeyboardButton("🚀 Live Crash / Aviator", callback_data="game_crash_menu"),
+         InlineKeyboardButton("🃏 21 (Blackjack)", callback_data="game_bj_menu")],
+        [InlineKeyboardButton("🛩️ Kamikaze (Samolyot)", callback_data="game_kami_menu"),
+         InlineKeyboardButton("🎰 Omad G'ildiragi", callback_data="spin_free")],
+        [InlineKeyboardButton("🎁 Omadli Quti", callback_data="box_open"),
+         InlineKeyboardButton("⚔️ Tanga Tashlash (Duel)", callback_data="game_duel_info")],
+        [InlineKeyboardButton("🎟️ Mega Lotereya", callback_data="lottery_refresh"),
+         InlineKeyboardButton("🏆 Liderlar Jadvali", callback_data="menu_leaderboard")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
     ])
 
@@ -901,6 +911,7 @@ def wallet_menu_kb(user_id=None):
         ton_btn_text = "💎 TON Hamyonni Ulash"
 
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💳 HUMO / Uzcard orqali to'ldirish (UZS)", callback_data="pay_humo_menu")],
         [InlineKeyboardButton("⭐ Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
         [InlineKeyboardButton("💎 TON (The Open Network) orqali", callback_data="pay_crypto_menu")],
         [InlineKeyboardButton(ton_btn_text, web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={user_id or 0}"))],
@@ -909,6 +920,76 @@ def wallet_menu_kb(user_id=None):
         [InlineKeyboardButton("📋 To'lovlar tarixi", callback_data="pay_history")],
         [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
     ])
+
+def humo_packages_kb():
+    buttons = [
+        [
+            InlineKeyboardButton("💵 10,000 so'm", callback_data="humo_pkg_10000"),
+            InlineKeyboardButton("💵 25,000 so'm", callback_data="humo_pkg_25000"),
+        ],
+        [
+            InlineKeyboardButton("💵 50,000 so'm", callback_data="humo_pkg_50000"),
+            InlineKeyboardButton("💵 100,000 so'm", callback_data="humo_pkg_100000"),
+        ],
+        [
+            InlineKeyboardButton("💵 250,000 so'm", callback_data="humo_pkg_250000"),
+            InlineKeyboardButton("💵 500,000 so'm", callback_data="humo_pkg_500000"),
+        ],
+        [
+            InlineKeyboardButton("✏️ Boshqa summa kiritish", callback_data="humo_custom_amount"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Balans Menyusi", callback_data="menu_wallet"),
+        ]
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+def render_humo_invoice(dep: dict):
+    from config import HUMO_CARD_NUMBER, HUMO_CARD_HOLDER
+    dep_id = dep["id"]
+    base_amt = dep["amount_uzs"]
+    unique_amt = dep["unique_amount_uzs"]
+    offset = unique_amt - base_amt
+    sender_card = dep.get("sender_card_last4")
+    rrn = dep.get("rrn_code")
+
+    card_display = f"<code>{dep.get('card_number') or HUMO_CARD_NUMBER}</code>"
+    holder_display = dep.get('card_holder') or HUMO_CARD_HOLDER
+
+    extra_info = ""
+    if sender_card:
+        extra_info += f"\n💳 <b>Sizning kartangiz:</b> <code>*{sender_card}</code>"
+    if rrn:
+        extra_info += f"\n🧾 <b>Chek RRN kodi:</b> <code>{rrn}</code>"
+
+    text = (
+        f"{ce('CARD')} <b>HUMO / Uzcard orqali hisob to'ldirish</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🏦 <b>Qabul qiluvchi karta:</b>\n"
+        f"{card_display} <i>(nusxalash uchun ustiga bosing)</i>\n"
+        f"👤 <b>Karta egasi:</b> <code>{holder_display}</code>\n\n"
+        f"💰 <b>O'tkazilishi shart bo'lgan ANIQ summa:</b>\n"
+        f"👉 <b><code>{unique_amt:,}</code> so'm</b> 👈\n"
+        f"<i>(Asosiy summa: {base_amt:,} so'm + {offset} so'm identifikator)</i>\n"
+        f"{extra_info}\n\n"
+        f"⚠️ <b>JUDA MUHIM:</b>\n"
+        f"To'lov tizim tomonidan 100% avtomat tarzda sizga tegishli ekanligini tasdiqlashi uchun aynan <b><code>{unique_amt:,}</code> so'm</b> o'tkazing!\n"
+        f"Hisobingizga to'liq <b>{unique_amt:,} so'm</b> qo'shiladi (+{offset} so'm bonus).\n\n"
+        f"{ce('WAIT')} <b>Amal qilish muddati:</b> 15 daqiqa\n"
+        f"{ce('LIGHTNING')} <i>Pul o'tkazilishi bilan @HUMOcardbot SMS xabari orqali hisobingiz 3-5 soniyada avtomatik to'ldiriladi!</i>"
+    )
+
+    card_btn_text = f"💳 Karta: *{sender_card}" if sender_card else "💳 Karta 4 raqamini kiritish (Ixtiyoriy)"
+    rrn_btn_text = f"🧾 RRN: {rrn}" if rrn else "🧾 Chek RRN kodini kiritish (Ixtiyoriy)"
+
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔍 To'lovni tekshirish", callback_data=f"check_humo_dep_{dep_id}")],
+        [InlineKeyboardButton(card_btn_text, callback_data=f"humo_add_card_{dep_id}")],
+        [InlineKeyboardButton(rrn_btn_text, callback_data=f"humo_add_rrn_{dep_id}")],
+        [InlineKeyboardButton("❌ Buyurtmani bekor qilish", callback_data=f"cancel_humo_dep_{dep_id}")],
+        [InlineKeyboardButton("⬅️ Balans Menyusi", callback_data="menu_wallet")],
+    ])
+    return text, kb
 
 def stars_packages_kb():
     buttons = []
@@ -4626,8 +4707,159 @@ def create_ytbot():
     from mega_features import load_mega_features
     load_mega_features(bot)
 
+    from games_casino import register_casino_handlers
+    register_casino_handlers(bot)
+
     # ==================== TO'LOV VA MARKETPLACE CALLBACKLARI ====================
     
+    # ==================== HUMO / UZCARD TO'LOV TIZIMI ====================
+
+    @bot.on_callback_query(filters.regex(r"^pay_humo_menu$"))
+    async def cb_pay_humo_menu(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import get_user_pending_humo_deposit
+        pending = get_user_pending_humo_deposit(user_id)
+        if pending:
+            inv_text, inv_kb = render_humo_invoice(pending)
+            try:
+                await cb.message.edit_text(
+                    f"{ce('WARN')} <b>Sizda to'lanmagan faol buyurtma mavjud!</b>\n\n{inv_text}",
+                    reply_markup=inv_kb
+                )
+            except Exception:
+                await cb.message.reply_text(
+                    f"{ce('WARN')} <b>Sizda to'lanmagan faol buyurtma mavjud!</b>\n\n{inv_text}",
+                    reply_markup=inv_kb
+                )
+            await cb.answer()
+            return
+            
+        text = (
+            f"{ce('CARD')} <b>HUMO / Uzcard orqali hisob to'ldirish</b>\n\n"
+            f"O'zbekiston bank kartalari orqali hisobingizni bir zumda to'ldiring.\n"
+            f"O'zingizga qulay to'lov paketini tanlang yoki ixtiyoriy summa kiriting:"
+        )
+        await cb.message.edit_text(text, reply_markup=humo_packages_kb())
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^humo_pkg_(\d+)$"))
+    async def cb_humo_pkg(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        amount_uzs = int(cb.matches[0].group(1))
+        from database import create_humo_deposit
+        dep = create_humo_deposit(user_id, amount_uzs)
+        if not dep:
+            await cb.answer("Xatolik: Buyurtma yaratib bo'lmadi! Iltimos, qayta urinib ko'ring.", show_alert=True)
+            return
+        inv_text, inv_kb = render_humo_invoice(dep)
+        await cb.message.edit_text(inv_text, reply_markup=inv_kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^humo_custom_amount$"))
+    async def cb_humo_custom_amount(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from mega_features import USER_STATES
+        USER_STATES[user_id] = {"action": "waiting_humo_custom_amount"}
+        text = (
+            f"{ce('CARD')} <b>Ixtiyoriy summa kiritish</b>\n\n"
+            f"Qancha so'm to'ldirmoqchisiz? Summani chatga yozing:\n"
+            f"<i>(Masalan: <code>35000</code> yoki <code>150000</code>)</i>\n\n"
+            f"• Minimal summa: 1,000 so'm\n"
+            f"• Maksimal summa: 20,000,000 so'm"
+        )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Bekor qilish", callback_data="pay_humo_menu")]])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^humo_add_card_(\d+)$"))
+    async def cb_humo_add_card(client, cb: CallbackQuery):
+        dep_id = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        from mega_features import USER_STATES
+        USER_STATES[user_id] = {"action": "waiting_humo_sender_card", "dep_id": dep_id}
+        text = (
+            f"{ce('CARD')} <b>Karta oxirgi 4 raqami</b>\n\n"
+            f"Siz to'lov qilayotgan (yoki qilgan) kartangizning oxirgi 4 ta raqamini chatga yozib yuboring:\n"
+            f"<i>(Masalan: <code>4492</code>)</i>\n\n"
+            f"Bu tizimga to'lovni 100% adashmasdan darhol aniqlashga yordam beradi."
+        )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data=f"check_humo_dep_{dep_id}")]])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^humo_add_rrn_(\d+)$"))
+    async def cb_humo_add_rrn(client, cb: CallbackQuery):
+        dep_id = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        from mega_features import USER_STATES
+        USER_STATES[user_id] = {"action": "waiting_humo_rrn", "dep_id": dep_id}
+        text = (
+            f"{ce('INVOICE')} <b>Chek / Tranzaksiya RRN kodi</b>\n\n"
+            f"Bank ilovangiz (Click, Payme, Uzum va h.k.) chekidagi RRN yoki tranzaksiya kodini chatga yozib yuboring:\n"
+            f"<i>(Masalan: <code>428901234</code>)</i>"
+        )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data=f"check_humo_dep_{dep_id}")]])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^check_humo_dep_(\d+)$"))
+    async def cb_check_humo_dep(client, cb: CallbackQuery):
+        dep_id = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        from database import get_humo_deposit_by_id, get_user_balance
+        dep = get_humo_deposit_by_id(dep_id)
+        if not dep:
+            await cb.answer("Buyurtma topilmadi!", show_alert=True)
+            return
+            
+        if dep["status"] == "completed":
+            cur_bal = get_user_balance(user_id)
+            credit_amt = dep.get("unique_amount_uzs") or dep.get("amount_uzs", 0)
+            text = (
+                f"{ce('SUCCESS')} <b>TO'LOV MUVAFFAQIYATLI TASDIQLANDI!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"{ce('CARD')} <b>To'lov usuli:</b> HUMO Karta\n"
+                f"{ce('MONEY')} <b>Hisobga qo'shildi:</b> +{credit_amt:,} so'm\n"
+                f"{ce('BALANCE')} <b>Joriy balans:</b> <code>{cur_bal:,} so'm</code>\n\n"
+                f"{ce('LIGHTNING')} <i>Xaridingiz uchun tashakkur!</i>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💰 Balans Menyusi", callback_data="menu_wallet")],
+                [InlineKeyboardButton("🛒 Xizmatlar Do'koni", callback_data="menu_marketplace")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.answer("To'lov tasdiqlandi!")
+            return
+            
+        if dep["status"] == "cancelled":
+            await cb.answer("Ushbu buyurtma bekor qilingan.", show_alert=True)
+            return
+
+        inv_text, inv_kb = render_humo_invoice(dep)
+        try:
+            await cb.message.edit_text(inv_text, reply_markup=inv_kb)
+        except Exception:
+            pass
+        await cb.answer(
+            "⏳ To'lov hali qabul qilinmadi.\n\n"
+            "Agar pul o'tkazgan bo'lsangiz, bank SMS xabari kelishini 5-10 soniya kuting va qayta tekshiring.",
+            show_alert=True
+        )
+
+    @bot.on_callback_query(filters.regex(r"^cancel_humo_dep_(\d+)$"))
+    async def cb_cancel_humo_dep(client, cb: CallbackQuery):
+        dep_id = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        from database import cancel_humo_deposit
+        cancel_humo_deposit(dep_id, user_id)
+        await cb.answer("Buyurtma bekor qilindi.", show_alert=False)
+        text = (
+            f"{ce('CARD')} <b>HUMO / Uzcard orqali hisob to'ldirish</b>\n\n"
+            f"Oldingi buyurtmangiz bekor qilindi.\n"
+            f"Yangi to'lov paketini tanlang yoki ixtiyoriy summa kiriting:"
+        )
+        await cb.message.edit_text(text, reply_markup=humo_packages_kb())
+
     @bot.on_callback_query(filters.regex(r"^pay_stars_menu$"))
     async def cb_pay_stars_menu(client, cb: CallbackQuery):
         text = (
