@@ -153,97 +153,155 @@ def format_crash_bet_signal(user_id: int, user_name: str, slot_num: int, amount_
     )
     return text
 
+CARD_SUITS = ["♠️", "♥️", "♦️", "♣️"]
+CARD_RANKS = {
+    "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10,
+    "J": 10, "Q": 10, "K": 10, "A": 11
+}
+
+def parse_card(c):
+    """Karta ma'lumotlarini tuple, list yoki dict dan xavfsiz ajratib oladi"""
+    try:
+        if isinstance(c, (list, tuple)):
+            r = str(c[0]) if len(c) > 0 else ""
+            s = str(c[1]) if len(c) > 1 else ""
+            val = CARD_RANKS.get(r, 10)
+            return r, s, val
+        elif isinstance(c, dict):
+            r = str(c.get("rank", ""))
+            s = str(c.get("suit", ""))
+            val = c.get("val", CARD_RANKS.get(r, 10))
+            return r, s, val
+        return str(c), "", 0
+    except Exception:
+        return str(c), "", 0
+
 def format_apple_signal(user_id: int, user_name: str, bet_uzs: int, board: list) -> str:
-    lines = [
-        f"{ce('APPLE_WHOLE')} <b>APPLE OF FORTUNE HACK SIGNAL</b>",
-        f"━━━━━━━━━━━━━━━━━━━━",
-        f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)",
-        f"<b>Garov Miqdori:</b> <code>{bet_uzs:,} so'm</code>",
-        f"━━━━━━━━━━━━━━━━━━━━",
-        f"<b>QATORLAR XARITASI (Pastdan yuqoriga):</b>"
-    ]
-    safe_path = []
-    for r in range(9, -1, -1):
-        mult = APPLE_MULTIPLIERS[r]
-        good_cols = [str(c + 1) for c in range(5) if board[r][c] == "good"]
-        bad_cols = [str(c + 1) for c in range(5) if board[r][c] == "bad"]
-        safe_path.append((r + 1, good_cols[0]))
-        lines.append(
-            f"• <b>{r + 1}-qator (x{mult}):</b> Yutuq: <b>{', '.join(good_cols)}</b> | <b>Olma yo'q (tishlangan):</b> <code>{', '.join(bad_cols)}</code>"
-        )
-    path_str = " -> ".join([f"{p[1]}" for p in reversed(safe_path)])
-    lines.append(f"━━━━━━━━━━━━━━━━━━━━")
-    lines.append(f"<b>100% YUTUQLI KATAKLAR KETMA-KETLIGI (1..10):</b>")
-    lines.append(f"<code>{path_str}</code>")
-    return "\n".join(lines)
+    try:
+        if isinstance(board, str):
+            board = json.loads(board)
+        lines = [
+            f"{ce('APPLE_WHOLE')} <b>APPLE OF FORTUNE HACK SIGNAL</b>",
+            f"━━━━━━━━━━━━━━━━━━━━",
+            f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)",
+            f"<b>Garov Miqdori:</b> <code>{bet_uzs:,} so'm</code>",
+            f"━━━━━━━━━━━━━━━━━━━━",
+            f"<b>QATORLAR XARITASI (Pastdan yuqoriga):</b>"
+        ]
+        safe_path = []
+        total_rows = len(board) if board else 0
+        for r in range(min(10, total_rows) - 1, -1, -1):
+            mult = APPLE_MULTIPLIERS[r] if r < len(APPLE_MULTIPLIERS) else 1.0
+            row_items = board[r] if r < len(board) else []
+            good_cols = [str(c + 1) for c in range(len(row_items)) if row_items[c] == "good"]
+            bad_cols = [str(c + 1) for c in range(len(row_items)) if row_items[c] == "bad"]
+            if good_cols:
+                safe_path.append((r + 1, good_cols[0]))
+            lines.append(
+                f"• <b>{r + 1}-qator (x{mult}):</b> Yutuq: <b>{', '.join(good_cols)}</b> | <b>Olma yo'q (tishlangan):</b> <code>{', '.join(bad_cols)}</code>"
+            )
+        path_str = " -> ".join([f"{p[1]}" for p in reversed(safe_path)])
+        lines.append(f"━━━━━━━━━━━━━━━━━━━━")
+        lines.append(f"<b>100% YUTUQLI KATAKLAR KETMA-KETLIGI (1..10):</b>")
+        lines.append(f"<code>{path_str}</code>")
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"format_apple_signal error: {e}")
+        return f"{ce('APPLE_WHOLE')} <b>Apple of Fortune Signal:</b> O'yinchi: {user_name} (ID: <code>{user_id}</code>)"
 
 def format_mines_signal(user_id: int, user_name: str, bet_uzs: int, mines_count: int, mine_positions: list) -> str:
-    bombs = sorted([p + 1 for p in mine_positions])
-    safe = sorted([p + 1 for p in range(25) if p not in mine_positions])
-    grid_lines = []
-    for r in range(5):
-        row_str = ""
-        for c in range(5):
-            idx = r * 5 + c
-            if idx in mine_positions:
-                row_str += "[BOMBA] "
-            else:
-                row_str += "[OLMOS] "
-        grid_lines.append(row_str.strip())
-    grid_display = "\n".join(grid_lines)
-    text = (
-        f"{ce('MINES_BOMB')} <b>MINES (SAPER) HACK SIGNAL</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)\n"
-        f"<b>Garov:</b> <code>{bet_uzs:,} so'm</code> | <b>Minalar soni:</b> {mines_count} ta\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>BOMBALAR JOYI (1-25):</b> <code>{', '.join(map(str, bombs))}</code>\n"
-        f"<b>XAVFSIZ OLMOSLAR (GEMS):</b> <code>{', '.join(map(str, safe[:8]))}...</code>\n\n"
-        f"<b>5x5 GRID XARITASI:</b>\n"
-        f"<code>{grid_display}</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
-    )
-    return text
+    try:
+        if isinstance(mine_positions, str):
+            mine_positions = json.loads(mine_positions)
+        mine_positions = list(mine_positions or [])
+        bombs = sorted([p + 1 for p in mine_positions])
+        safe = sorted([p + 1 for p in range(25) if p not in mine_positions])
+        grid_lines = []
+        for r in range(5):
+            row_str = ""
+            for c in range(5):
+                idx = r * 5 + c
+                if idx in mine_positions:
+                    row_str += "[BOMBA] "
+                else:
+                    row_str += "[OLMOS] "
+            grid_lines.append(row_str.strip())
+        grid_display = "\n".join(grid_lines)
+        text = (
+            f"{ce('MINES_BOMB')} <b>MINES (SAPER) HACK SIGNAL</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)\n"
+            f"<b>Garov:</b> <code>{bet_uzs:,} so'm</code> | <b>Minalar soni:</b> {mines_count} ta\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"<b>BOMBALAR JOYI (1-25):</b> <code>{', '.join(map(str, bombs))}</code>\n"
+            f"<b>XAVFSIZ OLMOSLAR (GEMS):</b> <code>{', '.join(map(str, safe[:8]))}...</code>\n\n"
+            f"<b>5x5 GRID XARITASI:</b>\n"
+            f"<code>{grid_display}</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+        )
+        return text
+    except Exception as e:
+        print(f"format_mines_signal error: {e}")
+        return f"{ce('MINES_BOMB')} <b>Mines Signal:</b> O'yinchi: {user_name} (ID: <code>{user_id}</code>)"
 
 def format_blackjack_signal(user_id: int, user_name: str, bet_uzs: int, player_cards: list, dealer_cards: list) -> str:
-    p_str = ", ".join([f"{c.get('rank', '')}{c.get('suit', '')}" for c in player_cards])
-    d_str = ", ".join([f"{c.get('rank', '')}{c.get('suit', '')}" for c in dealer_cards])
-    d_hidden = dealer_cards[1] if len(dealer_cards) > 1 else None
-    d_hidden_str = f"{d_hidden.get('rank', '')}{d_hidden.get('suit', '')} (Qiymat: {d_hidden.get('val', '')})" if d_hidden else "Mavjud emas"
-    text = (
-        f"{ce('CARD_JOKER')} <b>21 (BLACKJACK) HACK SIGNAL</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)\n"
-        f"<b>Garov:</b> <code>{bet_uzs:,} so'm</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>O'yinchi Kartalari:</b> <code>{p_str}</code>\n"
-        f"<b>Diler Barcha Kartalari:</b> <code>{d_str}</code>\n"
-        f"<b>DILERNING YASHIRIN KARTASI:</b> <b>{d_hidden_str}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<i>Dilerning yashirin kartasini bilgan holda karta olish yoki to'xtashni hisoblang!</i>"
-    )
-    return text
+    try:
+        p_cards = [parse_card(c) for c in (player_cards or [])]
+        d_cards = [parse_card(c) for c in (dealer_cards or [])]
+
+        p_str = ", ".join([f"{r}{s}" for r, s, _ in p_cards]) if p_cards else "Mavjud emas"
+        d_str = ", ".join([f"{r}{s}" for r, s, _ in d_cards]) if d_cards else "Mavjud emas"
+
+        if len(d_cards) > 1:
+            d_hidden = d_cards[1]
+            d_hidden_str = f"{d_hidden[0]}{d_hidden[1]} (Qiymat: {d_hidden[2]})"
+        else:
+            d_hidden_str = "Mavjud emas"
+
+        text = (
+            f"{ce('CARD_JOKER')} <b>21 (BLACKJACK) HACK SIGNAL</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)\n"
+            f"<b>Garov:</b> <code>{bet_uzs:,} so'm</code>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"<b>O'yinchi Kartalari:</b> <code>{p_str}</code>\n"
+            f"<b>Diler Barcha Kartalari:</b> <code>{d_str}</code>\n"
+            f"<b>DILERNING YASHIRIN KARTASI:</b> <b>{d_hidden_str}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"<i>Dilerning yashirin kartasini bilgan holda karta olish yoki to'xtashni hisoblang!</i>"
+        )
+        return text
+    except Exception as e:
+        print(f"format_blackjack_signal error: {e}")
+        return f"{ce('CARD_JOKER')} <b>21 (Blackjack) Signal:</b> O'yinchi: {user_name} (ID: <code>{user_id}</code>)"
 
 def format_kamikaze_signal(user_id: int, user_name: str, bet_uzs: int, board: list) -> str:
-    lines = [
-        f"{ce('KAMI_PLANE')} <b>KAMIKAZE (SAMOLYOT) HACK SIGNAL</b>",
-        f"━━━━━━━━━━━━━━━━━━━━",
-        f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)",
-        f"<b>Garov:</b> <code>{bet_uzs:,} so'm</code>",
-        f"━━━━━━━━━━━━━━━━━━━━",
-        f"<b>POG'ONALAR XARITASI (1-10):</b>"
-    ]
-    safe_steps = []
-    for s in range(len(board)):
-        safe_cols = [str(c + 1) for c in range(len(board[s])) if board[s][c] == "safe"]
-        boom_cols = [str(c + 1) for c in range(len(board[s])) if board[s][c] != "safe"]
-        if safe_cols:
-            safe_steps.append(safe_cols[0])
-        lines.append(f"• <b>{s + 1}-bosqich:</b> Xavfsiz: <b>{', '.join(safe_cols)}</b> | To'siq: <code>{', '.join(boom_cols)}</code>")
-    lines.append(f"━━━━━━━━━━━━━━━━━━━━")
-    lines.append(f"<b>100% XAVFSIZ YO'L KETMA-KETLIGI:</b>")
-    lines.append(f"<code>{' -> '.join(safe_steps)}</code>")
-    return "\n".join(lines)
+    try:
+        if isinstance(board, str):
+            board = json.loads(board)
+        board = list(board or [])
+        lines = [
+            f"{ce('KAMI_PLANE')} <b>KAMIKAZE (SAMOLYOT) HACK SIGNAL</b>",
+            f"━━━━━━━━━━━━━━━━━━━━",
+            f"<b>O'yinchi:</b> {user_name} (ID: <code>{user_id}</code>)",
+            f"<b>Garov:</b> <code>{bet_uzs:,} so'm</code>",
+            f"━━━━━━━━━━━━━━━━━━━━",
+            f"<b>POG'ONALAR XARITASI (1-10):</b>"
+        ]
+        safe_steps = []
+        for s in range(len(board)):
+            safe_cols = [str(c + 1) for c in range(len(board[s])) if board[s][c] == "safe"]
+            boom_cols = [str(c + 1) for c in range(len(board[s])) if board[s][c] != "safe"]
+            if safe_cols:
+                safe_steps.append(safe_cols[0])
+            lines.append(f"• <b>{s + 1}-bosqich:</b> Xavfsiz: <b>{', '.join(safe_cols)}</b> | To'siq: <code>{', '.join(boom_cols)}</code>")
+        lines.append(f"━━━━━━━━━━━━━━━━━━━━")
+        lines.append(f"<b>100% XAVFSIZ YO'L KETMA-KETLIGI:</b>")
+        lines.append(f"<code>{' -> '.join(safe_steps)}</code>")
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"format_kamikaze_signal error: {e}")
+        return f"{ce('KAMI_PLANE')} <b>Kamikaze Signal:</b> O'yinchi: {user_name} (ID: <code>{user_id}</code>)"
 
 # ==================== 1. APPLE OF FORTUNE (1xBet) ====================
 
@@ -859,27 +917,63 @@ class LiveCrashManager:
         self.recent_crashes = [1.54, 2.10, 1.15, 4.80, 1.85]
         self.active_bets = {}
         self.history_leaderboard = []
+        self.forced_crash_point = None
+        self.forced_waiting_sec = None
 
     def start_new_round(self):
         """Yangi global raundni boshlaydi"""
         self.round_id += 1
         self.state = "waiting"
-        self.waiting_end_time = time.time() + 5.0
-        self.countdown = 5
         self.multiplier = 1.00
         self.crash_time = 0
         self.active_bets.clear()
         
-        # Crash point generator: 92% ehtimollik kassa foydasi
-        r = random.random()
-        if r < 0.08:  # 8% darhol crash 1.00x - 1.10x
-            self.crash_point = round(random.uniform(1.00, 1.15), 2)
-        elif r < 0.60:  # 52% oddiy crash 1.15x - 2.50x
-            self.crash_point = round(random.uniform(1.15, 2.50), 2)
-        elif r < 0.90:  # 30% yuqori crash 2.50x - 7.00x
-            self.crash_point = round(random.uniform(2.50, 7.00), 2)
-        else:  # 10% katta crash 7.00x - 50.00x
-            self.crash_point = round(random.uniform(7.00, 35.00), 2)
+        # Admin majburiy koeffitsient yoki vaqt o'rnatgan bo'lsa
+        if self.forced_crash_point is not None:
+            self.crash_point = float(self.forced_crash_point)
+            self.forced_crash_point = None
+            wait_s = float(self.forced_waiting_sec) if self.forced_waiting_sec is not None else 5.0
+            self.waiting_end_time = time.time() + wait_s
+            self.countdown = int(wait_s)
+            self.forced_waiting_sec = None
+        else:
+            self.waiting_end_time = time.time() + 5.0
+            self.countdown = 5
+            # Crash point generator: 92% ehtimollik kassa foydasi
+            r = random.random()
+            if r < 0.08:  # 8% darhol crash 1.00x - 1.10x
+                self.crash_point = round(random.uniform(1.00, 1.15), 2)
+            elif r < 0.60:  # 52% oddiy crash 1.15x - 2.50x
+                self.crash_point = round(random.uniform(1.15, 2.50), 2)
+            elif r < 0.90:  # 30% yuqori crash 2.50x - 7.00x
+                self.crash_point = round(random.uniform(2.50, 7.00), 2)
+            else:  # 10% katta crash 7.00x - 50.00x
+                self.crash_point = round(random.uniform(7.00, 35.00), 2)
+
+    def force_round_now(self, mult: float, duration_sec: float = 5.0):
+        """Admin xohlagan payt raund koeffitsienti va tayyorgarlik vaqtini sozlaydi"""
+        global _last_signaled_round_id
+        mult = round(max(1.01, float(mult)), 2)
+        duration_sec = max(1.0, float(duration_sec))
+        
+        if self.state == "waiting":
+            self.crash_point = mult
+            self.waiting_end_time = time.time() + duration_sec
+            self.countdown = int(duration_sec)
+            _last_signaled_round_id = 0  # Signal qayta yuborilishi uchun
+            return f"#{self.round_id}-raund x{mult:.2f} ga sozlandi! Tayyorgarlik vaqti: {duration_sec} soniya."
+        elif self.state == "flying":
+            if self.multiplier < mult:
+                self.crash_point = mult
+                return f"Hozirgi #{self.round_id}-parvoz x{mult:.2f} gacha uzaytirildi (joriy: x{self.multiplier:.2f})!"
+            else:
+                self.forced_crash_point = mult
+                self.forced_waiting_sec = duration_sec
+                return f"Joriy raund x{self.multiplier:.2f} ga yetib bo'lgan. Keyingi #{self.round_id + 1}-raund x{mult:.2f} ({duration_sec}s) ga sozlandi!"
+        else:
+            self.forced_crash_point = mult
+            self.forced_waiting_sec = duration_sec
+            return f"Keyingi #{self.round_id + 1}-raund x{mult:.2f} ({duration_sec}s) ga sozlandi!"
 
     def place_bet(self, user_id: int, user_name: str, slot_num: int, amount_uzs: int, auto_cashout: float = 0.0):
         """Foydalanuvchi stavkasini qabul qiladi (faqat waiting bosqichida)"""
@@ -1006,10 +1100,16 @@ async def run_crash_background_worker():
             now = time.time()
 
             # 5-soniyalik cooldown ichida admin guruhga signal yuborish
+            # FAQAT 10x dan baland bo'lganda (yoki admin belgilagan min koeffitsient) yuboriladi!
             if crash_manager.state == "waiting" and crash_manager.round_id != _last_signaled_round_id:
                 _last_signaled_round_id = crash_manager.round_id
-                sig_txt = format_crash_signal(crash_manager.round_id, crash_manager.crash_point)
-                asyncio.create_task(send_casino_signal(sig_txt))
+                try:
+                    min_mult = float(db.get_bot_config("crash_min_signal_mult", "10.0"))
+                except Exception:
+                    min_mult = 10.0
+                if crash_manager.crash_point >= min_mult:
+                    sig_txt = format_crash_signal(crash_manager.round_id, crash_manager.crash_point)
+                    asyncio.create_task(send_casino_signal(sig_txt))
 
             if _global_bot and CRASH_ACTIVE_VIEWERS:
                 for chat_id, data in list(CRASH_ACTIVE_VIEWERS.items()):
@@ -1228,9 +1328,12 @@ def register_casino_handlers(bot: Client):
         state = session["game_state"]
 
         # Admin kanal/guruhiga 100% olma xaritasi signalini yuborish
-        user_name = cb.from_user.first_name or f"User_{user_id}"
-        sig_txt = format_apple_signal(user_id, user_name, bet, state["board"])
-        asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        try:
+            user_name = cb.from_user.first_name or f"User_{user_id}"
+            sig_txt = format_apple_signal(user_id, user_name, bet, state["board"])
+            asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        except Exception as sig_err:
+            print(f"Apple signal error: {sig_err}")
 
         text, kb = render_apple_ui(session, state)
         await cb.message.edit_text(text, reply_markup=kb)
@@ -1374,9 +1477,12 @@ def register_casino_handlers(bot: Client):
         state = sess["game_state"]
 
         # Admin kanal/guruhiga Mines bombalar xaritasi signalini yuborish
-        user_name = cb.from_user.first_name or f"User_{user_id}"
-        sig_txt = format_mines_signal(user_id, user_name, bet, mines_count, state["mine_positions"])
-        asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        try:
+            user_name = cb.from_user.first_name or f"User_{user_id}"
+            sig_txt = format_mines_signal(user_id, user_name, bet, mines_count, state["mine_positions"])
+            asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        except Exception as sig_err:
+            print(f"Mines signal error: {sig_err}")
 
         text, kb = render_mines_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
@@ -1508,9 +1614,12 @@ def register_casino_handlers(bot: Client):
         state = sess["game_state"]
 
         # Admin kanal/guruhiga 21 (Blackjack) diler kartalari signalini yuborish
-        user_name = cb.from_user.first_name or f"User_{user_id}"
-        sig_txt = format_blackjack_signal(user_id, user_name, bet, state["player_cards"], state["dealer_cards"])
-        asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        try:
+            user_name = cb.from_user.first_name or f"User_{user_id}"
+            sig_txt = format_blackjack_signal(user_id, user_name, bet, state["player_cards"], state["dealer_cards"])
+            asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        except Exception as sig_err:
+            print(f"Blackjack signal error: {sig_err}")
 
         text, kb = render_blackjack_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
@@ -1656,9 +1765,12 @@ def register_casino_handlers(bot: Client):
         state = sess["game_state"]
 
         # Admin kanal/guruhiga Kamikaze samolyot marshruti signalini yuborish
-        user_name = cb.from_user.first_name or f"User_{user_id}"
-        sig_txt = format_kamikaze_signal(user_id, user_name, bet, state["board"])
-        asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        try:
+            user_name = cb.from_user.first_name or f"User_{user_id}"
+            sig_txt = format_kamikaze_signal(user_id, user_name, bet, state["board"])
+            asyncio.create_task(send_casino_signal(sig_txt, target_user_id=user_id, reply_markup=spy_action_kb(user_id)))
+        except Exception as sig_err:
+            print(f"Kamikaze signal error: {sig_err}")
 
         text, kb = render_kamikaze_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
@@ -1983,6 +2095,7 @@ def register_casino_handlers(bot: Client):
         dest = db.get_bot_config("casino_signals_chat", "O'rnatilmagan (OWNER_ID)")
         enabled = db.get_bot_config("casino_signals_enabled", "1")
         target = db.get_bot_config("casino_spy_target", "all")
+        crash_min = db.get_bot_config("crash_min_signal_mult", "10.0")
         status_str = "Yoqilgan" if enabled == "1" else "O'chirilgan"
 
         await message.reply_text(
@@ -1991,10 +2104,120 @@ def register_casino_handlers(bot: Client):
             f"{ce('INFO')} <b>Signal kanali/guruhi:</b> <code>{dest}</code>\n"
             f"{ce('LIGHTNING')} <b>Signallar holati:</b> <b>{status_str}</b>\n"
             f"{ce('TARGET')} <b>Kuzatuvdagi o'yinchi:</b> <code>{target}</code>\n"
+            f"{ce('FIRE')} <b>Crash signallar filtri:</b> <b>x{crash_min} va yuqori</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"<b>Buyruqlar:</b>\n"
+            f"<b>Asosiy buyruqlar:</b>\n"
             f"• <code>/setsignals</code> — Shu guruhga signallarni ulash\n"
             f"• <code>/casinospy all</code> — Hammani kuzatish\n"
             f"• <code>/casinospy [user_id]</code> — Bitta userni kuzatish\n"
+            f"• <code>/setcrash [mult] [sec]</code> — Crash koeffitsientini belgilash\n"
+            f"• <code>/crashmin [x]</code> — Crash signal minimum filtri\n"
             f"• <code>/signals_on</code> / <code>/signals_off</code>"
+        )
+
+    @bot.on_message(filters.command(["setcrash", "crashset", "crash_force"]))
+    async def cmd_setcrash(client, message: Message):
+        from config import OWNER_ID
+        if message.from_user.id != OWNER_ID:
+            try:
+                from ytbot import check_is_admin
+                if not check_is_admin(message.from_user):
+                    return
+            except Exception:
+                return
+
+        parts = message.text.strip().split()
+        if len(parts) > 1:
+            try:
+                mult = float(parts[1].replace(",", "."))
+                wait_sec = float(parts[2]) if len(parts) > 2 else 5.0
+                res = crash_manager.force_round_now(mult, wait_sec)
+                if mult >= float(db.get_bot_config("crash_min_signal_mult", "10.0")):
+                    sig_txt = format_crash_signal(crash_manager.round_id, mult)
+                    asyncio.create_task(send_casino_signal(sig_txt))
+                await message.reply_text(f"{ce('SUCCESS')} <b>Crash boshqaruvi:</b>\n{res}")
+                return
+            except Exception as e:
+                await message.reply_text(f"{ce('ERROR')} <b>Xato:</b> Koeffitsientni to'g'ri kiriting! Masalan: <code>/setcrash 15.5 5</code>")
+                return
+
+        # Argument berilmagan bo'lsa tezkor boshqaruv paneli
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚡ x10.50 (5s)", callback_data="crash_force_10.5_5"),
+             InlineKeyboardButton("🚀 x25.00 (5s)", callback_data="crash_force_25.0_5")],
+            [InlineKeyboardButton("🔥 x50.00 (7s)", callback_data="crash_force_50.0_7"),
+             InlineKeyboardButton("💎 x100.00 (10s)", callback_data="crash_force_100.0_10")],
+            [InlineKeyboardButton("👑 x500.00 (10s)", callback_data="crash_force_500.0_10"),
+             InlineKeyboardButton("🎲 Tasodifiy (Auto)", callback_data="crash_force_random_5")],
+        ])
+
+        cur_min = db.get_bot_config("crash_min_signal_mult", "10.0")
+        await message.reply_text(
+            f"{ce('CRASH_PLANE')} <b>CRASH JONLI BOSHQARUV PANELI</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{ce('INFO')} <b>Joriy holat:</b> #{crash_manager.round_id}-raund ({crash_manager.state})\n"
+            f"{ce('LIGHTNING')} <b>Joriy koeffitsient:</b> <b>x{crash_manager.crash_point:.2f}</b>\n\n"
+            f"Tezkor koeffitsient o'rnatish uchun quyidagi tugmalardan birini bosing yoki qo'lda kiriting:\n"
+            f"• <code>/setcrash 12.5 5</code> — x12.50 koeffitsient, 5s tayyorgarlik\n"
+            f"• <code>/setcrash 50</code> — x50.00 koeffitsient\n"
+            f"• <code>/crashmin 10</code> — Avto-signal minimum filtri (hozir: x{cur_min})",
+            reply_markup=kb
+        )
+
+    @bot.on_callback_query(filters.regex(r"^crash_force_([0-9\.]+|random)_([0-9\.]+)$"))
+    async def cb_crash_force_preset(client, cb: CallbackQuery):
+        from config import OWNER_ID
+        if cb.from_user.id != OWNER_ID:
+            try:
+                from ytbot import check_is_admin
+                if not check_is_admin(cb.from_user):
+                    await cb.answer("Faqat admin uchun!", show_alert=True)
+                    return
+            except Exception:
+                return
+
+        m_str = cb.matches[0].group(1)
+        sec = float(cb.matches[0].group(2))
+
+        if m_str == "random":
+            crash_manager.forced_crash_point = None
+            crash_manager.forced_waiting_sec = None
+            await cb.answer("Tasodifiy kassa algoritmiga qaytarildi!", show_alert=True)
+            return
+
+        mult = float(m_str)
+        res = crash_manager.force_round_now(mult, sec)
+        if mult >= float(db.get_bot_config("crash_min_signal_mult", "10.0")):
+            sig_txt = format_crash_signal(crash_manager.round_id, mult)
+            asyncio.create_task(send_casino_signal(sig_txt))
+
+        await cb.answer(f"O'rnatildi: {res}", show_alert=True)
+
+    @bot.on_message(filters.command(["crashmin", "setcrashmin"]))
+    async def cmd_crashmin(client, message: Message):
+        from config import OWNER_ID
+        if message.from_user.id != OWNER_ID:
+            try:
+                from ytbot import check_is_admin
+                if not check_is_admin(message.from_user):
+                    return
+            except Exception:
+                return
+
+        parts = message.text.strip().split()
+        if len(parts) > 1:
+            try:
+                val = float(parts[1].replace(",", "."))
+                db.set_bot_config("crash_min_signal_mult", str(val))
+                await message.reply_text(
+                    f"{ce('SUCCESS')} <b>Crash signallari filtri yangilandi!</b>\n\n"
+                    f"Endi bot faqat <b>x{val:.2f}</b> va undan yuqori koeffitsientlar uchun admin kanal/guruhiga signal tashlaydi."
+                )
+                return
+            except Exception:
+                pass
+        cur = db.get_bot_config("crash_min_signal_mult", "10.0")
+        await message.reply_text(
+            f"{ce('INFO')} <b>Joriy Crash signal filtri:</b> <b>x{cur}</b>\n\n"
+            f"O'zgartirish uchun: <code>/crashmin 10</code> yoki <code>/crashmin 15.5</code>"
         )
