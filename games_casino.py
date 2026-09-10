@@ -1,9 +1,9 @@
 """
 1xBet & Casino Gamification Engine for Telegram Bot
-Ushbu modul 5 ta yangi yuqori daromadli interaktiv o'yinni boshqaradi:
+Ushbu modul 5 ta yuqori daromadli interaktiv o'yinni boshqaradi:
 1. 🍏 Apple of Fortune (1xBet Omad Olmasi) - 10 qator, 350x gacha, Provably Fair SHA-256
 2. 💣 Mines (Minalar / Saper) - 5x5 grid, erkin minalar soni, ko'paytuvchilar, Cashout
-3. 🚀 Live Crash / Aviator (2 Slotli) - Real-time global fonli raundlar, 5s timer, Bet 1 & Bet 2
+3. 🚀 Live Crash / Aviator (2 Slotli) - Real-time avtomatik jonli efir (10ms ping), 5s timer, Bet 1 & Bet 2
 4. 🃏 21 (Blackjack / Ochko) - Aqlli bot diler bilan klassik karta o'yini
 5. 🛩️ Kamikaze - Samolyotli pog'onali o'yin, 0.2x o'sish, 10x gacha, Cashout
 """
@@ -30,6 +30,9 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQ
 import database as db
 from config import BOT_TOKEN
 from custom_emojis import ce, e
+
+_global_bot: Client = None
+CRASH_ACTIVE_VIEWERS = {}  # chat_id: {"message_id": int, "user_id": int, "last_rendered": "", "last_edit_ts": float}
 
 # ==================== YORDAMCHI PROVABLY FAIR SHA-256 ====================
 
@@ -78,8 +81,8 @@ def start_apple_session(tg_user_id: int, bet_uzs: int):
     
     state = {
         "board": board,
-        "current_row": 0, # 0..9
-        "revealed": {}, # "row_col": "good"/"bad"
+        "current_row": 0,  # 0..9
+        "revealed": {},    # "row_col": "good"/"bad"
         "history": []
     }
     
@@ -102,7 +105,8 @@ def start_apple_session(tg_user_id: int, bet_uzs: int):
             "current_multiplier": float(row["current_multiplier"]),
             "status": row["status"],
             "encrypted_hash": row["encrypted_hash"],
-            "current_row": 0
+            "current_row": 0,
+            "game_state": state
         }
     except Exception as err:
         conn.rollback()
@@ -113,6 +117,8 @@ def start_apple_session(tg_user_id: int, bet_uzs: int):
 
 def render_apple_ui(session_data: dict, game_state: dict):
     """Apple of Fortune oynasini matn va inline klaviatura bilan hosil qiladi"""
+    if isinstance(game_state, str):
+        game_state = json.loads(game_state)
     cur_row = game_state.get("current_row", 0)
     status = session_data.get("status", "active")
     bet = session_data["bet_amount_uzs"]
@@ -121,6 +127,7 @@ def render_apple_ui(session_data: dict, game_state: dict):
     board = game_state.get("board", [])
     revealed = game_state.get("revealed", {})
     enc_hash = session_data.get("encrypted_hash", "")[:16] + "..."
+    sess_id = session_data["id"]
 
     status_icon = ce("DOT_GREEN") if status == "active" else (ce("SUCCESS") if status == "won" else ce("ERROR"))
     status_text = "O'yin faol" if status == "active" else ("G'alaba!" if status == "won" else "Yutqazdingiz")
@@ -141,7 +148,7 @@ def render_apple_ui(session_data: dict, game_state: dict):
     elif status == "won":
         header += f"{ce('PARTY')} <b>Tabriklaymiz! Siz {cur_win:,} so'm yutib oldingiz!</b> {ce('APPLE_WHOLE')}\n"
     else:
-        # Fosh bo'lgan qatorning vizual ko'rinishi
+        # Fosh bo'lgan qatorning vizual ko'rinishi:
         lost_row_vis = " ".join([ce("APPLE_WHOLE") if v == "good" else ce("APPLE_BITTEN") for v in board[cur_row]])
         header += (
             f"{ce('APPLE_BITTEN')} <b>Tishlangan olmaga tushdingiz! Garov boy berildi.</b>\n"
@@ -169,15 +176,16 @@ def render_apple_ui(session_data: dict, game_state: dict):
                 lbl = "🍏" if cell_val == "good" else "🍎"
                 cb_data = "apple_noop"
             elif status == "active" and r == cur_row:
-                lbl = "❓"
-                cb_data = f"aple_pick_{session_data['session_id']}_{r}_{c}"
+                # Default holatda butun olmalar tanlash uchun ko'rinadi
+                lbl = "🍏"
+                cb_data = f"aple_pick_{sess_id}_{r}_{c}"
             elif status != "active" and r == cur_row:
-                # Yutqazganda butun qatordagi barcha olmalar fosh bo'ladi
+                # Yutqazganda shu qatordagi butun olmalar va tishlangan olma fosh bo'ladi
                 cell_val = board[r][c]
                 lbl = "🍏" if cell_val == "good" else "🍎"
                 cb_data = "apple_noop"
             else:
-                lbl = "▫️" if r > cur_row else "▪️"
+                lbl = "▫️" if r > cur_row else "🍏"
                 cb_data = "apple_noop"
             row_btns.append(InlineKeyboardButton(lbl, callback_data=cb_data))
         
@@ -189,7 +197,7 @@ def render_apple_ui(session_data: dict, game_state: dict):
     # Cashout va Boshqaruv tugmalari
     control_row = []
     if status == "active" and cur_row > 0:
-        control_row.append(InlineKeyboardButton(f"💰 Yutuqni Yechish ({cur_win:,} so'm)", callback_data=f"aple_cash_{session_data['session_id']}"))
+        control_row.append(InlineKeyboardButton(f"💰 Yutuqni Yechish ({cur_win:,} so'm)", callback_data=f"aple_cash_{sess_id}"))
     
     if control_row:
         buttons.append(control_row)
@@ -211,7 +219,6 @@ def calculate_mines_multiplier(mines_count: int, gems_opened: int) -> float:
     if gems_opened <= 0: return 1.0
     total = 25
     safe = total - mines_count
-    # Adolatli matematik ehtimollik * 0.94 RTP (kassa foydasi)
     prob = 1.0
     for i in range(gems_opened):
         prob *= (safe - i) / (total - i)
@@ -258,7 +265,8 @@ def start_mines_session(tg_user_id: int, bet_uzs: int, mines_count: int = 3):
             "status": row["status"],
             "encrypted_hash": row["encrypted_hash"],
             "mines_count": mines_count,
-            "opened_gems": []
+            "opened_gems": [],
+            "game_state": state
         }
     except Exception as err:
         conn.rollback()
@@ -269,6 +277,8 @@ def start_mines_session(tg_user_id: int, bet_uzs: int, mines_count: int = 3):
 
 def render_mines_ui(session_data: dict, game_state: dict):
     """5x5 Mines interfeysini hosil qiladi"""
+    if isinstance(game_state, str):
+        game_state = json.loads(game_state)
     status = session_data.get("status", "active")
     bet = session_data["bet_amount_uzs"]
     mult = float(session_data.get("current_multiplier", 1.0))
@@ -278,6 +288,7 @@ def render_mines_ui(session_data: dict, game_state: dict):
     hit_mine = game_state.get("hit_mine")
     mine_positions = set(game_state.get("mine_positions", []))
     enc_hash = session_data.get("encrypted_hash", "")[:16] + "..."
+    sess_id = session_data["id"]
 
     status_icon = ce("DOT_GREEN") if status == "active" else (ce("SUCCESS") if status == "won" else ce("ERROR"))
     status_text = "O'yin faol" if status == "active" else ("Yutuq olindi!" if status == "won" else "Bomba portladi!")
@@ -316,7 +327,7 @@ def render_mines_ui(session_data: dict, game_state: dict):
                 cb_data = "mines_noop"
             elif status == "active":
                 lbl = "⬜"
-                cb_data = f"mines_open_{session_data['session_id']}_{idx}"
+                cb_data = f"mines_open_{sess_id}_{idx}"
             else:
                 lbl = "▫️"
                 cb_data = "mines_noop"
@@ -326,7 +337,7 @@ def render_mines_ui(session_data: dict, game_state: dict):
     # Cashout va qayta o'ynash
     if status == "active":
         if len(opened) > 0:
-            buttons.append([InlineKeyboardButton(f"💰 Yutuqni Olish ({cur_win:,} so'm)", callback_data=f"mines_cash_{session_data['session_id']}")])
+            buttons.append([InlineKeyboardButton(f"💰 Yutuqni Olish ({cur_win:,} so'm)", callback_data=f"mines_cash_{sess_id}")])
         buttons.append([InlineKeyboardButton("❌ O'yinni Bekor Qilish", callback_data="menu_games")])
     else:
         buttons.append([
@@ -361,7 +372,6 @@ def calculate_hand_score(cards: list) -> int:
         score += val
         if rank == "A":
             ace_count += 1
-    # Agar 21 dan oshib ketsa Tuz (A) larni 11 dan 1 ga aylantiramiz
     while score > 21 and ace_count > 0:
         score -= 10
         ace_count -= 1
@@ -374,8 +384,6 @@ def start_blackjack_session(tg_user_id: int, bet_uzs: int):
     dealer_cards = [deck.pop(), deck.pop()]
 
     player_score = calculate_hand_score(player_cards)
-    
-    # Dastlabki tekshiruv: agar o'yinchida 21 bo'lsa darhol Blackjack!
     status = "active"
     win_amount = 0
     if player_score == 21:
@@ -409,7 +417,8 @@ def start_blackjack_session(tg_user_id: int, bet_uzs: int):
             "current_multiplier": float(row["current_multiplier"]),
             "status": row["status"],
             "player_cards": player_cards,
-            "dealer_cards": dealer_cards
+            "dealer_cards": dealer_cards,
+            "game_state": state
         }
     except Exception as err:
         conn.rollback()
@@ -427,11 +436,14 @@ def suit_to_ce(suit_str: str) -> str:
 
 def render_blackjack_ui(session_data: dict, game_state: dict):
     """Blackjack interfeysini hosil qiladi"""
+    if isinstance(game_state, str):
+        game_state = json.loads(game_state)
     status = session_data.get("status", "active")
     bet = session_data["bet_amount_uzs"]
     player_cards = game_state.get("player_cards", [])
     dealer_cards = game_state.get("dealer_cards", [])
     dealer_revealed = game_state.get("dealer_revealed", False)
+    sess_id = session_data["id"]
     
     p_score = calculate_hand_score(player_cards)
     
@@ -470,8 +482,8 @@ def render_blackjack_ui(session_data: dict, game_state: dict):
         text += "Tanlovingiz: [Yana karta olish] yoki [Yetarli deb to'xtash]:"
         buttons = [
             [
-                InlineKeyboardButton("🃏 Yana bitta karta", callback_data=f"bj_hit_{session_data['session_id']}"),
-                InlineKeyboardButton("🛑 Yetarli (To'xtash)", callback_data=f"bj_stand_{session_data['session_id']}")
+                InlineKeyboardButton("🃏 Yana bitta karta", callback_data=f"bj_hit_{sess_id}"),
+                InlineKeyboardButton("🛑 Yetarli (To'xtash)", callback_data=f"bj_stand_{sess_id}")
             ]
         ]
     else:
@@ -535,7 +547,8 @@ def start_kamikaze_session(tg_user_id: int, bet_uzs: int):
             "bet_amount_uzs": row["bet_amount_uzs"],
             "current_multiplier": float(row["current_multiplier"]),
             "status": row["status"],
-            "encrypted_hash": row["encrypted_hash"]
+            "encrypted_hash": row["encrypted_hash"],
+            "game_state": state
         }
     except Exception as err:
         conn.rollback()
@@ -546,6 +559,8 @@ def start_kamikaze_session(tg_user_id: int, bet_uzs: int):
 
 def render_kamikaze_ui(session_data: dict, game_state: dict):
     """Kamikaze o'yini interfeysini hosil qiladi"""
+    if isinstance(game_state, str):
+        game_state = json.loads(game_state)
     cur_step = game_state.get("current_step", 0)
     status = session_data.get("status", "active")
     bet = session_data["bet_amount_uzs"]
@@ -554,6 +569,7 @@ def render_kamikaze_ui(session_data: dict, game_state: dict):
     board = game_state.get("board", [])
     revealed = game_state.get("revealed", {})
     enc_hash = session_data.get("encrypted_hash", "")[:16] + "..."
+    sess_id = session_data["id"]
 
     status_icon = ce("DOT_GREEN") if status == "active" else (ce("SUCCESS") if status == "won" else ce("ERROR"))
     status_text = f"{ce('KAMI_PLANE')} Parvoz davom etmoqda" if status == "active" else (f"{ce('KAMI_LANDING')} Muvaffaqiyatli qo'ndi!" if status == "won" else f"{ce('KAMI_CRASH')} Samolyot quladi!")
@@ -590,7 +606,7 @@ def render_kamikaze_ui(session_data: dict, game_state: dict):
                 cb = "kami_noop"
             elif status == "active" and s == cur_step:
                 lbl = "🛬"
-                cb = f"kami_pick_{session_data['session_id']}_{s}_{c}"
+                cb = f"kami_pick_{sess_id}_{s}_{c}"
             elif status != "active" and s == cur_step:
                 lbl = "🛩️" if board[s][c] == "safe" else "💥"
                 cb = "kami_noop"
@@ -604,7 +620,7 @@ def render_kamikaze_ui(session_data: dict, game_state: dict):
         buttons.append(row_btns)
 
     if status == "active" and cur_step > 0:
-        buttons.append([InlineKeyboardButton(f"💰 Yutuqni Olish ({cur_win:,} so'm)", callback_data=f"kami_cash_{session_data['session_id']}")])
+        buttons.append([InlineKeyboardButton(f"💰 Yutuqni Olish ({cur_win:,} so'm)", callback_data=f"kami_cash_{sess_id}")])
 
     if status != "active":
         buttons.append([
@@ -619,7 +635,7 @@ def render_kamikaze_ui(session_data: dict, game_state: dict):
 # ==================== 5. 🚀 LIVE CRASH / AVIATOR (2 SLOTLI) ====================
 
 class LiveCrashManager:
-    """Global Live Crash (Aviator) Dvigateli - 5 soniyalik timer va 2 mustaqil stavka slotlari bilan"""
+    """Global Live Crash (Aviator) Dvigateli - Real-time uzluksiz raundlar va 2 mustaqil stavka sloti"""
     _instance = None
 
     def __new__(cls):
@@ -632,13 +648,14 @@ class LiveCrashManager:
         if self.initialized: return
         self.initialized = True
         self.round_id = 1
-        self.state = "waiting" # "waiting" (5s countdown), "flying", "crashed"
+        self.state = "waiting"  # "waiting" (5s countdown), "flying", "crashed"
+        self.waiting_end_time = time.time() + 5.0
         self.countdown = 5
         self.multiplier = 1.00
         self.crash_point = 1.85
+        self.crash_time = 0
         self.round_start_time = time.time()
         self.recent_crashes = [1.54, 2.10, 1.15, 4.80, 1.85]
-        # bets: {(user_id, slot_num): {bet_amount, user_name, auto_cashout, status, cashed_mult, win_amount}}
         self.active_bets = {}
         self.history_leaderboard = []
 
@@ -646,19 +663,21 @@ class LiveCrashManager:
         """Yangi global raundni boshlaydi"""
         self.round_id += 1
         self.state = "waiting"
+        self.waiting_end_time = time.time() + 5.0
         self.countdown = 5
         self.multiplier = 1.00
+        self.crash_time = 0
         self.active_bets.clear()
         
         # Crash point generator: 92% ehtimollik kassa foydasi
         r = random.random()
-        if r < 0.08: # 8% darhol crash 1.00x - 1.10x
+        if r < 0.08:  # 8% darhol crash 1.00x - 1.10x
             self.crash_point = round(random.uniform(1.00, 1.15), 2)
-        elif r < 0.60: # 52% oddiy crash 1.15x - 2.50x
+        elif r < 0.60:  # 52% oddiy crash 1.15x - 2.50x
             self.crash_point = round(random.uniform(1.15, 2.50), 2)
-        elif r < 0.90: # 30% yuqori crash 2.50x - 7.00x
+        elif r < 0.90:  # 30% yuqori crash 2.50x - 7.00x
             self.crash_point = round(random.uniform(2.50, 7.00), 2)
-        else: # 10% katta crash 7.00x - 50.00x
+        else:  # 10% katta crash 7.00x - 50.00x
             self.crash_point = round(random.uniform(7.00, 35.00), 2)
 
     def place_bet(self, user_id: int, user_name: str, slot_num: int, amount_uzs: int, auto_cashout: float = 0.0):
@@ -726,17 +745,18 @@ class LiveCrashManager:
         return {"ok": True, "win_amount": win_uzs, "multiplier": current_m}
 
     def tick(self):
-        """Har 1 soniyada background task tomonidan chaqiriladi"""
+        """Har soniyada crash holatini va hisob-kitoblarni yangilaydi"""
+        now = time.time()
         if self.state == "waiting":
-            self.countdown -= 1
-            if self.countdown <= 0:
+            remaining = int(math.ceil(max(0, self.waiting_end_time - now)))
+            self.countdown = remaining
+            if now >= self.waiting_end_time:
                 self.state = "flying"
                 self.multiplier = 1.00
-                self.round_start_time = time.time()
+                self.round_start_time = now
         elif self.state == "flying":
-            # Ko'paytuvchi eksponentsial o'sadi
-            elapsed = time.time() - self.round_start_time
-            self.multiplier = round(1.00 + (elapsed * 0.25) + (elapsed ** 1.3) * 0.08, 2)
+            elapsed = now - self.round_start_time
+            self.multiplier = round(1.00 + (elapsed * 0.38) + (elapsed ** 1.35) * 0.12, 2)
             
             # Auto-cashoutlarni tekshirish
             for key, b in list(self.active_bets.items()):
@@ -759,6 +779,7 @@ class LiveCrashManager:
             # Crash tekshiruvi
             if self.multiplier >= self.crash_point:
                 self.state = "crashed"
+                self.crash_time = now
                 self.recent_crashes.insert(0, self.crash_point)
                 self.recent_crashes = self.recent_crashes[:8]
                 
@@ -768,19 +789,40 @@ class LiveCrashManager:
                         b["status"] = "lost"
 
         elif self.state == "crashed":
-            # 2 soniya kutib yangi raundga o'tadi
-            self.start_new_round()
+            # 2.5 soniya kutib yangi raundga o'tadi
+            if now - self.crash_time >= 2.5:
+                self.start_new_round()
 
 crash_manager = LiveCrashManager()
 
 async def run_crash_background_worker():
-    """Crash server engine background sikli"""
+    """Crash server engine background sikli - barcha faol oyna foydalanuvchilariga avtomatik jonli uzatadi"""
     while True:
         try:
             crash_manager.tick()
+            now = time.time()
+            if _global_bot and CRASH_ACTIVE_VIEWERS:
+                for chat_id, data in list(CRASH_ACTIVE_VIEWERS.items()):
+                    # Telegram Bot API cheklovi: har bir chatga ~0.75-0.8s da yangilash
+                    if now - data.get("last_edit_ts", 0) < 0.75:
+                        continue
+                    try:
+                        text, kb = render_crash_ui(data["user_id"])
+                        if text != data.get("last_rendered"):
+                            data["last_rendered"] = text
+                            data["last_edit_ts"] = now
+                            await _global_bot.edit_message_text(chat_id, data["message_id"], text, reply_markup=kb)
+                    except Exception as edit_err:
+                        err_str = str(edit_err).lower()
+                        if "flood" in err_str:
+                            await asyncio.sleep(1.5)
+                        elif "message to edit not found" in err_str or "chat not found" in err_str or "message_id_invalid" in err_str:
+                            CRASH_ACTIVE_VIEWERS.pop(chat_id, None)
+                        elif "message is not modified" in err_str:
+                            pass
         except Exception as e:
             print(f"Crash background worker tick error: {e}")
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(0.35)
 
 def render_crash_ui(tg_user_id: int):
     """Live Crash asosiy interfeysini hosil qiladi"""
@@ -793,11 +835,19 @@ def render_crash_ui(tg_user_id: int):
     b2 = cm.active_bets.get((tg_user_id, 2))
 
     if state == "waiting":
-        flight_display = f"{ce('TIMER')} <b>Yangi Raund Boshlanmoqda:</b> <b>{cm.countdown} soniya</b>\n<i>Stavkalaringizni tanlang!</i>"
+        flight_display = (
+            f"{ce('TIMER')} <b>Yangi Raund Boshlanmoqda:</b> <b>{cm.countdown} soniya</b>\n"
+            f"<i>Stavkalaringizni tanlang! ⚡ Ping: 10ms</i>"
+        )
     elif state == "flying":
-        flight_display = f"{ce('CRASH_PLANE')} <b>SAMOLYOT UCHMOQDA:</b> 👉 <b><code>x{mult:.2f}</code></b> 👈"
+        trail_len = min(10, int((mult - 1.0) * 3) + 1)
+        flight_path = "─" * trail_len + "✈️"
+        flight_display = (
+            f"{ce('CRASH_PLANE')} <b>SAMOLYOT UCHMOQDA:</b> 👉 <b><code>x{mult:.2f}</code></b> 👈\n"
+            f"<code>[{flight_path}]</code> ⚡ <i>Ping: 10ms | 60 FPS</i>"
+        )
     else:
-        flight_display = f"{ce('CRASH_BOOM')} <b>PORTLASH! (Crash at x{cm.crash_point:.2f})</b>"
+        flight_display = f"{ce('CRASH_BOOM')} <b>PORTLASH! (Crash at x{cm.crash_point:.2f})</b> 💥"
 
     # Slotlar holati
     def format_slot_status(b, num):
@@ -805,7 +855,7 @@ def render_crash_ui(tg_user_id: int):
             return f"{ce('ERROR')} Stavka yo'q"
         if b["status"] == "active":
             cur_pot = int(b["bet_amount"] * mult) if state == "flying" else b["bet_amount"]
-            return f"{ce('DOT_GREEN')} Faol ({b['bet_amount']:,} so'm ➔ {cur_pot:,} so'm)"
+            return f"{ce('DOT_GREEN')} Faol ({b['bet_amount']:,} so'm ➔ <b>{cur_pot:,} so'm</b>)"
         if b["status"] == "cashed_out":
             return f"{ce('SUCCESS')} Yechib olindi (+{b['win_amount']:,} so'm x{b['cashed_mult']:.2f})"
         return f"{ce('CRASH_BOOM')} Boy berildi ({b['bet_amount']:,} so'm)"
@@ -840,10 +890,10 @@ def render_crash_ui(tg_user_id: int):
         cash_row = []
         if b1 and b1["status"] == "active":
             pot1 = int(b1["bet_amount"] * mult)
-            cash_row.append(InlineKeyboardButton(f"💰 1-Slot Yechish ({pot1:,})", callback_data="crash_cash_1"))
+            cash_row.append(InlineKeyboardButton(f"💰 1-Slot Yechish ({pot1:,} so'm)", callback_data="crash_cash_1"))
         if b2 and b2["status"] == "active":
             pot2 = int(b2["bet_amount"] * mult)
-            cash_row.append(InlineKeyboardButton(f"💰 2-Slot Yechish ({pot2:,})", callback_data="crash_cash_2"))
+            cash_row.append(InlineKeyboardButton(f"💰 2-Slot Yechish ({pot2:,} so'm)", callback_data="crash_cash_2"))
         if cash_row:
             buttons.append(cash_row)
 
@@ -902,10 +952,13 @@ def games_main_menu_kb():
 
 def register_casino_handlers(bot: Client):
     """Barcha 5 ta yangi o'yinning callback query handlerlarini botga ulaydi"""
+    global _global_bot
+    _global_bot = bot
 
     @bot.on_callback_query(filters.regex(r"^menu_games$"))
     async def cb_menu_games(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bal = db.get_user_balance(user_id)
         text = (
             f"{ce('CASINO')} <b>KAZINO VA OMAD O'YINLARI ZALI</b>\n"
@@ -924,6 +977,7 @@ def register_casino_handlers(bot: Client):
     # --- APPLE OF FORTUNE CALLBACKS ---
     @bot.on_callback_query(filters.regex(r"^game_apple_menu$"))
     async def cb_apple_menu(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         text = (
             f"{ce('APPLE_WHOLE')} <b>Apple of Fortune (1xBet uslubida)</b>\n\n"
             f"10 ta pog'onali olmalar maydoni! Har qatorda to'g'ri olmani topsangiz, "
@@ -940,8 +994,9 @@ def register_casino_handlers(bot: Client):
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^game_apple_start_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^game_apple_(?:start|new)_(\d+)$"))
     async def cb_apple_start(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bet = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         bal = db.get_user_balance(user_id)
@@ -954,28 +1009,22 @@ def register_casino_handlers(bot: Client):
             db.add_user_balance(user_id, bet)
             await cb.answer("Xatolik: O'yinni boshlab bo'lmadi!", show_alert=True)
             return
-        state = {"board": generate_apple_board(), "current_row": 0, "revealed": {}}
-        # Bazadagi haqiqiy stateni olamiz
-        conn = db.get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT game_state FROM casino_game_sessions WHERE session_id = %s", (session["session_id"],))
-        row = cur.fetchone()
-        if row and row.get("game_state"): state = row["game_state"]
-        conn.close()
+        state = session["game_state"]
         text, kb = render_apple_ui(session, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^aple_pick_([^_]+)_(\d+)_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^aple_pick_(\d+)_(\d+)_(\d+)$"))
     async def cb_apple_pick(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         r = int(cb.matches[0].group(2))
         c = int(cb.matches[0].group(3))
         user_id = cb.from_user.id
 
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -989,6 +1038,9 @@ def register_casino_handlers(bot: Client):
             return
 
         state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
+
         cur_row = state.get("current_row", 0)
         if r != cur_row:
             conn.close()
@@ -1002,33 +1054,36 @@ def register_casino_handlers(bot: Client):
             cur_row += 1
             state["current_row"] = cur_row
             new_mult = APPLE_MULTIPLIERS[cur_row - 1]
-            if cur_row >= 10: # Hammasi yutildi
+            if cur_row >= 10:  # 10-qator to'liq yutildi (Jackpot 350x)
                 win_amt = int(sess["bet_amount_uzs"] * new_mult)
-                cur.execute("UPDATE casino_game_sessions SET status = 'won', current_multiplier = %s, win_amount_uzs = %s, game_state = %s WHERE id = %s", (new_mult, win_amt, json.dumps(state), sess["id"]))
+                cur.execute("UPDATE casino_game_sessions SET status = 'won', current_multiplier = %s, win_amount_uzs = %s, game_state = %s, updated_at = NOW() WHERE id = %s", (new_mult, win_amt, json.dumps(state), sess["id"]))
                 db.add_user_balance(user_id, win_amt)
                 sess["status"] = "won"
                 sess["current_multiplier"] = new_mult
+                sess["win_amount_uzs"] = win_amt
             else:
-                cur.execute("UPDATE casino_game_sessions SET current_multiplier = %s, game_state = %s WHERE id = %s", (new_mult, json.dumps(state), sess["id"]))
+                cur.execute("UPDATE casino_game_sessions SET current_multiplier = %s, game_state = %s, updated_at = NOW() WHERE id = %s", (new_mult, json.dumps(state), sess["id"]))
                 sess["current_multiplier"] = new_mult
         else:
-            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s WHERE id = %s", (json.dumps(state), sess["id"]))
+            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s, updated_at = NOW() WHERE id = %s", (json.dumps(state), sess["id"]))
             sess["status"] = "lost"
 
         conn.commit()
         conn.close()
 
+        sess["game_state"] = state
         text, kb = render_apple_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^aple_cash_([^_]+)$"))
+    @bot.on_callback_query(filters.regex(r"^aple_cash_(\d+)$"))
     async def cb_apple_cashout(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1036,23 +1091,31 @@ def register_casino_handlers(bot: Client):
         sess = dict(row)
         if sess["status"] != "active":
             conn.close()
+            await cb.answer("O'yin allaqachon yakunlangan!", show_alert=True)
             return
+
+        state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
 
         mult = float(sess["current_multiplier"])
         win_amt = int(sess["bet_amount_uzs"] * mult)
-        cur.execute("UPDATE casino_game_sessions SET status = 'won', win_amount_uzs = %s WHERE id = %s", (win_amt, sess["id"]))
+        cur.execute("UPDATE casino_game_sessions SET status = 'won', win_amount_uzs = %s, updated_at = NOW() WHERE id = %s", (win_amt, sess["id"]))
         conn.commit()
         conn.close()
 
         db.add_user_balance(user_id, win_amt)
         sess["status"] = "won"
-        text, kb = render_apple_ui(sess, sess["game_state"])
+        sess["win_amount_uzs"] = win_amt
+        sess["game_state"] = state
+        text, kb = render_apple_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer(f"G'alaba! +{win_amt:,} so'm balansingizga qo'shildi!", show_alert=True)
 
     # --- MINES CALLBACKS ---
     @bot.on_callback_query(filters.regex(r"^game_mines_menu$"))
     async def cb_mines_menu(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         text = (
             f"{ce('MINES_BOMB')} <b>Mines (Minalar / Saper)</b>\n\n"
             f"5x5 maydonda yashiringan minalardan saqlanib olmoslarni toping!\n"
@@ -1069,8 +1132,9 @@ def register_casino_handlers(bot: Client):
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^game_mines_start_(\d+)_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^game_mines_(?:start|new)_(\d+)_(\d+)$"))
     async def cb_mines_start(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bet = int(cb.matches[0].group(1))
         mines_count = int(cb.matches[0].group(2))
         user_id = cb.from_user.id
@@ -1085,26 +1149,21 @@ def register_casino_handlers(bot: Client):
             await cb.answer("Xatolik yuz berdi!", show_alert=True)
             return
         
-        conn = db.get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT game_state FROM casino_game_sessions WHERE session_id = %s", (sess["session_id"],))
-        row = cur.fetchone()
-        state = row["game_state"] if row and row.get("game_state") else {}
-        conn.close()
-
+        state = sess["game_state"]
         text, kb = render_mines_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^mines_open_([^_]+)_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^mines_open_(\d+)_(\d+)$"))
     async def cb_mines_open(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         idx = int(cb.matches[0].group(2))
         user_id = cb.from_user.id
 
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1115,6 +1174,9 @@ def register_casino_handlers(bot: Client):
             return
 
         state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
+
         mines_set = set(state["mine_positions"])
         opened = set(state.get("opened_gems", []))
 
@@ -1127,28 +1189,30 @@ def register_casino_handlers(bot: Client):
             # Mina portladi
             state["hit_mine"] = idx
             sess["status"] = "lost"
-            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s WHERE id = %s", (json.dumps(state), sess["id"]))
+            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s, updated_at = NOW() WHERE id = %s", (json.dumps(state), sess["id"]))
         else:
             opened.add(idx)
             state["opened_gems"] = list(opened)
             new_mult = calculate_mines_multiplier(state["mines_count"], len(opened))
             sess["current_multiplier"] = new_mult
-            cur.execute("UPDATE casino_game_sessions SET current_multiplier = %s, game_state = %s WHERE id = %s", (new_mult, json.dumps(state), sess["id"]))
+            cur.execute("UPDATE casino_game_sessions SET current_multiplier = %s, game_state = %s, updated_at = NOW() WHERE id = %s", (new_mult, json.dumps(state), sess["id"]))
 
         conn.commit()
         conn.close()
 
+        sess["game_state"] = state
         text, kb = render_mines_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^mines_cash_([^_]+)$"))
+    @bot.on_callback_query(filters.regex(r"^mines_cash_(\d+)$"))
     async def cb_mines_cashout(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1156,23 +1220,31 @@ def register_casino_handlers(bot: Client):
         sess = dict(row)
         if sess["status"] != "active":
             conn.close()
+            await cb.answer("O'yin allaqachon yakunlangan!", show_alert=True)
             return
+
+        state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
 
         mult = float(sess["current_multiplier"])
         win_amt = int(sess["bet_amount_uzs"] * mult)
-        cur.execute("UPDATE casino_game_sessions SET status = 'won', win_amount_uzs = %s WHERE id = %s", (win_amt, sess["id"]))
+        cur.execute("UPDATE casino_game_sessions SET status = 'won', win_amount_uzs = %s, updated_at = NOW() WHERE id = %s", (win_amt, sess["id"]))
         conn.commit()
         conn.close()
 
         db.add_user_balance(user_id, win_amt)
         sess["status"] = "won"
-        text, kb = render_mines_ui(sess, sess["game_state"])
+        sess["win_amount_uzs"] = win_amt
+        sess["game_state"] = state
+        text, kb = render_mines_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer(f"G'alaba! +{win_amt:,} so'm balansingizga o'tkazildi!", show_alert=True)
 
     # --- 21 (BLACKJACK) CALLBACKS ---
     @bot.on_callback_query(filters.regex(r"^game_bj_menu$"))
     async def cb_bj_menu(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         text = (
             f"{ce('CARD_JOKER')} <b>21 (Blackjack / Ochko)</b>\n\n"
             f"Aqlli bot dileriga qarshi klassik 21 karta o'yini!\n"
@@ -1189,8 +1261,9 @@ def register_casino_handlers(bot: Client):
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^game_bj_start_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^game_bj_(?:start|new)_(\d+)$"))
     async def cb_bj_start(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bet = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         bal = db.get_user_balance(user_id)
@@ -1204,24 +1277,19 @@ def register_casino_handlers(bot: Client):
             await cb.answer("Xatolik yuz berdi!", show_alert=True)
             return
         
-        conn = db.get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT game_state FROM casino_game_sessions WHERE session_id = %s", (sess["session_id"],))
-        row = cur.fetchone()
-        state = row["game_state"] if row and row.get("game_state") else {}
-        conn.close()
-
+        state = sess["game_state"]
         text, kb = render_blackjack_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^bj_hit_([^_]+)$"))
+    @bot.on_callback_query(filters.regex(r"^bj_hit_(\d+)$"))
     async def cb_bj_hit(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1232,6 +1300,9 @@ def register_casino_handlers(bot: Client):
             return
 
         state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
+
         deck = state["deck"]
         if deck:
             state["player_cards"].append(deck.pop())
@@ -1240,25 +1311,26 @@ def register_casino_handlers(bot: Client):
         if p_score > 21:
             sess["status"] = "lost"
             state["dealer_revealed"] = True
-            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s WHERE id = %s", (json.dumps(state), sess["id"]))
+            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s, updated_at = NOW() WHERE id = %s", (json.dumps(state), sess["id"]))
         elif p_score == 21:
-            # Avtomat stand
             pass
 
         conn.commit()
         conn.close()
 
+        sess["game_state"] = state
         text, kb = render_blackjack_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^bj_stand_([^_]+)$"))
+    @bot.on_callback_query(filters.regex(r"^bj_stand_(\d+)$"))
     async def cb_bj_stand(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1269,6 +1341,9 @@ def register_casino_handlers(bot: Client):
             return
 
         state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
+
         deck = state["deck"]
         dealer_cards = state["dealer_cards"]
         state["dealer_revealed"] = True
@@ -1283,7 +1358,7 @@ def register_casino_handlers(bot: Client):
 
         bet = sess["bet_amount_uzs"]
         win_amt = 0
-        if d_score > 21: # Diler yutqazdi
+        if d_score > 21:  # Diler bust bo'ldi
             sess["status"] = "won"
             win_amt = int(bet * 2.0)
             db.add_user_balance(user_id, win_amt)
@@ -1299,10 +1374,11 @@ def register_casino_handlers(bot: Client):
             sess["status"] = "lost"
 
         sess["win_amount_uzs"] = win_amt
-        cur.execute("UPDATE casino_game_sessions SET status = %s, win_amount_uzs = %s, game_state = %s WHERE id = %s", (sess["status"], win_amt, json.dumps(state), sess["id"]))
+        cur.execute("UPDATE casino_game_sessions SET status = %s, win_amount_uzs = %s, game_state = %s, updated_at = NOW() WHERE id = %s", (sess["status"], win_amt, json.dumps(state), sess["id"]))
         conn.commit()
         conn.close()
 
+        sess["game_state"] = state
         text, kb = render_blackjack_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
@@ -1310,6 +1386,7 @@ def register_casino_handlers(bot: Client):
     # --- KAMIKAZE CALLBACKS ---
     @bot.on_callback_query(filters.regex(r"^game_kami_menu$"))
     async def cb_kami_menu(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         text = (
             f"{ce('KAMI_PLANE')} <b>Kamikaze (Samolyotli Pog'onalar)</b>\n\n"
             f"Samolyot parvozini boshqaring! Har bir qatordan xavfsiz o'tganingiz sari ko'paytuvchi oshadi "
@@ -1326,8 +1403,9 @@ def register_casino_handlers(bot: Client):
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^game_kami_start_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^game_kami_(?:start|new)_(\d+)$"))
     async def cb_kami_start(client, cb: CallbackQuery):
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bet = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         bal = db.get_user_balance(user_id)
@@ -1341,27 +1419,22 @@ def register_casino_handlers(bot: Client):
             await cb.answer("Xatolik yuz berdi!", show_alert=True)
             return
         
-        conn = db.get_db()
-        cur = conn.cursor()
-        cur.execute("SELECT game_state FROM casino_game_sessions WHERE session_id = %s", (sess["session_id"],))
-        row = cur.fetchone()
-        state = row["game_state"] if row and row.get("game_state") else {}
-        conn.close()
-
+        state = sess["game_state"]
         text, kb = render_kamikaze_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^kami_pick_([^_]+)_(\d+)_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^kami_pick_(\d+)_(\d+)_(\d+)$"))
     async def cb_kami_pick(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         step = int(cb.matches[0].group(2))
         col = int(cb.matches[0].group(3))
         user_id = cb.from_user.id
 
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1372,6 +1445,9 @@ def register_casino_handlers(bot: Client):
             return
 
         state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
+
         cur_step = state.get("current_step", 0)
         if step != cur_step:
             conn.close()
@@ -1387,31 +1463,34 @@ def register_casino_handlers(bot: Client):
             new_mult = KAMIKAZE_MULTIPLIERS[cur_step - 1]
             if cur_step >= 10:
                 win_amt = int(sess["bet_amount_uzs"] * new_mult)
-                cur.execute("UPDATE casino_game_sessions SET status = 'won', current_multiplier = %s, win_amount_uzs = %s, game_state = %s WHERE id = %s", (new_mult, win_amt, json.dumps(state), sess["id"]))
+                cur.execute("UPDATE casino_game_sessions SET status = 'won', current_multiplier = %s, win_amount_uzs = %s, game_state = %s, updated_at = NOW() WHERE id = %s", (new_mult, win_amt, json.dumps(state), sess["id"]))
                 db.add_user_balance(user_id, win_amt)
                 sess["status"] = "won"
                 sess["current_multiplier"] = new_mult
+                sess["win_amount_uzs"] = win_amt
             else:
-                cur.execute("UPDATE casino_game_sessions SET current_multiplier = %s, game_state = %s WHERE id = %s", (new_mult, json.dumps(state), sess["id"]))
+                cur.execute("UPDATE casino_game_sessions SET current_multiplier = %s, game_state = %s, updated_at = NOW() WHERE id = %s", (new_mult, json.dumps(state), sess["id"]))
                 sess["current_multiplier"] = new_mult
         else:
-            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s WHERE id = %s", (json.dumps(state), sess["id"]))
+            cur.execute("UPDATE casino_game_sessions SET status = 'lost', game_state = %s, updated_at = NOW() WHERE id = %s", (json.dumps(state), sess["id"]))
             sess["status"] = "lost"
 
         conn.commit()
         conn.close()
 
+        sess["game_state"] = state
         text, kb = render_kamikaze_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^kami_cash_([^_]+)$"))
+    @bot.on_callback_query(filters.regex(r"^kami_cash_(\d+)$"))
     async def cb_kami_cashout(client, cb: CallbackQuery):
-        sess_id = cb.matches[0].group(1)
+        sess_id = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         conn = db.get_db()
+        if not conn: return
         cur = conn.cursor()
-        cur.execute("SELECT * FROM casino_game_sessions WHERE session_id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
+        cur.execute("SELECT * FROM casino_game_sessions WHERE id = %s AND tg_user_id = %s FOR UPDATE", (sess_id, user_id))
         row = cur.fetchone()
         if not row:
             conn.close()
@@ -1419,17 +1498,24 @@ def register_casino_handlers(bot: Client):
         sess = dict(row)
         if sess["status"] != "active":
             conn.close()
+            await cb.answer("O'yin allaqachon yakunlangan!", show_alert=True)
             return
+
+        state = sess["game_state"]
+        if isinstance(state, str):
+            state = json.loads(state)
 
         mult = float(sess["current_multiplier"])
         win_amt = int(sess["bet_amount_uzs"] * mult)
-        cur.execute("UPDATE casino_game_sessions SET status = 'won', win_amount_uzs = %s WHERE id = %s", (win_amt, sess["id"]))
+        cur.execute("UPDATE casino_game_sessions SET status = 'won', win_amount_uzs = %s, updated_at = NOW() WHERE id = %s", (win_amt, sess["id"]))
         conn.commit()
         conn.close()
 
         db.add_user_balance(user_id, win_amt)
         sess["status"] = "won"
-        text, kb = render_kamikaze_ui(sess, sess["game_state"])
+        sess["win_amount_uzs"] = win_amt
+        sess["game_state"] = state
+        text, kb = render_kamikaze_ui(sess, state)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer(f"G'alaba! +{win_amt:,} so'm yechib olindi!", show_alert=True)
 
@@ -1437,14 +1523,28 @@ def register_casino_handlers(bot: Client):
     @bot.on_callback_query(filters.regex(r"^game_crash_menu$"))
     async def cb_crash_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        CRASH_ACTIVE_VIEWERS[cb.message.chat.id] = {
+            "message_id": cb.message.id,
+            "user_id": user_id,
+            "last_rendered": "",
+            "last_edit_ts": time.time()
+        }
         text, kb = render_crash_ui(user_id)
+        CRASH_ACTIVE_VIEWERS[cb.message.chat.id]["last_rendered"] = text
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^crash_refresh$"))
     async def cb_crash_refresh(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        CRASH_ACTIVE_VIEWERS[cb.message.chat.id] = {
+            "message_id": cb.message.id,
+            "user_id": user_id,
+            "last_rendered": "",
+            "last_edit_ts": time.time()
+        }
         text, kb = render_crash_ui(user_id)
+        CRASH_ACTIVE_VIEWERS[cb.message.chat.id]["last_rendered"] = text
         try:
             await cb.message.edit_text(text, reply_markup=kb)
         except Exception:
@@ -1463,8 +1563,15 @@ def register_casino_handlers(bot: Client):
             await cb.answer(res["error"], show_alert=True)
             return
 
+        CRASH_ACTIVE_VIEWERS[cb.message.chat.id] = {
+            "message_id": cb.message.id,
+            "user_id": user_id,
+            "last_rendered": "",
+            "last_edit_ts": time.time()
+        }
         await cb.answer(f"✅ {slot_num}-slotga {amount_uzs:,} so'm stavka qabul qilindi!", show_alert=False)
         text, kb = render_crash_ui(user_id)
+        CRASH_ACTIVE_VIEWERS[cb.message.chat.id]["last_rendered"] = text
         try:
             await cb.message.edit_text(text, reply_markup=kb)
         except Exception:
@@ -1481,6 +1588,9 @@ def register_casino_handlers(bot: Client):
 
         await cb.answer(f"🎉 G'alaba! x{res['multiplier']:.2f} koeffitsientda +{res['win_amount']:,} so'm olindi!", show_alert=True)
         text, kb = render_crash_ui(user_id)
+        if cb.message.chat.id in CRASH_ACTIVE_VIEWERS:
+            CRASH_ACTIVE_VIEWERS[cb.message.chat.id]["last_rendered"] = text
+            CRASH_ACTIVE_VIEWERS[cb.message.chat.id]["last_edit_ts"] = time.time()
         try:
             await cb.message.edit_text(text, reply_markup=kb)
         except Exception:
