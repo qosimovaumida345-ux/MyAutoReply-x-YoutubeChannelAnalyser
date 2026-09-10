@@ -695,6 +695,8 @@ def init_db():
             status TEXT DEFAULT 'draft',
             buyer_user_id BIGINT,
             minted_tx_hash TEXT,
+            video_file_path TEXT DEFAULT '',
+            glb_file_path TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
@@ -4045,7 +4047,9 @@ def delete_user_ton_wallet(tg_user_id: int) -> bool:
 def create_nft_item(tg_user_id: int, title: str, description: str = "", glb_file_id: str = "",
                     preview_image_id: str = "", ipfs_metadata_uri: str = "",
                     polygon_token_id: int = 0, voucher_data: str = "",
-                    price_uzs: int = 0, price_matic: float = 0.0) -> int:
+                    price_uzs: int = 0, price_matic: float = 0.0,
+                    video_file_path: str = "", glb_file_path: str = "",
+                    status: str = "draft") -> int:
     """Yangi 3D NFT elementini bazaga kiritish (qaytaradi: nft_item_id)"""
     conn = get_db()
     if not conn: return 0
@@ -4055,14 +4059,15 @@ def create_nft_item(tg_user_id: int, title: str, description: str = "", glb_file
             INSERT INTO nft_items (
                 tg_user_id, title, description, glb_file_id, preview_image_id,
                 ipfs_metadata_uri, polygon_token_id, voucher_data,
-                price_uzs, price_matic, status, created_at
+                price_uzs, price_matic, video_file_path, glb_file_path,
+                status, created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             RETURNING id
         """, (
             tg_user_id, title, description, glb_file_id, preview_image_id,
             ipfs_metadata_uri, polygon_token_id, voucher_data,
-            price_uzs, price_matic
+            price_uzs, price_matic, video_file_path, glb_file_path, status
         ))
         row = cur.fetchone()
         item_id = (row["id"] if isinstance(row, dict) else row[0]) if row else 0
@@ -4072,6 +4077,22 @@ def create_nft_item(tg_user_id: int, title: str, description: str = "", glb_file
         conn.rollback()
         print(f"create_nft_item error: {e}")
         return 0
+    finally:
+        conn.close()
+
+
+def get_all_nfts(limit: int = 50) -> list:
+    """Barcha NFT elementlarini olish (admin panel uchun)"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM nft_items ORDER BY id DESC LIMIT %s", (limit,))
+        rows = cur.fetchall() or []
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print(f"get_all_nfts error: {e}")
+        return []
     finally:
         conn.close()
 
