@@ -1521,6 +1521,7 @@ def load_mega_features(bot: Client):
     @bot.on_callback_query(filters.regex(r"^nft_view_(\d+)$"))
     async def cb_nft_view(client, cb: CallbackQuery):
         """NFT ni ko'rish: Video preview + narx (so'm & TON) + Stock + Sotib olish tugmasi"""
+        uid = cb.from_user.id
         item_id = int(cb.matches[0].group(1))
         item = db.get_nft_item(item_id)
         if not item:
