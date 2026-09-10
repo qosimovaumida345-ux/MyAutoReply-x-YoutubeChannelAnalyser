@@ -4630,4 +4630,42 @@ def get_pending_nft_mints() -> list:
     finally:
         conn.close()
 
+
+def set_bot_config(key: str, val: str) -> bool:
+    """bot_config jadvaliga sozlamani saqlash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO bot_config (key, value, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """, (key, str(val)))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"set_bot_config error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_bot_config(key: str, default: str = None) -> str:
+    """bot_config jadvalidan sozlamani olish"""
+    conn = get_db()
+    if not conn: return default
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM bot_config WHERE key = %s", (key,))
+        row = cur.fetchone()
+        return str(row["value"]) if row and row.get("value") is not None else default
+    except Exception as e:
+        print(f"get_bot_config error: {e}")
+        return default
+    finally:
+        conn.close()
+
+
 

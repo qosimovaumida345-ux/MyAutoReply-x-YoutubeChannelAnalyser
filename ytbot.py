@@ -4480,6 +4480,11 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^(back_main|main_menu)$"))
     async def cb_back_main(client, cb: CallbackQuery):
+        try:
+            from games_casino import CRASH_ACTIVE_VIEWERS
+            CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
+        except Exception:
+            pass
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
         name = (cb.from_user.first_name or "Foydalanuvchi") if cb.from_user else "Foydalanuvchi"
@@ -4488,6 +4493,11 @@ def create_ytbot():
     
     @bot.on_callback_query(filters.regex(r"^menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)$"))
     async def cb_menu(client, cb: CallbackQuery):
+        try:
+            from games_casino import CRASH_ACTIVE_VIEWERS
+            CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
+        except Exception:
+            pass
         user_id = cb.from_user.id
         if not check_is_admin(cb.from_user) and not is_user_kyc_verified(user_id):
             await cb.answer("⚠️ Botdan foydalanish uchun avval 3D biometrik identifikatsiyadan o'ting! /start ni bosing.", show_alert=True)
