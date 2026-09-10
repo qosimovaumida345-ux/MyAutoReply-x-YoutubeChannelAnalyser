@@ -704,6 +704,18 @@ def init_db():
     conn.commit()
     cur.close()
     conn.close()
+    
+    # Run background migrations
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE user_balances ADD COLUMN IF NOT EXISTS balance_ton NUMERIC DEFAULT 0;")
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Migration error: {e}")
+        
     print("PostgreSQL database tayyor!")
 
 
@@ -1784,6 +1796,74 @@ def get_user_stream_status(tg_user_id):
 
 
 # ==================== BALANS VA TO'LOVLAR ====================
+
+def get_user_ton_balance(tg_user_id: int) -> float:
+    """Foydalanuvchining TON balansini qaytaradi (default: 0.0)"""
+    conn = get_db()
+    if not conn: return 0.0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_ton FROM user_balances WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        val = float(row["balance_ton"]) if row and row.get("balance_ton") is not None else 0.0
+        return val
+    except Exception as e:
+        print(f"get_user_ton_balance error: {e}")
+        return 0.0
+    finally:
+        conn.close()
+
+def add_user_ton_balance(tg_user_id: int, amount_ton: float) -> float:
+    """Foydalanuvchining hisobiga TON qo'shish va yangi balansni qaytarish"""
+    conn = get_db()
+    if not conn: return 0.0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_ton, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_ton = COALESCE(user_balances.balance_ton, 0) + EXCLUDED.balance_ton,
+                updated_at = NOW()
+            RETURNING balance_ton
+        """, (tg_user_id, amount_ton))
+        row = cur.fetchone()
+        conn.commit()
+        new_val = float(row["balance_ton"]) if row else 0.0
+        return new_val
+    except Exception as e:
+        conn.rollback()
+        print(f"add_user_ton_balance error: {e}")
+        return 0.0
+    finally:
+        conn.close()
+
+def deduct_user_ton_balance(tg_user_id: int, amount_ton: float) -> bool:
+    """Balansdan TON yechish. Agar yetarli bo'lsa True, bo'lmasa False"""
+    if amount_ton <= 0: return True
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT balance_ton FROM user_balances WHERE tg_user_id = %s FOR UPDATE", (tg_user_id,))
+        row = cur.fetchone()
+        current = float(row["balance_ton"]) if row and row.get("balance_ton") is not None else 0.0
+        if current < amount_ton:
+            conn.rollback()
+            return False
+        cur.execute(
+            "UPDATE user_balances SET balance_ton = balance_ton - %s, updated_at = NOW() WHERE tg_user_id = %s",
+            (amount_ton, tg_user_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"deduct_user_ton_balance error: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 def get_user_balance(tg_user_id: int) -> int:
     """Foydalanuvchining UZS balansini qaytaradi (default: 0) (Kesh bilan tezkor)"""
