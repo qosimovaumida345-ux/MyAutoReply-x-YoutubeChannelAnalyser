@@ -70,9 +70,9 @@ def parse_humo_sms(text: str) -> Optional[Dict[str, Any]]:
     if amount_uzs <= 0:
         return None
 
-    # 3. Karta oxirgi 4 raqami
+    # 3. Karta oxirgi 4 raqami (Qabul qiluvchi karta)
     card_last4 = None
-    card_line_match = re.search(r"(?:💳|karta[a-z]*|карт[а-я]*|card[s]?)[:\s]*(?:HUMOCARD)?\s*\*?([^\n\r]+)", clean_text, re.IGNORECASE)
+    card_line_match = re.search(r"(?:💳|karta[a-z]*|карт[а-я]*|card[s]?)[:\s]*(?:HUMOCARD)?\s*\*?([^\n\r💰🕒📍]+)", clean_text, re.IGNORECASE)
     if card_line_match:
         card_digits = re.findall(r"\d{4}", card_line_match.group(1))
         if card_digits:
@@ -85,7 +85,7 @@ def parse_humo_sms(text: str) -> Optional[Dict[str, Any]]:
     # 4. Yuboruvchining kartasi (Kimdan) yoki nomi
     sender_card_last4 = None
     sender_name = None
-    sender_match = re.search(r"(?:📍|kimdan|ot|от|yuboruvchi|ot kogo)[:\s]+([^\n\r]+)", clean_text, re.IGNORECASE)
+    sender_match = re.search(r"(?:📍|kimdan|ot|от|yuboruvchi|ot kogo)[:\s]+([^\n\r💳💰🕒]+)", clean_text, re.IGNORECASE)
     if sender_match:
         sender_raw = sender_match.group(1).strip()
         card_in_sender = re.findall(r"\d{4}", sender_raw)

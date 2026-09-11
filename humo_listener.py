@@ -130,6 +130,7 @@ async def process_humo_message_obj(message: Message) -> bool:
 
         parsed["message_id"] = msg_id
         parsed["message_date"] = msg_dt
+        parsed["raw_text"] = raw_text
 
         # 2. Bazadan pending buyurtma bilan solishtirish va to'ldirish
         completed = db.match_and_complete_humo_deposit(parsed)
@@ -199,23 +200,30 @@ def create_humo_listener_app() -> Client:
 
 
 async def mark_startup_old_messages(client: Client):
-    """Bot qayta ishga tushganda o'tmishdagi barcha eski to'lovlarni processed deb belgilaydi"""
+    """Bot qayta ishga tushganda so'nggi to'lovlarni tekshirib, juda eski xabarlarni ro'yxatga oladi"""
     try:
-        logger.info("🧹 Eski Humo xabarlarini tozalash va ro'yxatga olish...")
+        logger.info("🧹 Humo xabarlarini tekshirish va ro'yxatga olish...")
         from datetime import datetime, timezone, timedelta
         now_utc = datetime.now(timezone.utc)
         count = 0
         async for msg in client.get_chat_history("humocardbot", limit=50):
             if not msg or not msg.id:
                 continue
+            if db.is_humo_message_processed(msg.id):
+                continue
             msg_dt = to_utc_datetime(msg.date)
-            # Agar xabar 2 daqiqadan eski bo'lsa va allaqachon processed bo'lmasa, uni eski deb belgilaymiz
-            if msg_dt and msg_dt < (now_utc - timedelta(minutes=2)):
-                if not db.is_humo_message_processed(msg.id):
-                    db.mark_humo_message_processed(msg.id, msg_time=msg_dt)
+            # Agar xabar so'nggi 45 daqiqa ichida bo'lsa, avval to'lov sifatida tekshirib ko'ramiz
+            if msg_dt and msg_dt >= (now_utc - timedelta(minutes=45)):
+                success = await process_humo_message_obj(msg)
+                if success:
                     count += 1
+                    continue
+            # 45 daqiqadan eski xabarlarni processed deb belgilaymiz
+            if msg_dt and msg_dt < (now_utc - timedelta(minutes=45)):
+                db.mark_humo_message_processed(msg.id, msg_time=msg_dt)
+                count += 1
         if count > 0:
-            logger.info(f"✅ {count} ta eski Humo xabari ro'yxatga olindi (kelajak to'lovlariga xalaqit bermaydi).")
+            logger.info(f"✅ {count} ta Humo xabari tekshirildi/ro'yxatga olindi.")
     except Exception as e:
         logger.error(f"mark_startup_old_messages xatolik: {e}")
 
@@ -223,7 +231,7 @@ async def mark_startup_old_messages(client: Client):
 async def scan_recent_humo_deposits(client: Client):
     """Faqat hali ko'rib chiqilmagan va so'nggi daqiqalardagi to'lovlarni tekshiradi"""
     try:
-        async for msg in client.get_chat_history("humocardbot", limit=5):
+        async for msg in client.get_chat_history("humocardbot", limit=15):
             if not msg or not msg.id or not msg.text:
                 continue
             if db.is_humo_message_processed(msg.id):

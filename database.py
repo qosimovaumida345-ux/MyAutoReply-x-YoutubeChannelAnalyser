@@ -2279,14 +2279,17 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
     """
     @HUMOcardbot dan kelgan ma'lumotlar asosida 100% avtomatik tarzda mos buyurtmani topib,
     balansga qo'shish va tranzaksiyani yakunlash.
+    Barcha banklar, kartalar (Humo, Uzcard, NBU, Click, Payme va h.k.) dan kelgan to'lovlarni
+    adashmasdan aniqlaydi.
     """
     if not parsed_data or not parsed_data.get("amount_uzs"):
         return None
         
-    amount = parsed_data["amount_uzs"]
+    amount = int(parsed_data["amount_uzs"])
     sender_card = parsed_data.get("sender_card_last4")
     sender_name = parsed_data.get("sender_name")
     rrn_code = parsed_data.get("rrn_code")
+    raw_text = parsed_data.get("raw_text") or ""
     msg_date = parsed_data.get("message_date")
     if msg_date and hasattr(msg_date, "tzinfo") and msg_date.tzinfo is None:
         from datetime import timezone
@@ -2298,81 +2301,62 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
         cur = conn.cursor()
         matched_deposit = None
         
-        # 1-Qidiruv (Eng aniq): Aniq unique_amount_uzs bo'yicha (masalan 50 014 so'm)
-        if msg_date:
-            cur.execute("""
-                SELECT * FROM humo_deposits
-                WHERE status = 'pending'
-                  AND unique_amount_uzs = %s
-                  AND created_at > NOW() - INTERVAL '45 minutes'
-                  AND created_at <= %s + INTERVAL '2 minutes'
-                ORDER BY created_at ASC LIMIT 1
-                FOR UPDATE
-            """, (amount, msg_date))
-        else:
-            cur.execute("""
-                SELECT * FROM humo_deposits
-                WHERE status = 'pending'
-                  AND unique_amount_uzs = %s
-                  AND created_at > NOW() - INTERVAL '45 minutes'
-                ORDER BY created_at ASC LIMIT 1
-                FOR UPDATE
-            """, (amount,))
+        # 1-Qidiruv (Eng aniq va asosiy): Aniq unique_amount_uzs bo'yicha (masalan 1,001 yoki 50,014 so'm)
+        # Pending to'lovlar birinchi o'rinda, agar foydalanuvchi bekor qilgan bo'lsa ham so'nggi 45 daqiqadagi to'lovi inobatga olinadi
+        cur.execute("""
+            SELECT * FROM humo_deposits
+            WHERE status IN ('pending', 'cancelled')
+              AND unique_amount_uzs = %s
+              AND created_at > NOW() - INTERVAL '45 minutes'
+            ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
+            FOR UPDATE
+        """, (amount,))
         row = cur.fetchone()
         if row:
             matched_deposit = dict(row)
             
-        # 2-Qidiruv (Agar user micro-offsetsiz yaxlit to'lagan bo'lsa va karta oxirgi 4 raqami mos kelsa)
-        if not matched_deposit and sender_card:
-            if msg_date:
-                cur.execute("""
-                    SELECT * FROM humo_deposits
-                    WHERE status = 'pending'
-                      AND amount_uzs = %s
-                      AND sender_card_last4 = %s
-                      AND created_at > NOW() - INTERVAL '45 minutes'
-                      AND created_at <= %s + INTERVAL '2 minutes'
-                    ORDER BY created_at ASC LIMIT 1
-                    FOR UPDATE
-                """, (amount, sender_card, msg_date))
-            else:
-                cur.execute("""
-                    SELECT * FROM humo_deposits
-                    WHERE status = 'pending'
-                      AND amount_uzs = %s
-                      AND sender_card_last4 = %s
-                      AND created_at > NOW() - INTERVAL '45 minutes'
-                    ORDER BY created_at ASC LIMIT 1
-                    FOR UPDATE
-                """, (amount, sender_card))
+        # 2-Qidiruv: Agar RRN kod avval kiritilgan bo'lsa yoki SMSda RRN bo'lsa
+        if not matched_deposit and rrn_code:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status IN ('pending', 'cancelled')
+                  AND rrn_code = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
+                FOR UPDATE
+            """, (rrn_code,))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)
                 
-        # 3-Qidiruv: Agar RRN kod avval kiritilgan bo'lsa
-        if not matched_deposit and rrn_code:
-            if msg_date:
-                cur.execute("""
-                    SELECT * FROM humo_deposits
-                    WHERE status = 'pending'
-                      AND rrn_code = %s
-                      AND created_at > NOW() - INTERVAL '45 minutes'
-                      AND created_at <= %s + INTERVAL '2 minutes'
-                    ORDER BY created_at ASC LIMIT 1
-                    FOR UPDATE
-                """, (rrn_code, msg_date))
-            else:
-                cur.execute("""
-                    SELECT * FROM humo_deposits
-                    WHERE status = 'pending'
-                      AND rrn_code = %s
-                      AND created_at > NOW() - INTERVAL '45 minutes'
-                    ORDER BY created_at ASC LIMIT 1
-                    FOR UPDATE
-                """, (rrn_code,))
+        # 3-Qidiruv: Agar foydalanuvchi to'layotgan kartasining oxirgi 4 raqamini kiritgan bo'lsa va SMSdagi yuboruvchi karta mos kelsa
+        if not matched_deposit and sender_card:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status IN ('pending', 'cancelled')
+                  AND (amount_uzs = %s OR unique_amount_uzs = %s)
+                  AND sender_card_last4 = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
+                FOR UPDATE
+            """, (amount, amount, sender_card))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)
+
+        # 4-Qidiruv (Zaxira): Agar foydalanuvchi micro-offsetsiz to'lagan bo'lsa (amount_uzs = amount)
+        # va ayni daqiqalarda shu summadagi FAQAT 1 dona pending to'lov mavjud bo'lsa (chalkashlik yo'q)
+        if not matched_deposit:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status = 'pending'
+                  AND amount_uzs = %s
+                  AND created_at > NOW() - INTERVAL '30 minutes'
+                FOR UPDATE
+            """, (amount,))
+            rows = cur.fetchall()
+            if len(rows) == 1:
+                matched_deposit = dict(rows[0])
                 
         if not matched_deposit:
             conn.rollback()
