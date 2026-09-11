@@ -95,11 +95,21 @@ async def notify_user_and_admin(completed_deposit: dict, main_bot=None):
                 pass
 
 
+def to_utc_datetime(dt):
+    """Pyrogram yoki boshqa manbadan kelgan datetime ni xavfsiz UTC ga aylantiradi"""
+    if dt is None:
+        return None
+    from datetime import timezone
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 async def process_humo_message_obj(message: Message) -> bool:
     """Humo xabarini qat'iy tekshirib, faqat haqiqiy yangi to'lovni tasdiqlaydi"""
     try:
         msg_id = message.id
-        msg_dt = message.date
+        msg_dt = to_utc_datetime(message.date)
         raw_text = message.text or message.caption or ""
         
         if not raw_text:
@@ -198,7 +208,7 @@ async def mark_startup_old_messages(client: Client):
         async for msg in client.get_chat_history("humocardbot", limit=50):
             if not msg or not msg.id:
                 continue
-            msg_dt = msg.date
+            msg_dt = to_utc_datetime(msg.date)
             # Agar xabar 2 daqiqadan eski bo'lsa va allaqachon processed bo'lmasa, uni eski deb belgilaymiz
             if msg_dt and msg_dt < (now_utc - timedelta(minutes=2)):
                 if not db.is_humo_message_processed(msg.id):

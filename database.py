@@ -2287,8 +2287,10 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
     sender_card = parsed_data.get("sender_card_last4")
     sender_name = parsed_data.get("sender_name")
     rrn_code = parsed_data.get("rrn_code")
-    raw_text = parsed_data.get("raw_text", "")
     msg_date = parsed_data.get("message_date")
+    if msg_date and hasattr(msg_date, "tzinfo") and msg_date.tzinfo is None:
+        from datetime import timezone
+        msg_date = msg_date.replace(tzinfo=timezone.utc)
     
     conn = get_db()
     if not conn: return None
