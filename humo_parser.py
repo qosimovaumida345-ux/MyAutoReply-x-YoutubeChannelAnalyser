@@ -14,64 +14,65 @@ def parse_humo_sms(text: str) -> Optional[Dict[str, Any]]:
         return None
 
     clean_text = text.strip()
+    text_lower = clean_text.lower()
     
     # 1. Tushum (kirim) ekanligini tekshirish
-    # Chiqim (Oplata, spisan, yechildi, -) bo'lsa e'tiborsiz qoldiramiz
     income_markers = [
         "tushum", "popolneniye", "пополнение", "qabul qilindi", "o'tkazma",
         "otkazma", "karta to'ldirildi", "prihod", "приход", "zachisleniye",
-        "зачисление", "karta hisobiga", "kirim", "+"
+        "зачисление", "karta hisobiga", "kirim", "+", "to'ldirish", "🎉", "➕"
     ]
     expense_markers = [
         "oplata", "оплата", "yechildi", "spisaniye", "списание", "spisano",
         "chiqim", "to'lov", "tolov", "xarid", "pokupka", "покупка"
     ]
     
-    text_lower = clean_text.lower()
-    
     is_income = any(m in text_lower for m in income_markers)
     is_expense = any(m in text_lower for m in expense_markers)
     
-    # Agar chiqim belgisi aniq bo'lsa va + bo'lmasa, demak bu tushum emas
-    if is_expense and not any(k in text_lower for k in ["+", "tushum", "popolneniye", "пополнение", "qabul qilindi"]):
+    if is_expense and not any(k in text_lower for k in ["+", "tushum", "popolneniye", "пополнение", "qabul qilindi", "to'ldirish", "➕"]):
         return None
     
-    if not is_income and "+" not in clean_text:
+    if not is_income and "+" not in clean_text and "➕" not in clean_text:
         return None
 
     # 2. Summani ajratish
-    # Formatlar: "+50 014.00 UZS", "50 012 UZS", "50000.00 so'm", "+ 10 000 UZS", "50 000 сум"
     amount_uzs = 0
-    # Pattern 1: Summa: +?50 000 UZS
+    # Old and new formats mixed: "+50 014.00 UZS" or "➕ 1.001,00 UZS"
     amount_match = re.search(
-        r"(?:summa|сумма|tushum|popolneniye|пополнение|miqdor)?[:\s]*\+?\s*([\d\s]+(?:[\.,]\d{1,2})?)\s*(?:uzs|so['’`]?m|сум)",
+        r"(?:summa|сумма|tushum|popolneniye|пополнение|miqdor)?[:\s]*[+➕]?\s*([\d\s\.,]+)\s*(?:uzs|so['’`]?m|сум)",
         clean_text,
         re.IGNORECASE
     )
     if amount_match:
-        raw_amt = amount_match.group(1).replace(" ", "").replace(",", ".")
+        raw_amt = amount_match.group(1).replace(" ", "")
+        if "," in raw_amt and "." in raw_amt:
+            # e.g. 1.001,00 -> 1001.00
+            raw_amt = raw_amt.replace(".", "").replace(",", ".")
+        elif "," in raw_amt:
+            # 1001,00 -> 1001.00, or 1,001 -> 1001
+            if re.search(r",\d{1,2}$", raw_amt):
+                raw_amt = raw_amt.replace(",", ".")
+            else:
+                raw_amt = raw_amt.replace(",", "")
+        elif "." in raw_amt:
+            # 1001.00 -> 1001.00, or 1.001 -> 1001
+            if re.search(r"\.\d{1,2}$", raw_amt):
+                pass
+            else:
+                raw_amt = raw_amt.replace(".", "")
+        
         try:
             amount_uzs = int(float(raw_amt))
         except ValueError:
             amount_uzs = 0
-            
-    if not amount_uzs:
-        # Alternativ pattern: "+ 50 000 UZS" yoki "+50,000"
-        alt_match = re.search(r"\+\s*([\d\s]+(?:[\.,]\d{1,2})?)\s*(?:uzs|so['’`]?m|сум)?", clean_text, re.IGNORECASE)
-        if alt_match:
-            raw_amt = alt_match.group(1).replace(" ", "").replace(",", ".")
-            try:
-                amount_uzs = int(float(raw_amt))
-            except ValueError:
-                amount_uzs = 0
 
     if amount_uzs <= 0:
         return None
 
-    # 3. Karta oxirgi 4 raqami (Admin kartasi)
-    # Formatlar: "Karta: *1234", "Karta: 9860 35** **** 1234", "Пополнение карты *1234", "Karta ...1234"
+    # 3. Karta oxirgi 4 raqami
     card_last4 = None
-    card_line_match = re.search(r"(?:karta[a-z]*|карт[а-я]*|card[s]?)[:\s]*([^\n\r]+)", clean_text, re.IGNORECASE)
+    card_line_match = re.search(r"(?:💳|karta[a-z]*|карт[а-я]*|card[s]?)[:\s]*(?:HUMOCARD)?\s*\*?([^\n\r]+)", clean_text, re.IGNORECASE)
     if card_line_match:
         card_digits = re.findall(r"\d{4}", card_line_match.group(1))
         if card_digits:
@@ -81,23 +82,19 @@ def parse_humo_sms(text: str) -> Optional[Dict[str, Any]]:
             if alt_digits and len(alt_digits[-1]) >= 4:
                 card_last4 = alt_digits[-1][-4:]
 
-    # 4. Yuboruvchining kartasi (Kimdan)
-    # Formatlar: "Kimdan: 8600 **** **** 4492", "Kimdan: *4492", "Ot: ...4492", "Ot kogo: ALISHEROV A."
+    # 4. Yuboruvchining kartasi (Kimdan) yoki nomi
     sender_card_last4 = None
     sender_name = None
-    
-    sender_match = re.search(r"(?:kimdan|ot|от|yuboruvchi|ot kogo)[:\s]+([^\n\r]+)", clean_text, re.IGNORECASE)
+    sender_match = re.search(r"(?:📍|kimdan|ot|от|yuboruvchi|ot kogo)[:\s]+([^\n\r]+)", clean_text, re.IGNORECASE)
     if sender_match:
         sender_raw = sender_match.group(1).strip()
-        # Sender ichida karta bormi?
         card_in_sender = re.findall(r"\d{4}", sender_raw)
         if card_in_sender:
             sender_card_last4 = card_in_sender[-1]
         else:
             sender_name = sender_raw[:60].strip()
 
-    # 5. RRN / Tranzaksiya kodi / Terminal
-    # Formatlar: "Kod: 849201", "RRN: 84920194", "ID: 948291", "Check: 948291"
+    # 5. RRN / Tranzaksiya kodi
     rrn_code = None
     rrn_match = re.search(r"(?:rrn|kod|код|code|terminal|терминал|id|check|chek)[:\s#]*([A-Za-z0-9]+)", clean_text, re.IGNORECASE)
     if rrn_match:
@@ -105,17 +102,29 @@ def parse_humo_sms(text: str) -> Optional[Dict[str, Any]]:
 
     # 6. Qoldiq (Balance)
     balance_uzs = None
-    bal_match = re.search(r"(?:qoldiq|ostatok|остаток|balans|баланс)[:\s]*([\d\s]+(?:[\.,]\d{1,2})?)\s*(?:uzs|so['’`]?m|сум)", clean_text, re.IGNORECASE)
+    bal_match = re.search(r"(?:💰|qoldiq|ostatok|остаток|balans|баланс)[:\s]*([\d\s\.,]+)\s*(?:uzs|so['’`]?m|сум)", clean_text, re.IGNORECASE)
     if bal_match:
-        raw_bal = bal_match.group(1).replace(" ", "").replace(",", ".")
+        raw_bal = bal_match.group(1).replace(" ", "")
+        if "," in raw_bal and "." in raw_bal:
+            raw_bal = raw_bal.replace(".", "").replace(",", ".")
+        elif "," in raw_bal:
+            if re.search(r",\d{1,2}$", raw_bal):
+                raw_bal = raw_bal.replace(",", ".")
+            else:
+                raw_bal = raw_bal.replace(",", "")
+        elif "." in raw_bal:
+            if not re.search(r"\.\d{1,2}$", raw_bal):
+                raw_bal = raw_bal.replace(".", "")
         try:
             balance_uzs = int(float(raw_bal))
         except ValueError:
             balance_uzs = None
 
-    # 7. Sana / Vaqt
-    date_match = re.search(r"(\d{2}[\./-]\d{2}[\./-]\d{2,4}\s+\d{2}:\d{2}(?::\d{2})?)", clean_text)
-    date_str = date_match.group(1) if date_match else None
+    # 7. Sana / Vaqt (New emoji format: 🕒 15:37 11.09.2026)
+    date_str = None
+    date_match = re.search(r"(?:🕒)?\s*(\d{2}[\./-]\d{2}[\./-]\d{2,4}\s+\d{2}:\d{2}(?::\d{2})?|\d{2}:\d{2}(?::\d{2})?\s+\d{2}[\./-]\d{2}[\./-]\d{2,4})", clean_text)
+    if date_match:
+        date_str = date_match.group(1).strip()
 
     return {
         "amount_uzs": amount_uzs,

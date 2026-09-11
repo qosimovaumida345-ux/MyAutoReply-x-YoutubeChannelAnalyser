@@ -1116,8 +1116,8 @@ async def run_crash_background_worker():
                     if chat_id not in CRASH_ACTIVE_VIEWERS:
                         continue
                     token = data.get("session_token")
-                    # Telegram Bot API cheklovi: har bir chatga ~0.75-0.8s da yangilash
-                    if now - data.get("last_edit_ts", 0) < 0.75:
+                    # Telegram Bot API cheklovi: har bir chatga kamida 2.5s-3.0s da yangilash (Flood Wait oldini olish uchun)
+                    if now - data.get("last_edit_ts", 0) < 2.5:
                         continue
                     try:
                         text, kb = render_crash_ui(data["user_id"])
@@ -1129,15 +1129,19 @@ async def run_crash_background_worker():
                             await _global_bot.edit_message_text(chat_id, data["message_id"], text, reply_markup=kb)
                     except Exception as edit_err:
                         err_str = str(edit_err).lower()
-                        if "flood" in err_str:
-                            await asyncio.sleep(1.5)
+                        if "flood" in err_str or "too many requests" in err_str:
+                            import re
+                            m = re.search(r'(?:wait of|retry after) (\d+)', err_str)
+                            wait_sec = int(m.group(1)) if m else 5
+                            print(f"CRASH WORKER HIT FLOOD WAIT! Pausing chat {chat_id} for {wait_sec}s...")
+                            data["last_edit_ts"] = now + wait_sec
                         elif any(k in err_str for k in ["message to edit not found", "chat not found", "message_id_invalid", "bad_request"]):
                             CRASH_ACTIVE_VIEWERS.pop(chat_id, None)
                         elif "message is not modified" in err_str:
                             pass
         except Exception as e:
             print(f"Crash background worker tick error: {e}")
-        await asyncio.sleep(0.35)
+        await asyncio.sleep(0.5)
 
 def render_crash_ui(tg_user_id: int):
     """Live Crash asosiy interfeysini hosil qiladi"""
@@ -1288,6 +1292,81 @@ def register_casino_handlers(bot: Client):
             f"• {ce('KAMI_PLANE')} <b>Kamikaze</b> — Samolyotli pog'onalar parvozi"
         )
         await cb.message.edit_text(text, reply_markup=games_main_menu_kb())
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^spin_wheel$"))
+    async def cb_spin_wheel(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
+        can_free = db.can_user_free_spin(user_id) if hasattr(db, 'can_user_free_spin') else False
+        bal = db.get_user_balance(user_id)
+        status_text = "✅ <b>Bugungi bepul aylantirish mavjud!</b>" if can_free else "⏳ <i>Bugungi bepul imkoniyat ishlatilgan.</i>"
+        text = (
+            f"🎰 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
+            f"Har kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n"
+            f"{status_text}\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"🎁 <b>Sovg'alar:</b> 200 so'm, 500 so'm, 1,000 so'm, 2,500 so'm, Groq Cloud API!"
+        )
+        buttons = []
+        if can_free:
+            buttons.append([InlineKeyboardButton("🎯 Bepul aylantirish (Spin)", callback_data="spin_free")])
+        buttons.append([InlineKeyboardButton("💎 Pullik aylantirish (3,000 so'm)", callback_data="spin_paid")])
+        buttons.append([InlineKeyboardButton("⚪ ⬅️ O'yinlar Menyusi", callback_data="menu_games")])
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^duel_menu$"))
+    async def cb_duel_menu(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
+        bal = db.get_user_balance(user_id)
+        open_duels = db.get_open_duels(5) if hasattr(db, 'get_open_duels') else []
+        duels_text = ""
+        if open_duels:
+            duels_text = "\n\n⚔️ <b>Hozirgi faol duellar:</b>\n" + "\n".join([f"• Duel #{d['id']}: <code>{d['amount_uzs']:,} so'm</code> ({d['choice'].upper()})" for d in open_duels])
+        text = (
+            f"⚔️ <b>PvP Tanga Tashlash Duellari (Coin Flip)</b>\n\n"
+            f"Boshqa foydalanuvchilar bilan pul tikib o'ynang! G'olib jami bankning 90%ini oladi (10% kassa xizmati).\n\n"
+            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"ℹ️ <b>Yangi duel yaratish uchun chatga yozing:</b>\n"
+            f"<code>/duel &lt;summa&gt; [burgut|panja]</code>\n\n"
+            f"<b>Misol:</b> <code>/duel 5000 burgut</code>"
+            f"{duels_text}"
+        )
+        buttons = []
+        if open_duels:
+            for d in open_duels[:3]:
+                buttons.append([InlineKeyboardButton(f"⚔️ Duel #{d['id']} ga kirish ({d['amount_uzs']:,} so'm)", callback_data=f"duel_join_{d['id']}")])
+        buttons.append([InlineKeyboardButton("⚪ ⬅️ O'yinlar Menyusi", callback_data="menu_games")])
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^lottery_menu$"))
+    async def cb_lottery_menu(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
+        bal = db.get_user_balance(user_id)
+        info = db.get_current_lottery_info() if hasattr(db, 'get_current_lottery_info') else {"pool_id": 1, "tickets_sold": 0, "total_bank": 0, "prize_fund": 0}
+        text = (
+            f"🎟 <b>Jekpot Mega Lotereya (Tiraj #{info.get('pool_id', 1)})</b>\n\n"
+            f"Kichik bilet narxi bilan katta jekpot yutib oling!\n\n"
+            f"🎫 <b>1 ta bilet narxi:</b> <code>3,000 so'm</code> (yoki 10 Stars)\n"
+            f"📊 <b>Sotilgan biletlar:</b> <code>{info.get('tickets_sold', 0)} ta</code>\n"
+            f"💰 <b>Umumiy jamg'arma:</b> <code>{info.get('total_bank', 0):,} so'm</code>\n"
+            f"🏆 <b>G'olibga beriladigan Jekpot:</b> <code>{info.get('prize_fund', 0):,} so'm</code> (65%)\n"
+            f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<i>15 ta bilet to'planganda g'olib avtomatik e'lon qilinadi!</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🎟 1 ta bilet (3,000 so'm)", callback_data="lottery_buy_1"),
+                InlineKeyboardButton("🎟 5 ta bilet (15,000 so'm)", callback_data="lottery_buy_5")
+            ],
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="lottery_refresh")],
+            [InlineKeyboardButton("⚪ ⬅️ O'yinlar Menyusi", callback_data="menu_games")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
     # --- APPLE OF FORTUNE CALLBACKS ---

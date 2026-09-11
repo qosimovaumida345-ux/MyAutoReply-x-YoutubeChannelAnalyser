@@ -5,7 +5,11 @@ import re
 import asyncio
 import math
 import json
+import logging
 from datetime import datetime, timedelta
+
+logger = logging.getLogger("ytbot")
+AUTO_EMOJI_MAP = {}
 
 try:
     asyncio.get_event_loop()
@@ -976,14 +980,13 @@ def render_humo_invoice(dep: dict):
         f"To'lov tizim tomonidan 100% avtomat tarzda sizga tegishli ekanligini tasdiqlashi uchun aynan <b><code>{unique_amt:,}</code> so'm</b> o'tkazing!\n"
         f"Hisobingizga to'liq <b>{unique_amt:,} so'm</b> qo'shiladi (+{offset} so'm bonus).\n\n"
         f"{ce('WAIT')} <b>Amal qilish muddati:</b> 15 daqiqa\n"
-        f"{ce('LIGHTNING')} <i>Pul o'tkazilishi bilan @HUMOcardbot SMS xabari orqali hisobingiz 3-5 soniyada avtomatik to'ldiriladi!</i>"
+        f"{ce('LIGHTNING')} <i>Pul o'tkazilishi bilan hech qanday tugmani bosishingiz shart emas, hisobingiz 3-5 soniyada 100% avtomatik to'ldiriladi!</i>"
     )
 
     card_btn_text = f"💳 Karta: *{sender_card}" if sender_card else "💳 Karta 4 raqamini kiritish (Ixtiyoriy)"
     rrn_btn_text = f"🧾 RRN: {rrn}" if rrn else "🧾 Chek RRN kodini kiritish (Ixtiyoriy)"
 
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔍 To'lovni tekshirish", callback_data=f"check_humo_dep_{dep_id}")],
         [InlineKeyboardButton(card_btn_text, callback_data=f"humo_add_card_{dep_id}")],
         [InlineKeyboardButton(rrn_btn_text, callback_data=f"humo_add_rrn_{dep_id}")],
         [InlineKeyboardButton("❌ Buyurtmani bekor qilish", callback_data=f"cancel_humo_dep_{dep_id}")],
@@ -1179,27 +1182,31 @@ def help_menu_kb():
 
 # ==================== BOT YARATISH ====================
 
+def check_is_admin(user):
+    """Adminni tekshirish: OWNER_ID, bot_admins jadvali yoki username bo'yicha"""
+    if not user:
+        return False
+    user_id = getattr(user, "id", None)
+    if not user_id:
+        return False
+    if OWNER_ID and user_id == OWNER_ID:
+        return True
+    if is_bot_admin(user_id):
+        return True
+    user_uname = getattr(user, "username", None)
+    if user_uname:
+        target_admin = ADMIN_USERNAME.lstrip("@").lower().strip()
+        cleaned_uname = user_uname.lstrip("@").lower().strip()
+        if target_admin and cleaned_uname == target_admin:
+            return True
+    return False
+
 def create_ytbot():
     if not BOT_TOKEN:
         print("BOT_TOKEN topilmadi!")
         return None
     
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
-    
-    # Adminni tekshirish: OWNER_ID, bot_admins jadvali yoki username bo'yicha
-    def check_is_admin(user):
-        if not user:
-            return False
-        if OWNER_ID and user.id == OWNER_ID:
-            return True
-        if is_bot_admin(user.id):
-            return True
-        if user.username:
-            target_admin = ADMIN_USERNAME.lstrip("@").lower().strip()
-            user_uname = user.username.lstrip("@").lower().strip()
-            if target_admin and user_uname == target_admin:
-                return True
-        return False
 
     # /dl, /seo, /ideas, /translate kabi buyruqlar uchun kunlik limit tekshiruvi
     # (admin uchun cheklovsiz, oddiy foydalanuvchi uchun /autopost bilan bir xil limit)
@@ -2353,7 +2360,7 @@ def create_ytbot():
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🎁 Qutini ochish (6,000 so'm)", callback_data="box_open")],
-            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="star_buy_15")]
+            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="stars_pkg_15")]
         ])
         await message.reply_text(text, reply_markup=kb)
 
@@ -2369,7 +2376,7 @@ def create_ytbot():
         res = open_mystery_box(user_id, cost_uzs=6000)
         if not res.get("ok"):
             err_msg = res.get("error", "Xatolik yuz berdi")
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{e('MONEY')} Balansni to'ldirish", callback_data="btn_balance")]])
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{e('MONEY')} Balansni to'ldirish", callback_data="menu_wallet")]])
             await callback_query.message.edit_text(f"❌ {err_msg}", reply_markup=kb)
             return
             
@@ -4491,7 +4498,7 @@ def create_ytbot():
         await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
         await cb.answer()
     
-    @bot.on_callback_query(filters.regex(r"^menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)$"))
+    @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)|btn_balance)$"))
     async def cb_menu(client, cb: CallbackQuery):
         try:
             from games_casino import CRASH_ACTIVE_VIEWERS
@@ -4509,7 +4516,7 @@ def create_ytbot():
             pass
 
         lang = get_user_language(user_id)
-        menu = cb.data.replace("menu_", "")
+        menu = "wallet" if cb.data == "btn_balance" else cb.data.replace("menu_", "")
         
         if menu == "wallet":
             bal = get_user_balance(user_id)
@@ -4880,7 +4887,7 @@ def create_ytbot():
         await cb.message.edit_text(text, reply_markup=stars_packages_kb())
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^stars_pkg_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^(?:stars_pkg_|star_buy_)(\d+)$"))
     async def cb_stars_pkg(client, cb: CallbackQuery):
         stars = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
@@ -4907,7 +4914,7 @@ def create_ytbot():
         else:
             await cb.answer("To'lov chekini yaratib bo'lmadi!", show_alert=True)
 
-    @bot.on_callback_query(filters.regex(r"^pay_crypto_menu$"))
+    @bot.on_callback_query(filters.regex(r"^(?:pay_crypto_menu|pay_ton_menu)$"))
     async def cb_pay_crypto_menu(client, cb: CallbackQuery):
         text = (
             f"{e('CRYPTO')} <b>CryptoPay (@CryptoBot) orqali to'ldirish</b>\n\n"
@@ -5233,8 +5240,8 @@ def create_ytbot():
                 f"Iltimos, avval hisobingizni to'ldiring:"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("💎 TON orqali to'ldirish", callback_data="pay_ton_menu")],
-                [InlineKeyboardButton("🪙 CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton("💳 HUMO / Uzcard orqali to'ldirish", callback_data="pay_humo_menu")],
+                [InlineKeyboardButton("💎 CryptoPay / TON orqali to'ldirish", callback_data="pay_crypto_menu")],
                 [InlineKeyboardButton("⭐ Stars orqali to'ldirish", callback_data="pay_stars_menu")],
                 [InlineKeyboardButton("⬅️ Orqaga", callback_data=f"mkt_view_{service}")]
             ])

@@ -1166,13 +1166,16 @@ async def handle_api_autopost_create(request):
 async def handle_api_reset_db(request):
     """Admin: Bazani tozalash"""
     import json
+    import os
     try:
         data = await request.json()
         tg_user_id = int(data.get("tg_user_id", 0))
+        admin_secret = request.headers.get("X-Admin-Secret") or data.get("admin_secret", "")
+        expected_secret = os.getenv("ADMIN_SECRET") or os.getenv("BOT_TOKEN")
         
         from config import OWNER_ID
-        if tg_user_id != OWNER_ID:
-            return web.json_response({"error": "Siz admin emassiz!"}, status=403)
+        if tg_user_id != OWNER_ID or not admin_secret or admin_secret != expected_secret:
+            return web.json_response({"error": "Ruxsat berilmagan!"}, status=403)
             
         from database import reset_all_data
         success = reset_all_data()
@@ -1192,10 +1195,10 @@ async def handle_cryptopay_webhook(request):
         raw_body = await request.read()
         sig = request.headers.get("crypto-pay-api-signature", "")
         
-        if CRYPTO_PAY_TOKEN and sig:
-            if not verify_crypto_pay_signature(raw_body, sig):
-                print("⚠️ CryptoPay webhook noto'g'ri imzo!")
-                return web.json_response({"ok": False, "error": "Invalid signature"}, status=403)
+        if CRYPTO_PAY_TOKEN:
+            if not sig or not verify_crypto_pay_signature(raw_body, sig):
+                print("⚠️ CryptoPay webhook noto'g'ri yoki yetishmayotgan imzo!")
+                return web.json_response({"ok": False, "error": "Invalid or missing signature"}, status=403)
                 
         data = json.loads(raw_body.decode("utf-8"))
         print(f"📥 CryptoPay webhook keldi: {data.get('update_type')}")

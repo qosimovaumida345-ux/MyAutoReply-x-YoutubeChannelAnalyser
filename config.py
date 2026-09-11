@@ -35,12 +35,7 @@ def generate_with_fallback(prompt):
     import google.generativeai as genai
     import asyncio
     models_to_try = [
-        "gemini-flash-lite-latest",
-        "gemini-flash-latest",
-        "gemini-3.5-flash",
-        "gemini-3.6-flash",
-        "gemini-3.1-pro-preview",
-        "gemini-2.5-flash",
+        "gemini-2.0-flash",
         "gemini-1.5-flash",
         "gemini-1.5-pro",
     ]

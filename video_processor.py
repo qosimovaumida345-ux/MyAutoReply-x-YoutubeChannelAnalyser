@@ -203,7 +203,7 @@ def burn_captions(input_mp4, output_mp4):
         print(f"[CAPTIONS] Subtitrlar videoga qo'shilmoqda...")
         
         # Windowsda pathlar bilan muammo bo'lmasligi uchun escape qilish
-        safe_srt = srt_path.replace('\\', '/')
+        safe_srt = srt_path.replace('\\', '/').replace(':', '\\:')
         
         # FFmpeg subtitr filtri (chiroyli stil bilan)
         style = "FontName=Arial,FontSize=24,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=100,Alignment=2"

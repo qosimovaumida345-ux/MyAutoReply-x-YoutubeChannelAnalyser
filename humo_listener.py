@@ -95,6 +95,60 @@ async def notify_user_and_admin(completed_deposit: dict, main_bot=None):
                 pass
 
 
+async def process_humo_message_obj(message: Message) -> bool:
+    """Humo xabarini qat'iy tekshirib, faqat haqiqiy yangi to'lovni tasdiqlaydi"""
+    try:
+        msg_id = message.id
+        msg_dt = message.date
+        raw_text = message.text or message.caption or ""
+        
+        if not raw_text:
+            return False
+
+        # 1. Agar ushbu xabar IDsi avval ko'rilgan bo'lsa, mutlaqo qayta ishlanmaydi!
+        if msg_id and db.is_humo_message_processed(msg_id):
+            return False
+
+        parsed = parse_humo_sms(raw_text)
+        if not parsed or not parsed.get("amount_uzs"):
+            if msg_id:
+                db.mark_humo_message_processed(msg_id, msg_time=msg_dt)
+            return False
+
+        amount = parsed["amount_uzs"]
+        logger.info(f"🔍 [HUMO] Xabar #{msg_id} ({msg_dt}): summa={amount} so'm")
+
+        parsed["message_id"] = msg_id
+        parsed["message_date"] = msg_dt
+
+        # 2. Bazadan pending buyurtma bilan solishtirish va to'ldirish
+        completed = db.match_and_complete_humo_deposit(parsed)
+        if completed:
+            if msg_id:
+                db.mark_humo_message_processed(
+                    msg_id,
+                    exact_amount=amount,
+                    payment_id=str(completed.get("id")),
+                    msg_time=msg_dt
+                )
+            logger.info(f"✅ [HUMO] TO'LOV MUVAFFAQIYATLI TASDIQLANDI! Foydalanuvchi {completed['tg_user_id']} ga +{amount:,} so'm qo'shildi.")
+            global _main_bot_client
+            await notify_user_and_admin(completed, _main_bot_client)
+            return True
+        else:
+            logger.info(f"ℹ️ [HUMO] {amount:,} so'mga mos keluvchi to'lov hisobi topilmadi yoki bu eski xabar.")
+            # Agar xabar 10 daqiqadan eski bo'lsa, kelgusida qayta tekshirib yurmaslik uchun processed deb belgilaymiz
+            from datetime import datetime, timezone, timedelta
+            now_utc = datetime.now(timezone.utc)
+            if msg_dt and msg_dt < (now_utc - timedelta(minutes=10)):
+                if msg_id:
+                    db.mark_humo_message_processed(msg_id, exact_amount=amount, msg_time=msg_dt)
+            return False
+    except Exception as e:
+        logger.error(f"process_humo_message_obj xatolik: {e}")
+        return False
+
+
 def create_humo_listener_app() -> Client:
     """HUMO Listener Pyrogram Userbot klientini yaratish"""
     if not HUMO_SESSION_STRING:
@@ -113,38 +167,73 @@ def create_humo_listener_app() -> Client:
         if not message.text:
             return
             
-        username = (message.from_user.username or "").lower() if message.from_user else ""
-        first_name = (message.from_user.first_name or "").lower() if message.from_user else ""
-        
-        # @HUMOcardbot yoki humo xabari ekanligini aniqlash
-        is_humo_bot = "humocard" in username or "humo" in username or "humo" in first_name
-        has_payment_markers = any(k in message.text.lower() for k in [
-            "tushum", "popolneniye", "пополнение", "qabul qilindi", "o'tkazma"
-        ])
-        
-        if not is_humo_bot and not has_payment_markers:
+        sender_username = (message.from_user.username or "").lower() if message.from_user else ""
+        sender_id = message.from_user.id if message.from_user else 0
+        chat_username = (message.chat.username or "").lower() if message.chat else ""
+        chat_id = message.chat.id if message.chat else 0
+
+        # Faqat Humo bot (@humocardbot, ID: 856254490) dan kelgan haqiqiy xabarlar
+        is_humo = (
+            sender_username == "humocardbot"
+            or chat_username == "humocardbot"
+            or sender_id == 856254490
+            or chat_id == 856254490
+        )
+        if not is_humo:
             return
             
-        logger.info(f"Yangi to'lov SMS xabari tutildi! Sender: @{username}")
-        
-        # 1. SMS ni parse qilish
-        parsed = parse_humo_sms(message.text)
-        if not parsed or not parsed.get("amount_uzs"):
-            logger.info("SMS tahlil qilindi, lekin tushum summasi topilmadi.")
-            return
-            
-        logger.info(f"SMS muvaffaqiyatli parse qilindi: {parsed['amount_uzs']:,} UZS (Karta: {parsed.get('card_last4')}, RRN: {parsed.get('rrn_code')})")
-        
-        # 2. Bazadan pending buyurtma bilan solishtirish va to'ldirish
-        completed = db.match_and_complete_humo_deposit(parsed)
-        if completed:
-            logger.info(f"✅ TO'LOV MUVAFFAQIYATLI MOS KELDI! User: {completed['tg_user_id']}, Summa: {completed['amount_uzs']:,} so'm")
-            global _main_bot_client
-            await notify_user_and_admin(completed, _main_bot_client)
-        else:
-            logger.warning(f"⚠️ SMS summasiga ({parsed['amount_uzs']:,} so'm) mos keladigan faol pending buyurtma topilmadi!")
+        logger.info(f"⚡️ [REALTIME] Yangi Humo xabarnomasi qabul qilindi (ID={message.id})")
+        await process_humo_message_obj(message)
 
     return app
+
+
+async def mark_startup_old_messages(client: Client):
+    """Bot qayta ishga tushganda o'tmishdagi barcha eski to'lovlarni processed deb belgilaydi"""
+    try:
+        logger.info("🧹 Eski Humo xabarlarini tozalash va ro'yxatga olish...")
+        from datetime import datetime, timezone, timedelta
+        now_utc = datetime.now(timezone.utc)
+        count = 0
+        async for msg in client.get_chat_history("humocardbot", limit=50):
+            if not msg or not msg.id:
+                continue
+            msg_dt = msg.date
+            # Agar xabar 2 daqiqadan eski bo'lsa va allaqachon processed bo'lmasa, uni eski deb belgilaymiz
+            if msg_dt and msg_dt < (now_utc - timedelta(minutes=2)):
+                if not db.is_humo_message_processed(msg.id):
+                    db.mark_humo_message_processed(msg.id, msg_time=msg_dt)
+                    count += 1
+        if count > 0:
+            logger.info(f"✅ {count} ta eski Humo xabari ro'yxatga olindi (kelajak to'lovlariga xalaqit bermaydi).")
+    except Exception as e:
+        logger.error(f"mark_startup_old_messages xatolik: {e}")
+
+
+async def scan_recent_humo_deposits(client: Client):
+    """Faqat hali ko'rib chiqilmagan va so'nggi daqiqalardagi to'lovlarni tekshiradi"""
+    try:
+        async for msg in client.get_chat_history("humocardbot", limit=5):
+            if not msg or not msg.id or not msg.text:
+                continue
+            if db.is_humo_message_processed(msg.id):
+                continue
+            await process_humo_message_obj(msg)
+    except Exception as e:
+        logger.error(f"scan_recent_humo_deposits xatolik: {e}")
+
+
+async def humo_periodic_checker(client: Client):
+    """Har 40 soniyada zaxira sifatida faqat yangi xabarlarni tekshiruvchi task"""
+    while True:
+        try:
+            await asyncio.sleep(40)
+            if client.is_connected:
+                await scan_recent_humo_deposits(client)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            pass
 
 
 async def run_humo_listener_task(main_bot=None):
@@ -165,6 +254,13 @@ async def run_humo_listener_task(main_bot=None):
         await _listener_client.start()
         me = await _listener_client.get_me()
         logger.info(f"✅ HUMO SMS Listener muvaffaqiyatli ulandi! Account: {me.first_name} (@{me.username or me.phone_number})")
+        
+        # 1. Eski xabarlarni ro'yxatga olib, kelajakdagi yangi hisoblarga daxlsizligini ta'minlaymiz
+        await mark_startup_old_messages(_listener_client)
+        
+        # 2. Zaxira davriy tekshiruvchini ishga tushirish (har 40 soniyada)
+        asyncio.create_task(humo_periodic_checker(_listener_client))
+        
     except Exception as e:
         logger.error(f"HUMO SMS Listener ulanish xatosi: {e}")
 

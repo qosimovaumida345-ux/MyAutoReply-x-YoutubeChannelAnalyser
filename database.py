@@ -720,6 +720,18 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_humo_deposits_pending ON humo_deposits (status, unique_amount_uzs)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_humo_deposits_user ON humo_deposits (tg_user_id, status)")
 
+    # 18.1 HUMO Xabarnomalar Duplikatsiyasini Oldini Olish (Processed Message IDs)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS humo_processed_messages (
+            message_id BIGINT PRIMARY KEY,
+            exact_amount BIGINT,
+            payment_id VARCHAR(100),
+            processed_at TIMESTAMP DEFAULT NOW(),
+            msg_time TIMESTAMP
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_humo_processed_messages_msg_id ON humo_processed_messages (message_id)")
+
     # 18. 1xBet Style Casino Games (Apple of Fortune, Mines, 21, Kamikaze)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS casino_game_sessions (
@@ -2229,6 +2241,40 @@ def cancel_humo_deposit(deposit_id: int, tg_user_id: int) -> bool:
     finally:
         conn.close()
 
+def is_humo_message_processed(message_id: int) -> bool:
+    """HUMO SMS xabari avval ko'rilgan yoki ko'rilmaganini tekshirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM humo_processed_messages WHERE message_id = %s", (message_id,))
+        return cur.fetchone() is not None
+    except Exception as e:
+        print(f"is_humo_message_processed error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def mark_humo_message_processed(message_id: int, exact_amount: int = None, payment_id: str = None, msg_time = None) -> bool:
+    """HUMO SMS xabarini qayta ishlanmasligi uchun ro'yxatga olish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO humo_processed_messages (message_id, exact_amount, payment_id, processed_at, msg_time)
+            VALUES (%s, %s, %s, NOW(), %s)
+            ON CONFLICT (message_id) DO NOTHING
+        """, (message_id, exact_amount, str(payment_id) if payment_id else None, msg_time))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"mark_humo_message_processed error: {e}")
+        return False
+    finally:
+        conn.close()
+
 def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
     """
     @HUMOcardbot dan kelgan ma'lumotlar asosida 100% avtomatik tarzda mos buyurtmani topib,
@@ -2242,6 +2288,7 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
     sender_name = parsed_data.get("sender_name")
     rrn_code = parsed_data.get("rrn_code")
     raw_text = parsed_data.get("raw_text", "")
+    msg_date = parsed_data.get("message_date")
     
     conn = get_db()
     if not conn: return None
@@ -2250,43 +2297,77 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
         matched_deposit = None
         
         # 1-Qidiruv (Eng aniq): Aniq unique_amount_uzs bo'yicha (masalan 50 014 so'm)
-        cur.execute("""
-            SELECT * FROM humo_deposits
-            WHERE status = 'pending'
-              AND unique_amount_uzs = %s
-              AND created_at > NOW() - INTERVAL '45 minutes'
-            ORDER BY created_at ASC LIMIT 1
-            FOR UPDATE
-        """, (amount,))
+        if msg_date:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status = 'pending'
+                  AND unique_amount_uzs = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                  AND created_at <= %s + INTERVAL '2 minutes'
+                ORDER BY created_at ASC LIMIT 1
+                FOR UPDATE
+            """, (amount, msg_date))
+        else:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status = 'pending'
+                  AND unique_amount_uzs = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                ORDER BY created_at ASC LIMIT 1
+                FOR UPDATE
+            """, (amount,))
         row = cur.fetchone()
         if row:
             matched_deposit = dict(row)
             
         # 2-Qidiruv (Agar user micro-offsetsiz yaxlit to'lagan bo'lsa va karta oxirgi 4 raqami mos kelsa)
         if not matched_deposit and sender_card:
-            cur.execute("""
-                SELECT * FROM humo_deposits
-                WHERE status = 'pending'
-                  AND amount_uzs = %s
-                  AND sender_card_last4 = %s
-                  AND created_at > NOW() - INTERVAL '45 minutes'
-                ORDER BY created_at ASC LIMIT 1
-                FOR UPDATE
-            """, (amount, sender_card))
+            if msg_date:
+                cur.execute("""
+                    SELECT * FROM humo_deposits
+                    WHERE status = 'pending'
+                      AND amount_uzs = %s
+                      AND sender_card_last4 = %s
+                      AND created_at > NOW() - INTERVAL '45 minutes'
+                      AND created_at <= %s + INTERVAL '2 minutes'
+                    ORDER BY created_at ASC LIMIT 1
+                    FOR UPDATE
+                """, (amount, sender_card, msg_date))
+            else:
+                cur.execute("""
+                    SELECT * FROM humo_deposits
+                    WHERE status = 'pending'
+                      AND amount_uzs = %s
+                      AND sender_card_last4 = %s
+                      AND created_at > NOW() - INTERVAL '45 minutes'
+                    ORDER BY created_at ASC LIMIT 1
+                    FOR UPDATE
+                """, (amount, sender_card))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)
                 
         # 3-Qidiruv: Agar RRN kod avval kiritilgan bo'lsa
         if not matched_deposit and rrn_code:
-            cur.execute("""
-                SELECT * FROM humo_deposits
-                WHERE status = 'pending'
-                  AND rrn_code = %s
-                  AND created_at > NOW() - INTERVAL '45 minutes'
-                ORDER BY created_at ASC LIMIT 1
-                FOR UPDATE
-            """, (rrn_code,))
+            if msg_date:
+                cur.execute("""
+                    SELECT * FROM humo_deposits
+                    WHERE status = 'pending'
+                      AND rrn_code = %s
+                      AND created_at > NOW() - INTERVAL '45 minutes'
+                      AND created_at <= %s + INTERVAL '2 minutes'
+                    ORDER BY created_at ASC LIMIT 1
+                    FOR UPDATE
+                """, (rrn_code, msg_date))
+            else:
+                cur.execute("""
+                    SELECT * FROM humo_deposits
+                    WHERE status = 'pending'
+                      AND rrn_code = %s
+                      AND created_at > NOW() - INTERVAL '45 minutes'
+                    ORDER BY created_at ASC LIMIT 1
+                    FOR UPDATE
+                """, (rrn_code,))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)

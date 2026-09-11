@@ -134,14 +134,16 @@ async def run_mass_engagement(action_type, target_url_or_id, users, chat_id, cli
 
             elif action_type == "comment":
                 # Fetch video title to generate relevant comment
-                video_title = "awesome video"
+                def _get_title(yt, vid):
+                    r = yt.videos().list(part="snippet", id=vid).execute()
+                    if r.get("items"):
+                        return r["items"][0]["snippet"]["title"]
+                    return "awesome video"
+
                 try:
-                    res = await asyncio.to_thread(youtube.videos().list, part="snippet", id=target_id)
-                    res_data = res.execute()
-                    if res_data.get("items"):
-                        video_title = res_data["items"][0]["snippet"]["title"]
-                except Exception as e:
-                    pass
+                    video_title = await asyncio.to_thread(_get_title, youtube, target_id)
+                except Exception:
+                    video_title = "awesome video"
                 
                 comment_text = await generate_gemini_comment(video_title)
                 await asyncio.to_thread(_do_comment, youtube, target_id, comment_text)

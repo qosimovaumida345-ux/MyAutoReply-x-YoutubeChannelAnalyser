@@ -472,7 +472,7 @@ FAQAT JSON formatida javob ber:"""
     
     # ==================== ASOSIY AUTO-REPLY HANDLER ====================
     
-    @app.on_message(filters.private & ~filters.me & ~filters.bot)
+    @app.on_message(filters.private & ~filters.me & ~filters.bot & filters.text)
     async def auto_reply_handler(client, message):
         """Kelgan xabarlarga AI yordamida avtomatik javob berish (har 3-4 xabarda 1 marta)"""
         if not auto_reply_enabled:
