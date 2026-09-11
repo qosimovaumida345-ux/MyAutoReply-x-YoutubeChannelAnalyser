@@ -15,7 +15,7 @@ except RuntimeError:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
 from aiohttp import web
-from config import SESSION_STRING, BOT_TOKEN
+from config import SESSION_STRING, BOT_TOKEN, API_ID, API_HASH
 from autopost import exchange_code_with_redirect, pending_oauth
 from database import save_yt_connection
 
@@ -151,23 +151,11 @@ async def run_autopilot_worker():
 
 
 async def _get_worker_bot_client(worker_id):
-    """ROLE=worker/autoposter uchun xabar yuboradigan yengil bot client (bor bo'lsa)."""
-    try:
-        from pyrogram import Client
-        from config import API_ID, API_HASH, BOT_TOKEN
-        if BOT_TOKEN and API_ID and API_HASH:
-            bot_client = Client(
-                f"worker_bot_{os.getpid()}",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                bot_token=BOT_TOKEN,
-                in_memory=True
-            )
-            await bot_client.start()
-            print(f"✅ [{worker_id}] Bot client tayyor")
-            return bot_client
-    except Exception as e:
-        print(f"⚠️ [{worker_id}] Bot client ishga tushmadi (xabarsiz ishlaydi): {e}")
+    """
+    Faqat ROLE=main botni boshqaradi.
+    Worker, autoposter yoki streamer serverlari bot sessiyasini ochmaydi,
+    bu esa Telegram 409 Conflict va qotishlarni (5-8 soniyalik lag) butunlay yo'q qiladi.
+    """
     return None
 
 
@@ -1323,7 +1311,7 @@ async def handle_kyc_status(request):
 
 
 async def handle_kyc_submit(request):
-    """3D Yuz va Pasport ma'lumotlarini qabul qilish va tekshirish (Anti-Sybil)"""
+    """3D Yuz va Telefon ma'lumotlarini qabul qilish va tekshirish (Anti-Sybil)"""
     import hashlib
     import json
     from database import check_kyc_duplicate, save_kyc_verification
@@ -1332,34 +1320,27 @@ async def handle_kyc_submit(request):
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         phone = str(data.get("phone", "")).strip()
-        passport_raw = str(data.get("passport", "")).strip().upper().replace(" ", "")
         face_hash = str(data.get("face_hash", "")).strip()
         
         if not user_id:
             return web.json_response({"ok": False, "message": "Foydalanuvchi ID topilmadi!"}, status=400)
         if not phone or len(phone) < 9:
             return web.json_response({"ok": False, "message": "Telefon raqami noto'g'ri kiritilgan!"}, status=400)
-        if not passport_raw or len(passport_raw) < 7:
-            return web.json_response({"ok": False, "message": "Pasport ma'lumotlari to'liq emas!"}, status=400)
         if not face_hash:
             return web.json_response({"ok": False, "message": "3D Yuz skaneri ma'lumotlari topilmadi!"}, status=400)
-            
-        pass_hash = hashlib.sha256(passport_raw.encode()).hexdigest()
         
         # Takroriy hisob tekshiruvi (Anti-Sybil Deduplication)
-        is_dup, reason = check_kyc_duplicate(passport_hash=pass_hash, face_hash=face_hash, phone_number=phone, exclude_tg_user_id=user_id)
+        is_dup, reason = check_kyc_duplicate(passport_hash=None, face_hash=face_hash, phone_number=phone, exclude_tg_user_id=user_id)
         if is_dup:
             return web.json_response({"ok": False, "message": reason}, status=400)
             
         # Saqlash
-        save_kyc_verification(user_id, phone, pass_hash, face_hash)
+        save_kyc_verification(user_id, phone, None, face_hash)
         
         # Bot orqali tasdiq xabari yuborish
         if ytbot_instance:
-            masked_pass = f"{passport_raw[:2]}***{passport_raw[-2:]}"
             msg = (
                 f"✅ <b>Tabriklaymiz! 3D Biometrik Identifikatsiya muvaffaqiyatli yakunlandi.</b>\n\n"
-                f"🆔 <b>Pasport / ID:</b> {masked_pass}\n"
                 f"📱 <b>Telefon:</b> {phone}\n"
                 f"🛡️ Anti-Sybil tekshiruvi: <b>Muvaffaqiyatli</b>\n\n"
                 f"🚀 Barcha YouTube avtomatizatsiya va xizmatlar siz uchun to'liq ochildi!"
@@ -1370,6 +1351,7 @@ async def handle_kyc_submit(request):
     except Exception as e:
         print(f"handle_kyc_submit error: {e}")
         return web.json_response({"ok": False, "message": f"Server xatosi: {str(e)}"}, status=500)
+
 
 
 async def handle_tc_manifest(request):
@@ -1664,23 +1646,10 @@ async def main():
         await site.start()
         print(f"📡 Streamer service {port}-portda tayyor (/status, /claim-task)")
 
-        try:
-            from pyrogram import Client
-            from config import API_ID, API_HASH, BOT_TOKEN
-            if BOT_TOKEN and API_ID and API_HASH:
-                bot_client_holder["client"] = Client(
-                    f"streamer_bot_{os.getpid()}",
-                    api_id=API_ID,
-                    api_hash=API_HASH,
-                    bot_token=BOT_TOKEN,
-                    in_memory=True
-                )
-                await bot_client_holder["client"].start()
-        except Exception as e:
-            print(f"⚠️ Streamer bot client ishga tushmadi: {e}")
-            bot_client_holder["client"] = None
+        # Streamer bot client ochmaydi — faqat ROLE=main botni boshqaradi
+        bot_client_holder["client"] = None
 
-        await run_streamer_queue(port, bot_client=bot_client_holder["client"])
+        await run_streamer_queue(port, bot_client=None)
         return
 
     # ------------------------------------------------------------------ #
@@ -1775,9 +1744,10 @@ async def main():
         await site.start()
         print(f"👷 {role.upper()} service {port}-portda tayyor (/status, /claim-task)")
 
-        bot_client_holder["client"] = await _get_worker_bot_client(f"{role}_{os.getpid()}")
+        # Worker bot client ochmaydi — faqat ROLE=main botni boshqaradi
+        bot_client_holder["client"] = None
 
-        await run_worker_queue(bot_client=bot_client_holder["client"])
+        await run_worker_queue(bot_client=None)
         return
 
     # ------------------------------------------------------------------ #
@@ -1801,16 +1771,15 @@ async def main():
     else:
         print("⚠️  SESSION_STRING topilmadi — Userbot o'chirilgan")
     
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
-    # 2. YouTube Analytics Bot
+    BOT_TOKEN = os.getenv("BOT_TOKEN") or BOT_TOKEN
+    # 2. CreatorFlow Studio Bot
     if BOT_TOKEN:
         from ytbot import create_ytbot
         bot = create_ytbot()
         if bot:
             ytbot_instance = bot
-            async def run_bot():
-                await bot.start()
-                print("🎬 YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
+            async def _post_startup_background():
+                """Og'ir tarmoq so'rovlarini fon rejimida bajarish (asosiy bot javob berish tezligini 0ms ga tushirish)"""
                 try:
                     from ton_checker import start_ton_watcher_task
                     start_ton_watcher_task(bot)
@@ -1917,24 +1886,19 @@ async def main():
                 except Exception as e:
                     print(f"Maxsus emojilarni yuklashda xatolik: {e}")
 
-                # HUMO SMS Listener ni backgroundda ishga tushirish
                 try:
                     from humo_listener import start_humo_listener_background
                     start_humo_listener_background(bot)
                 except Exception as e:
                     print(f"Humo listener startup error: {e}")
 
-                # Live Crash (Aviator) Real-Time Server Engine
-                try:
-                    from games_casino import run_crash_background_worker
-                    asyncio.create_task(run_crash_background_worker())
-                    print("🚀 Live Crash (Aviator) background dvigateli ishga tushirildi")
-                except Exception as e:
-                    print(f"Crash background worker error: {e}")
-
+            async def run_bot():
+                await bot.start()
+                print("✨ CreatorFlow Studio Bot muvaffaqiyatli ishga tushdi!")
+                asyncio.create_task(_post_startup_background())
                 await asyncio.Event().wait()
             tasks.append(run_bot())
-            print("🎬 YouTube Analytics Bot qo'shildi")
+            print("🎬 CreatorFlow Studio Bot qo'shildi")
     else:
         print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
 

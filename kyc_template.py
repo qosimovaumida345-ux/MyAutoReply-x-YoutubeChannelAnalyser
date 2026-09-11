@@ -484,16 +484,11 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
         <!-- Step 1: Document & Phone Form -->
         <div class="card" id="formCard">
-            <span class="step-badge">Qadam 1: Hujjat ma'lumotlari</span>
+            <span class="step-badge">Qadam 1: Telefon raqamingiz</span>
             
             <div class="form-group">
                 <label>Telefon raqamingiz</label>
                 <input type="tel" id="phoneInput" class="input-box" placeholder="+998 90 123 45 67">
-            </div>
-
-            <div class="form-group">
-                <label>Pasport / ID seriya va raqami</label>
-                <input type="text" id="passportInput" class="input-box" placeholder="Masalan: AA 1234567" style="text-transform: uppercase;">
             </div>
 
             <button type="button" id="startScanBtn" class="btn btn-primary" onclick="initiateCamera()">
@@ -615,14 +610,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
         async function initiateCamera() {{
             const phone = document.getElementById('phoneInput').value.trim();
-            const passport = document.getElementById('passportInput').value.trim();
 
             if (!phone || phone.length < 9) {{
                 showAlert("Iltimos, to'g'ri telefon raqamingizni kiriting!", "danger");
-                return;
-            }}
-            if (!passport || passport.length < 7) {{
-                showAlert("Iltimos, pasport yoki ID seriya va raqamingizni kiriting (masalan: AA 1234567)!", "danger");
                 return;
             }}
 
@@ -1033,7 +1023,6 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             submitBtn.innerText = "⏳ Tekshirilmoqda...";
 
             const phone = document.getElementById('phoneInput').value.trim();
-            const passport = document.getElementById('passportInput').value.trim().toUpperCase().replace(/\\s+/g, '');
 
             // Calculate deterministic 3D biometric fingerprint
             let faceSignature = "face_3d_" + Date.now();
@@ -1053,7 +1042,6 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                     body: JSON.stringify({{
                         user_id: userId,
                         phone: phone,
-                        passport: passport,
                         face_hash: faceSignature
                     }})
                 }});

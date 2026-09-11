@@ -732,7 +732,7 @@ def init_db():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_humo_processed_messages_msg_id ON humo_processed_messages (message_id)")
 
-    # 18. 1xBet Style Casino Games (Apple of Fortune, Mines, 21, Kamikaze)
+    # 18. Mini-Games Sessions (Wheel, Mystery Box, Duel, Lottery)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS casino_game_sessions (
             id SERIAL PRIMARY KEY,
@@ -753,7 +753,7 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_casino_sessions_user ON casino_game_sessions(tg_user_id, status)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_casino_sessions_type ON casino_game_sessions(game_type)")
 
-    # 19. Global Live Crash (Aviator) Engine
+    # 19. Crash Rounds (legacy, o'chirilgan)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS crash_rounds (
             id SERIAL PRIMARY KEY,

@@ -33,77 +33,82 @@ TRANSLATIONS = {
     },
     "main_menu": {
         "uz": (
-            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "✨ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Foydalanuvchi:</b> <b>{name}</b>\n"
             "⚡ <b>Tizim holati:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🚀 <b>Asosiy Imkoniyatlar & Xizmatlar:</b>\n"
-            "• 📊 <b>Analitika:</b> Kanal tahlili va trendlar\n"
-            "• 💸 <b>Marketplace:</b> Raqamli xizmatlar va AI kalitlar\n"
-            "• 🎁 <b>Yutuqlar:</b> Mystery Box va sovrunlar\n"
+            "• 💬 <b>AI AutoReply:</b> Izohlarga avtomatik aqlli javoblar\n"
+            "• 📊 <b>Analitika:</b> Kanal tahlili, trendlar va o'sish\n"
+            "• 🌐 <b>Web Dashboard:</b> Boshqaruv paneli (Telegram WebApp)\n"
+            "• 🎁 <b>Creator Perks:</b> Mini-o'yinlar, bonuslar va sovg'alar\n"
             "• 📥 <b>Yuklovchi:</b> Shorts & Reels yuklab olish\n"
-            "• 🔑 <b>API & Bot:</b> Developer integratsiya\n"
+            "• 🔑 <b>API & Studio:</b> Developer integratsiya\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Kerakli bo'limni tanlang:</i>"
         ),
         "ru": (
-            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "✨ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Пользователь:</b> <b>{name}</b>\n"
             "⚡ <b>Статус системы:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🚀 <b>Основные возможности и услуги:</b>\n"
-            "• 📊 <b>Аналитика:</b> Анализ каналов и тренды\n"
-            "• 💸 <b>Маркетплейс:</b> Цифровые услуги и AI ключи\n"
-            "• 🎁 <b>Призы:</b> Mystery Box и рулетка\n"
+            "• 💬 <b>AI AutoReply:</b> Умные авто-ответы на комментарии\n"
+            "• 📊 <b>Аналитика:</b> Анализ каналов, тренды и рост\n"
+            "• 🌐 <b>Web Dashboard:</b> Панель управления (Telegram WebApp)\n"
+            "• 🎁 <b>Creator Perks:</b> Мини-игры, бонусы и призы\n"
             "• 📥 <b>Загрузчик:</b> Скачивание Shorts и Reels\n"
-            "• 🔑 <b>API и Бот:</b> Интеграция для разработчиков\n"
+            "• 🔑 <b>API & Studio:</b> Интеграция для разработчиков\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Выберите нужный раздел:</i>"
         ),
         "en": (
-            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "✨ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>User:</b> <b>{name}</b>\n"
             "⚡ <b>System Status:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🚀 <b>Core Features & Services:</b>\n"
-            "• 📊 <b>Analytics:</b> Channel insights & viral trends\n"
-            "• 💸 <b>Marketplace:</b> Digital services & AI keys\n"
-            "• 🎁 <b>Rewards:</b> Mystery Boxes & lucky spins\n"
+            "• 💬 <b>AI AutoReply:</b> Smart contextual comment replies\n"
+            "• 📊 <b>Analytics:</b> Channel insights, trends & growth\n"
+            "• 🌐 <b>Web Dashboard:</b> Telegram WebApp control panel\n"
+            "• 🎁 <b>Creator Perks:</b> Daily perks, spins & rewards\n"
             "• 📥 <b>Downloader:</b> High-speed Shorts & Reels\n"
-            "• 🔑 <b>API & Bot:</b> Developer integrations\n"
+            "• 🔑 <b>API & Studio:</b> Developer integrations\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Select an option below:</i>"
         ),
         "es": (
-            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "✨ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Usuario:</b> <b>{name}</b>\n"
             "⚡ <b>Estado del sistema:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🚀 <b>Funciones principales y servicios:</b>\n"
-            "• 📊 <b>Analítica:</b> Estadísticas de canal y tendencias\n"
-            "• 💸 <b>Mercado:</b> Servicios digitales y claves de IA\n"
-            "• 🎁 <b>Premios:</b> Cajas misteriosas y giros\n"
-            "• 📥 <b>Descargador:</b> Descarga de Shorts y Reels\n"
-            "• 🔑 <b>API y Bot:</b> Integración de desarrollador\n"
+            "• 💬 <b>AI AutoReply:</b> Respuestas inteligentes a comentarios\n"
+            "• 📊 <b>Analítica:</b> Estadísticas de canal y crecimiento\n"
+            "• 🌐 <b>Web Dashboard:</b> Panel de control en Telegram WebApp\n"
+            "• 🎁 <b>Creator Perks:</b> Premios diarios y recompensas\n"
+            "• 📥 <b>Descargador:</b> Descarga rápida de Shorts y Reels\n"
+            "• 🔑 <b>API & Studio:</b> Integración para desarrolladores\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Selecciona una opción abajo:</i>"
         ),
         "tr": (
-            "⭐ <b>YouTube Analytics & Automation Suite</b>\n"
+            "✨ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Kullanıcı:</b> <b>{name}</b>\n"
             "⚡ <b>Sistem Durumu:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "🚀 <b>Temel Özellikler ve Hizmetler:</b>\n"
-            "• 📊 <b>Analitik:</b> Kanal analizi ve viral trendler\n"
-            "• 💸 <b>Pazar:</b> Dijital hizmetler ve Yapay Zeka API\n"
-            "• 🎁 <b>Ödüller:</b> Gizemli Kutular ve şans çarkı\n"
+            "• 💬 <b>AI AutoReply:</b> Yorumlara yapay zeka ile akıllı yanıtlar\n"
+            "• 📊 <b>Analitik:</b> Kanal analizi, büyüme ve viral trendler\n"
+            "• 🌐 <b>Web Dashboard:</b> Telegram WebApp kontrol paneli\n"
+            "• 🎁 <b>Creator Perks:</b> Günlük ödüller ve hediyeler\n"
             "• 📥 <b>İndirici:</b> Hızlı Shorts ve Reels indirme\n"
-            "• 🔑 <b>API & Bot:</b> Geliştirici entegrasyonu\n"
+            "• 🔑 <b>API & Studio:</b> Geliştirici entegrasyonu\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Aşağıdan bir seçenek belirleyin:</i>"
         )
@@ -123,11 +128,11 @@ TRANSLATIONS = {
         "tr": "💰 Bakiye & Ödeme"
     },
     "btn_games": {
-        "uz": "🎰 O'yinlar & Yutuqlar",
-        "ru": "🎰 Игры и Призы",
-        "en": "🎰 Games & Prizes",
-        "es": "🎰 Juegos y Premios",
-        "tr": "🎰 Oyunlar & Ödüller"
+        "uz": "🎮 Mini O'yinlar & Sovg'alar",
+        "ru": "🎮 Мини-Игры и Призы",
+        "en": "🎮 Games & Prizes",
+        "es": "🎮 Juegos y Premios",
+        "tr": "🎮 Oyunlar & Ödüller"
     },
     "btn_api": {
         "uz": "🔑 Developer & Reseller API",
@@ -471,7 +476,7 @@ TRANSLATIONS = {
     # ==================== GAMES HUB ====================
     "games_title": {
         "uz": (
-            "🎰 <b>O'yinlar & Yutuqlar Markazi</b>\n\n"
+            "🎮 <b>Mini O'yinlar & Sovg'alar Markazi</b>\n\n"
             "💰 <b>Balansingiz:</b> <code>{balance:,} so'm</code>\n\n"
             "Quyidagi o'yinlardan birini tanlang va omadingizni sinab ko'ring:\n"
             "• 🎁 <b>Mystery Box</b> — Quti ochib katta keshbek va API yuting\n"
@@ -480,7 +485,7 @@ TRANSLATIONS = {
             "• 🎟️ <b>Mega Lotereya</b> — Tirajli jekpot o'yini"
         ),
         "ru": (
-            "🎰 <b>Центр Игр и Призов</b>\n\n"
+            "🎮 <b>Центр Мини-Игр и Призов</b>\n\n"
             "💰 <b>Ваш баланс:</b> <code>{balance:,} сум</code>\n\n"
             "Выберите игру и испытайте удачу:\n"
             "• 🎁 <b>Mystery Box</b> — Откройте коробку и выиграйте API или деньги\n"
@@ -489,7 +494,7 @@ TRANSLATIONS = {
             "• 🎟️ <b>Мега Лотерея</b> — Тиражный джекпот"
         ),
         "en": (
-            "🎰 <b>Games & Prizes Center</b>\n\n"
+            "🎮 <b>Games & Prizes Center</b>\n\n"
             "💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n"
             "Pick a game and test your luck:\n"
             "• 🎁 <b>Mystery Box</b> — Open boxes for top API keys & cash\n"
@@ -498,7 +503,7 @@ TRANSLATIONS = {
             "• 🎟️ <b>Mega Lottery</b> — Jackpot raffle"
         ),
         "es": (
-            "🎰 <b>Centro de Juegos y Premios</b>\n\n"
+            "🎮 <b>Centro de Juegos y Premios</b>\n\n"
             "💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n"
             "Elige un juego y prueba tu suerte:\n"
             "• 🎁 <b>Caja Misteriosa</b> — Gana claves de IA y efectivo\n"
@@ -507,7 +512,7 @@ TRANSLATIONS = {
             "• 🎟️ <b>Mega Lotería</b> — Gran bote acumulado"
         ),
         "tr": (
-            "🎰 <b>Oyunlar ve Ödüller Merkezi</b>\n\n"
+            "🎮 <b>Oyunlar ve Ödüller Merkezi</b>\n\n"
             "💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n"
             "Bir oyun seçin ve şansınızı deneyin:\n"
             "• 🎁 <b>Gizemli Kutu</b> — API anahtarları ve nakit para kazanın\n"

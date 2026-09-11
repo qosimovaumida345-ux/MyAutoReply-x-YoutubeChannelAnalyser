@@ -504,23 +504,8 @@ async def run_streamer_queue(port=3000, bot_client=None):
     worker_id = f"streamer_{os.getpid()}"
     print(f"📡 [{worker_id}] Stream queue worker poylamoqda...")
 
-    if bot_client is None:
-        try:
-            from pyrogram import Client
-            from config import API_ID, API_HASH, BOT_TOKEN
-            if BOT_TOKEN and API_ID and API_HASH:
-                bot_client = Client(
-                    f"streamer_bot_{os.getpid()}",
-                    api_id=API_ID,
-                    api_hash=API_HASH,
-                    bot_token=BOT_TOKEN,
-                    in_memory=True
-                )
-                await bot_client.start()
-                print(f"✅ [{worker_id}] Bot client tayyor")
-        except Exception as e:
-            print(f"⚠️ [{worker_id}] Bot client ishga tushmadi: {e}")
-            bot_client = None
+    # Faqat ROLE=main botni boshqaradi. Streamer serverlari bot sessiyasini ochmaydi (Telegram 409 Conflict va qotishlarni oldini olish uchun).
+    bot_client = None
 
     while True:
         try:

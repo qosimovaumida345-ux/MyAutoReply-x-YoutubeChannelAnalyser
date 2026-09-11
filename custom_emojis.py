@@ -6,12 +6,13 @@ import random
 
 # Foydalanuvchi tomonidan tasdiqlangan 39 ta aniq Custom Emoji ID-lari
 VERIFIED_CUSTOM_EMOJIS = {
-    # 🎰 1. O'yinlar & Monetizatsiya
+    # 🎮 1. Mini-O'yinlar & Monetizatsiya
     "MYSTERY_BOX": ("6319002678990998592", "🎁"),
     "GIFT": ("6319002678990998592", "🎁"),
-    "WHEEL": ("5235989279024373566", "🎰"),
-    "SLOT": ("5235989279024373566", "🎰"),
-    "CASINO": ("5235989279024373566", "🎰"),
+    "WHEEL": ("5235989279024373566", "🎯"),
+    "GAMES": ("5235989279024373566", "🎮"),
+    "SLOT": ("5235989279024373566", "🎮"),
+    "CASINO": ("5235989279024373566", "🎮"),
     "DUEL": ("5960555055043055638", "⚔️"),
     "COMPARE": ("5960555055043055638", "⚔️"),
     "COIN": ("5199552030615558774", "🪙"),
@@ -170,7 +171,7 @@ VERIFIED_CUSTOM_EMOJIS = {
     "SOLD": ("4997089922276918243", "🎊"),
     "RENDER": ("5350427505805238170", "⏳"),
 
-    # 🎰 12. 1xBet Casino & Game Custom Emojis (Foydalanuvchi tasdiqlagan haqiqiy ID lar)
+    # 🎮 12. Mini-Games & Utility Custom Emojis (Foydalanuvchi tasdiqlagan haqiqiy ID lar)
     # 1. Apple of Fortune
     "APPLE_WHOLE": ("5296234029371112372", "🍏"),
     "APPLE_GOOD": ("5296234029371112372", "🍏"),

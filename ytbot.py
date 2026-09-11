@@ -859,17 +859,12 @@ def lang_menu_kb():
 
 def games_menu_kb(user_id=None):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🍏 Apple of Fortune (1xBet)", callback_data="game_apple_menu"),
-         InlineKeyboardButton("💣 Mines (Saper)", callback_data="game_mines_menu")],
-        [InlineKeyboardButton("🚀 Live Crash / Aviator", callback_data="game_crash_menu"),
-         InlineKeyboardButton("🃏 21 (Blackjack)", callback_data="game_bj_menu")],
-        [InlineKeyboardButton("🛩️ Kamikaze (Samolyot)", callback_data="game_kami_menu"),
-         InlineKeyboardButton("🎰 Omad G'ildiragi", callback_data="spin_free")],
-        [InlineKeyboardButton("🎁 Omadli Quti", callback_data="box_open"),
-         InlineKeyboardButton("⚔️ Tanga Tashlash (Duel)", callback_data="game_duel_info")],
-        [InlineKeyboardButton("🎟️ Mega Lotereya", callback_data="lottery_refresh"),
-         InlineKeyboardButton("🏆 Liderlar Jadvali", callback_data="menu_leaderboard")],
-        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        [InlineKeyboardButton("🎯 Omad G'ildiragi (Daily Spin)", callback_data="spin_wheel"),
+         InlineKeyboardButton("🎁 Omadli Quti (Mystery Box)", callback_data="box_menu")],
+        [InlineKeyboardButton("🪙 Tanga Tashlash (Coin Flip)", callback_data="game_duel_info"),
+         InlineKeyboardButton("🎟️ Sovg'ali Lotereya", callback_data="lottery_menu")],
+        [InlineKeyboardButton("🏆 Liderlar Jadvali", callback_data="menu_leaderboard"),
+         InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
     ])
 
 def main_menu_kb(user_id=None):
@@ -1455,7 +1450,7 @@ def create_ytbot():
     
     # ==================== /help ====================
     HELP_MAIN_TEXT = (
-        "📖 <b>YouTube Analytics & Automation Bot — Yordam</b>\n\n"
+        "✨ <b>CreatorFlow Studio — Yordam & Qo'llanma</b>\n\n"
         "Quyidagi bo'limlardan birini tanlang va unga tegishli buyruqlar bilan tanishing:\n\n"
         "⚡ <b>Tezkor buyruqlar:</b>\n"
         "• <code>/start</code> — Botni ishga tushirish\n"
@@ -2356,13 +2351,43 @@ def create_ytbot():
             f"💰 <b>Ochish narxi:</b> <code>{cost:,} so'm</code> (yoki 15 ⭐ Stars)\n"
             f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             f"{recent_text}\n\n"
-            f"<i>Yutish imkoniyati kazino modeli asosida ishlaydi. Omad tilaymiz!</i>"
+            f"<i>Yutish imkoniyati tasodifiy algoritm asosida ishlaydi. Omad tilaymiz!</i>"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🎁 Qutini ochish (6,000 so'm)", callback_data="box_open")],
-            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="stars_pkg_15")]
+            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="stars_pkg_15")],
+            [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
+             InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])
         await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^box_menu$"))
+    async def box_menu_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        bal = get_user_balance(user_id)
+        cost = 6000
+        recent = get_recent_box_winners(3)
+        recent_text = ""
+        if recent:
+            recent_text = "\n\n🔥 <b>Oxirgi yutuqlar:</b>\n" + "\n".join([f"• @user_{r['user']} ➔ <b>{r['prize']}</b>" for r in recent])
+            
+        text = (
+            f"🎁 <b>Omadli Quti (Mystery Box)</b>\n\n"
+            f"Qutini oching va omadingizni sinang! Qutidan <b>OpenRouter ($3)</b>, <b>Google Gemini ($5)</b>, "
+            f"<b>Groq API</b> yoki <b>Katta Keshbek</b> yutib olishingiz mumkin!\n\n"
+            f"💰 <b>Ochish narxi:</b> <code>{cost:,} so'm</code> (yoki 15 ⭐ Stars)\n"
+            f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{recent_text}\n\n"
+            f"<i>Yutish imkoniyati tasodifiy algoritm asosida ishlaydi. Omad tilaymiz!</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Qutini ochish (6,000 so'm)", callback_data="box_open")],
+            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="stars_pkg_15")],
+            [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
+             InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+        await callback_query.answer()
 
     @bot.on_callback_query(filters.regex(r"^box_open$"))
     async def box_open_callback(client, callback_query: CallbackQuery):
@@ -2376,7 +2401,10 @@ def create_ytbot():
         res = open_mystery_box(user_id, cost_uzs=6000)
         if not res.get("ok"):
             err_msg = res.get("error", "Xatolik yuz berdi")
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{e('MONEY')} Balansni to'ldirish", callback_data="menu_wallet")]])
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{e('MONEY')} Balansni to'ldirish", callback_data="menu_wallet")],
+                [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games")]
+            ])
             await callback_query.message.edit_text(f"❌ {err_msg}", reply_markup=kb)
             return
             
@@ -2402,7 +2430,8 @@ def create_ytbot():
             
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🔁 Yana ochish (6,000 so'm)", callback_data="box_open")],
-            [InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
+             InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
         ])
         await callback_query.message.edit_text(res_text, reply_markup=kb)
 
@@ -2416,7 +2445,7 @@ def create_ytbot():
         
         status_text = "🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"
         text = (
-            f"🎰 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
+            f"🎯 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
             f"Har kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n"
             f"{status_text}\n"
             f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
@@ -2426,15 +2455,41 @@ def create_ytbot():
         if can_free:
             buttons.append([InlineKeyboardButton("🎯 Bepul aylantirish (Spin)", callback_data="spin_free")])
         buttons.append([InlineKeyboardButton("💎 Pullik aylantirish (3,000 so'm)", callback_data="spin_paid")])
+        buttons.append([InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
+                        InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
         
         await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+
+    @bot.on_callback_query(filters.regex(r"^spin_wheel$"))
+    async def spin_wheel_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        can_free = can_user_free_spin(user_id)
+        bal = get_user_balance(user_id)
+        
+        status_text = "🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"
+        text = (
+            f"🎯 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
+            f"Har kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n"
+            f"{status_text}\n"
+            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"🎁 <b>Sovg'alar:</b> 200 so'm, 500 so'm, 1,000 so'm, 2,500 so'm, Groq Cloud API!"
+        )
+        buttons = []
+        if can_free:
+            buttons.append([InlineKeyboardButton("🎯 Bepul aylantirish (Spin)", callback_data="spin_free")])
+        buttons.append([InlineKeyboardButton("💎 Pullik aylantirish (3,000 so'm)", callback_data="spin_paid")])
+        buttons.append([InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
+                        InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
+        
+        await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+        await callback_query.answer()
 
     @bot.on_callback_query(filters.regex(r"^spin_(free|paid)$"))
     async def spin_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         is_free = (callback_query.data == "spin_free")
         
-        await callback_query.message.edit_text("🎰 <b>G'ildirak aylanmoqda...</b>\n\n[ 🔄 🔄 🔄 🔄 🔄 ]")
+        await callback_query.message.edit_text("🎯 <b>G'ildirak aylanmoqda...</b>\n\n[ 🔄 🔄 🔄 🔄 🔄 ]")
         await asyncio.sleep(1.0)
         
         res = spin_wheel(user_id, is_free=is_free)
@@ -2446,13 +2501,14 @@ def create_ytbot():
         new_bal = res["new_balance"]
         
         text = (
-            f"🎰 <b>Omad G'ildiragi Natijasi:</b>\n\n"
+            f"🎯 <b>Omad G'ildiragi Natijasi:</b>\n\n"
             f"🎉 <b>Mukofot:</b> {prize}\n"
             f"💰 <b>Yangi balansingiz:</b> <code>{new_bal:,} so'm</code>"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🔁 Yana aylantirish (3,000 so'm)", callback_data="spin_paid")],
-            [InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
+             InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
         ])
         await callback_query.message.edit_text(text, reply_markup=kb)
 
@@ -2619,7 +2675,7 @@ def create_ytbot():
         ])
         await callback_query.message.edit_text(text, reply_markup=kb)
 
-    @bot.on_callback_query(filters.regex(r"^lottery_refresh$"))
+    @bot.on_callback_query(filters.regex(r"^(lottery_refresh|lottery_menu)$"))
     async def lottery_refresh_callback(client, callback_query: CallbackQuery):
         info = get_current_lottery_info()
         user_id = callback_query.from_user.id
@@ -2636,10 +2692,12 @@ def create_ytbot():
                 InlineKeyboardButton("🎟 1 ta bilet (3,000 so'm)", callback_data="lottery_buy_1"),
                 InlineKeyboardButton("🎟 5 ta bilet (15,000 so'm)", callback_data="lottery_buy_5")
             ],
-            [InlineKeyboardButton("🔄 Yangilash", callback_data="lottery_refresh")]
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="lottery_refresh"),
+             InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])
         await callback_query.message.edit_text(text, reply_markup=kb)
-        await callback_query.answer("Yangilandi!")
+        await callback_query.answer("Yangilandi!" if callback_query.data == "lottery_refresh" else None)
 
 
     # ==================== 5. /makegift & /redeem (Vaucherlar) ====================
@@ -4487,11 +4545,6 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^(back_main|main_menu)$"))
     async def cb_back_main(client, cb: CallbackQuery):
-        try:
-            from games_casino import CRASH_ACTIVE_VIEWERS
-            CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
-        except Exception:
-            pass
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
         name = (cb.from_user.first_name or "Foydalanuvchi") if cb.from_user else "Foydalanuvchi"
@@ -4500,11 +4553,6 @@ def create_ytbot():
     
     @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)|btn_balance)$"))
     async def cb_menu(client, cb: CallbackQuery):
-        try:
-            from games_casino import CRASH_ACTIVE_VIEWERS
-            CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
-        except Exception:
-            pass
         user_id = cb.from_user.id
         if not check_is_admin(cb.from_user) and not is_user_kyc_verified(user_id):
             await cb.answer("⚠️ Botdan foydalanish uchun avval 3D biometrik identifikatsiyadan o'ting! /start ni bosing.", show_alert=True)
@@ -4724,8 +4772,9 @@ def create_ytbot():
     from mega_features import load_mega_features
     load_mega_features(bot)
 
-    from games_casino import register_casino_handlers
-    register_casino_handlers(bot)
+    # Casino handlers o'chirildi (Telegram ToS moslashtirish)
+    # from games_casino import register_casino_handlers
+    # register_casino_handlers(bot)
 
     # ==================== TO'LOV VA MARKETPLACE CALLBACKLARI ====================
     
@@ -7796,9 +7845,9 @@ async def run_ytbot():
     if bot is None:
         print("YouTube Bot ishga tushmadi. BOT_TOKEN ni tekshiring.")
         return
-    print("YouTube Analytics Bot ishga tushmoqda...")
+    print("CreatorFlow Studio Bot ishga tushmoqda...")
     await bot.start()
-    print("YouTube Analytics Bot muvaffaqiyatli ishga tushdi!")
+    print("CreatorFlow Studio Bot muvaffaqiyatli ishga tushdi!")
     asyncio.create_task(autostream_expiration_worker(bot))
     from vouchers_engine import start_antifraud_sentinel_daemon
     from instagram_cloner import start_instagram_sync_daemon
