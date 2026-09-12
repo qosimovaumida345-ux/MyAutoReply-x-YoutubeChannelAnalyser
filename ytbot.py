@@ -233,7 +233,18 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
         return "5224378350335707737" if is_vip else "5264938002844513934"
     # 13. 3D NFT Studio
     if any(k in cb for k in ["menu_nft", "nft_"]):
-        return "5373305417084478144" if is_vip else "5370960570889578848"
+        return "5393107154171358177"
+    # 14. Telegram Stars Mystery Cases
+    if "buy_stars_case_tier_1" in cb:
+        return "5323289282499064033"  # 📦 Box
+    if "buy_stars_case_tier_2" in cb:
+        return "6319002678990998592"  # 🎁 Gift
+    if "buy_stars_case_tier_3" in cb:
+        return "5226431245918942763"  # 🏆 Trophy
+    if "buy_stars_case_tier_4" in cb:
+        return "5463424023734014980"  # 💎 Diamond
+    if "buy_stars_case_tier_5" in cb:
+        return "5465467698022468218"  # 🚀 Galaxy/Rocket
 
     # Core Navigation & Features:
     if any(k in cb for k in ["menu_support_desk", "supp_"]):
@@ -268,6 +279,8 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
         return "6327577233305112811"
 
     # Text based detection
+    if "nft" in raw_text:
+        return "5393107154171358177"
     if "capcut" in raw_text:
         return "5285497929686069998" if is_vip else "5978895591894161700"
     if "instagram" in raw_text or "kloner" in raw_text:
@@ -304,21 +317,44 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     return None
 
 def _get_button_style(cb, raw_text, web_url=""):
+    # WebApp button styling
     if web_url:
         if "/kyc/" in web_url or "kyc" in web_url:
             return "danger"
         return "primary"
 
-    if any(k in cb for k in ["menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg", "marketplace", "market", "menu_marketplace", "menu_vouchers", "menu_cashout", "aivid_buy"]) or any(k in raw_text for k in ["sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace", "balans & to'ldirish", "balans", "obuna", "stars bilan"]):
+    # 1. SUCCESS (Yashil) — Balans, To'lovlar, Xizmatlar, Yutuqlar, Referal, CapCut
+    if any(k in cb for k in [
+        "menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg",
+        "marketplace", "market", "menu_marketplace", "menu_vouchers", "menu_cashout", "aivid_buy",
+        "menu_referral", "menu_leaderboard", "menu_capcut", "capcut"
+    ]) or any(k in raw_text for k in [
+        "sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace",
+        "balans", "obuna", "stars", "referal", "do'stlarni", "liderlar", "capcut", "voucher", "chek"
+    ]):
         return "success"
 
-    if any(k in cb for k in ["menu_games", "game_duel", "delaccount", "dbreset", "cancel"]) or any(k in raw_text for k in ["duel", "o'yinlar", "who wins", "o'chirish", "bekor", "3d kyc"]):
+    # 2. DANGER (Qizil / Yorqin) — O'yinlar, Duel, Spy / SEO, Instagram Kloner, O'chirish
+    if any(k in cb for k in [
+        "menu_games", "game_", "duel", "delaccount", "dbreset", "cancel", "menu_spy", "spy_",
+        "menu_ig_cloner", "ig_"
+    ]) or any(k in raw_text for k in [
+        "duel", "o'yinlar", "who wins", "o'chirish", "bekor", "3d kyc", "spy", "raqobatchi", "kloner", "instagram"
+    ]):
         return "danger"
 
-    if any(k in cb for k in ["back_main", "main_menu", "dashboard", "pub_aivid", "menu_nft", "nft_"]) or any(k in raw_text for k in ["web dashboard", "bosh menyu", "orqaga", "yuklash"]):
+    # 3. PRIMARY (Moviy / Havorang) — Dashboard, AI Video, 3D NFT, Support, API, Kanal, Analitika, Til, Yordam
+    if any(k in cb for k in [
+        "back_main", "main_menu", "dashboard", "pub_aivid", "menu_nft", "nft_",
+        "menu_ai_video", "aivid_", "menu_support_desk", "supp_", "help_api", "api_",
+        "menu_channel", "channel_", "menu_analytics", "menu_lang", "menu_help"
+    ]) or any(k in raw_text for k in [
+        "web dashboard", "bosh menyu", "orqaga", "yuklash", "3d nft", "ai video",
+        "support", "yordam", "admin", "developer", "api", "kanal", "analitika", "til", "language"
+    ]):
         return "primary"
 
-    return None
+    return "primary"
 
 _LEADING_EMOJI_PATTERN = re.compile(
     r'^[\s\U00010000-\U0010ffff\u2600-\u27bf\ufe0f\u200d\u2300-\u23ff\u2b50\u2b55\u3030\u303d\u2190-\u21ff\u2934\u2935]+',
@@ -2333,29 +2369,32 @@ def create_ytbot():
         await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
         await callback_query.answer()
 
-    # ==================== 1. /box (Mystery Box - Omadli Quti) ====================
+    # ==================== 1. /box (Mystery Box & Telegram Stars Cases) ====================
     @bot.on_message(filters.command(["box", "mystery", "omad"]))
     async def box_cmd(client, message):
         user_id = message.from_user.id
         bal = get_user_balance(user_id)
-        cost = 6000
         recent = get_recent_box_winners(3)
         recent_text = ""
         if recent:
             recent_text = "\n\n🔥 <b>Oxirgi yutuqlar:</b>\n" + "\n".join([f"• @user_{r['user']} ➔ <b>{r['prize']}</b>" for r in recent])
             
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://creatorflow-studio.onrender.com"
+        web_app_url = base_domain if base_domain.startswith("http") else "https://creatorflow-studio.onrender.com"
+
         text = (
-            f"🎁 <b>Omadli Quti (Mystery Box)</b>\n\n"
+            f"🎁 <b>Omadli Quti & Telegram Stars NFT Cases</b>\n\n"
             f"Qutini oching va omadingizni sinang! Qutidan <b>OpenRouter ($3)</b>, <b>Google Gemini ($5)</b>, "
             f"<b>Groq API</b> yoki <b>Katta Keshbek</b> yutib olishingiz mumkin!\n\n"
-            f"💰 <b>Ochish narxi:</b> <code>{cost:,} so'm</code> (yoki 15 ⭐ Stars)\n"
+            f"🌟 <b>5 Tier Telegram Stars NFT Cases</b> to'liq 3D ochilish animatsiyalari bilan <b>Web App Studio</b>da ishlaydi!\n\n"
+            f"💰 <b>Oddiy quti narxi:</b> <code>6,000 so'm</code>\n"
             f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             f"{recent_text}\n\n"
             f"<i>Yutish imkoniyati tasodifiy algoritm asosida ishlaydi. Omad tilaymiz!</i>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎁 Qutini ochish (6,000 so'm)", callback_data="box_open")],
-            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="stars_pkg_15")],
+            [InlineKeyboardButton(f"{e('STAR')} Stars NFT Cases (Web App)", web_app=WebAppInfo(url=web_app_url))],
+            [InlineKeyboardButton("🎁 Oddiy Quti (6,000 so'm)", callback_data="box_open")],
             [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
              InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])
@@ -2365,24 +2404,27 @@ def create_ytbot():
     async def box_menu_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         bal = get_user_balance(user_id)
-        cost = 6000
         recent = get_recent_box_winners(3)
         recent_text = ""
         if recent:
             recent_text = "\n\n🔥 <b>Oxirgi yutuqlar:</b>\n" + "\n".join([f"• @user_{r['user']} ➔ <b>{r['prize']}</b>" for r in recent])
             
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://creatorflow-studio.onrender.com"
+        web_app_url = base_domain if base_domain.startswith("http") else "https://creatorflow-studio.onrender.com"
+
         text = (
-            f"🎁 <b>Omadli Quti (Mystery Box)</b>\n\n"
+            f"🎁 <b>Omadli Quti & Telegram Stars NFT Cases</b>\n\n"
             f"Qutini oching va omadingizni sinang! Qutidan <b>OpenRouter ($3)</b>, <b>Google Gemini ($5)</b>, "
             f"<b>Groq API</b> yoki <b>Katta Keshbek</b> yutib olishingiz mumkin!\n\n"
-            f"💰 <b>Ochish narxi:</b> <code>{cost:,} so'm</code> (yoki 15 ⭐ Stars)\n"
+            f"🌟 <b>5 Tier Telegram Stars NFT Cases</b> to'liq 3D ochilish animatsiyalari bilan <b>Web App Studio</b>da ishlaydi!\n\n"
+            f"💰 <b>Oddiy quti narxi:</b> <code>6,000 so'm</code>\n"
             f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             f"{recent_text}\n\n"
             f"<i>Yutish imkoniyati tasodifiy algoritm asosida ishlaydi. Omad tilaymiz!</i>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🎁 Qutini ochish (6,000 so'm)", callback_data="box_open")],
-            [InlineKeyboardButton(f"{e('STAR')} 15 ⭐ Stars bilan ochish", callback_data="stars_pkg_15")],
+            [InlineKeyboardButton(f"{e('STAR')} Stars NFT Cases (Web App)", web_app=WebAppInfo(url=web_app_url))],
+            [InlineKeyboardButton("🎁 Oddiy Quti (6,000 so'm)", callback_data="box_open")],
             [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
              InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])
@@ -7376,6 +7418,40 @@ def create_ytbot():
                         )
                     except Exception as cap_pay_err:
                         print(f"Stars capcut_stars error: {cap_pay_err}")
+                elif raw_payload.startswith("stars_box_"):
+                    try:
+                        parts = raw_payload.split("_")
+                        tier_key = parts[2]
+                        u_id = user_id or int(parts[3])
+                        from games_monetization import open_stars_case
+                        res = open_stars_case(u_id, tier_key)
+                        if res.get("ok"):
+                            prize_name = res["prize_name"]
+                            prize_stars = res["prize_stars"]
+                            case_name = res["case_name"]
+                            icon = res["icon"]
+                            rarity = res["rarity"].upper()
+                            
+                            # Hisobga Stars qiymatidagi keshbek yoki sovg'a qo'shish
+                            add_user_balance(u_id, prize_stars * 400)
+                            
+                            nft_msg = ""
+                            if res.get("is_nft") and res.get("serial_no"):
+                                nft_msg = f"\n💎 <b>TON Blockchain NFT:</b> <code>{res['serial_no']}</code>\n🌐 <b>Marketplace:</b> Fragment.com (TON Network)\n"
+
+                            await client.send_message(
+                                u_id,
+                                f"🎉 <b>TABRIKLAYMIZ! STARS MYSTERY CASE OCHILDI!</b>\n\n"
+                                f"📦 <b>Keys:</b> {case_name}\n"
+                                f"{icon} <b>Sizning Yutug'ingiz:</b> {prize_name}\n"
+                                f"⭐ <b>Sovg'a Qiymati:</b> {prize_stars} ⭐ Stars\n"
+                                f"✨ <b>Noyoblik:</b> <code>[{rarity}]</code>"
+                                f"{nft_msg}\n"
+                                f"💰 Mukofot profilingiz vitrinasiga biriktirildi!",
+                                reply_markup=main_menu_kb(u_id)
+                            )
+                    except Exception as box_err:
+                        print(f"Stars box payment error: {box_err}")
 
     # ==================== VIDEO FAYL UNIKALIZATSIYA HANDLER ====================
     @bot.on_message((filters.video | filters.document) & filters.private)

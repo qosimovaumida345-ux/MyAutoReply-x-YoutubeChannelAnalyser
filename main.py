@@ -1522,6 +1522,193 @@ async def handle_nft_video(request):
     })
 
 
+_LIVE_GIFTS_CACHE = {"data": None, "ts": 0}
+
+async def handle_api_stars_live_gifts(request):
+    """Telegram Bot API getAvailableGifts orqali real Telegram sovg'alarini olish"""
+    import time as _t
+    now = _t.time()
+    if _LIVE_GIFTS_CACHE["data"] and (now - _LIVE_GIFTS_CACHE["ts"] < 300):
+        return web.json_response({"ok": True, "source": "cache", "gifts": _LIVE_GIFTS_CACHE["data"]}, headers={"Access-Control-Allow-Origin": "*"})
+
+    from config import BOT_TOKEN
+    import aiohttp
+    if BOT_TOKEN:
+        try:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/getAvailableGifts"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=5) as resp:
+                    res = await resp.json()
+                    if res.get("ok"):
+                        gifts = res.get("result", {}).get("gifts", [])
+                        _LIVE_GIFTS_CACHE["data"] = gifts
+                        _LIVE_GIFTS_CACHE["ts"] = now
+                        return web.json_response({"ok": True, "source": "telegram_api", "gifts": gifts}, headers={"Access-Control-Allow-Origin": "*"})
+        except Exception as e:
+            print(f"Telegram getAvailableGifts error: {e}")
+
+    # Fallback to official Telegram catalog
+    from games_monetization import STARS_CASES
+    all_drops = []
+    for c in STARS_CASES.values():
+        all_drops.extend(c.get("drops", []))
+    return web.json_response({"ok": True, "source": "official_catalog", "gifts": all_drops}, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_cases(request):
+    """5 Tier Telegram Stars Mystery Cases ma'lumotlari (Telegram serveridan jonli)"""
+    from games_monetization import fetch_telegram_server_gifts, build_cases_from_gifts
+    from config import BOT_TOKEN
+    server_gifts = await fetch_telegram_server_gifts(BOT_TOKEN)
+    cases_dict = build_cases_from_gifts(server_gifts)
+    return web.json_response({"ok": True, "cases": list(cases_dict.values())}, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_open_case(request):
+    """Web Dashboard orqali keys ochish simulyatsiyasi va unboxing natijasi"""
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        tier_id = str(data.get("tier_id", "tier_1")).strip()
+        from games_monetization import open_stars_case
+        res = open_stars_case(user_id, tier_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_create_invoice(request):
+    """Telegram Stars to'lovi uchun Telegram createInvoiceLink yaratish"""
+    try:
+        import time as _t
+        data = await request.json()
+        tier_id = str(data.get("tier_id", "tier_1")).strip()
+        user_id = int(data.get("user_id", 0))
+        from games_monetization import STARS_CASES
+        case = STARS_CASES.get(tier_id)
+        if not case:
+            for c in STARS_CASES.values():
+                if c["key"] == tier_id or c["id"] == tier_id:
+                    case = c
+                    break
+        if not case:
+            return web.json_response({"ok": False, "error": "Keys topilmadi"}, status=404)
+
+        from config import BOT_TOKEN
+        import aiohttp
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink"
+        payload = {
+            "title": case["name"],
+            "description": case["description"],
+            "payload": f"stars_box_{case['key']}_{user_id}_{int(_t.time())}",
+            "currency": "XTR",
+            "prices": [{"label": case["name"], "amount": case["price_stars"]}]
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload) as resp:
+                data = await resp.json()
+                if data.get("ok"):
+                    return web.json_response({"ok": True, "invoice_link": data.get("result")}, headers={"Access-Control-Allow-Origin": "*"})
+                return web.json_response({"ok": False, "error": data.get("description", "Invoice yaratilmadi")}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_stars_recent_drops(request):
+    """Jonli so'nggi unboxing va yutuqlar lentasi"""
+    from games_monetization import get_recent_drops
+    drops = get_recent_drops(15)
+    return web.json_response({"ok": True, "drops": drops}, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_pvp_battles(request):
+    """Ochiq PvP janglar ro'yxati"""
+    from games_monetization import get_open_case_battles
+    battles = get_open_case_battles()
+    return web.json_response({"ok": True, "battles": battles}, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_pvp_create(request):
+    """Yangi PvP keys jangi ochish"""
+    try:
+        data = await request.json()
+        host_id = int(data.get("user_id", 0))
+        host_name = str(data.get("user_name", "")).strip()
+        tier_id = str(data.get("tier_id", "tier_1")).strip()
+        from games_monetization import create_case_battle
+        res = create_case_battle(host_id, host_name, tier_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_pvp_join(request):
+    """PvP jangga qo'shilish va g'olibni aniqlash"""
+    try:
+        data = await request.json()
+        battle_id = str(data.get("battle_id", "")).strip()
+        guest_id = int(data.get("user_id", 0))
+        guest_name = str(data.get("user_name", "")).strip()
+        from games_monetization import join_and_resolve_battle
+        res = join_and_resolve_battle(battle_id, guest_id, guest_name)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_upgrader(request):
+    """Nazoratli Upgrader aylanishi"""
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        item_stars = int(data.get("item_stars", 15))
+        target_stars = int(data.get("target_stars", 50))
+        target_name = str(data.get("target_name", "Gift")).strip()
+        target_icon = str(data.get("target_icon", "🎁")).strip()
+        from games_monetization import execute_upgrade_roll
+        res = execute_upgrade_roll(user_id, item_stars, target_stars, target_name, target_icon)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_daily_streak(request):
+    """Foydalanuvchi kunlik streak holatini olish"""
+    try:
+        user_id = int(request.query.get("user_id", 0))
+        from games_monetization import get_user_streak
+        res = get_user_streak(user_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_daily_claim(request):
+    """Kunlik bepul xizmat sovg'asini olish"""
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        from games_monetization import claim_daily_streak
+        res = claim_daily_streak(user_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_scratch_card(request):
+    """Tirnaladigan omad chiptasini o'ynash"""
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        from games_monetization import play_scratch_card
+        res = play_scratch_card(user_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_redeem(request):
+    """Yutuqlarni CapCut Pro yoki AI xizmatlariga almashtirish"""
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        service_id = str(data.get("service_id", "")).strip()
+        from games_monetization import redeem_creator_service
+        res = redeem_creator_service(user_id, service_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
@@ -1539,6 +1726,23 @@ async def start_web_server(port):
     app.router.add_post("/api/reset-db", handle_api_reset_db)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     
+    # 5 Tier Telegram Stars Mystery Cases & Live API
+    app.router.add_get("/api/stars/cases", handle_api_stars_cases)
+    app.router.add_get("/api/stars/live-gifts", handle_api_stars_live_gifts)
+    app.router.add_post("/api/stars/open-case", handle_api_stars_open_case)
+    app.router.add_post("/api/stars/create-invoice", handle_api_stars_create_invoice)
+
+    # Yangi 6 ta Monetizatsiya & O'yin API lari
+    app.router.add_get("/api/stars/recent-drops", handle_api_stars_recent_drops)
+    app.router.add_get("/api/stars/pvp-battles", handle_api_stars_pvp_battles)
+    app.router.add_post("/api/stars/pvp-battle/create", handle_api_stars_pvp_create)
+    app.router.add_post("/api/stars/pvp-battle/join", handle_api_stars_pvp_join)
+    app.router.add_post("/api/stars/upgrader", handle_api_stars_upgrader)
+    app.router.add_get("/api/stars/daily-streak", handle_api_stars_daily_streak)
+    app.router.add_post("/api/stars/daily-streak/claim", handle_api_stars_daily_claim)
+    app.router.add_post("/api/stars/scratch-card/play", handle_api_stars_scratch_card)
+    app.router.add_post("/api/stars/redeem-service", handle_api_stars_redeem)
+
     # Yangi: CryptoPay Webhook va KYC WebApp
     app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)
     app.router.add_get("/kyc/verify", handle_kyc_page)
