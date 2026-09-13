@@ -199,7 +199,31 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     cb_lower = (cb or "").lower()
     text_lower = (raw_text or "").lower()
 
-    # 1. Aniq To'lov Tizimlari (HUMO/Uzcard #65, Telegram Stars #63, TON/Crypto #64)
+    # 1. Web Dashboard (Chrome icon 6327577233305112811)
+    if ((web_url and not any(k in web_url for k in ["kyc", "tonconnect", "ton"])) or "web dashboard" in text_lower or "dashboard" in text_lower or cb_lower in ("dashboard", "web_dashboard")):
+        return "6327577233305112811"
+
+    # 2. 3D KYC (Shield icon 5330194932781050507)
+    if (web_url and ("kyc" in web_url)) or "kyc" in text_lower:
+        return "5330194932781050507"
+
+    # 3. Bosh Menyu (Home 🏠 5974098293813152457 - NOT Chrome!)
+    if any(k in cb_lower for k in ["back_main", "main_menu"]) or any(k in text_lower for k in ["bosh menyu", "glavnoye menyu", "main menu"]):
+        return "5974098293813152457"
+
+    # 4. Services / Marketplace (Flying Money 💸 5864068125112144897)
+    if any(k in cb_lower for k in ["menu_marketplace", "marketplace"]) or any(k in text_lower for k in ["marketplace", "xizmatlar / marketplace", "services / marketplace", "barcha bo'limlar"]):
+        return "5864068125112144897"
+
+    # 5. Developer API (Blue API Badge 5287480366330816274)
+    if any(k in cb_lower for k in ["help_api", "api_keys", "developer_api"]) or any(k in text_lower for k in ["developer api", "api & studio", "dasturchi api"]):
+        return "5287480366330816274"
+
+    # 6. Mening xaridlarim (Orders / List 5444856076954520455)
+    if any(k in cb_lower for k in ["vb_my_orders", "my_orders"]) or "mening xaridlarim" in text_lower:
+        return "5444856076954520455"
+
+    # 7. To'lov Tizimlari (HUMO/Uzcard, Stars, TON)
     if any(k in cb_lower for k in ["humo", "uzcard"]) or any(k in text_lower for k in ["humo", "uzcard"]):
         return "5445353829304387411"
     if any(k in cb_lower for k in ["stars_pkg", "star_buy", "pay_stars"]) or any(k in text_lower for k in ["telegram stars", "stars"]):
@@ -209,129 +233,86 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     if web_url and ("tonconnect" in web_url or "ton" in web_url):
         return "5078343973303485905"
 
-    # 2. VenteBot Reseller Do'koni va Mahsulotlar (65 ta brend va zaxira indikatorlari)
-    if "vb_catalog" in cb_lower or "ventebot" in text_lower:
-        return "5276040205541878847"
-    if "vb_item_" in cb_lower:
+    # 8. Pagination tugmalari (Oldingi / Keyingi)
+    if "vb_page_" in cb_lower:
+        if "oldingi" in text_lower or "prev" in text_lower or "back" in text_lower or "◀" in text_lower or "⬅" in text_lower:
+            return "5352759161945867747"
+        if "keyingi" in text_lower or "next" in text_lower or "forward" in text_lower or "▶" in text_lower or "➡" in text_lower:
+            return "5433788045016969178"
+        return None
+    if cb_lower == "vb_noop":
+        return None
+
+    # 9. Asosiy Menyu Tugmalari:
+    if any(k in cb_lower for k in ["menu_wallet", "pay_"]) or "balans" in text_lower or "wallet" in text_lower:
+        return "5463046637842608206" if is_vip else "5343777479091831702"
+    if any(k in cb_lower for k in ["menu_games", "game_"]) or "o'yinlar" in text_lower:
+        return "5235989279024373566"
+    if any(k in cb_lower for k in ["menu_support_desk", "supp_"]) or "support" in text_lower:
+        return "5443038326535759644"
+    if any(k in cb_lower for k in ["menu_referral"]) or "referal" in text_lower or "do'stlarni" in text_lower:
+        return "6319002678990998592"
+    if any(k in cb_lower for k in ["menu_leaderboard"]) or "liderlar" in text_lower:
+        return "5226431245918942763"
+    if any(k in cb_lower for k in ["menu_channel"]) or "kanal" in text_lower:
+        return "5431504848992360576"
+    if any(k in cb_lower for k in ["menu_analytics"]) or "analitika" in text_lower:
+        return "5244837092042750681"
+    if any(k in cb_lower for k in ["menu_lang"]) or "til" in text_lower or "language" in text_lower:
+        return "6017109689748164760"
+    if any(k in cb_lower for k in ["menu_help"]) or "help" in text_lower or "yordam" in text_lower:
+        return "5452026937172048380"
+    if any(k in cb_lower for k in ["back_", "orqaga"]) and not any(k in cb_lower for k in ["back_main"]):
+        return "5352759161945867747"
+
+    # 10. Golden VIP vs Oddiy Funksiyalar
+    if any(k in cb_lower for k in ["menu_capcut", "capcut"]) or "capcut" in text_lower:
+        return "5285497929686069998" if is_vip else "5978895591894161700"
+    if any(k in cb_lower for k in ["menu_ig_cloner", "ig_"]) or "instagram" in text_lower or "kloner" in text_lower:
+        return "6001420655252213986" if is_vip else "4990082283701535678"
+    if any(k in cb_lower for k in ["menu_reels", "dl_reels"]) or "reels" in text_lower:
+        return "5312147767966054472" if is_vip else "5825658700735451589"
+    if any(k in cb_lower for k in ["menu_vouchers", "claim_chk", "help_create_check"]) or "voucher" in text_lower or "chek" in text_lower:
+        return "5420112302210817795" if is_vip else "5265197972919964944"
+    if any(k in cb_lower for k in ["chk_claim", "redeem_check"]):
+        return "5960914406366779993" if is_vip else "5980930633298350051"
+    if any(k in cb_lower for k in ["antifraud", "security_lock"]):
+        return "5465443379917629504" if is_vip else "5463358164705489689"
+    if any(k in cb_lower for k in ["menu_ai_video", "aivid_"]) or "ai video" in text_lower:
+        return "5249493957578078525" if is_vip else "5235837920081887219"
+    if any(k in cb_lower for k in ["voice_", "tts_"]):
+        return "5766912713586381607" if is_vip else "5895215520000513680"
+    if any(k in cb_lower for k in ["menu_spy", "spy_"]) or "spy" in text_lower or "raqobatchi" in text_lower:
+        return "6107110845399962129" if is_vip else "5339247212012528642"
+    if any(k in cb_lower for k in ["seo_tags", "tagsgen"]):
+        return "5406711411541823609" if is_vip else "5298877105000439431"
+    if any(k in cb_lower for k in ["menu_cashout", "co_method", "cashout"]) or "cashout" in text_lower or "yechish" in text_lower:
+        return "5463046637842608206" if is_vip else "4967738760021148319"
+    if any(k in cb_lower for k in ["menu_deeplink", "deeplink"]) or "deeplink" in text_lower:
+        return "5224378350335707737" if is_vip else "5264938002844513934"
+    if any(k in cb_lower for k in ["menu_nft", "nft_"]) or "nft" in text_lower:
+        return "5393107154171358177"
+
+    # 11. Telegram Stars Mystery Cases
+    if "buy_stars_case_tier_1" in cb_lower: return "5323289282499064033"
+    if "buy_stars_case_tier_2" in cb_lower: return "6319002678990998592"
+    if "buy_stars_case_tier_3" in cb_lower: return "5226431245918942763"
+    if "buy_stars_case_tier_4" in cb_lower: return "5463424023734014980"
+    if "buy_stars_case_tier_5" in cb_lower: return "5465467698022468218"
+
+    # 12. Reseller Tovar Ro'yxati (vb_item_) va Brand Match
+    if "vb_item_" in cb_lower or "vb_cat_" in cb_lower:
         for brand, emoji_id in BRAND_EMOJIS_MAP.items():
-            if brand in text_lower:
+            if re.search(r'\b' + re.escape(brand) + r'\b', text_lower):
                 return emoji_id
         if "out of stock" in text_lower or "tugagan" in text_lower or text_lower.startswith("⚠️"):
             return "4997089922276918243"
         return "5255860701133552970"
 
-    # 3. 65 ta Kompaniya, Brend va Xizmatlar (Marketplace & Do'kon)
+    # 13. Qolgan tovarlar va brendlar (Word boundary orqali aniq match)
     for brand, emoji_id in BRAND_EMOJIS_MAP.items():
-        if brand in text_lower or brand in cb_lower:
+        if re.search(r'\b' + re.escape(brand) + r'\b', text_lower) or re.search(r'\b' + re.escape(brand) + r'\b', cb_lower):
             return emoji_id
-
-    # 4. WebApp Maxsus Havolalari
-    if web_url:
-        if "/kyc/" in web_url or "kyc" in web_url:
-            return "5330194932781050507"
-        return "6327577233305112811"
-
-    # 5. Golden VIP vs Oddiy Funksiyalar
-    if any(k in cb for k in ["menu_capcut", "capcut"]):
-        return "5285497929686069998" if is_vip else "5978895591894161700"
-    if any(k in cb for k in ["menu_ig_cloner", "ig_"]):
-        return "6001420655252213986" if is_vip else "4990082283701535678"
-    if any(k in cb for k in ["menu_reels", "dl_reels"]):
-        return "5312147767966054472" if is_vip else "5825658700735451589"
-    if any(k in cb for k in ["menu_vouchers", "claim_chk", "help_create_check"]):
-        return "5420112302210817795" if is_vip else "5265197972919964944"
-    if any(k in cb for k in ["chk_claim", "redeem_check"]):
-        return "5960914406366779993" if is_vip else "5980930633298350051"
-    if any(k in cb for k in ["antifraud", "security_lock"]):
-        return "5465443379917629504" if is_vip else "5463358164705489689"
-    if any(k in cb for k in ["menu_ai_video", "aivid_"]):
-        return "5249493957578078525" if is_vip else "5235837920081887219"
-    if any(k in cb for k in ["voice_", "tts_"]):
-        return "5766912713586381607" if is_vip else "5895215520000513680"
-    if any(k in cb for k in ["menu_spy", "spy_"]):
-        return "6107110845399962129" if is_vip else "5339247212012528642"
-    if any(k in cb for k in ["seo_tags", "tagsgen"]):
-        return "5406711411541823609" if is_vip else "5298877105000439431"
-    if any(k in cb for k in ["menu_cashout", "co_method", "cashout"]):
-        return "5463046637842608206" if is_vip else "4967738760021148319"
-    if any(k in cb for k in ["menu_deeplink", "deeplink"]):
-        return "5224378350335707737" if is_vip else "5264938002844513934"
-    if any(k in cb for k in ["menu_nft", "nft_"]):
-        return "5393107154171358177"
-
-    # 6. Telegram Stars Mystery Cases
-    if "buy_stars_case_tier_1" in cb:
-        return "5323289282499064033"  # 📦 Box
-    if "buy_stars_case_tier_2" in cb:
-        return "6319002678990998592"  # 🎁 Gift
-    if "buy_stars_case_tier_3" in cb:
-        return "5226431245918942763"  # 🏆 Trophy
-    if "buy_stars_case_tier_4" in cb:
-        return "5463424023734014980"  # 💎 Diamond
-    if "buy_stars_case_tier_5" in cb:
-        return "5465467698022468218"  # 🚀 Galaxy/Rocket
-
-    # 7. Asosiy Navigatsiya & Bo'limlar:
-    if any(k in cb for k in ["menu_support_desk", "supp_"]):
-        return "5443038326535759644"
-    if any(k in cb for k in ["menu_wallet", "pay_"]):
-        return "5463046637842608206" if is_vip else "5343777479091831702"
-    if any(k in cb for k in ["menu_games", "game_"]):
-        return "5235989279024373566"
-    if any(k in cb for k in ["menu_referral"]):
-        return "6319002678990998592"
-    if any(k in cb for k in ["menu_leaderboard"]):
-        return "5226431245918942763"
-    if any(k in cb for k in ["menu_marketplace", "market"]):
-        return "5864068125112144897"
-    if any(k in cb for k in ["help_api", "api_keys"]):
-        return "5287480366330816274"
-    if any(k in cb for k in ["menu_channel"]):
-        return "5431504848992360576"
-    if any(k in cb for k in ["menu_analytics"]):
-        return "5244837092042750681"
-    if any(k in cb for k in ["menu_lang"]):
-        return "6017109689748164760"
-    if any(k in cb for k in ["menu_help"]):
-        return "5452026937172048380"
-    if any(k in cb for k in ["back_main", "main_menu"]):
-        return "6327577233305112811"
-
-    # 8. Matn bo'yicha zaxira aniqlash
-    if "nft" in text_lower:
-        return "5393107154171358177"
-    if "capcut" in text_lower:
-        return "5285497929686069998" if is_vip else "5978895591894161700"
-    if "instagram" in text_lower or "kloner" in text_lower:
-        return "6001420655252213986" if is_vip else "4990082283701535678"
-    if "reels" in text_lower:
-        return "5312147767966054472" if is_vip else "5825658700735451589"
-    if "chek" in text_lower or "voucher" in text_lower:
-        return "5420112302210817795" if is_vip else "5265197972919964944"
-    if "ai video" in text_lower:
-        return "5249493957578078525" if is_vip else "5235837920081887219"
-    if "raqobatchi" in text_lower or "spy" in text_lower:
-        return "6107110845399962129" if is_vip else "5339247212012528642"
-    if "admin" in text_lower or "yordam & live" in text_lower or "support" in text_lower:
-        return "5443038326535759644"
-    if "yechish" in text_lower or "cashout" in text_lower:
-        return "5463046637842608206" if is_vip else "4967738760021148319"
-    if "deeplink" in text_lower:
-        return "5224378350335707737" if is_vip else "5264938002844513934"
-    if "balans" in text_lower or "to'ldirish" in text_lower or "wallet" in text_lower:
-        return "5463046637842608206" if is_vip else "5343777479091831702"
-    if "o'yinlar" in text_lower or "yutuq" in text_lower:
-        return "5235989279024373566"
-    if "marketplace" in text_lower or "xizmatlar" in text_lower:
-        return "5864068125112144897"
-    if "do'stlarni" in text_lower or "referal" in text_lower:
-        return "6319002678990998592"
-    if "liderlar" in text_lower or "jadval" in text_lower:
-        return "5226431245918942763"
-    if "dashboard" in text_lower:
-        return "6327577233305112811"
-    if "kyc" in text_lower:
-        return "5330194932781050507"
 
     return None
 
@@ -381,7 +362,11 @@ def _get_button_style(cb, raw_text, web_url=""):
     return "primary"
 
 _LEADING_EMOJI_PATTERN = re.compile(
-    r'^[\s\U00010000-\U0010ffff\u2600-\u27bf\ufe0f\u200d\u2300-\u23ff\u2b50\u2b55\u3030\u303d\u2190-\u21ff\u2934\u2935]+',
+    r'^[\s\U00010000-\U0010ffff\u2600-\u27bf\ufe0f\u200d\u2300-\u23ff\u2b50\u2b55\u3030\u303d\u2190-\u21ff\u25a0-\u25ff\u2934\u2935]+',
+    re.UNICODE
+)
+_TRAILING_EMOJI_PATTERN = re.compile(
+    r'[\s\U00010000-\U0010ffff\u2600-\u27bf\ufe0f\u200d\u2300-\u23ff\u2b50\u2b55\u3030\u303d\u2190-\u21ff\u25a0-\u25ff\u2934\u2935]+$',
     re.UNICODE
 )
 
@@ -390,9 +375,12 @@ def _clean_button_text(btn_text, icon_id=None):
         return ""
     if icon_id:
         cleaned = _LEADING_EMOJI_PATTERN.sub('', btn_text).strip()
+        cleaned = _TRAILING_EMOJI_PATTERN.sub('', cleaned).strip()
         for fb in sorted(FALLBACK_TO_ID.keys(), key=len, reverse=True):
             if cleaned.startswith(fb):
                 cleaned = cleaned[len(fb):].strip()
+            if cleaned.endswith(fb):
+                cleaned = cleaned[:-len(fb)].strip()
         return cleaned if cleaned else btn_text
     return btn_text
 
@@ -6231,17 +6219,17 @@ def create_ytbot():
         if total_pages > 1:
             nav_row = []
             if page > 0:
-                nav_row.append(InlineKeyboardButton(f"{e('BACK')} Oldingi", callback_data=f"vb_page_{cat}_{page-1}"))
+                nav_row.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"vb_page_{cat}_{page-1}"))
             nav_row.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="vb_noop"))
             if page < total_pages - 1:
-                nav_row.append(InlineKeyboardButton(f"Keyingi {e('FORWARD')}", callback_data=f"vb_page_{cat}_{page+1}"))
+                nav_row.append(InlineKeyboardButton("Keyingi ▶️", callback_data=f"vb_page_{cat}_{page+1}"))
             buttons.append(nav_row)
 
         buttons.append([
-            InlineKeyboardButton(f"{e('CART')} Mening xaridlarim", callback_data="vb_my_orders"),
-            InlineKeyboardButton(f"{e('WALLET')} Balansni to'ldirish", callback_data="menu_wallet")
+            InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders"),
+            InlineKeyboardButton("💰 Balansni to'ldirish", callback_data="menu_wallet")
         ])
-        buttons.append([InlineKeyboardButton(f"{e('STORE')} Barcha bo'limlar", callback_data="menu_marketplace")])
+        buttons.append([InlineKeyboardButton("💸 Barcha bo'limlar", callback_data="menu_marketplace")])
 
         await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
         await cb.answer()
