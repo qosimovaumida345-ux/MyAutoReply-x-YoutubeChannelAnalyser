@@ -1066,32 +1066,38 @@ def crypto_packages_kb():
     return InlineKeyboardMarkup(buttons)
 
 def marketplace_menu_kb():
-    from database import get_api_keys_stock_count, get_proxies_stock_count
-    stock = get_api_keys_stock_count()
-    op_stock = stock.get("openrouter", 0)
-    gm_stock = stock.get("gemini", 0)
-    gq_stock = stock.get("groq", 0)
-    pr_stock = get_proxies_stock_count()
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🚀 VenteBot Raqamli Tovarlar & Obunalar", callback_data="vb_catalog")],
-        [InlineKeyboardButton(f"🌐 Private Proxy ($3) [{pr_stock} ta]", callback_data="mkt_view_proxy"),
-         InlineKeyboardButton(f"⚡ Autostream Cloud (4k/s)", callback_data="mkt_view_autostream")],
-        [InlineKeyboardButton(f"🎨 500+ Prompt Pack ($3)", callback_data="mkt_view_prompts"),
-         InlineKeyboardButton(f"👑 VIP Cheksiz Pro ($15/oy)", callback_data="mkt_view_vip")],
-        [InlineKeyboardButton(f"🌐 OpenRouter API ($3) [{op_stock} ta]", callback_data="mkt_view_openrouter"),
-         InlineKeyboardButton(f"✨ Gemini API ($5) [{gm_stock} ta]", callback_data="mkt_view_gemini")],
-        [InlineKeyboardButton(f"⚡ Groq Cloud API (10k) [{gq_stock} ta]", callback_data="mkt_view_groq"),
-         InlineKeyboardButton(f"🎨 Flux.1 AI Rasm ($2/h)", callback_data="mkt_view_flux")],
-        [InlineKeyboardButton(f"📲 DeepLink & QR (3k)", callback_data="mkt_view_deeplink"),
-         InlineKeyboardButton(f"⚡ Video Unikal (1.5k)", callback_data="mkt_view_unikal")],
-        [InlineKeyboardButton(f"✂️ 3 ta Shorts Kesish ($1)", callback_data="mkt_view_clipper"),
-         InlineKeyboardButton(f"💎 Referal & Keshbek (10%)", callback_data="mkt_view_ref")],
-        [InlineKeyboardButton("👍 Layk (1,500 so'm)", callback_data="mkt_order_like"),
-         InlineKeyboardButton("🔔 Obuna (2,500 so'm)", callback_data="mkt_order_subscribe"),
-         InlineKeyboardButton("💬 Izoh (1,000 so'm)", callback_data="mkt_order_comment")],
-        [InlineKeyboardButton("🔑 Mening xaridlarim", callback_data="mkt_my_purchases"),
-         InlineKeyboardButton("📋 Buyurtmalarim", callback_data="mkt_my_orders")],
-        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")],
+        # 1. 6 ta Asosiy Raqamli Xizmatlar Toifasi (Barcha 88 ta mahsulot)
+        [InlineKeyboardButton("AI & LLM Modellar", callback_data="vb_cat_ai"),
+         InlineKeyboardButton("Video & Ovoz Dizayn", callback_data="vb_cat_design_video")],
+        [InlineKeyboardButton("Kino & Musiqa Striming", callback_data="vb_cat_media_streaming"),
+         InlineKeyboardButton("VPN & Xavfsiz Tarmoq", callback_data="vb_cat_vpn_security")],
+        [InlineKeyboardButton("Ofis & Ta'lim Dasturlari", callback_data="vb_cat_office_edu"),
+         InlineKeyboardButton("Developer Vositalari", callback_data="vb_cat_dev_tools")],
+        
+        # 2. Maxsus Bot Xizmatlari (Pasaytirilgan so'm narxlar, $ yo'q!)
+        [InlineKeyboardButton("Private Proxy (18,000 so'm)", callback_data="mkt_view_proxy"),
+         InlineKeyboardButton("VIP Cheksiz Pro (69,000 so'm)", callback_data="mkt_view_vip")],
+        [InlineKeyboardButton("Autostream Cloud (2,500 so'm)", callback_data="mkt_view_autostream"),
+         InlineKeyboardButton("500+ Prompt Pack (25,000 so'm)", callback_data="mkt_view_prompts")],
+        [InlineKeyboardButton("OpenRouter API (25,000 so'm)", callback_data="mkt_view_openrouter"),
+         InlineKeyboardButton("Gemini API (25,000 so'm)", callback_data="mkt_view_gemini")],
+        [InlineKeyboardButton("Groq Cloud API (18,000 so'm)", callback_data="mkt_view_groq"),
+         InlineKeyboardButton("Flux.1 AI Rasm (18,000 so'm)", callback_data="mkt_view_flux")],
+        [InlineKeyboardButton("Shorts Kesish (5,000 so'm)", callback_data="mkt_view_clipper"),
+         InlineKeyboardButton("Video Unikal (500 so'm)", callback_data="mkt_view_unikal")],
+        [InlineKeyboardButton("DeepLink & QR (1,000 so'm)", callback_data="mkt_view_deeplink"),
+         InlineKeyboardButton("Referal & Keshbek (10%)", callback_data="mkt_view_ref")],
+        
+        # 3. Kanal & O'sish Xizmatlari (Layk 500, Obuna 1,000, Izoh 300)
+        [InlineKeyboardButton("Layk (500 so'm)", callback_data="mkt_order_like"),
+         InlineKeyboardButton("Obuna (1,000 so'm)", callback_data="mkt_order_subscribe"),
+         InlineKeyboardButton("Izoh (300 so'm)", callback_data="mkt_order_comment")],
+        
+        # 4. Navigatsiya & Xaridlar
+        [InlineKeyboardButton("Mening xaridlarim", callback_data="vb_my_orders"),
+         InlineKeyboardButton("Balansni to'ldirish", callback_data="menu_wallet")],
+        [InlineKeyboardButton("Bosh menyu", callback_data="back_main")],
     ])
 
 def order_quantity_kb(action_type):
@@ -1838,76 +1844,32 @@ def create_ytbot():
         gq_stock = stock.get("groq", 0)
         pr_stock = get_proxies_stock_count()
         text = (
-            f"{e('CASH')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
-            f"{e('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
-            f"<b>🌐 Proxy & Server Quvvati:</b>\n"
-            f"• {e('PROXY')} <b>Dedicated Private Proxy:</b> $3 (38,000 so'm) — <i>Zaxirada: {pr_stock} ta</i>\n"
-            f"• {e('STREAM')} <b>24/7 Autostream Cloud Slot:</b> $0.5 / soat (6,000 so'm/soat)\n\n"
-            f"<b>🤖 AI API Kalitlar:</b>\n"
-            f"• {e('OPENROUTER')} <b>OpenRouter API ($3):</b> 38,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
-            f"• {e('GEMINI')} <b>Google Gemini API ($5):</b> 64,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
-            f"• {e('GROQ')} <b>Groq Cloud API (gptoss 120b):</b> 10,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
-            f"<b>🎨 AI Kreativ & Kontent:</b>\n"
-            f"• {e('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> $2/hafta (25,000 so'm, 25 ta rasm)\n"
-            f"• {e('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> $3 (38,000 so'm)\n"
-            f"• {e('CLIPPER')} <b>3 ta Vertical Shorts Kesish:</b> $1 (12,800 so'm) / video\n\n"
-            f"<b>⚡ Kanal Rivojlantirish & DeepLink:</b>\n"
-            f"• {e('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 3,000 so'm\n"
-            f"• {e('LIGHTNING')} <b>Video Unikalizatsiya & Content ID:</b> 1,500 so'm\n"
-            f"• 👑 <b>VIP Cheksiz Pro Obuna:</b> $15 / oy (192,000 so'm)\n"
-            f"• 💎 <b>Referal & 10% Keshbek Tizimi</b>\n\n"
-            f"{e('PIN')} Kerakli mahsulot yoki xizmatni tanlang:"
+            f"{ce('STORE')} <b>CreatorFlow Raqamli Xizmatlar & Marketplace</b>\n\n"
+            f"{ce('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<b>{ce('GLOBE')} Proxy & Server Quvvati:</b>\n"
+            f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> 18,000 so'm — <i>Zaxirada: {pr_stock} ta</i>\n"
+            f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n"
+            f"<b>{ce('AI')} AI Modellar & API Resurslar:</b>\n"
+            f"• {ce('OPENROUTER')} <b>OpenRouter API:</b> 25,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
+            f"• {ce('GEMINI')} <b>Google Gemini API:</b> 25,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
+            f"• {ce('GROQ')} <b>Groq Cloud API:</b> 18,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
+            f"<b>{ce('DESIGN')} Kreativ & Kontent:</b>\n"
+            f"• {ce('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> 18,000 so'm (25 ta rasm)\n"
+            f"• {ce('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> 25,000 so'm\n"
+            f"• {ce('CLIPPER')} <b>Vertical Shorts Kesish:</b> 5,000 so'm / video\n\n"
+            f"<b>{ce('ROCKET')} Kanal Rivojlantirish & DeepLink:</b>\n"
+            f"• {ce('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 1,000 so'm\n"
+            f"• {ce('LIGHTNING')} <b>Video Unikalizatsiya:</b> 500 so'm\n"
+            f"• {ce('VIP')} <b>VIP Cheksiz Pro Obuna:</b> 69,000 so'm / oy\n"
+            f"• {ce('STARS')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
+            f"{ce('PIN')} Kerakli mahsulot yoki toifani tanlang:"
         )
         await message.reply_text(text, reply_markup=marketplace_menu_kb())
 
     # ==================== /store & /ventebot ====================
     @bot.on_message(filters.command(["store", "shop", "ventebot", "raqamli"]))
     async def ventebot_store_cmd(client, message):
-        user_id = message.from_user.id
-        lang = get_user_language(user_id)
-        if not await check_service_available("ventebot_store", message, lang):
-            return
-        from ventebot_service import ventebot_service
-        bal = get_user_balance(user_id)
-        
-        loading = await message.reply_text("⏳ Raqamli tovarlar katalogi yuklanmoqda...")
-        res = await ventebot_service.get_products(lang="uz")
-        if not res.get("success"):
-            await loading.edit_text(f"❌ Katalog yuklanmadi: {res.get('message', 'Xatolik')}")
-            return
-            
-        products = res.get("products", [])
-        if not products:
-            await loading.edit_text("ℹ️ Hozircha sotuvda faol tovarlar mavjud emas.")
-            return
-
-        text = (
-            f"🚀 <b>VenteBot Raqamli Xizmatlar & Obunalar Do'koni</b>\n\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"<i>Kerakli mahsulotni tanlang. Xarid summasi to'g'ridan-to'g'ri botdagi so'm balansingizdan yechiladi va tovar bir zumda yetkaziladi:</i>"
-        )
-        
-        buttons = []
-        for p in products[:30]:
-            p_id = p.get("id")
-            name = p.get("name", "Product")
-            price_usd = float(p.get("price_usd") or 0)
-            stock = p.get("stock")
-            in_stock = (stock is None or stock > 0)
-            if in_stock:
-                stock_str = f"📦 {stock}" if stock is not None else "📦"
-                btn_txt = f"{name} | ${price_usd:.2f} | {stock_str}"
-            else:
-                btn_txt = f"⚠️ {name} | ${price_usd:.2f} | Out of stock"
-            buttons.append([InlineKeyboardButton(btn_txt, callback_data=f"vb_item_{p_id}")])
-
-        buttons.append([
-            InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders"),
-            InlineKeyboardButton("💳 Balansni to'ldirish", callback_data="menu_wallet")
-        ])
-        buttons.append([InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
-        
-        await loading.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+        await marketplace_cmd(client, message)
 
     # ==================== /kyc ====================
     @bot.on_message(filters.command("kyc"))
@@ -4965,27 +4927,25 @@ def create_ytbot():
             gq_stock = stock.get("groq", 0)
             pr_stock = get_proxies_stock_count()
             text = (
-                f"{ce('CASH')} <b>Marketplace & Raqamli Xizmatlar Do'koni</b>\n\n"
+                f"{ce('STORE')} <b>CreatorFlow Raqamli Xizmatlar & Marketplace</b>\n\n"
                 f"{ce('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
-                f"<b>{ce('WEB')} Proxy & Server Quvvati:</b>\n"
-                f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> $3 (38,000 so'm) — <i>Zaxirada: {pr_stock} ta</i> <code>[NO REFUND]</code>\n"
-                f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> $0.5 / soat (6,000 so'm/soat) <code>[NO REFUND]</code>\n\n"
-                f"<b>{ce('BOT')} AI API Kalitlar:</b>\n"
-                f"• {ce('OPENROUTER')} <b>OpenRouter API ($3):</b> 38,000 so'm — <i>Zaxirada: {op_stock} ta</i> <code>[NO REFUND]</code>\n"
-                f"• {ce('GEMINI')} <b>Google Gemini API ($5):</b> 64,000 so'm — <i>Zaxirada: {gm_stock} ta</i> <code>[NO REFUND]</code>\n"
-                f"• {ce('GROQ')} <b>Groq Cloud API (gptoss 120b):</b> 10,000 so'm — <i>Zaxirada: {gq_stock} ta</i> <code>[NO REFUND]</code>\n\n"
-                f"<b>{ce('FLUX')} AI Kreativ & Kontent:</b>\n"
-                f"• {ce('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> $2/hafta (25,000 so'm, 25 ta rasm) <code>[NO REFUND]</code>\n"
-                f"• {ce('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> $3 (38,000 so'm) <code>[NO REFUND]</code>\n"
-                f"• {ce('CLIPPER')} <b>3 ta Vertical Shorts Kesish:</b> $1 (12,800 so'm) / video <code>[NO REFUND]</code>\n\n"
-                f"<b>{ce('LIGHTNING')} Kanal Rivojlantirish & DeepLink:</b>\n"
-                f"• {ce('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 3,000 so'm <code>[NO REFUND]</code>\n"
-                f"• {ce('LIGHTNING')} <b>Video Unikalizatsiya & Content ID:</b> 1,500 so'm <code>[NO REFUND]</code>\n"
-                f"• {ce('CROWN')} <b>VIP Cheksiz Pro Obuna:</b> $15 / oy (192,000 so'm) <code>[NO REFUND]</code>\n"
-                f"• {ce('DIAMOND')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
-                f"{ce('WARN')} <b>OGOHLANTIRISH & OMMAVIY OFERTA:</b>\n"
-                f"<i>Barcha raqamli mahsulotlar promo-aksiyalar doirasida taqdim etiladi. Eskirgan (expired) yoki ishlamaydigan kodlar uchun ma'muriyat javobgar emas va mablag' mutlaqo qaytarilmaydi (NO REFUNDS). Xarid qilish orqali barcha shartlarga o'z ixtiyoringiz bilan to'liq rozilik bildirasiz.</i>\n\n"
-                f"{ce('PIN')} Kerakli mahsulot yoki xizmatni tanlang:"
+                f"<b>{ce('GLOBE')} Proxy & Server Quvvati:</b>\n"
+                f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> 18,000 so'm — <i>Zaxirada: {pr_stock} ta</i>\n"
+                f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n"
+                f"<b>{ce('AI')} AI Modellar & API Resurslar:</b>\n"
+                f"• {ce('OPENROUTER')} <b>OpenRouter API:</b> 25,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
+                f"• {ce('GEMINI')} <b>Google Gemini API:</b> 25,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
+                f"• {ce('GROQ')} <b>Groq Cloud API:</b> 18,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
+                f"<b>{ce('DESIGN')} Kreativ & Kontent:</b>\n"
+                f"• {ce('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> 18,000 so'm (25 ta rasm)\n"
+                f"• {ce('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> 25,000 so'm\n"
+                f"• {ce('CLIPPER')} <b>Vertical Shorts Kesish:</b> 5,000 so'm / video\n\n"
+                f"<b>{ce('ROCKET')} Kanal Rivojlantirish & DeepLink:</b>\n"
+                f"• {ce('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 1,000 so'm\n"
+                f"• {ce('LIGHTNING')} <b>Video Unikalizatsiya:</b> 500 so'm\n"
+                f"• {ce('VIP')} <b>VIP Cheksiz Pro Obuna:</b> 69,000 so'm / oy\n"
+                f"• {ce('STARS')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
+                f"{ce('PIN')} Kerakli mahsulot yoki toifani tanlang:"
             )
             await cb.message.edit_text(text, reply_markup=marketplace_menu_kb())
             await cb.answer()
@@ -5388,8 +5348,8 @@ def create_ytbot():
             await cb.answer("Iltimos, avval havolani yuboring!", show_alert=True)
             return
             
-        prices = {"like": 1500, "subscribe": 2500, "comment": 1000}
-        price_per_item = prices.get(action, 1500)
+        prices = {"like": 500, "subscribe": 1000, "comment": 300}
+        price_per_item = prices.get(action, 500)
         total_cost = qty * price_per_item
         
         user_bal = get_user_balance(user_id)
@@ -5488,45 +5448,45 @@ def create_ytbot():
         cur_stock = stock.get(service, 0)
         
         if service == "openrouter":
-            price_uzs = 38000
+            price_uzs = 25000
             desc = (
-                f"{e('OPENROUTER')} <b>OpenRouter API Kalit ($3 balans bilan)</b>\n\n"
+                f"{ce('OPENROUTER')} <b>OpenRouter API Kalit</b>\n\n"
                 f"• GPT-4o, Claude 3.5 Sonnet, Llama 3 va 100+ AI modellarini bitta API orqali ishlatish imkoniyati!\n"
-                f"• Rasmiy hisobda $3 dollar balans mavjud.\n"
+                f"• Rasmiy hisobda balans mavjud.\n"
                 f"• Butun dunyo bo'yicha hech qanday VPN va cheklovlarsiz ishlaydi.\n\n"
-                f"💵 <b>Narxi:</b> $3 — <code>{price_uzs:,} so'm</code>\n"
-                f"📦 <b>Zaxirada mavjud:</b> <code>{cur_stock} ta</code>\n"
-                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+                f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+                f"{ce('STOCK_BOX')} <b>Zaxirada mavjud:</b> <code>{cur_stock} ta</code>\n"
+                f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             )
         elif service == "gemini":
-            price_uzs = 64000
+            price_uzs = 25000
             desc = (
-                f"{e('GEMINI')} <b>Google Gemini API Kalit ($5 balans)</b>\n\n"
+                f"{ce('GEMINI')} <b>Google Gemini API Kalit</b>\n\n"
                 f"• Gemini 1.5 Pro va Flash modellari uchun yuqori tezlikdagi rasmiy API kalit!\n"
                 f"• YouTube izohlari, avtomatizatsiya va matn yaratish uchun ideal.\n"
                 f"• Rasmiy Google AI Studio kaliti, xavfsiz va faol.\n\n"
-                f"💵 <b>Narxi:</b> $5 — <code>{price_uzs:,} so'm</code>\n"
-                f"📦 <b>Zaxirada mavjud:</b> <code>{cur_stock} ta</code>\n"
-                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+                f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+                f"{ce('STOCK_BOX')} <b>Zaxirada mavjud:</b> <code>{cur_stock} ta</code>\n"
+                f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             )
         else: # groq
-            price_uzs = 10000
+            price_uzs = 18000
             desc = (
-                f"{e('GROQ')} <b>Groq Cloud API Kalit (Ultra-Tezkor LPU)</b>\n\n"
+                f"{ce('GROQ')} <b>Groq Cloud API Kalit (Ultra-Tezkor LPU)</b>\n\n"
                 f"• Dunyodagi eng tezkor AI arxitekturasi: sekundiga 500+ token tezlik!\n"
                 f"• <b>gptoss 120b</b> va <b>Llama 3.3 70B</b> modellarini maksimal tezlikda ishlatish uchun.\n"
                 f"• Dasturchilar, botlar va avtomatizatsiya uchun tayyor kalit.\n\n"
-                f"💵 <b>Narxi:</b> <code>{price_uzs:,} so'm</code> ($0.8)\n"
-                f"📦 <b>Zaxirada mavjud:</b> <code>{cur_stock} ta</code>\n"
-                f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+                f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+                f"{ce('STOCK_BOX')} <b>Zaxirada mavjud:</b> <code>{cur_stock} ta</code>\n"
+                f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             )
             
         buttons = []
         if cur_stock > 0:
-            buttons.append([InlineKeyboardButton(f"🛒 Sotib olish ({price_uzs:,} so'm)", callback_data=f"mkt_buy_{service}")])
+            buttons.append([InlineKeyboardButton(f"Sotib olish ({price_uzs:,} so'm)", callback_data=f"mkt_buy_{service}")])
         else:
-            buttons.append([InlineKeyboardButton("⚠️ Hozircha zaxirada tugagan", callback_data="mkt_stock_empty")])
-        buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")])
+            buttons.append([InlineKeyboardButton("Hozircha zaxirada tugagan", callback_data="mkt_stock_empty")])
+        buttons.append([InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")])
         
         await cb.message.edit_text(desc, reply_markup=InlineKeyboardMarkup(buttons))
         await cb.answer()
@@ -5540,8 +5500,8 @@ def create_ytbot():
         service = cb.matches[0].group(1).lower()
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        prices = {"openrouter": 38000, "gemini": 64000, "groq": 10000}
-        names = {"openrouter": "OpenRouter API ($3)", "gemini": "Google Gemini API ($5)", "groq": "Groq Cloud API (10k)"}
+        prices = {"openrouter": 25000, "gemini": 25000, "groq": 18000}
+        names = {"openrouter": "OpenRouter API", "gemini": "Google Gemini API", "groq": "Groq Cloud API"}
         price_uzs = prices.get(service, 10000)
         service_name = names.get(service, service)
         
@@ -5612,33 +5572,33 @@ def create_ytbot():
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer("Xarid muvaffaqiyatli yakunlandi!", show_alert=False)
 
-    # ==================== DEDICATED PRIVATE PROXY ($3 / 38,000 so'm) ====================
+    # ==================== DEDICATED PRIVATE PROXY (18,000 so'm) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_proxy$"))
     async def cb_mkt_view_proxy(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
         pr_stock = get_proxies_stock_count()
         user_proxy = get_user_download_proxy(user_id)
-        price_uzs = 38000
+        price_uzs = 18000
 
-        status_line = f"🟢 <b>Faol shaxsiy proxiyingiz:</b> <code>{user_proxy}</code>" if user_proxy else "⚪ Sizda hali shaxsiy proxy ulanmagan"
+        status_line = f"{ce('SUCCESS')} <b>Faol shaxsiy proxiyingiz:</b> <code>{user_proxy}</code>" if user_proxy else "Sizda hali shaxsiy proxy ulanmagan"
 
         desc = (
-            f"{e('PROXY')} <b>Dedicated Private Proxy (Shaxsiy Toza IP)</b>\n\n"
+            f"{ce('PROXY')} <b>Dedicated Private Proxy (Shaxsiy Toza IP)</b>\n\n"
             f"• <b>Faqat video yuklab olishda (download):</b> YouTube tezlikni cheklamasligi va bloklamasligi uchun.\n"
             f"• <b>Qat'iy xavfsizlik:</b> Ushbu proxy yuklab olish tugagach ajratiladi va oddiy bot/API so'rovlarida sarflanmaydi.\n"
             f"• <b>1 xarid = 1 toza proxy:</b> Faqat sizning akkauntingizga biriktiriladi.\n\n"
             f"{status_line}\n\n"
-            f"💵 <b>Narxi:</b> $3 — <code>{price_uzs:,} so'm</code>\n"
-            f"📦 <b>Zaxirada mavjud:</b> <code>{pr_stock} ta</code>\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+            f"{ce('STOCK_BOX')} <b>Zaxirada mavjud:</b> <code>{pr_stock} ta</code>\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
         )
         buttons = []
         if pr_stock > 0:
-            buttons.append([InlineKeyboardButton(f"🛒 Sotib olish ({price_uzs:,} so'm)", callback_data="mkt_buy_proxy")])
+            buttons.append([InlineKeyboardButton(f"Sotib olish ({price_uzs:,} so'm)", callback_data="mkt_buy_proxy")])
         else:
-            buttons.append([InlineKeyboardButton("⚠️ Zaxirada hozircha qolmagan", callback_data="mkt_stock_empty")])
-        buttons.append([InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")])
+            buttons.append([InlineKeyboardButton("Zaxirada hozircha qolmagan", callback_data="mkt_stock_empty")])
+        buttons.append([InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")])
         await cb.message.edit_text(desc, reply_markup=InlineKeyboardMarkup(buttons))
         await cb.answer()
 
@@ -5646,7 +5606,7 @@ def create_ytbot():
     async def cb_mkt_buy_proxy(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        price_uzs = 38000
+        price_uzs = 18000
         if bal < price_uzs:
             diff = price_uzs - bal
             text = (
@@ -5718,20 +5678,20 @@ def create_ytbot():
                 slot_lines += f"• #{s['id']} — {s['hours_paid']} soat [{st}] (tugash: {str(s['expires_at'])[:16]})\n"
 
         desc = (
-            f"{e('STREAM')} <b>24/7 Autostream Bulutli Efir Serveri</b>\n\n"
+            f"{ce('STREAM')} <b>24/7 Autostream Bulutli Efir Serveri</b>\n\n"
             f"• Telefon yoki kompyuteringizni yoqib o'tirmasdan YouTube kanalingizda 24/7 jonli efir uzating!\n"
-            f"• Soatbay to'lov: <b>soatiga 4,000 so'm ($0.3)</b>.\n"
+            f"• Soatbay to'lov: <b>soatiga 2,500 so'm</b>.\n"
             f"• <b>Avtomatik o'chish:</b> Sotib olingan vaqt tugashi bilan efir serveri avtomatik to'xtaydi.{slot_lines}\n\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"Efir davomiyligini tanlang:"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("1 soat — 4,000 so'm", callback_data="mkt_stream_h_1"),
-             InlineKeyboardButton("3 soat — 12,000 so'm", callback_data="mkt_stream_h_3")],
-            [InlineKeyboardButton("6 soat — 24,000 so'm", callback_data="mkt_stream_h_6"),
-             InlineKeyboardButton("12 soat — 48,000 so'm", callback_data="mkt_stream_h_12")],
-            [InlineKeyboardButton("24 soat (1 kun) — 96,000 so'm", callback_data="mkt_stream_h_24")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton("1 soat — 2,500 so'm", callback_data="mkt_stream_h_1"),
+             InlineKeyboardButton("3 soat — 7,500 so'm", callback_data="mkt_stream_h_3")],
+            [InlineKeyboardButton("6 soat — 15,000 so'm", callback_data="mkt_stream_h_6"),
+             InlineKeyboardButton("12 soat — 30,000 so'm", callback_data="mkt_stream_h_12")],
+            [InlineKeyboardButton("24 soat (1 kun) — 60,000 so'm", callback_data="mkt_stream_h_24")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -5741,36 +5701,36 @@ def create_ytbot():
         hours = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        cost = hours * 4000
+        cost = hours * 2500
 
         if bal < cost:
             diff = cost - bal
             text = (
-                f"{e('WARN')} <b>Balansingizda mablag' yetarli emas!</b>\n\n"
+                f"{ce('WARN')} <b>Balansingizda mablag' yetarli emas!</b>\n\n"
                 f"{hours} soatlik slot uchun: <code>{cost:,} so'm</code>\n"
                 f"Joriy balansingiz: <code>{bal:,} so'm</code> (yetishmayapti: <code>{diff:,} so'm</code>)\n\n"
                 f"Iltimos, avval hisobingizni to'ldiring:"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🪙 CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
-                [InlineKeyboardButton("⭐ Stars orqali to'ldirish", callback_data="pay_stars_menu")],
-                [InlineKeyboardButton("⬅️ Orqaga", callback_data="mkt_view_autostream")]
+                [InlineKeyboardButton("CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton("Stars orqali to'ldirish", callback_data="pay_stars_menu")],
+                [InlineKeyboardButton("Orqaga", callback_data="mkt_view_autostream")]
             ])
             await cb.message.edit_text(text, reply_markup=kb)
             await cb.answer()
             return
 
         confirm_text = (
-            f"🛒 <b>Autostream slotini tasdiqlash</b>\n\n"
+            f"<b>Autostream slotini tasdiqlash</b>\n\n"
             f"Davomiyligi: <b>{hours} soat</b>\n"
-            f"Narxi: <code>{cost:,} so'm</code> (${hours*0.5})\n"
+            f"Narxi: <code>{cost:,} so'm</code>\n"
             f"Joriy balansingiz: <code>{bal:,} so'm</code>\n"
             f"Xariddan so'ng: <code>{(bal - cost):,} so'm</code>\n\n"
-            f"⚠️ Vaqt tugashi bilan efir serveri avtomatik o'chadi. Tasdiqlaysizmi?"
+            f"Vaqt tugashi bilan efir serveri avtomatik o'chadi. Tasdiqlaysizmi?"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Ha, sotib olaman", callback_data=f"mkt_confirm_stream_{hours}")],
-            [InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_view_autostream")]
+            [InlineKeyboardButton("Ha, sotib olaman", callback_data=f"mkt_confirm_stream_{hours}")],
+            [InlineKeyboardButton("Bekor qilish", callback_data="mkt_view_autostream")]
         ])
         await cb.message.edit_text(confirm_text, reply_markup=kb)
         await cb.answer()
@@ -5809,19 +5769,19 @@ def create_ytbot():
     async def cb_mkt_view_prompts(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        price_uzs = 38000
+        price_uzs = 25000
         desc = (
-            f"{e('IDEA')} <b>500+ Virusli Prompt & SEO Taglar To'plami</b>\n\n"
+            f"{ce('IDEA')} <b>500+ Virusli Prompt & SEO Taglar To'plami</b>\n\n"
             f"• <b>Millionlab ko'rish to'plagan formulalar:</b> Shorts va videolar uchun clickbait sarlavha shablonlari.\n"
             f"• <b>Retention sirlari:</b> Tomoshabinni dastlabki 5 soniyada ushlab qoluvchi 50+ Hook skriptlari.\n"
             f"• <b>Yuqori reytingli SEO teglari:</b> Har bir soha bo'yicha eng kuchli kalit so'zlar to'plami.\n\n"
-            f"💵 <b>Narxi:</b> $3 — <code>{price_uzs:,} so'm</code>\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"Xariddan so'ng to'liq to'plam darhol chatda ochiladi va profilingizda saqlanadi."
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"🛒 Xarid qilish ({price_uzs:,} so'm)", callback_data="mkt_confirm_prompts")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton(f"Xarid qilish ({price_uzs:,} so'm)", callback_data="mkt_confirm_prompts")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -5830,7 +5790,7 @@ def create_ytbot():
     async def cb_mkt_confirm_prompts(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        price_uzs = 38000
+        price_uzs = 25000
         if bal < price_uzs:
             await cb.answer("Balansingizda mablag' yetarli emas!", show_alert=True)
             return
@@ -5863,27 +5823,27 @@ def create_ytbot():
         await cb.message.edit_text(prompts_text, reply_markup=kb)
         await cb.answer("Muvaffaqiyatli xarid qilindi!", show_alert=False)
 
-    # ==================== VIP CHEKSIZ PRO OBUNA ($15 / OY) ====================
+    # ==================== VIP CHEKSIZ PRO OBUNA (69,000 SO'M / OY) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_vip$"))
     async def cb_mkt_view_vip(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
         is_vip = is_user_vip(user_id)
-        price_uzs = 192000
-        vip_status = "👑 <b>Siz hozirda faol VIP a'zosiz!</b>" if is_vip else "⚪ Sizda hali VIP obuna mavjud emas"
+        price_uzs = 69000
+        vip_status = f"{ce('CROWN')} <b>Siz hozirda faol VIP a'zosiz!</b>" if is_vip else "Sizda hali VIP obuna mavjud emas"
 
         desc = (
-            f"👑 <b>VIP Cheksiz Pro Obuna ($15 / oy)</b>\n\n"
+            f"{ce('CROWN')} <b>VIP Cheksiz Pro Obuna (30 kun)</b>\n\n"
             f"• <b>Cheksiz Kunlik Limit:</b> Kunlik buyruqlar, video yuklash (/dl) va tahlillar cheklovi butunlay bekor qilinadi.\n"
             f"• <b>Prioritetli Navbat:</b> Avtopost va video render jarayonlarida eng yuqori server tezligi.\n"
             f"• <b>Eksklyuziv Imkoniyatlar:</b> Kelajakdagi barcha yangi AI modellariga birinchi navbatda kirish.\n\n"
             f"{vip_status}\n\n"
-            f"💵 <b>Narxi:</b> $15 — <code>{price_uzs:,} so'm</code> (30 kun)\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code> (30 kun)\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"👑 VIP Obuna Bo'lish ({price_uzs:,} so'm)", callback_data="mkt_confirm_vip")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton(f"VIP Obuna Bo'lish ({price_uzs:,} so'm)", callback_data="mkt_confirm_vip")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -5899,42 +5859,42 @@ def create_ytbot():
         exp = res.get("expires_at", "")
         new_bal = res.get("new_balance", 0)
         text = (
-            f"👑 <b>Tabriklaymiz, siz VIP Pro a'zosisiz!</b>\n\n"
+            f"{ce('CROWN')} <b>Tabriklaymiz, siz VIP Pro a'zosisiz!</b>\n\n"
             f"📅 <b>Muddati:</b> <code>{exp}</code> gacha\n"
-            f"💰 <b>Yechilgan summa:</b> 192,000 so'm ($15)\n"
-            f"⚖️ <b>Qolgan balans:</b> {new_bal:,} so'm\n\n"
-            f"🚀 Barcha kunlik cheklovlar bekor qilindi. Bemalol cheksiz foydalaning!"
+            f"{ce('MONEY')} <b>Yechilgan summa:</b> <code>69,000 so'm</code>\n"
+            f"{ce('BALANCE')} <b>Qolgan balans:</b> <code>{new_bal:,} so'm</code>\n\n"
+            f"Barcha kunlik cheklovlar bekor qilindi. Bemalol cheksiz foydalaning!"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")],
-            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton("Do'konga qaytish", callback_data="menu_marketplace")],
+            [InlineKeyboardButton("Bosh menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer("VIP Pro faollashtirildi!", show_alert=False)
 
-    # ==================== FLUX.1 AI RASM OBUNASI ($2 / HAFTA) ====================
+    # ==================== FLUX.1 AI RASM OBUNASI (18,000 SO'M / HAFTA) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_flux$"))
     async def cb_mkt_view_flux(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
         quota = get_flux_quota(user_id)
-        price_uzs = 25000
+        price_uzs = 18000
 
-        q_status = f"🎨 <b>Mavjud rasm krediti:</b> {quota['left']} ta (tugash: {quota.get('expires_at')})" if quota["active"] else "⚪ Sizda faol rasm obunasi yo'q"
+        q_status = f"{ce('ART')} <b>Mavjud rasm krediti:</b> {quota['left']} ta (tugash: {quota.get('expires_at')})" if quota["active"] else "Sizda faol rasm obunasi yo'q"
 
         desc = (
-            f"{e('FLUX')} <b>Flux.1 AI Rasm Generatsiya Obunasi</b>\n\n"
+            f"{ce('FLUX')} <b>Flux.1 AI Rasm Generatsiya Obunasi</b>\n\n"
             f"• Midjourney va DALL-E 3 darajasidagi eng fotorealistik AI rasm modeli.\n"
             f"• YouTube muqova (thumbnail) va kreativ rasmlar uchun maxsus sozlangan.\n"
             f"• <b>Tarif:</b> Haftasiga 25 ta rasm generatsiya qilish krediti.\n\n"
             f"{q_status}\n\n"
-            f"💵 <b>Narxi:</b> $2 — <code>{price_uzs:,} so'm</code> (7 kunlik obuna)\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code> (7 kunlik obuna)\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"<i>Xariddan so'ng botda /flux &lt;tavsif&gt; buyrug'i orqali rasm yarata olasiz.</i>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"🎨 Obuna bo'lish ({price_uzs:,} so'm)", callback_data="mkt_confirm_flux")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton(f"Obuna bo'lish ({price_uzs:,} so'm)", callback_data="mkt_confirm_flux")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -5950,40 +5910,40 @@ def create_ytbot():
         exp = res.get("expires_at", "")
         new_bal = res.get("new_balance", 0)
         text = (
-            f"🎨 <b>Flux.1 AI Rasm obunasi faollashtirildi!</b>\n\n"
+            f"{ce('FLUX')} <b>Flux.1 AI Rasm obunasi faollashtirildi!</b>\n\n"
             f"🖼 <b>Generatsiyalar soni:</b> 25 ta rasm\n"
             f"📅 <b>Amal qilish muddati:</b> <code>{exp}</code> gacha\n"
-            f"💰 <b>Yechilgan summa:</b> 25,000 so'm ($2)\n"
-            f"⚖️ <b>Qolgan balans:</b> {new_bal:,} so'm\n\n"
-            f"🚀 <b>Rasm yaratish uchun:</b>\n"
+            f"{ce('MONEY')} <b>Yechilgan summa:</b> <code>18,000 so'm</code>\n"
+            f"{ce('BALANCE')} <b>Qolgan balans:</b> <code>{new_bal:,} so'm</code>\n\n"
+            f"<b>Rasm yaratish uchun:</b>\n"
             f"<code>/flux &lt;rasm tavsifi&gt;</code> deb yuboring!\n"
             f"<i>(Masalan: /flux cyberpunk uslubidagi YouTube thumbnail)</i>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔑 Mening xaridlarim", callback_data="mkt_my_purchases")],
-            [InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")],
-            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton("Mening xaridlarim", callback_data="mkt_my_purchases")],
+            [InlineKeyboardButton("Do'konga qaytish", callback_data="menu_marketplace")],
+            [InlineKeyboardButton("Bosh menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer("Flux.1 obunasi ochildi!", show_alert=False)
 
-    # ==================== YOUTUBE DEEPLINK & SMART QR (3,000 SO'M) ====================
+    # ==================== YOUTUBE DEEPLINK & SMART QR (1,000 SO'M) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_deeplink$"))
     async def cb_mkt_view_deeplink(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        price_uzs = 3000
+        price_uzs = 1000
         desc = (
-            f"{e('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR Kod</b>\n\n"
+            f"{ce('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR Kod</b>\n\n"
             f"• <b>Ilovada to'g'ridan-to'g'ri ochilish:</b> Instagram bio, TikTok yoki reklamadan bosgan odam brauzerda emas, to'g'ridan-to'g'ri YouTube mobil ilovasida ochadi.\n"
             f"• <b>Konversiya o'sishi:</b> Brauzerda login so'ramaydi, 1 bosishda layk va obuna bo'lishadi!\n"
             f"• <b>Stilistik Smart QR:</b> Chop etish yoki postlar uchun tayyor QR kod birga taqdim etiladi.\n\n"
-            f"💵 <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"📲 Yaratish ({price_uzs:,} so'm)", callback_data="mkt_order_deeplink")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton(f"Yaratish ({price_uzs:,} so'm)", callback_data="mkt_order_deeplink")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -5992,38 +5952,38 @@ def create_ytbot():
     async def cb_mkt_order_deeplink(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        if bal < 3000:
-            await cb.answer("Balansingiz yetarli emas (kerak: 3,000 so'm)", show_alert=True)
+        if bal < 1000:
+            await cb.answer("Balansingiz yetarli emas (kerak: 1,000 so'm)", show_alert=True)
             return
         USER_ORDER_STATE[user_id] = {"action": "deeplink", "step": "awaiting_deeplink_url"}
         text = (
-            f"{e('QR_DEEPLINK')} <b>YouTube kanal yoki video havolasini chatga yuboring:</b>\n\n"
+            f"{ce('QR_DEEPLINK')} <b>YouTube kanal yoki video havolasini chatga yuboring:</b>\n\n"
             f"<i>Masalan: https://youtube.com/@KanalNomi yoki https://youtu.be/xxx</i>"
         )
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_cancel")]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Bekor qilish", callback_data="mkt_cancel")]])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    # ==================== VIDEO UNIKALIZATSIYA (1,500 SO'M) ====================
+    # ==================== VIDEO UNIKALIZATSIYA (500 SO'M) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_unikal$"))
     async def cb_mkt_view_unikal(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        price_uzs = 1500
+        price_uzs = 500
         desc = (
-            f"{e('LIGHTNING')} <b>Video Unikalizatsiya & Content ID Tozalash</b>\n\n"
+            f"{ce('LIGHTNING')} <b>Video Unikalizatsiya & Content ID Tozalash</b>\n\n"
             f"• <b>Algoritmik himoya:</b> Metadata tozalash, 1% tezlik o'zgartirish, mikro audio-pitch siljitish va rang filtri (LUT).\n"
             f"• Qayta yuklangan videolarning bloklanish xavfini keskin kamaytiradi.\n\n"
             f"⚠️ <b>DIQQAT (Ogohlantirish):</b>\n"
             f"YouTube Content ID va mualliflik huquqi algoritmlari doimiy yangilanib turadi. "
             f"Ushbu xizmat videoni unikalizatsiya qilish ehtimolini oshiradi, biroq 100% kafolat bermaydi. "
             f"<b>Qaytarib berilmaydi (NO REFUNDS)!</b>\n\n"
-            f"💵 <b>Narxi:</b> <code>{price_uzs:,} so'm</code> / video\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code> / video\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"⚡ Unikalizatsiya Qilish ({price_uzs:,} so'm)", callback_data="mkt_order_unikal")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton(f"Unikalizatsiya Qilish ({price_uzs:,} so'm)", callback_data="mkt_order_unikal")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -6032,39 +5992,39 @@ def create_ytbot():
     async def cb_mkt_order_unikal(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        if bal < 1500:
-            await cb.answer("Balansingiz yetarli emas (kerak: 1,500 so'm)", show_alert=True)
+        if bal < 500:
+            await cb.answer("Balansingiz yetarli emas (kerak: 500 so'm)", show_alert=True)
             return
         USER_ORDER_STATE[user_id] = {"action": "unikal", "step": "awaiting_unikal_video"}
         text = (
-            f"{e('LIGHTNING')} <b>Unikalizatsiya qilinadigan video havolasini chatga yuboring:</b>\n\n"
+            f"{ce('LIGHTNING')} <b>Unikalizatsiya qilinadigan video havolasini chatga yuboring:</b>\n\n"
             f"<i>(Masalan: https://youtu.be/xxx yoki video fayl)</i>\n\n"
-            f"⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
+            f"<i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
         )
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_cancel")]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("Bekor qilish", callback_data="mkt_cancel")]])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    # ==================== 3 TA SHORTS KESISH ($1 / 12,800 SO'M) ====================
+    # ==================== 3 TA SHORTS KESISH (5,000 SO'M) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_clipper$"))
     async def cb_mkt_view_clipper(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        price_uzs = 12800
+        price_uzs = 5000
         desc = (
-            f"{e('CLIPPER')} <b>Uzun Videodan Avtomatik 3 ta Shorts Kesish</b>\n\n"
+            f"{ce('CLIPPER')} <b>Uzun Videodan Avtomatik 3 ta Shorts Kesish</b>\n\n"
             f"• Podkast, intervyu yoki uzun videongizdan sun'iy intellekt eng qiziqarli 3 ta vertikal Shorts tayyorlaydi.\n"
             f"• Har bir qism uchun alohida qiziqarli sarlavha va virusli hook aniqlanadi.\n\n"
             f"⚠️ <b>DIQQAT (Ogohlantirish):</b>\n"
             f"AI algoritmlari videoning eng faol joylarini avtomatik tahlil qilib kesadi. "
             f"Kadrlash, markazlashtirish yoki video sifati ba'zi videolarda kutilgandek chiqmasligi mumkin. "
             f"<b>Qaytarib berilmaydi (NO REFUNDS)!</b>\n\n"
-            f"💵 <b>Narxi:</b> $1 — <code>{price_uzs:,} so'm</code> / video\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
+            f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code> / video\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"✂️ Shorts Kesish ({price_uzs:,} so'm)", callback_data="mkt_order_clipper")],
-            [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_marketplace")]
+            [InlineKeyboardButton(f"Shorts Kesish ({price_uzs:,} so'm)", callback_data="mkt_order_clipper")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
         await cb.answer()
@@ -6073,8 +6033,8 @@ def create_ytbot():
     async def cb_mkt_order_clipper(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         bal = get_user_balance(user_id)
-        if bal < 12800:
-            await cb.answer("Balansingiz yetarli emas (kerak: 12,800 so'm)", show_alert=True)
+        if bal < 5000:
+            await cb.answer("Balansingiz yetarli emas (kerak: 5,000 so'm)", show_alert=True)
             return
         USER_ORDER_STATE[user_id] = {"action": "clipper", "step": "awaiting_clipper_url"}
         text = (
@@ -6184,9 +6144,22 @@ def create_ytbot():
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
-    # ==================== VENTEBOT RESELLER CALLBACKS ====================
+    # ==================== DIGITAL MARKETPLACE CALLBACKS ====================
 
-    @bot.on_callback_query(filters.regex(r"^vb_catalog$"))
+    CATEGORY_META = {
+        "ai": ("AI & LLM Modellar", "AI"),
+        "design_video": ("Dizayn & Video Pro", "DESIGN"),
+        "media_streaming": ("Media & Streaming", "STREAMING"),
+        "vpn_security": ("VPN & Xavfsizlik", "SHIELD"),
+        "office_edu": ("Ofis & Ta'lim", "OFFICE"),
+        "dev_tools": ("Dasturchi Vositalari", "CODE"),
+    }
+
+    @bot.on_callback_query(filters.regex(r"^vb_noop$"))
+    async def cb_vb_noop(client, cb: CallbackQuery):
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^(?:vb_catalog|vb_cat_([a-zA-Z0-9_]+)|vb_page_([a-zA-Z0-9_]+)_(\d+))$"))
     async def cb_vb_catalog(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
@@ -6194,57 +6167,97 @@ def create_ytbot():
             return
         from ventebot_service import ventebot_service
         bal = get_user_balance(user_id)
-        
+
+        cat = "ai"
+        page = 0
+        match = cb.matches[0]
+        if match.group(1):
+            cat = match.group(1)
+        elif match.group(2):
+            cat = match.group(2)
+            page = int(match.group(3))
+
         res = await ventebot_service.get_products(lang="uz")
         if not res.get("success"):
             await cb.answer(f"Xatolik: {res.get('message')}", show_alert=True)
             return
 
-        products = res.get("products", [])
-        if not products:
+        all_products = res.get("products", [])
+        if not all_products:
             await cb.answer("Hozircha faol tovarlar topilmadi.", show_alert=True)
             return
 
+        cat_products = [p for p in all_products if p.get("category") == cat]
+        if not cat_products:
+            cat_products = all_products
+            cat = "ai"
+
+        PAGE_SIZE = 8
+        total_items = len(cat_products)
+        total_pages = max(1, (total_items + PAGE_SIZE - 1) // PAGE_SIZE)
+        page = min(max(0, page), total_pages - 1)
+        page_items = cat_products[page * PAGE_SIZE : (page + 1) * PAGE_SIZE]
+
+        cat_title, cat_icon = CATEGORY_META.get(cat, ("Raqamli Mahsulotlar", "STORE"))
+
         text = (
-            f"🚀 <b>VenteBot Raqamli Tovarlar & Obunalar Do'koni</b>\n\n"
-            f"💰 <b>Joriy balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"<i>Kerakli tovar ustiga bosing va xaridni tasdiqlang:</i>"
+            f"{ce(cat_icon)} <b>{cat_title}</b> ({total_items} ta mahsulot)\n\n"
+            f"{ce('MONEY')} <b>Joriy balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<i>Kerakli tovar ustiga bosing va xaridni amalga oshiring:</i>"
         )
-        
+
         buttons = []
-        for p in products[:30]:
+        for p in page_items:
             p_id = p.get("id")
             name = p.get("name", "Product")
-            price_usd = float(p.get("price_usd") or 0)
+            price_uzs = p.get("price_uzs", 0)
             stock = p.get("stock")
             in_stock = (stock is None or stock > 0)
+
+            brand_icon_id = None
+            for brand, emoji_id in BRAND_EMOJIS_MAP.items():
+                if brand in name.lower():
+                    brand_icon_id = emoji_id
+                    break
+
+            tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
+            stock_str = f"({stock} ta)" if stock is not None else ""
             if in_stock:
-                stock_str = f"📦 {stock}" if stock is not None else "📦"
-                btn_txt = f"{name} | ${price_usd:.2f} | {stock_str}"
+                btn_txt = f"{name} | {price_uzs:,} so'm {stock_str}".strip()
             else:
-                btn_txt = f"⚠️ {name} | ${price_usd:.2f} | Out of stock"
-            buttons.append([InlineKeyboardButton(btn_txt, callback_data=f"vb_item_{p_id}")])
+                btn_txt = f"{name} | {price_uzs:,} so'm (Zaxirada yo'q)"
+            buttons.append([InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")])
+
+        if total_pages > 1:
+            nav_row = []
+            if page > 0:
+                nav_row.append(InlineKeyboardButton(f"{e('BACK')} Oldingi", callback_data=f"vb_page_{cat}_{page-1}"))
+            nav_row.append(InlineKeyboardButton(f"{page+1}/{total_pages}", callback_data="vb_noop"))
+            if page < total_pages - 1:
+                nav_row.append(InlineKeyboardButton(f"Keyingi {e('FORWARD')}", callback_data=f"vb_page_{cat}_{page+1}"))
+            buttons.append(nav_row)
 
         buttons.append([
-            InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders"),
-            InlineKeyboardButton("💳 Balansni to'ldirish", callback_data="menu_wallet")
+            InlineKeyboardButton(f"{e('CART')} Mening xaridlarim", callback_data="vb_my_orders"),
+            InlineKeyboardButton(f"{e('WALLET')} Balansni to'ldirish", callback_data="menu_wallet")
         ])
-        buttons.append([InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")])
-        
+        buttons.append([InlineKeyboardButton(f"{e('STORE')} Barcha bo'limlar", callback_data="menu_marketplace")])
+
         await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
         await cb.answer()
 
-    @bot.on_callback_query(filters.regex(r"^vb_item_(\d+)$"))
+    @bot.on_callback_query(filters.regex(r"^vb_item_(\d+)(?:_([a-zA-Z0-9_]+))?$"))
     async def cb_vb_item(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         product_id = int(cb.matches[0].group(1))
+        cat_key = cb.matches[0].group(2) or "ai"
         from ventebot_service import ventebot_service
         bal = get_user_balance(user_id)
-        
+
         catalog = await ventebot_service.get_products(lang="uz")
         products = catalog.get("products", [])
         product = next((p for p in products if p.get("id") == product_id), None)
-        
+
         if not product:
             await cb.answer("Mahsulot topilmadi!", show_alert=True)
             return
@@ -6252,12 +6265,11 @@ def create_ytbot():
         name = product.get("name", "")
         desc = product.get("description", "Tavsif mavjud emas")
         price_uzs = product.get("price_uzs", 0)
-        price_usd = product.get("price_usd", 0)
         delivery_type = product.get("delivery_type", "stock")
         warranty = product.get("warranty_days", 0)
         stock = product.get("stock")
-        
-        stock_str = f"{stock} ta mavjud" if stock is not None else "Avtomatik aktivatsiya"
+
+        stock_str = f"{stock} ta mavjud" if stock is not None else "Avtomatik zaxira"
         delivery_str = "Tezkor zaxira (Stock)" if delivery_type == "stock" else "Akkaunt aktivatsiyasi"
 
         brand_icon_id = None
@@ -6265,29 +6277,29 @@ def create_ytbot():
             if brand in name.lower():
                 brand_icon_id = emoji_id
                 break
-        icon_tag = f'<emoji id="{brand_icon_id}">📦</emoji> ' if brand_icon_id else "📦 "
+        icon_tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
 
         text = (
             f"{icon_tag}<b>Mahsulot:</b> {name}\n\n"
-            f"📝 <b>Tavsif:</b> {desc}\n"
-            f"⚡ <b>Yetkazish turi:</b> {delivery_str}\n"
-            f"🛡 <b>Kafolat:</b> {warranty} kun\n"
-            f"📊 <b>Zaxira:</b> {stock_str}\n\n"
-            f"💵 <b>Narxi:</b> <code>{price_uzs:,} so'm</code> (~${price_usd})\n"
-            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n"
+            f"{ce('DOCUMENT')} <b>Tavsif:</b> {desc}\n"
+            f"{ce('BOLT')} <b>Yetkazish turi:</b> {delivery_str}\n"
+            f"{ce('SHIELD')} <b>Kafolat:</b> {warranty} kun\n"
+            f"{ce('BOX')} <b>Zaxira:</b> {stock_str}\n\n"
+            f"{ce('COIN')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+            f"{ce('MONEY')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n"
         )
-        
+
         buttons = []
         if bal >= price_uzs:
-            buttons.append([InlineKeyboardButton(f"💳 Xarid qilish ({price_uzs:,} so'm)", callback_data=f"vb_buy_{product_id}")])
+            buttons.append([InlineKeyboardButton(f"{e('CARD')} Xarid qilish ({price_uzs:,} so'm)", callback_data=f"vb_buy_{product_id}")])
         else:
             diff = price_uzs - bal
-            text += f"\n⚠️ <i>Xarid uchun balansingizga yana <code>{diff:,} so'm</code> yetmayapti.</i>"
-            buttons.append([InlineKeyboardButton("➕ Balansni to'ldirish", callback_data="menu_wallet")])
-            
-        buttons.append([InlineKeyboardButton("⬅️ Mahsulotlar ro'yxatiga", callback_data="vb_catalog")])
-        buttons.append([InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
-        
+            text += f"\n{ce('WARN')} <i>Xarid uchun balansingizga yana <code>{diff:,} so'm</code> yetmayapti.</i>"
+            buttons.append([InlineKeyboardButton(f"{e('WALLET')} Balansni to'ldirish", callback_data="menu_wallet")])
+
+        buttons.append([InlineKeyboardButton(f"{e('BACK')} Orqaga", callback_data=f"vb_cat_{cat_key}")])
+        buttons.append([InlineKeyboardButton(f"{e('HOME')} Bosh menyu", callback_data="back_main")])
+
         await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
         await cb.answer()
 
@@ -6300,92 +6312,92 @@ def create_ytbot():
         product_id = int(cb.matches[0].group(1))
         from ventebot_service import ventebot_service
         from mega_features import USER_STATES
-        
+
         catalog = await ventebot_service.get_products(lang="uz")
         products = catalog.get("products", [])
         product = next((p for p in products if p.get("id") == product_id), None)
-        
+
         if not product:
             await cb.answer("Mahsulot topilmadi!", show_alert=True)
             return
 
         delivery_type = product.get("delivery_type", "stock")
-        
+
         if delivery_type == "activation":
             USER_STATES[user_id] = {"action": "waiting_vb_activation", "product_id": product_id}
             await cb.message.reply_text(
-                f"✍️ <b>Aktivatsiya ma'lumotini kiriting:</b>\n\n"
+                f"{ce('DOCUMENT')} <b>Aktivatsiya ma'lumotini kiriting:</b>\n\n"
                 f"<b>{product.get('name')}</b> xizmatini faollashtirish uchun Telegram username (masalan: <code>@{cb.from_user.username or 'username'}</code>), ID yoki emailingizni ushbu chatga yozib yuboring:"
             )
             await cb.answer("Ma'lumotingizni yozib yuboring")
             return
 
         await cb.answer("Buyurtma rasmiylashtirilmoqda...")
-        loading = await cb.message.reply_text("⏳ Xarid amalga oshirilmoqda va litsenziya olinmoqda...")
-        
+        loading = await cb.message.reply_text(f"{ce('WAIT')} Xarid amalga oshirilmoqda va litsenziya olinmoqda...")
+
         res = await ventebot_service.buy_product_with_uzs(
             tg_user_id=user_id,
             product_id=product_id,
             quantity=1
         )
-        
+
         if res.get("success"):
             ans = (
-                f"🎉 <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
-                f"📦 <b>Mahsulot:</b> {res.get('product_name')}\n"
-                f"💰 <b>Yechilgan summa:</b> <code>{res.get('amount_uzs'):,} so'm</code>\n"
-                f"💳 <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs'):,} so'm</code>\n"
-                f"🔢 <b>VenteBot Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
+                f"{ce('SUCCESS')} <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
+                f"{ce('BOX')} <b>Mahsulot:</b> {res.get('product_name')}\n"
+                f"{ce('MONEY')} <b>Yechilgan summa:</b> <code>{res.get('amount_uzs'):,} so'm</code>\n"
+                f"{ce('WALLET')} <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs'):,} so'm</code>\n"
+                f"{ce('KEY')} <b>Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
             )
             if res.get("delivered_data"):
-                ans += f"🔑 <b>Yetkazilgan hisob / Litsenziya ma'lumotlari:</b>\n<code>{res.get('delivered_data')}</code>\n\n"
+                ans += f"{ce('KEY')} <b>Yetkazilgan hisob / Litsenziya ma'lumotlari:</b>\n<code>{res.get('delivered_data')}</code>\n\n"
             ans += "<i>Xaridingiz uchun tashakkur! Istalgan vaqt /store -> 'Mening xaridlarim' bo'limidan ko'rishingiz mumkin.</i>"
-            
+
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders")],
-                [InlineKeyboardButton("🚀 Yana xarid qilish", callback_data="vb_catalog")],
-                [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+                [InlineKeyboardButton(f"{e('CART')} Mening xaridlarim", callback_data="vb_my_orders")],
+                [InlineKeyboardButton(f"{e('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
+                [InlineKeyboardButton(f"{e('HOME')} Bosh menyu", callback_data="back_main")]
             ])
             await loading.edit_text(ans, reply_markup=kb)
         else:
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("⬅️ Mahsulotlarga qaytish", callback_data="vb_catalog")]
+                [InlineKeyboardButton(f"{e('BACK')} Do'konga qaytish", callback_data="menu_marketplace")]
             ])
-            await loading.edit_text(f"❌ <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Xatolik')}", reply_markup=kb)
+            await loading.edit_text(f"{ce('CROSS')} <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Xatolik')}", reply_markup=kb)
 
     @bot.on_callback_query(filters.regex(r"^vb_my_orders$"))
     async def cb_vb_my_orders(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         from database import get_user_ventebot_orders
         orders = get_user_ventebot_orders(user_id, limit=10)
-        
+
         if not orders:
-            text = "ℹ️ Sizda hali VenteBot orqali amalga oshirilgan xaridlar mavjud emas."
+            text = f"{ce('INFO')} Sizda hali amalga oshirilgan raqamli xaridlar mavjud emas."
         else:
-            lines = ["📋 <b>Sizning raqamli xaridlaringiz:</b>\n"]
+            lines = [f"{ce('CART')} <b>Sizning raqamli xaridlaringiz:</b>\n"]
             for idx, o in enumerate(orders, 1):
                 p_name = o.get("product_name", "Item")
                 uzs = o.get("amount_uzs", 0)
                 status = o.get("status", "")
                 data_val = o.get("delivered_data", "")
                 date_val = str(o.get("created_at", ""))[:16].replace("T", " ")
-                
-                status_icon = "✅" if status == "COMPLETED" else ("🔄" if status == "REFUNDED" else "⏳")
+
+                status_icon = ce('SUCCESS') if status == "COMPLETED" else (ce('REFRESH') if status == "REFUNDED" else ce('WAIT'))
                 lines.append(f"{idx}. {status_icon} <b>{p_name}</b> ({uzs:,} so'm)")
-                lines.append(f"   📅 <i>{date_val}</i> | Holat: <code>{status}</code>")
+                lines.append(f"   {ce('CALENDAR')} <i>{date_val}</i> | Holat: <code>{status}</code>")
                 if data_val and status != "REFUNDED":
                     short_data = data_val[:120] + "..." if len(data_val) > 120 else data_val
-                    lines.append(f"   🔑 <code>{short_data}</code>\n")
+                    lines.append(f"   {ce('KEY')} <code>{short_data}</code>\n")
                 else:
                     lines.append("")
             text = "\n".join(lines)
-            
+
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚀 Yangi xarid qilish", callback_data="vb_catalog")],
-            [InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")],
-            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton(f"{e('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
+            [InlineKeyboardButton(f"{e('HOME')} Bosh menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^insta_dl_([a-f0-9]+)$"))

@@ -2969,8 +2969,8 @@ def get_user_download_proxy(tg_user_id: int) -> str:
 # ==================== AUTOSTREAM CLOUD SLOTS ($0.5 / SOAT) ====================
 
 def purchase_autostream_slot(tg_user_id: int, hours: int, video_url: str = "", stream_key: str = "") -> dict:
-    """Soatiga 4,000 so'm hisobidan Autostream bulutli sloti sotib olish"""
-    price_per_hour = 4000
+    """Soatiga 2,500 so'm hisobidan Autostream bulutli sloti sotib olish"""
+    price_per_hour = 2500
     total_cost = hours * price_per_hour
     conn = get_db()
     if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
@@ -3169,8 +3169,8 @@ def use_flux_credit(tg_user_id: int) -> bool:
 # ==================== VIP CHEKSIZ PRO OBUNA ($15 / OY) ====================
 
 def purchase_vip_subscription(tg_user_id: int) -> dict:
-    """Oylik 192,000 so'm ($15) VIP cheksiz tarif xarid qilish"""
-    price_uzs = 192000
+    """Oylik 69,000 so'm VIP cheksiz tarif xarid qilish"""
+    price_uzs = 69000
     conn = get_db()
     if not conn: return {"ok": False, "error": "Baza bilan aloqa yo'q"}
     try:

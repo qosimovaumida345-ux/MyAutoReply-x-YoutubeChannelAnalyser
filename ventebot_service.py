@@ -109,17 +109,90 @@ class VenteBotClient:
 
     def convert_usd_to_uzs(self, price_usd: float) -> int:
         """
-        USD narxni so'mga (UZS) konvertatsiya qiladi va markup % qo'shadi.
-        Yaxlitlash: foydalanuvchiga qulay bo'lishi uchun 500 so'mgacha yaxlitlanadi.
+        Tiered Smart Pricing Formula (Foydalanuvchi talabi):
+        - $0.10 - $0.50 (masalan $0.30) -> 10x ko'paytirish (chakana ~$3.00 -> ~39,000 so'm, min 35,000 so'm)
+        - $0.51 - $1.00 (masalan $1.00) -> 4x (chakana ~$4.00 -> ~51,000 so'm)
+        - $1.01 - $3.00 (masalan $2.00) -> 2.5x (chakana ~$5.00 -> ~64,000 so'm)
+        - $3.01 - $7.00 (masalan $5.00) -> 1.6x (chakana ~$8.00 -> ~103,000 so'm)
+        - $7.01 - $12.00 (masalan $10.00) -> 1.5x (chakana ~$15.00 -> ~193,000 so'm)
+        - $12.01 - $25.00 -> 1.35x
+        - $25.01+ -> 1.25x
+        - Minimal narx: 15,000 so'm.
+        - Yaxlitlash: 1,000 so'mgacha yaxlitlanadi.
         """
         if not price_usd or price_usd <= 0:
-            return 0
-        rate = USD_TO_UZS_RATE or 12850
-        markup = RESELLER_MARKUP_PERCENT if RESELLER_MARKUP_PERCENT is not None else 5.0
-        exact_uzs = price_usd * rate * (1.0 + (markup / 100.0))
-        # 500 ga karrali yaxlitlash (masalan 12,850 -> 13,000)
-        rounded = int(round(exact_uzs / 500.0) * 500)
-        return max(500, rounded)
+            return 15000
+        if price_usd <= 0.50:
+            retail_usd = max(2.5, price_usd * 10.0)
+        elif price_usd <= 1.00:
+            retail_usd = max(3.5, price_usd * 4.0)
+        elif price_usd <= 3.00:
+            retail_usd = max(5.0, price_usd * 2.5)
+        elif price_usd <= 7.00:
+            retail_usd = max(8.0, price_usd * 1.6)
+        elif price_usd <= 12.00:
+            retail_usd = max(12.0, price_usd * 1.5)
+        elif price_usd <= 25.00:
+            retail_usd = price_usd * 1.35
+        else:
+            retail_usd = price_usd * 1.25
+        rate = USD_TO_UZS_RATE or 12850.0
+        uzs = int(round(retail_usd * rate, -3))
+        return max(15000, uzs)
+
+    @staticmethod
+    def categorize_product(p: Dict[str, Any]) -> str:
+        """88 ta tovarning har birini 6 ta qulay toifaga ajratadi"""
+        name = (p.get("name") or "").lower()
+        desc = (p.get("description") or "").lower()
+        combined = name + " " + desc
+
+        if "test product" in name:
+            return "test"
+
+        # 1. AI & LLM modellar
+        if any(k in combined for k in [
+            "chatgpt", "chat gpt", "openai", "gpt", "claude", "gemini", "grok", "xai",
+            "cursor", "manus", "factory", "lovable", "lovalbe", "replit", "kiro",
+            "codex", "openrouter", "groq", "flux", "midjourney"
+        ]):
+            return "ai"
+
+        # 2. Video, Ovoz & Dizayn
+        if any(k in combined for k in [
+            "capcut", "supercut", "descript", "elevenlabs", "eleven labs", "brain.fm",
+            "wispr", "gamma", "figma", "framer", "canva", "adobe", "magic patterns",
+            "mobbin", "miro"
+        ]):
+            return "design_video"
+
+        # 3. Kino, Musiqa & Striming
+        if any(k in combined for k in [
+            "spotify", "netflix", "amazon", "prime video", "hbo", "peacock", "apple tv", "wink"
+        ]):
+            return "media_streaming"
+
+        # 4. Developer & Server vositalari
+        if any(k in combined for k in [
+            "railway", "warp", "n8n", "linear", "jetbrains", "autodesk", "ilovepdf",
+            "wordwall", "quizlet", "quillbot"
+        ]):
+            return "dev_tools"
+
+        # 5. VPN, Proxy & Xavfsiz Tarmoq
+        if any(k in combined for k in [
+            "nord", "proton", "hma", "proxy", "vpn", "zoom", "snapchat"
+        ]):
+            return "vpn_security"
+
+        # 6. Ofis, Ta'lim & Dasturlar
+        if any(k in combined for k in [
+            "microsoft", "office", "windows", "gmail", "google drive", "notion",
+            "duolingo", "coursera", "cousera", "trading view", "tradingview", "scribd"
+        ]):
+            return "office_edu"
+
+        return "other"
 
     # -------------------------------------------------------------
     # 1. ACCOUNT & WALLET (/api/reseller/me)
@@ -140,7 +213,7 @@ class VenteBotClient:
             return {
                 "success": False,
                 "code": "KEY_NOT_CONFIGURED",
-                "message": "VENTEBOT_API_KEY .env faylida sozlanmagan",
+                "message": "VENTEBOT_API_KEY sozlanmagan",
                 "wallet_balance": 0.0,
             }
 
@@ -156,7 +229,7 @@ class VenteBotClient:
                     return {
                         "success": False,
                         "code": data.get("code", f"HTTP_{resp.status}"),
-                        "message": data.get("message", "VenteBot akkaunt ma'lumotlarini olib bo'lmadi"),
+                        "message": data.get("message", "Do'kon hisob ma'lumotlarini olib bo'lmadi"),
                         "wallet_balance": 0.0,
                     }
         except Exception as e:
@@ -175,7 +248,7 @@ class VenteBotClient:
         """
         Faol tovarlar katalogini olish.
         Kesh muddati: 10 daqiqa (600 soniya).
-        Har bir tovar uchun avtomatik so'mdagi narx (price_uzs) hisoblab beriladi.
+        Barcha 88 ta mahsulot 6 toifaga ajratiladi va so'mdagi marjali narxi hisoblanadi.
         """
         cache_key = f"vb_products_{lang}"
         if not force_refresh:
@@ -193,11 +266,13 @@ class VenteBotClient:
                         raw_products = raw_data if isinstance(raw_data, list) else raw_data.get("products", raw_data.get("items", []))
                         processed_products = []
                         for p in raw_products:
+                            cat = self.categorize_product(p)
+                            if cat == "test":
+                                continue  # Vendor test tovarini mijozlarga ko'rsatmaslik
                             p_copy = dict(p)
                             price_usd = float(p.get("price_usd") or p.get("price") or 0)
-                            std_price_usd = float(p.get("standard_price_usd") or price_usd)
+                            p_copy["category"] = cat
                             p_copy["price_uzs"] = self.convert_usd_to_uzs(price_usd)
-                            p_copy["standard_price_uzs"] = self.convert_usd_to_uzs(std_price_usd)
                             processed_products.append(p_copy)
 
                         res = {"success": True, "products": processed_products}

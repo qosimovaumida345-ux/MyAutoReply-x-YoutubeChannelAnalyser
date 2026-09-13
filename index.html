@@ -425,16 +425,105 @@
             </svg>
         );
 
+        const SvgStar = ({ size = 18, color = "#ffd700" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+        );
+
+        const SvgBarChart = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+        );
+
+        const SvgVideo = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polygon points="23 7 16 12 23 17 23 7" />
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+        );
+
+        const SvgBox = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+        );
+
+        const SvgShield = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+        );
+
+        const SvgSearch = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+        );
+
+        const SvgDownload = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+        );
+
+        const SvgUser = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+            </svg>
+        );
+
+        const SvgFlame = ({ size = 18, color = "#ff4500" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
+            </svg>
+        );
+
+        const SvgEye = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+        );
+
+        const SvgCheck = ({ size = 18, color = "#10b981" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+        );
+
         // ==================== MAIN APPLICATION ====================
         function App() {
             // View state: 'landing' (Hero Section Password Manager) vs 'dashboard' (Alwayzz Studio Mode)
             const [view, setView] = useState('landing');
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-            const [activeTab, setActiveTab] = useState('cases'); // 'cases' | 'analytics' | 'videos' | 'kyc'
+            const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'videos' | 'cases' | 'nfts'
             const [drawerOpen, setDrawerOpen] = useState(false);
 
-            // Telegram user context
+            // Telegram user context & Login
             const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "" });
+            const [showLoginModal, setShowLoginModal] = useState(false);
+            const [loginIdInput, setLoginIdInput] = useState('');
+
+            // YouTube Channel Analytics & Video Downloader States
+            const [studioStats, setStudioStats] = useState({ total_videos: 0, total_views: 0, total_subscribers: 0, recent_videos: [] });
+            const [channels, setChannels] = useState([]);
+            const [feedVideos, setFeedVideos] = useState([]);
+            const [feedQuery, setFeedQuery] = useState('uzbekistan');
+            const [feedLoading, setFeedLoading] = useState(false);
+            const [selectedFormatsVideo, setSelectedFormatsVideo] = useState(null);
+            const [formatsLoading, setFormatsLoading] = useState(false);
+            const [downloadingFormat, setDownloadingFormat] = useState(null);
+
             const [starsCases, setStarsCases] = useState([]);
             const [activeUnboxing, setActiveUnboxing] = useState(null); // case being opened
             const [unboxingPrize, setUnboxingPrize] = useState(null);
@@ -761,18 +850,125 @@
                 .catch(err => alert("Xatolik: " + err));
             };
 
+            const handleLogin = (id) => {
+                const num = parseInt(id);
+                if (!num || num <= 0) {
+                    alert("Iltimos to'g'ri Telegram ID raqamingizni kiriting!");
+                    return;
+                }
+                localStorage.setItem('creatorflow_tg_user_id', num);
+                setTgUser({ id: num, first_name: `Creator #${num}`, username: "" });
+                setShowLoginModal(false);
+                loadStudioStats(num);
+                loadChannels(num);
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem('creatorflow_tg_user_id');
+                setTgUser({ id: 0, first_name: "Guest Creator", username: "" });
+            };
+
+            const loadStudioStats = (uid) => {
+                const targetUid = uid || tgUser.id;
+                if (!targetUid) return;
+                fetch(`/api/stats?tg_user_id=${targetUid}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d && (d.ok || d.total_videos !== undefined)) {
+                            setStudioStats(d);
+                        }
+                    })
+                    .catch(() => {});
+            };
+
+            const loadChannels = (uid) => {
+                const targetUid = uid || tgUser.id;
+                if (!targetUid) return;
+                fetch(`/api/channels?tg_user_id=${targetUid}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d && d.channels) {
+                            setChannels(d.channels);
+                        }
+                    })
+                    .catch(() => {});
+            };
+
+            const searchVideos = (q) => {
+                const query = q !== undefined ? q : feedQuery;
+                if (!query) return;
+                setFeedLoading(true);
+                fetch(`/api/videos?q=${encodeURIComponent(query)}&type=&maxResults=16`)
+                    .then(r => r.json())
+                    .then(d => {
+                        setFeedVideos(d.videos || []);
+                        setFeedLoading(false);
+                    })
+                    .catch(() => setFeedLoading(false));
+            };
+
+            const loadTrending = (region) => {
+                setFeedLoading(true);
+                fetch(`/api/trending?region=${region}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        setFeedVideos(d.videos || []);
+                        setFeedLoading(false);
+                    })
+                    .catch(() => setFeedLoading(false));
+            };
+
+            const openFormatModal = (video) => {
+                setSelectedFormatsVideo({ id: video.id, title: video.title, formats: [] });
+                setFormatsLoading(true);
+                fetch(`/api/video-formats?video_id=${video.id}&tg_user_id=${tgUser.id || 0}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        setSelectedFormatsVideo({ id: video.id, title: video.title, formats: d.formats || [] });
+                        setFormatsLoading(false);
+                    })
+                    .catch(() => setFormatsLoading(false));
+            };
+
+            const startDownload = (videoId, res) => {
+                setDownloadingFormat(res);
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = `/api/download-file?video_id=${videoId}&resolution=${res}&tg_user_id=${tgUser.id || 0}`;
+                document.body.appendChild(iframe);
+                setTimeout(() => {
+                    setDownloadingFormat(null);
+                }, 3500);
+            };
+
             useEffect(() => {
-                // Initialize Telegram WebApp if present
+                // Initialize Telegram WebApp or localStorage user
+                let uid = 0;
                 if (window.Telegram && window.Telegram.WebApp) {
                     const tg = window.Telegram.WebApp;
                     tg.ready();
                     tg.expand();
                     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                         setTgUser(tg.initDataUnsafe.user);
+                        uid = tg.initDataUnsafe.user.id;
+                        localStorage.setItem('creatorflow_tg_user_id', uid);
                     }
                 }
+                if (!uid) {
+                    const saved = localStorage.getItem('creatorflow_tg_user_id');
+                    if (saved && parseInt(saved) > 0) {
+                        uid = parseInt(saved);
+                        setTgUser({ id: uid, first_name: `Creator #${uid}`, username: "" });
+                    }
+                }
+                if (uid) {
+                    loadStudioStats(uid);
+                    loadChannels(uid);
+                }
 
-                // Initial loads
+                searchVideos("uzbekistan");
+
+                // Initial loads for Stars Cases
                 fetch('/api/stars/cases')
                     .then(res => res.json())
                     .then(data => {
@@ -781,13 +977,12 @@
                         }
                     })
                     .catch(() => {
-                        // Real Telegram Official Gifts & NFT Cases
                         setStarsCases([
-                            { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, icon: "📦", color: "#cd7f32", badge: "25 ⭐", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "🎂", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "💚", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "🧸", is_nft: false }] },
-                            { id: "tier_2", name: "Silver Creator Case", price_stars: 75, icon: "🎁", color: "#c0c0c0", badge: "75 ⭐", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "💐", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "🍾", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "💍", is_nft: false }] },
-                            { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, icon: "🏆", color: "#ffd700", badge: "250 ⭐", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "🍾", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "💍", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "🏆", is_nft: false }] },
-                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, icon: "💎", color: "#00f0ff", badge: "750 ⭐", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "🏆", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "🚀", is_nft: false }, { stars: 1000, name: "Durov's Black Cap NFT", rarity: "legendary", icon: "🧢", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }] },
-                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, icon: "🪐", color: "#b026ff", badge: "2,500 ⭐", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "🚀", is_nft: false }, { stars: 1500, name: "Plush Pepe NFT", rarity: "rare", icon: "🐸", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }, { stars: 5000, name: "Royal Crown Collectible NFT", rarity: "legendary", icon: "👑", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }] },
+                            { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, icon: "BOX", color: "#cd7f32", badge: "25 Stars", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "STAR", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "STAR", is_nft: false }] },
+                            { id: "tier_2", name: "Silver Creator Case", price_stars: 75, icon: "BOX", color: "#c0c0c0", badge: "75 Stars", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "STAR", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "STAR", is_nft: false }] },
+                            { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, icon: "BOX", color: "#ffd700", badge: "250 Stars", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "STAR", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "STAR", is_nft: false }] },
+                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, icon: "BOX", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 1000, name: "Durov's Black Cap NFT", rarity: "legendary", icon: "STAR", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }] },
+                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, icon: "BOX", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1500, name: "Plush Pepe NFT", rarity: "rare", icon: "STAR", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }, { stars: 5000, name: "Royal Crown Collectible NFT", rarity: "legendary", icon: "STAR", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }] },
                         ]);
                     });
 
@@ -803,8 +998,12 @@
                 return () => clearInterval(timer);
             }, []);
 
-            // Trigger Stars Mystery Case Opening
+            // Trigger Stars Mystery Case Opening (Strictly Authenticated)
             const handleOpenCase = (c) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
                 setActiveUnboxing(c);
                 setIsRolling(true);
                 setUnboxingPrize(null);
@@ -815,7 +1014,7 @@
                 fetch('/api/stars/open-case', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: tgUser.id || 0, tier_id: c.id })
+                    body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
                 })
                 .then(r => r.json())
                 .then(data => {
@@ -829,35 +1028,30 @@
                             if (window.confetti) {
                                 window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
                             }
+                        } else {
+                            setActiveUnboxing(null);
+                            alert(data.error || "Xatolik: Hisobingizda Stars yetarli emas yoki sovg'ani ochib bo'lmadi.");
                         }
                     }, 2800);
                 })
                 .catch(() => {
-                    setTimeout(() => {
-                        clearInterval(tickTimer);
-                        setIsRolling(false);
-                        const fallbackPrize = c.drops[0];
-                        const fallbackData = {
-                            prize_name: fallbackPrize.name,
-                            prize_stars: fallbackPrize.stars,
-                            rarity: fallbackPrize.rarity,
-                            icon: fallbackPrize.icon,
-                            date: "Hozir"
-                        };
-                        setUnboxingPrize(fallbackData);
-                        setUserGifts(prev => [fallbackData, ...prev]);
-                        playWinFanfare();
-                        if (window.confetti) window.confetti();
-                    }, 2800);
+                    clearInterval(tickTimer);
+                    setIsRolling(false);
+                    setActiveUnboxing(null);
+                    alert("Tarmoq xatosi: Server bilan aloqa o'rnatilmadi.");
                 });
             };
 
             // Trigger Telegram Stars Payment Invoice
             const handleBuyInvoice = (c) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
                 fetch('/api/stars/create-invoice', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: tgUser.id || 0, tier_id: c.id })
+                    body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
                 })
                 .then(r => r.json())
                 .then(res => {
@@ -872,11 +1066,12 @@
                             window.open(res.invoice_link, '_blank');
                         }
                     } else {
-                        // Fallback directly to unboxing demo
-                        handleOpenCase(c);
+                        alert(res.error || "To'lov hisobini yaratib bo'lmadi.");
                     }
                 })
-                .catch(() => handleOpenCase(c));
+                .catch(() => {
+                    alert("To'lov serveriga ulanishda xatolik yuz berdi.");
+                });
             };
 
             return (
@@ -1263,29 +1458,162 @@
                                         </span>
                                     </div>
 
-                                    {/* Right: Menu Pill Button */}
+                                    {/* Right: User Auth & Menu */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                        {tgUser.id > 0 ? (
+                                            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "6px 14px", borderRadius: "999px" }}>
+                                                <SvgUser size={14} color="#16a34a" />
+                                                <span style={{ fontSize: "13px", fontWeight: 700, color: "#16a34a" }}>ID: {tgUser.id}</span>
+                                                <button onClick={handleLogout} style={{ border: "none", background: "transparent", fontSize: "11px", color: "#dc2626", fontWeight: 700, cursor: "pointer", marginLeft: "4px" }}>Chiqish</button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setShowLoginModal(true)}
+                                                style={{
+                                                    background: "linear-gradient(135deg, #7342E2, #5a2eb8)",
+                                                    color: "#ffffff",
+                                                    padding: "8px 16px",
+                                                    borderRadius: "999px",
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    border: "none",
+                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "6px"
+                                                }}
+                                            >
+                                                <SvgUser size={14} color="#ffffff" />
+                                                <span>Telegram ID bilan kirish</span>
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => setDrawerOpen(!drawerOpen)}
+                                            style={{
+                                                background: "var(--button-bg)",
+                                                color: "var(--button-text)",
+                                                padding: "8px 20px",
+                                                borderRadius: "999px",
+                                                fontSize: "14px",
+                                                fontWeight: 500,
+                                                border: "none",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px",
+                                                transition: "all 0.2s"
+                                            }}
+                                        >
+                                            <span>Menu</span>
+                                            <ChevronUpIcon size={16} color="#ffffff" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </header>
+
+                            {/* Sticky Studio Tab Navigation Bar */}
+                            <div style={{
+                                position: "sticky",
+                                top: "72px",
+                                zIndex: 95,
+                                background: "rgba(255, 255, 255, 0.95)",
+                                backdropFilter: "blur(12px)",
+                                borderBottom: "1px solid var(--border-soft)",
+                                padding: "10px 24px"
+                            }}>
+                                <div style={{
+                                    maxWidth: "1200px",
+                                    margin: "0 auto",
+                                    display: "flex",
+                                    gap: "8px",
+                                    overflowX: "auto"
+                                }}>
                                     <button
-                                        onClick={() => setDrawerOpen(!drawerOpen)}
+                                        onClick={() => setActiveTab('analytics')}
                                         style={{
-                                            background: "var(--button-bg)",
-                                            color: "var(--button-text)",
-                                            padding: "8px 20px",
+                                            padding: "9px 18px",
                                             borderRadius: "999px",
-                                            fontSize: "14px",
-                                            fontWeight: 500,
                                             border: "none",
+                                            background: activeTab === 'analytics' ? "#7342E2" : "#f4f4f5",
+                                            color: activeTab === 'analytics' ? "#ffffff" : "#18181b",
+                                            fontSize: "13px",
+                                            fontWeight: 700,
                                             cursor: "pointer",
                                             display: "flex",
                                             alignItems: "center",
                                             gap: "8px",
-                                            transition: "all 0.2s"
+                                            transition: "all 0.2s",
+                                            flexShrink: 0
                                         }}
                                     >
-                                        <span>Menu</span>
-                                        <ChevronUpIcon size={16} color="#ffffff" />
+                                        <SvgBarChart size={16} color={activeTab === 'analytics' ? "#ffffff" : "#71717a"} />
+                                        <span>Kanal Analitikasi</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('videos')}
+                                        style={{
+                                            padding: "9px 18px",
+                                            borderRadius: "999px",
+                                            border: "none",
+                                            background: activeTab === 'videos' ? "#7342E2" : "#f4f4f5",
+                                            color: activeTab === 'videos' ? "#ffffff" : "#18181b",
+                                            fontSize: "13px",
+                                            fontWeight: 700,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            transition: "all 0.2s",
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <SvgVideo size={16} color={activeTab === 'videos' ? "#ffffff" : "#71717a"} />
+                                        <span>Video Qidiruv & Yuklash</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('cases')}
+                                        style={{
+                                            padding: "9px 18px",
+                                            borderRadius: "999px",
+                                            border: "none",
+                                            background: activeTab === 'cases' ? "#7342E2" : "#f4f4f5",
+                                            color: activeTab === 'cases' ? "#ffffff" : "#18181b",
+                                            fontSize: "13px",
+                                            fontWeight: 700,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            transition: "all 0.2s",
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <SvgStar size={16} color={activeTab === 'cases' ? "#ffd700" : "#71717a"} />
+                                        <span>Stars Mystery Cases</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab('nfts')}
+                                        style={{
+                                            padding: "9px 18px",
+                                            borderRadius: "999px",
+                                            border: "none",
+                                            background: activeTab === 'nfts' ? "#7342E2" : "#f4f4f5",
+                                            color: activeTab === 'nfts' ? "#ffffff" : "#18181b",
+                                            fontSize: "13px",
+                                            fontWeight: 700,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            transition: "all 0.2s",
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <SvgBox size={16} color={activeTab === 'nfts' ? "#00f0ff" : "#71717a"} />
+                                        <span>3D Gift NFTs</span>
                                     </button>
                                 </div>
-                            </header>
+                            </div>
 
                             {/* Full-Screen Drawer Overlay on Menu click */}
                             {drawerOpen && (
@@ -1327,12 +1655,347 @@
                                 </div>
                             )}
 
-                            {/* Hero Section */}
-                            <section className="alwayzz-hero-section" style={{
-                                position: "relative",
-                                minHeight: "850px",
-                                padding: "160px 36px 80px",
-                                display: "flex",
+                            {/* =========================================================================
+                                TAB 1: YOUTUBE CHANNEL ANALYTICS & STATS
+                                ========================================================================= */}
+                            {activeTab === 'analytics' && (
+                                <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 24px 80px" }}>
+                                    {/* Section Header */}
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px", marginBottom: "32px" }}>
+                                        <div>
+                                            <h2 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", color: "#18181b", marginBottom: "6px" }}>
+                                                YouTube Kanal Statistikasi & Tahlil
+                                            </h2>
+                                            <p style={{ color: "#71717a", fontSize: "14px" }}>
+                                                Real vaqt rejimidagi ko'rishlar, obunachilar va oxirgi yuklangan videolar statistikasi
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => { if(tgUser.id) { loadStudioStats(tgUser.id); loadChannels(tgUser.id); } else { setShowLoginModal(true); } }}
+                                            style={{
+                                                background: "#f4f4f5",
+                                                border: "1px solid #e4e4e7",
+                                                padding: "8px 18px",
+                                                borderRadius: "999px",
+                                                fontSize: "13px",
+                                                fontWeight: 600,
+                                                color: "#18181b",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "6px"
+                                            }}
+                                        >
+                                            <span>Yangilash</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Guest Alert Banner */}
+                                    {(!tgUser.id || tgUser.id <= 0) && (
+                                        <div style={{ background: "linear-gradient(135deg, rgba(115,66,226,0.08), rgba(59,130,246,0.08))", border: "1px solid rgba(115,66,226,0.2)", borderRadius: "16px", padding: "20px 24px", marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: "15px", color: "#18181b", marginBottom: "4px" }}>
+                                                    Shaxsiy kanalingiz statistikasini ko'rmoqchimisiz?
+                                                </div>
+                                                <div style={{ color: "#71717a", fontSize: "13px" }}>
+                                                    Telegram botingizdagi User ID raqamingizni kiritib o'z kanallaringiz ma'lumotlarini sinxronlang.
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowLoginModal(true)}
+                                                style={{ background: "#7342E2", color: "#ffffff", border: "none", padding: "10px 20px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
+                                            >
+                                                Telegram ID bilan kirish
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* KPI Cards Grid */}
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
+                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Jami Videolar</span>
+                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f5f3ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgVideo size={18} color="#7342E2" />
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
+                                                {(studioStats.total_videos || 0).toLocaleString()}
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: "#10b981", marginTop: "4px", fontWeight: 600 }}>Faol yuklanganlar</div>
+                                        </div>
+
+                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Jami Ko'rishlar (Views)</span>
+                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgEye size={18} color="#3b82f6" />
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
+                                                {(studioStats.total_views || 0).toLocaleString()}
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: "#3b82f6", marginTop: "4px", fontWeight: 600 }}>Auditoriya qamrovi</div>
+                                        </div>
+
+                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Obunachilar Soni</span>
+                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgUser size={18} color="#16a34a" />
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
+                                                {(studioStats.total_subscribers || 0).toLocaleString()}
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: "#16a34a", marginTop: "4px", fontWeight: 600 }}>Doimiy obunachi</div>
+                                        </div>
+
+                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Ulangan Kanallar</span>
+                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgShield size={18} color="#d97706" />
+                                                </div>
+                                            </div>
+                                            <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
+                                                {channels.length}
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: "#d97706", marginTop: "4px", fontWeight: 600 }}>Sinxronlangan kanallar</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Ulangan Kanallar Ro'yxati */}
+                                    {channels.length > 0 && (
+                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "24px", padding: "28px", marginBottom: "40px" }}>
+                                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", marginBottom: "16px" }}>
+                                                Ulangan YouTube Kanallar
+                                            </h3>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+                                                {channels.map((ch, cIdx) => (
+                                                    <div key={cIdx} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "16px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
+                                                        <img src={ch.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100"} alt="" style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover" }} />
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontWeight: 700, fontSize: "14px", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ch.channel_title}</div>
+                                                            <div style={{ fontSize: "12px", color: "#64748b" }}>{ch.subscriber_count ? Number(ch.subscriber_count).toLocaleString() + " obunachi" : "Kanal faol"}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Oxirgi Videolar Jadvali */}
+                                    <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "24px", padding: "28px", boxShadow: "0 4px 24px rgba(0,0,0,0.03)" }}>
+                                        <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", marginBottom: "20px" }}>
+                                            Oxirgi Yuklangan Videolar & Ko'rishlar
+                                        </h3>
+                                        {studioStats.recent_videos && studioStats.recent_videos.length > 0 ? (
+                                            <div style={{ overflowX: "auto" }}>
+                                                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                                                    <thead>
+                                                        <tr style={{ borderBottom: "1px solid #e4e4e7" }}>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Video</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Ko'rishlar</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Layklar</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Sana</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {studioStats.recent_videos.map((vid, vIdx) => (
+                                                            <tr key={vIdx} style={{ borderBottom: "1px solid #f4f4f5" }}>
+                                                                <td style={{ padding: "14px 16px" }}>
+                                                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                                                        {vid.thumbnail && <img src={vid.thumbnail} alt="" style={{ width: "56px", height: "36px", borderRadius: "6px", objectFit: "cover" }} />}
+                                                                        <span style={{ fontWeight: 600, fontSize: "14px", color: "#18181b", maxWidth: "340px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                                            {vid.title}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 700, color: "#0284c7" }}>
+                                                                    {(vid.views || 0).toLocaleString()}
+                                                                </td>
+                                                                <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#16a34a" }}>
+                                                                    {(vid.likes || 0).toLocaleString()}
+                                                                </td>
+                                                                <td style={{ padding: "14px 16px", fontSize: "13px", color: "#71717a" }}>
+                                                                    {String(vid.published_at || "").slice(0, 10)}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div style={{ textAlign: "center", padding: "48px 20px", color: "#a1a1aa" }}>
+                                                <SvgVideo size={40} color="#d4d4d8" />
+                                                <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>Hozircha tahlil qilingan videolar mavjud emas</div>
+                                                <div style={{ fontSize: "12px", marginTop: "4px" }}>Telegram bot orqali video yuklang yoki kanalingizni ulang</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* =========================================================================
+                                TAB 2: YOUTUBE VIDEO SEARCH & DOWNLOAD
+                                ========================================================================= */}
+                            {activeTab === 'videos' && (
+                                <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 24px 80px" }}>
+                                    {/* Section Header */}
+                                    <div style={{ marginBottom: "28px" }}>
+                                        <h2 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", color: "#18181b", marginBottom: "6px" }}>
+                                            YouTube Video Qidiruv & Yuklab Olish
+                                        </h2>
+                                        <p style={{ color: "#71717a", fontSize: "14px" }}>
+                                            Istalgan mavzudagi videolarni qidiring va eng yuqori sifatda (1080p, 720p, audio) yuklab oling
+                                        </p>
+                                    </div>
+
+                                    {/* Search Bar */}
+                                    <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+                                        <input
+                                            type="text"
+                                            value={feedQuery}
+                                            onChange={(e) => setFeedQuery(e.target.value)}
+                                            onKeyDown={(e) => { if(e.key === 'Enter') searchVideos(); }}
+                                            placeholder="Mavzu yoki kalit so'zni kiriting (masalan: 'gaming shorts', 'football highlights')..."
+                                            style={{
+                                                flex: 1,
+                                                padding: "14px 20px",
+                                                borderRadius: "14px",
+                                                border: "1px solid #e4e4e7",
+                                                fontSize: "14px",
+                                                outline: "none",
+                                                background: "#ffffff"
+                                            }}
+                                        />
+                                        <button
+                                            onClick={() => searchVideos()}
+                                            style={{
+                                                background: "#7342E2",
+                                                color: "#ffffff",
+                                                border: "none",
+                                                padding: "0 28px",
+                                                borderRadius: "14px",
+                                                fontWeight: 700,
+                                                fontSize: "14px",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "8px"
+                                            }}
+                                        >
+                                            <SvgSearch size={16} color="#ffffff" />
+                                            <span>Qidirish</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Trending Region Pills */}
+                                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "32px" }}>
+                                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a", alignSelf: "center", marginRight: "6px" }}>Trendlar:</span>
+                                        {[
+                                            { code: "UZ", name: "O'zbekiston" },
+                                            { code: "US", name: "AQSh" },
+                                            { code: "RU", name: "Rossiya" },
+                                            { code: "KR", name: "Koreya" },
+                                            { code: "IN", name: "Hindiston" }
+                                        ].map((reg) => (
+                                            <button
+                                                key={reg.code}
+                                                onClick={() => loadTrending(reg.code)}
+                                                style={{
+                                                    padding: "6px 14px",
+                                                    borderRadius: "999px",
+                                                    background: "#f4f4f5",
+                                                    border: "1px solid #e4e4e7",
+                                                    fontSize: "12px",
+                                                    fontWeight: 600,
+                                                    color: "#3f3f46",
+                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "6px"
+                                                }}
+                                            >
+                                                <SvgFlame size={14} color="#f97316" />
+                                                <span>{reg.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Video Grid */}
+                                    {feedLoading ? (
+                                        <div style={{ textAlign: "center", padding: "60px 0", color: "#71717a" }}>
+                                            <div style={{ fontSize: "14px", fontWeight: 600 }}>Videolar yuklanmoqda...</div>
+                                        </div>
+                                    ) : feedVideos.length > 0 ? (
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
+                                            {feedVideos.map((v, idx) => (
+                                                <div key={idx} style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "18px", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 4px 16px rgba(0,0,0,0.03)" }}>
+                                                    <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#000000" }}>
+                                                        <img src={v.thumbnail} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                                                        {v.duration && (
+                                                            <span style={{ position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.8)", color: "#ffffff", fontSize: "11px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px" }}>
+                                                                {v.duration}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
+                                                        <div>
+                                                            <h4 title={v.title} style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", lineHeight: "1.4", height: "40px", overflow: "hidden", marginBottom: "8px" }}>
+                                                                {v.title}
+                                                            </h4>
+                                                            <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "6px" }}>{v.channel}</div>
+                                                            <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#a1a1aa", marginBottom: "14px" }}>
+                                                                <span>{Number(v.views || 0).toLocaleString()} ko'rish</span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => openFormatModal(v)}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "10px 0",
+                                                                borderRadius: "12px",
+                                                                background: "#7342E2",
+                                                                color: "#ffffff",
+                                                                border: "none",
+                                                                fontWeight: 700,
+                                                                fontSize: "13px",
+                                                                cursor: "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <SvgDownload size={15} color="#ffffff" />
+                                                            <span>Yuklab Olish</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ textAlign: "center", padding: "60px 0", color: "#a1a1aa" }}>
+                                            <SvgSearch size={40} color="#d4d4d8" />
+                                            <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>Video qidirish uchun so'rov kiriting</div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* =========================================================================
+                                TABS 3 & 4: STARS MYSTERY CASES & TON 3D GIFT NFTS
+                                ========================================================================= */}
+                            {(activeTab === 'cases' || activeTab === 'nfts') && (
+                                <>
+                                    {/* Hero Section */}
+                                    <section className="alwayzz-hero-section" style={{
+                                        position: "relative",
+                                        minHeight: "850px",
+                                        padding: "160px 36px 80px",
+                                        display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -2842,7 +3505,7 @@
                                                             {unboxingPrize ? unboxingPrize.prize_name : activeUnboxing.drops[0].name}
                                                         </div>
                                                         <div style={{ fontSize: "18px", fontWeight: 700, color: "#ffd700", marginTop: "4px" }}>
-                                                            {unboxingPrize ? `${unboxingPrize.prize_stars} ⭐ Stars` : ""}
+                                                            {unboxingPrize ? `${unboxingPrize.prize_stars} Stars` : ""}
                                                         </div>
                                                     </div>
                                                 )}
@@ -2852,7 +3515,7 @@
                                             {!isRolling && unboxingPrize && (
                                                 <div style={{ marginBottom: "24px", background: unboxingPrize.is_nft ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(115,66,226,0.2))" : "rgba(255,215,0,0.1)", padding: "16px", borderRadius: "16px", border: `1px solid ${unboxingPrize.is_nft ? 'rgba(115,66,226,0.5)' : 'rgba(255,215,0,0.3)'}` }}>
                                                     <div style={{ fontSize: "13px", color: unboxingPrize.is_nft ? "#00f0ff" : "#ffd700", fontWeight: 700, textTransform: "uppercase" }}>
-                                                        {unboxingPrize.is_nft ? "👑 AFSONAVIY TON NFT QO'LGA KIRITILDI!" : "🎉 YUTUQ QO'LGA KIRITILDI!"}
+                                                        {unboxingPrize.is_nft ? "AFSONAVIY TON NFT QO'LGA KIRITILDI!" : "YUTUQ QO'LGA KIRITILDI!"}
                                                     </div>
                                                     <div style={{ fontSize: "18px", fontWeight: 700, margin: "6px 0" }}>
                                                         {unboxingPrize.prize_name}
@@ -2882,10 +3545,15 @@
                                                         fontWeight: 700,
                                                         border: "none",
                                                         cursor: isRolling ? "not-allowed" : "pointer",
-                                                        opacity: isRolling ? 0.6 : 1
+                                                        opacity: isRolling ? 0.6 : 1,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        gap: "6px"
                                                     }}
                                                 >
-                                                    🔁 Yana Ochish ({activeUnboxing.price_stars} ⭐)
+                                                    <SvgStar size={16} color="#ffd700" />
+                                                    <span>Yana Ochish ({activeUnboxing.price_stars} Stars)</span>
                                                 </button>
                                                 <button
                                                     onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); }}
@@ -2906,6 +3574,8 @@
                                     </div>
                                 )}
                             </section>
+                                    </>
+                                )}
 
                             {/* Footer */}
                             <footer style={{ borderTop: "1px solid var(--border-soft)", padding: "48px 24px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
@@ -2917,6 +3587,220 @@
                                 </div>
                                 <p>© {new Date().getFullYear()} CreatorFlow Studio. Barcha huquqlar himoyalangan.</p>
                             </footer>
+
+                            {/* Telegram User ID Login Modal */}
+                            {showLoginModal && (
+                                <div style={{
+                                    position: "fixed",
+                                    inset: 0,
+                                    zIndex: 1000,
+                                    background: "rgba(0, 0, 0, 0.65)",
+                                    backdropFilter: "blur(6px)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "20px"
+                                }}>
+                                    <div style={{
+                                        background: "#ffffff",
+                                        borderRadius: "24px",
+                                        padding: "32px",
+                                        maxWidth: "420px",
+                                        width: "100%",
+                                        boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+                                        border: "1px solid #e4e4e7"
+                                    }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f4f0ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgUser size={20} color="#7342E2" />
+                                                </div>
+                                                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0 }}>Telegram ID orqali kirish</h3>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowLoginModal(false)}
+                                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a" }}
+                                            >
+                                                <XIcon size={20} color="#71717a" />
+                                            </button>
+                                        </div>
+                                        <p style={{ fontSize: "13px", color: "#71717a", lineHeight: 1.5, marginBottom: "20px" }}>
+                                            Botdagi hisobingiz, ulangan YouTube kanallaringiz va Stars balansini sinxronlash uchun Telegram User ID raqamingizni kiriting.
+                                        </p>
+                                        <form onSubmit={handleLogin}>
+                                            <div style={{ marginBottom: "20px" }}>
+                                                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#3f3f46", marginBottom: "6px" }}>
+                                                    Telegram User ID
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={loginIdInput}
+                                                    onChange={(e) => setLoginIdInput(e.target.value)}
+                                                    placeholder="Masalan: 123456789"
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "12px 16px",
+                                                        borderRadius: "12px",
+                                                        border: "1px solid #d4d4d8",
+                                                        fontSize: "15px",
+                                                        outline: "none",
+                                                        boxSizing: "border-box"
+                                                    }}
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <div style={{ display: "flex", gap: "10px" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowLoginModal(false)}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: "12px 0",
+                                                        borderRadius: "12px",
+                                                        border: "1px solid #e4e4e7",
+                                                        background: "#f4f4f5",
+                                                        color: "#3f3f46",
+                                                        fontWeight: 600,
+                                                        fontSize: "14px",
+                                                        cursor: "pointer"
+                                                    }}
+                                                >
+                                                    Bekor qilish
+                                                </button>
+                                                <button
+                                                    type="submit"
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: "12px 0",
+                                                        borderRadius: "12px",
+                                                        border: "none",
+                                                        background: "#7342E2",
+                                                        color: "#ffffff",
+                                                        fontWeight: 700,
+                                                        fontSize: "14px",
+                                                        cursor: "pointer"
+                                                    }}
+                                                >
+                                                    Kirish
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Video Format & Quality Selection Modal */}
+                            {selectedFormatsVideo && (
+                                <div style={{
+                                    position: "fixed",
+                                    inset: 0,
+                                    zIndex: 1000,
+                                    background: "rgba(0, 0, 0, 0.65)",
+                                    backdropFilter: "blur(6px)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    padding: "20px"
+                                }}>
+                                    <div style={{
+                                        background: "#ffffff",
+                                        borderRadius: "24px",
+                                        padding: "28px",
+                                        maxWidth: "460px",
+                                        width: "100%",
+                                        boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+                                        border: "1px solid #e4e4e7",
+                                        maxHeight: "85vh",
+                                        display: "flex",
+                                        flexDirection: "column"
+                                    }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                                            <div style={{ flex: 1, paddingRight: "12px" }}>
+                                                <div style={{ fontSize: "12px", fontWeight: 700, color: "#7342E2", textTransform: "uppercase" }}>Video yuklab olish</div>
+                                                <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#18181b", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                    {selectedFormatsVideo.video.title}
+                                                </h3>
+                                            </div>
+                                            <button
+                                                onClick={() => setSelectedFormatsVideo(null)}
+                                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a" }}
+                                            >
+                                                <XIcon size={20} color="#71717a" />
+                                            </button>
+                                        </div>
+
+                                        <div style={{ overflowY: "auto", flex: 1, paddingRight: "4px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            {formatsLoading ? (
+                                                <div style={{ textAlign: "center", padding: "40px 0", color: "#71717a", fontSize: "14px" }}>
+                                                    Formatlar tekshirilmoqda...
+                                                </div>
+                                            ) : selectedFormatsVideo.formats && selectedFormatsVideo.formats.length > 0 ? (
+                                                selectedFormatsVideo.formats.map((fmt, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        style={{
+                                                            padding: "12px 16px",
+                                                            borderRadius: "14px",
+                                                            border: "1px solid #e4e4e7",
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            background: "#fafafa"
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>
+                                                                {fmt.resolution || fmt.quality || "Standart"} • {fmt.ext ? fmt.ext.toUpperCase() : "MP4"}
+                                                            </div>
+                                                            <div style={{ fontSize: "12px", color: "#71717a" }}>
+                                                                {fmt.filesize_str || (fmt.filesize ? (fmt.filesize / 1024 / 1024).toFixed(1) + " MB" : "Hajmi noma'lum")}
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => startDownload(selectedFormatsVideo.video.id, fmt.format_id)}
+                                                            disabled={downloadingFormat === fmt.format_id}
+                                                            style={{
+                                                                padding: "8px 16px",
+                                                                borderRadius: "999px",
+                                                                background: "#7342E2",
+                                                                color: "#ffffff",
+                                                                border: "none",
+                                                                fontSize: "12px",
+                                                                fontWeight: 700,
+                                                                cursor: downloadingFormat === fmt.format_id ? "not-allowed" : "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <SvgDownload size={13} color="#ffffff" />
+                                                            <span>{downloadingFormat === fmt.format_id ? "Tayyorlanmoqda..." : "Yuklab olish"}</span>
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ textAlign: "center", padding: "30px 0" }}>
+                                                    <div style={{ fontSize: "14px", color: "#71717a", marginBottom: "12px" }}>Formatlar aniqlanmadi, to'g'ridan-to'g'ri yuklab olish:</div>
+                                                    <button
+                                                        onClick={() => startDownload(selectedFormatsVideo.video.id, 'best')}
+                                                        style={{
+                                                            padding: "10px 24px",
+                                                            borderRadius: "999px",
+                                                            background: "#7342E2",
+                                                            color: "#ffffff",
+                                                            border: "none",
+                                                            fontWeight: 700,
+                                                            cursor: "pointer"
+                                                        }}
+                                                    >
+                                                        Eng yaxshi sifatda yuklash
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
