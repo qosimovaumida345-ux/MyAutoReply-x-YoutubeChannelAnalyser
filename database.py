@@ -785,6 +785,27 @@ def init_db():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_round ON crash_bets(round_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_crash_bets_user ON crash_bets(tg_user_id, round_id)")
+
+    # VenteBot Reseller Buyurtmalar jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ventebot_reseller_orders (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            product_id INT NOT NULL,
+            product_name TEXT NOT NULL,
+            quantity INT DEFAULT 1,
+            amount_uzs BIGINT NOT NULL,
+            amount_usd NUMERIC(10, 2) NOT NULL,
+            delivery_type TEXT,
+            activation_identifier TEXT,
+            status VARCHAR(32) DEFAULT 'COMPLETED',
+            ventebot_order_id INT,
+            delivered_data TEXT,
+            idempotency_key TEXT UNIQUE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ventebot_orders_user ON ventebot_reseller_orders(tg_user_id)")
     
     conn.commit()
     cur.close()
@@ -3671,27 +3692,27 @@ def set_user_language(tg_user_id: int, lang: str) -> bool:
         conn.close()
 
 def get_user_language(tg_user_id: int) -> str:
-    """Foydalanuvchi tilini olish (default: uz) (Kesh bilan tezkor)"""
+    """Foydalanuvchi tilini olish (default: en) (Kesh bilan tezkor)"""
     cached = _get_cached(f"lang_{tg_user_id}")
     if cached is not None:
         return str(cached)
 
     conn = get_db()
-    if not conn: return "uz"
+    if not conn: return "en"
     try:
         cur = conn.cursor()
         cur.execute("SELECT language FROM user_languages WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
         if not row:
-            _set_cached(f"lang_{tg_user_id}", "uz", 300)
-            return "uz"
+            _set_cached(f"lang_{tg_user_id}", "en", 300)
+            return "en"
         lang = row["language"] if isinstance(row, dict) else row[0]
-        res = lang if lang in ("uz", "ru", "en", "es", "tr") else "uz"
+        res = lang if lang in ("uz", "ru", "en", "es", "tr") else "en"
         _set_cached(f"lang_{tg_user_id}", res, 600)
         return res
     except Exception as e:
         print(f"get_user_language error: {e}")
-        return "uz"
+        return "en"
     finally:
         conn.close()
 
@@ -4733,6 +4754,193 @@ def get_bot_config(key: str, default: str = None) -> str:
         return default
     finally:
         conn.close()
+
+
+# ==================== ADMIN SERVICE TOGGLE (Xizmatlarni yoqish/o'chirish) ====================
+
+# Admin boshqaradigan barcha xizmatlar ro'yxati
+ADMIN_SERVICES = {
+    "ventebot_store": "🚀 VenteBot Do'koni",
+    "mystery_box": "🎁 Mystery Box",
+    "pvp_battles": "⚔️ PvP Battles",
+    "wheel_spin": "🎰 Wheel Spin",
+    "duel": "🎮 Duel",
+    "lottery": "🎟️ Lotereya",
+    "marketplace": "🛒 Marketplace",
+    "crypto_pay": "💎 CryptoPay",
+    "flux_ai": "🎨 Flux AI",
+    "vip": "👑 VIP",
+    "upgrader": "🔄 Upgrader",
+    "scratch_cards": "🎫 Scratch Cards",
+    "daily_streak": "📅 Daily Streak",
+}
+
+
+def is_service_disabled(service_key: str) -> bool:
+    """Xizmat admin tomonidan o'chirilganmi tekshirish (60s kesh bilan)"""
+    cache_key = f"svc_off_{service_key}"
+    cached = _get_cached(cache_key)
+    if cached is not None:
+        return cached == "1"
+
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM bot_config WHERE key = %s", (f"service_disabled_{service_key}",))
+        row = cur.fetchone()
+        disabled = bool(row and str(row.get("value", "") if isinstance(row, dict) else row[0]) == "1")
+        _set_cached(cache_key, "1" if disabled else "0", 60)
+        return disabled
+    except Exception as e:
+        print(f"is_service_disabled error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def toggle_service(service_key: str, disabled: bool) -> bool:
+    """Xizmatni yoqish (disabled=False) yoki o'chirish (disabled=True)"""
+    _invalidate_cached(f"svc_off_{service_key}")
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        val = "1" if disabled else "0"
+        cur.execute("""
+            INSERT INTO bot_config (key, value, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """, (f"service_disabled_{service_key}", val))
+        conn.commit()
+        _set_cached(f"svc_off_{service_key}", val, 60)
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"toggle_service error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_all_service_states() -> dict:
+    """Barcha xizmatlar holati: {key: True/False (disabled)}"""
+    result = {k: False for k in ADMIN_SERVICES}
+    conn = get_db()
+    if not conn:
+        return result
+    try:
+        cur = conn.cursor()
+        keys = [f"service_disabled_{k}" for k in ADMIN_SERVICES]
+        placeholders = ",".join(["%s"] * len(keys))
+        cur.execute(f"SELECT key, value FROM bot_config WHERE key IN ({placeholders})", keys)
+        rows = cur.fetchall()
+        for row in rows:
+            k = (row["key"] if isinstance(row, dict) else row[0]).replace("service_disabled_", "")
+            v = str(row["value"] if isinstance(row, dict) else row[1])
+            if k in result:
+                result[k] = (v == "1")
+        return result
+    except Exception as e:
+        print(f"get_all_service_states error: {e}")
+        return result
+    finally:
+        conn.close()
+
+
+# ==================== VENTEBOT RESELLER ORDER REPOSITORY ====================
+
+def save_ventebot_order(tg_user_id: int, product_id: int, product_name: str, quantity: int,
+                        amount_uzs: int, amount_usd: float, delivery_type: str = "",
+                        activation_identifier: str = "", status: str = "COMPLETED",
+                        ventebot_order_id: int = None, delivered_data: str = "",
+                        idempotency_key: str = "") -> int:
+    """VenteBot orqali berilgan yangi buyurtmani bazaga saqlash"""
+    conn = get_db()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO ventebot_reseller_orders (
+                tg_user_id, product_id, product_name, quantity, amount_uzs,
+                amount_usd, delivery_type, activation_identifier, status,
+                ventebot_order_id, delivered_data, idempotency_key
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (idempotency_key) DO UPDATE SET
+                status = EXCLUDED.status,
+                ventebot_order_id = EXCLUDED.ventebot_order_id,
+                delivered_data = EXCLUDED.delivered_data
+            RETURNING id
+        """, (
+            tg_user_id, product_id, product_name, quantity, amount_uzs,
+            amount_usd, delivery_type, activation_identifier, status,
+            ventebot_order_id, delivered_data, idempotency_key
+        ))
+        row = cur.fetchone()
+        conn.commit()
+        return int(row["id"]) if row else 0
+    except Exception as e:
+        conn.rollback()
+        print(f"save_ventebot_order error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_user_ventebot_orders(tg_user_id: int, limit: int = 20) -> list:
+    """Foydalanuvchining VenteBot orqali sotib olgan buyurtmalari tarixi"""
+    conn = get_db()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM ventebot_reseller_orders
+            WHERE tg_user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+        """, (tg_user_id, limit))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        print(f"get_user_ventebot_orders error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def update_ventebot_order_status(order_id: int, status: str, delivered_data: str = None) -> bool:
+    """VenteBot buyurtmasi statusini yangilash (masalan, REFUNDED yoki COMPLETED)"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        if delivered_data is not None:
+            cur.execute("""
+                UPDATE ventebot_reseller_orders
+                SET status = %s, delivered_data = %s
+                WHERE id = %s
+            """, (status, delivered_data, order_id))
+        else:
+            cur.execute("""
+                UPDATE ventebot_reseller_orders
+                SET status = %s
+                WHERE id = %s
+            """, (status, order_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"update_ventebot_order_status error: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 
 

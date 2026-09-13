@@ -58,7 +58,8 @@ from database import (
     record_user_purchase, get_user_purchases,
     get_or_create_user_api_key, regenerate_user_api_key,
     set_user_language, get_user_language, get_top_referrers, get_top_duel_winners,
-    get_config, set_config
+    get_config, set_config,
+    is_service_disabled, toggle_service, get_all_service_states, ADMIN_SERVICES
 )
 from locales import t, SUPPORTED_LANGUAGES
 from games_monetization import (
@@ -71,7 +72,7 @@ from games_monetization import (
     order_whitelabel_bot, get_user_whitelabel_bots
 )
 from autopost import autopost_worker, get_auth_url, upload_to_youtube
-from custom_emojis import EMOJI_MAP, e, ce
+from custom_emojis import EMOJI_MAP, e, ce, BRAND_EMOJIS_MAP
 from crypto_pay import create_crypto_pay_invoice, CRYPTO_PACKAGES
 from instagram_processor import download_instagram_reel, is_instagram_url, get_ffmpeg_binary
 from mass_engagement import _do_like, _do_comment, _do_subscribe, generate_gemini_comment, extract_video_id
@@ -195,46 +196,70 @@ def _is_vip_user(user_id):
         return False
 
 def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
-    # 1. CapCut Pro
+    cb_lower = (cb or "").lower()
+    text_lower = (raw_text or "").lower()
+
+    # 1. Aniq To'lov Tizimlari (HUMO/Uzcard #65, Telegram Stars #63, TON/Crypto #64)
+    if any(k in cb_lower for k in ["humo", "uzcard"]) or any(k in text_lower for k in ["humo", "uzcard"]):
+        return "5445353829304387411"
+    if any(k in cb_lower for k in ["stars_pkg", "star_buy", "pay_stars"]) or any(k in text_lower for k in ["telegram stars", "stars"]):
+        return "5370784581341422520"
+    if any(k in cb_lower for k in ["pay_crypto", "pay_ton", "crypto_pkg"]) or any(k in text_lower for k in ["ton (", "ton hamyon", "the open network", "cryptopay", "ton blockchain"]):
+        return "5078343973303485905"
+    if web_url and ("tonconnect" in web_url or "ton" in web_url):
+        return "5078343973303485905"
+
+    # 2. VenteBot Reseller Do'koni va Mahsulotlar (65 ta brend va zaxira indikatorlari)
+    if "vb_catalog" in cb_lower or "ventebot" in text_lower:
+        return "5276040205541878847"
+    if "vb_item_" in cb_lower:
+        for brand, emoji_id in BRAND_EMOJIS_MAP.items():
+            if brand in text_lower:
+                return emoji_id
+        if "out of stock" in text_lower or "tugagan" in text_lower or text_lower.startswith("⚠️"):
+            return "4997089922276918243"
+        return "5255860701133552970"
+
+    # 3. 65 ta Kompaniya, Brend va Xizmatlar (Marketplace & Do'kon)
+    for brand, emoji_id in BRAND_EMOJIS_MAP.items():
+        if brand in text_lower or brand in cb_lower:
+            return emoji_id
+
+    # 4. WebApp Maxsus Havolalari
+    if web_url:
+        if "/kyc/" in web_url or "kyc" in web_url:
+            return "5330194932781050507"
+        return "6327577233305112811"
+
+    # 5. Golden VIP vs Oddiy Funksiyalar
     if any(k in cb for k in ["menu_capcut", "capcut"]):
         return "5285497929686069998" if is_vip else "5978895591894161700"
-    # 2. Instagram Cloner
     if any(k in cb for k in ["menu_ig_cloner", "ig_"]):
         return "6001420655252213986" if is_vip else "4990082283701535678"
-    # 3. Reels Downloader
     if any(k in cb for k in ["menu_reels", "dl_reels"]):
         return "5312147767966054472" if is_vip else "5825658700735451589"
-    # 4. P2P Vouchers / Cheklar
     if any(k in cb for k in ["menu_vouchers", "claim_chk", "help_create_check"]):
         return "5420112302210817795" if is_vip else "5265197972919964944"
-    # 5. Check Claim
     if any(k in cb for k in ["chk_claim", "redeem_check"]):
         return "5960914406366779993" if is_vip else "5980930633298350051"
-    # 6. Anti-fraud / Xavfsizlik
     if any(k in cb for k in ["antifraud", "security_lock"]):
         return "5465443379917629504" if is_vip else "5463358164705489689"
-    # 7. AI Video Studio ($20/oy)
     if any(k in cb for k in ["menu_ai_video", "aivid_"]):
         return "5249493957578078525" if is_vip else "5235837920081887219"
-    # 8. Voice / Audio
     if any(k in cb for k in ["voice_", "tts_"]):
         return "5766912713586381607" if is_vip else "5895215520000513680"
-    # 9. Raqobatchi Tahlili (Spy & SEO)
     if any(k in cb for k in ["menu_spy", "spy_"]):
         return "6107110845399962129" if is_vip else "5339247212012528642"
-    # 10. SEO Tag
     if any(k in cb for k in ["seo_tags", "tagsgen"]):
         return "5406711411541823609" if is_vip else "5298877105000439431"
-    # 11. Balansni Yechish (Cashout)
     if any(k in cb for k in ["menu_cashout", "co_method", "cashout"]):
         return "5463046637842608206" if is_vip else "4967738760021148319"
-    # 12. Smart YouTube DeepLink & QR
     if any(k in cb for k in ["menu_deeplink", "deeplink"]):
         return "5224378350335707737" if is_vip else "5264938002844513934"
-    # 13. 3D NFT Studio
     if any(k in cb for k in ["menu_nft", "nft_"]):
         return "5393107154171358177"
-    # 14. Telegram Stars Mystery Cases
+
+    # 6. Telegram Stars Mystery Cases
     if "buy_stars_case_tier_1" in cb:
         return "5323289282499064033"  # 📦 Box
     if "buy_stars_case_tier_2" in cb:
@@ -246,7 +271,7 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     if "buy_stars_case_tier_5" in cb:
         return "5465467698022468218"  # 🚀 Galaxy/Rocket
 
-    # Core Navigation & Features:
+    # 7. Asosiy Navigatsiya & Bo'limlar:
     if any(k in cb for k in ["menu_support_desk", "supp_"]):
         return "5443038326535759644"
     if any(k in cb for k in ["menu_wallet", "pay_"]):
@@ -272,46 +297,40 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     if any(k in cb for k in ["back_main", "main_menu"]):
         return "6327577233305112811"
 
-    # WebApps:
-    if web_url:
-        if "/kyc/" in web_url or "kyc" in web_url:
-            return "5330194932781050507"
-        return "6327577233305112811"
-
-    # Text based detection
-    if "nft" in raw_text:
+    # 8. Matn bo'yicha zaxira aniqlash
+    if "nft" in text_lower:
         return "5393107154171358177"
-    if "capcut" in raw_text:
+    if "capcut" in text_lower:
         return "5285497929686069998" if is_vip else "5978895591894161700"
-    if "instagram" in raw_text or "kloner" in raw_text:
+    if "instagram" in text_lower or "kloner" in text_lower:
         return "6001420655252213986" if is_vip else "4990082283701535678"
-    if "reels" in raw_text:
+    if "reels" in text_lower:
         return "5312147767966054472" if is_vip else "5825658700735451589"
-    if "chek" in raw_text or "voucher" in raw_text:
+    if "chek" in text_lower or "voucher" in text_lower:
         return "5420112302210817795" if is_vip else "5265197972919964944"
-    if "ai video" in raw_text:
+    if "ai video" in text_lower:
         return "5249493957578078525" if is_vip else "5235837920081887219"
-    if "raqobatchi" in raw_text or "spy" in raw_text:
+    if "raqobatchi" in text_lower or "spy" in text_lower:
         return "6107110845399962129" if is_vip else "5339247212012528642"
-    if "admin" in raw_text or "yordam & live" in raw_text or "support" in raw_text:
+    if "admin" in text_lower or "yordam & live" in text_lower or "support" in text_lower:
         return "5443038326535759644"
-    if "yechish" in raw_text or "cashout" in raw_text:
+    if "yechish" in text_lower or "cashout" in text_lower:
         return "5463046637842608206" if is_vip else "4967738760021148319"
-    if "deeplink" in raw_text:
+    if "deeplink" in text_lower:
         return "5224378350335707737" if is_vip else "5264938002844513934"
-    if "balans" in raw_text or "to'ldirish" in raw_text or "wallet" in raw_text:
+    if "balans" in text_lower or "to'ldirish" in text_lower or "wallet" in text_lower:
         return "5463046637842608206" if is_vip else "5343777479091831702"
-    if "o'yinlar" in raw_text or "yutuq" in raw_text:
+    if "o'yinlar" in text_lower or "yutuq" in text_lower:
         return "5235989279024373566"
-    if "marketplace" in raw_text or "xizmatlar" in raw_text:
+    if "marketplace" in text_lower or "xizmatlar" in text_lower:
         return "5864068125112144897"
-    if "do'stlarni" in raw_text or "referal" in raw_text:
+    if "do'stlarni" in text_lower or "referal" in text_lower:
         return "6319002678990998592"
-    if "liderlar" in raw_text or "jadval" in raw_text:
+    if "liderlar" in text_lower or "jadval" in text_lower:
         return "5226431245918942763"
-    if "dashboard" in raw_text:
+    if "dashboard" in text_lower:
         return "6327577233305112811"
-    if "kyc" in raw_text:
+    if "kyc" in text_lower:
         return "5330194932781050507"
 
     return None
@@ -323,14 +342,19 @@ def _get_button_style(cb, raw_text, web_url=""):
             return "danger"
         return "primary"
 
-    # 1. SUCCESS (Yashil) — Balans, To'lovlar, Xizmatlar, Yutuqlar, Referal, CapCut
+    # 0. DANGER (Qizil) — Out of stock / tugagan tovarlar
+    if "out of stock" in raw_text or "tugagan" in raw_text or raw_text.startswith("⚠️"):
+        return "danger"
+
+    # 1. SUCCESS (Yashil) — Balans, To'lovlar, Xizmatlar, Yutuqlar, Referal, CapCut, VenteBot tovarlar
     if any(k in cb for k in [
-        "menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg",
+        "vb_item_", "vb_catalog", "menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg", "humo_pkg",
         "marketplace", "market", "menu_marketplace", "menu_vouchers", "menu_cashout", "aivid_buy",
         "menu_referral", "menu_leaderboard", "menu_capcut", "capcut"
     ]) or any(k in raw_text for k in [
         "sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace",
-        "balans", "obuna", "stars", "referal", "do'stlarni", "liderlar", "capcut", "voucher", "chek"
+        "balans", "obuna", "stars", "referal", "do'stlarni", "liderlar", "capcut", "voucher", "chek",
+        "📦", "humo", "uzcard"
     ]):
         return "success"
 
@@ -905,7 +929,7 @@ def games_menu_kb(user_id=None):
 
 def main_menu_kb(user_id=None):
     import os
-    lang = get_user_language(user_id) if user_id else "uz"
+    lang = get_user_language(user_id) if user_id else "en"
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
     kyc_text = "🛡️ 3D KYC"
     if user_id and is_user_kyc_verified(user_id):
@@ -1049,6 +1073,7 @@ def marketplace_menu_kb():
     gq_stock = stock.get("groq", 0)
     pr_stock = get_proxies_stock_count()
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🚀 VenteBot Raqamli Tovarlar & Obunalar", callback_data="vb_catalog")],
         [InlineKeyboardButton(f"🌐 Private Proxy ($3) [{pr_stock} ta]", callback_data="mkt_view_proxy"),
          InlineKeyboardButton(f"⚡ Autostream Cloud (4k/s)", callback_data="mkt_view_autostream")],
         [InlineKeyboardButton(f"🎨 500+ Prompt Pack ($3)", callback_data="mkt_view_prompts"),
@@ -1359,6 +1384,110 @@ def create_ytbot():
             
         text = f"📊 **Tizim Holati**\n\n**YouTube Holati:**\n{yt_status}\n\n**Proxy Holati:**\n{proxy_status}"
         await message.reply(text, parse_mode=ParseMode.MARKDOWN)
+
+    # ==================== SERVICE TOGGLE & ADMIN PANEL ====================
+    async def check_service_available(service_key: str, message_or_cb, lang: str = "en") -> bool:
+        """Xizmat admin tomonidan o'chirilgan bo'lsa ogohlantirish beradi va False qaytaradi"""
+        if is_service_disabled(service_key):
+            disabled_texts = {
+                "uz": "⚠️ <b>Bu xizmat vaqtincha admin tomonidan to'xtatilgan.</b>\n\nTez orada qayta ishga tushadi, iltimos kuting!",
+                "en": "⚠️ <b>This service is temporarily disabled by the administrator.</b>\n\nIt will be back online soon, please stay tuned!",
+                "ru": "⚠️ <b>Эта услуга временно отключена администратором.</b>\n\nОна скоро будет возобновлена, пожалуйста, подождите!",
+                "tr": "⚠️ <b>Bu hizmet yönetici tarafından geçici olarak devre dışı bırakıldı.</b>\n\nYakında tekrar açılacaktır, lütfen bekleyin!",
+                "es": "⚠️ <b>Este servicio está temporalmente deshabilitado por el administrador.</b>\n\n¡Volverá a estar en línea pronto!",
+            }
+            msg = disabled_texts.get(lang, disabled_texts["en"])
+            if isinstance(message_or_cb, CallbackQuery):
+                short_warn = "⚠️ Xizmat vaqtincha to'xtatilgan" if lang == "uz" else "⚠️ Service temporarily disabled"
+                await message_or_cb.answer(short_warn, show_alert=True)
+                try:
+                    await message_or_cb.message.reply_text(msg)
+                except Exception:
+                    pass
+            else:
+                await message_or_cb.reply_text(msg)
+            return False
+        return True
+
+    def admin_panel_kb():
+        states = get_all_service_states()
+        buttons = []
+        for key, name in ADMIN_SERVICES.items():
+            is_off = states.get(key, False)
+            status_tag = "🔴 O'CHIK" if is_off else "🟢 FAOL"
+            toggle_action = "enable" if is_off else "disable"
+            buttons.append([
+                InlineKeyboardButton(
+                    f"{name} [{status_tag}]",
+                    callback_data=f"adm_tog_{key}_{toggle_action}"
+                )
+            ])
+        buttons.append([
+            InlineKeyboardButton("🔄 Yangilash", callback_data="adm_panel_refresh"),
+            InlineKeyboardButton("❌ Yopish", callback_data="adm_panel_close")
+        ])
+        return InlineKeyboardMarkup(buttons)
+
+    @bot.on_message(filters.command(["admin", "panel"]) & filters.private)
+    async def admin_panel_cmd(client, message: Message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("❌ Ushbu buyruq faqat bot administratori uchun!")
+            return
+        
+        text = (
+            "⚙️ <b>Admin Boshqaruv Paneli — Xizmatlar Holati</b>\n\n"
+            "Bu yerdan istalgan xizmatni butun serverni to'xtatmasdan alohida <b>yoqishingiz yoki to'xtatib qo'yishingiz</b> mumkin.\n\n"
+            "• 🟢 <b>FAOL:</b> Foydalanuvchilar xizmatdan erkin foydalana oladi.\n"
+            "• 🔴 <b>O'CHIK:</b> Foydalanuvchiga <i>«⚠️ Bu xizmat vaqtincha to'xtatilgan»</i> xabari boradi.\n\n"
+            "👇 <i>Holatni o'zgartirish uchun kerakli xizmat tugmasini bosing:</i>"
+        )
+        await message.reply_text(text, reply_markup=admin_panel_kb())
+
+    @bot.on_callback_query(filters.regex(r"^adm_tog_([a-zA-Z0-9_]+)_(enable|disable)$"))
+    async def admin_toggle_callback(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user):
+            await cb.answer("❌ Ruxsat yo'q!", show_alert=True)
+            return
+        
+        match = re.match(r"^adm_tog_([a-zA-Z0-9_]+)_(enable|disable)$", cb.data)
+        if not match:
+            return
+        
+        svc_key, action = match.groups()
+        disable_it = (action == "disable")
+        success = toggle_service(svc_key, disable_it)
+        
+        svc_name = ADMIN_SERVICES.get(svc_key, svc_key)
+        if success:
+            st_text = "to'xtatildi (o'chirildi) 🔴" if disable_it else "ishga tushirildi (yoqildi) 🟢"
+            await cb.answer(f"✅ {svc_name} {st_text}!", show_alert=False)
+            try:
+                await cb.message.edit_reply_markup(reply_markup=admin_panel_kb())
+            except MessageNotModified:
+                pass
+        else:
+            await cb.answer("❌ Xatolik yuz berdi!", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^adm_panel_refresh$"))
+    async def admin_refresh_callback(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user):
+            await cb.answer("❌ Ruxsat yo'q!", show_alert=True)
+            return
+        try:
+            await cb.message.edit_reply_markup(reply_markup=admin_panel_kb())
+            await cb.answer("🔄 Yangilandi!")
+        except MessageNotModified:
+            await cb.answer("Hammasi so'nggi holatda.")
+
+    @bot.on_callback_query(filters.regex(r"^adm_panel_close$"))
+    async def admin_close_callback(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user):
+            await cb.answer("❌ Ruxsat yo'q!", show_alert=True)
+            return
+        try:
+            await cb.message.delete()
+        except Exception:
+            pass
 
     @bot.on_message(filters.command("start"))
     async def start_cmd(client, message):
@@ -1695,6 +1824,9 @@ def create_ytbot():
     @bot.on_message(filters.command(["marketplace", "xizmatlar"]))
     async def marketplace_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("marketplace", message, lang):
+            return
         if not can_use_bot(message.from_user):
             await message.reply_text(f"{e('WARN')} Ushbu bo'limdan foydalanish uchun avval shaxsingizni tasdiqlang! /start ni bosing.")
             return
@@ -1727,6 +1859,55 @@ def create_ytbot():
             f"{e('PIN')} Kerakli mahsulot yoki xizmatni tanlang:"
         )
         await message.reply_text(text, reply_markup=marketplace_menu_kb())
+
+    # ==================== /store & /ventebot ====================
+    @bot.on_message(filters.command(["store", "shop", "ventebot", "raqamli"]))
+    async def ventebot_store_cmd(client, message):
+        user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("ventebot_store", message, lang):
+            return
+        from ventebot_service import ventebot_service
+        bal = get_user_balance(user_id)
+        
+        loading = await message.reply_text("⏳ Raqamli tovarlar katalogi yuklanmoqda...")
+        res = await ventebot_service.get_products(lang="uz")
+        if not res.get("success"):
+            await loading.edit_text(f"❌ Katalog yuklanmadi: {res.get('message', 'Xatolik')}")
+            return
+            
+        products = res.get("products", [])
+        if not products:
+            await loading.edit_text("ℹ️ Hozircha sotuvda faol tovarlar mavjud emas.")
+            return
+
+        text = (
+            f"🚀 <b>VenteBot Raqamli Xizmatlar & Obunalar Do'koni</b>\n\n"
+            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<i>Kerakli mahsulotni tanlang. Xarid summasi to'g'ridan-to'g'ri botdagi so'm balansingizdan yechiladi va tovar bir zumda yetkaziladi:</i>"
+        )
+        
+        buttons = []
+        for p in products[:30]:
+            p_id = p.get("id")
+            name = p.get("name", "Product")
+            price_usd = float(p.get("price_usd") or 0)
+            stock = p.get("stock")
+            in_stock = (stock is None or stock > 0)
+            if in_stock:
+                stock_str = f"📦 {stock}" if stock is not None else "📦"
+                btn_txt = f"{name} | ${price_usd:.2f} | {stock_str}"
+            else:
+                btn_txt = f"⚠️ {name} | ${price_usd:.2f} | Out of stock"
+            buttons.append([InlineKeyboardButton(btn_txt, callback_data=f"vb_item_{p_id}")])
+
+        buttons.append([
+            InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders"),
+            InlineKeyboardButton("💳 Balansni to'ldirish", callback_data="menu_wallet")
+        ])
+        buttons.append([InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
+        
+        await loading.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
     # ==================== /kyc ====================
     @bot.on_message(filters.command("kyc"))
@@ -1786,6 +1967,9 @@ def create_ytbot():
     @bot.on_message(filters.command(["flux", "fluxai"]) & filters.private)
     async def flux_cmd(client, message):
         user = message.from_user
+        lang = get_user_language(user.id)
+        if not await check_service_available("flux_ai", message, lang):
+            return
         if not can_use_bot(user):
             await message.reply_text(f"{e('SHIELD')} <b>Iltimos, avval 3D identifikatsiyadan o'ting!</b>\n/start ni bosing.")
             return
@@ -2373,6 +2557,9 @@ def create_ytbot():
     @bot.on_message(filters.command(["box", "mystery", "omad"]))
     async def box_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("mystery_box", message, lang):
+            return
         bal = get_user_balance(user_id)
         recent = get_recent_box_winners(3)
         recent_text = ""
@@ -2403,6 +2590,9 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^box_menu$"))
     async def box_menu_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("mystery_box", callback_query, lang):
+            return
         bal = get_user_balance(user_id)
         recent = get_recent_box_winners(3)
         recent_text = ""
@@ -2434,6 +2624,9 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^box_open$"))
     async def box_open_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("mystery_box", callback_query, lang):
+            return
         await callback_query.message.edit_text(
             "🎁 <b>Quti ochilmoqda...</b>\n\n"
             "[ ▰▰▰▰▰▰▱▱▱ ] ⏳"
@@ -2482,6 +2675,9 @@ def create_ytbot():
     @bot.on_message(filters.command(["wheel", "spin"]))
     async def wheel_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("wheel_spin", message, lang):
+            return
         can_free = can_user_free_spin(user_id)
         bal = get_user_balance(user_id)
         
@@ -2505,6 +2701,9 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^spin_wheel$"))
     async def spin_wheel_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("wheel_spin", callback_query, lang):
+            return
         can_free = can_user_free_spin(user_id)
         bal = get_user_balance(user_id)
         
@@ -2529,6 +2728,9 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^spin_(free|paid)$"))
     async def spin_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("wheel_spin", callback_query, lang):
+            return
         is_free = (callback_query.data == "spin_free")
         
         await callback_query.message.edit_text("🎯 <b>G'ildirak aylanmoqda...</b>\n\n[ 🔄 🔄 🔄 🔄 🔄 ]")
@@ -2559,6 +2761,9 @@ def create_ytbot():
     @bot.on_message(filters.command("duel"))
     async def duel_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("duel", message, lang):
+            return
         parts = message.text.strip().split()
         if len(parts) < 2:
             open_duels = get_open_duels(5)
@@ -2651,6 +2856,9 @@ def create_ytbot():
     @bot.on_message(filters.command(["lottery", "lotereya"]))
     async def lottery_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("lottery", message, lang):
+            return
         info = get_current_lottery_info()
         bal = get_user_balance(user_id)
         
@@ -4747,6 +4955,8 @@ def create_ytbot():
             return
             
         if menu == "marketplace":
+            if not await check_service_available("marketplace", cb, lang):
+                return
             bal = get_user_balance(user_id)
             from database import get_api_keys_stock_count, get_proxies_stock_count
             stock = get_api_keys_stock_count()
@@ -4825,6 +5035,9 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^pay_humo_menu$"))
     async def cb_pay_humo_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("crypto_pay", cb, lang):
+            return
         from database import get_user_pending_humo_deposit
         pending = get_user_pending_humo_deposit(user_id)
         if pending:
@@ -4970,6 +5183,10 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^pay_stars_menu$"))
     async def cb_pay_stars_menu(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("crypto_pay", cb, lang):
+            return
         text = (
             f"{e('STAR')} <b>Telegram Stars orqali hisob to'ldirish</b>\n\n"
             f"Telegram Stars — Telegramning rasmiy xavfsiz to'lov vositasi.\n"
@@ -4982,6 +5199,9 @@ def create_ytbot():
     async def cb_stars_pkg(client, cb: CallbackQuery):
         stars = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("crypto_pay", cb, lang):
+            return
         amount_uzs = 12500
         for pkg in STARS_PACKAGES:
             if pkg["stars"] == stars:
@@ -5007,6 +5227,10 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^(?:pay_crypto_menu|pay_ton_menu)$"))
     async def cb_pay_crypto_menu(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("crypto_pay", cb, lang):
+            return
         text = (
             f"{e('CRYPTO')} <b>CryptoPay (@CryptoBot) orqali to'ldirish</b>\n\n"
             f"USDT yoki GRAM (sobiq TON) orqali bir zumda to'ldiring.\n"
@@ -5954,6 +6178,210 @@ def create_ytbot():
             text = "\n".join(lines)
             
         kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    # ==================== VENTEBOT RESELLER CALLBACKS ====================
+
+    @bot.on_callback_query(filters.regex(r"^vb_catalog$"))
+    async def cb_vb_catalog(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("ventebot_store", cb, lang):
+            return
+        from ventebot_service import ventebot_service
+        bal = get_user_balance(user_id)
+        
+        res = await ventebot_service.get_products(lang="uz")
+        if not res.get("success"):
+            await cb.answer(f"Xatolik: {res.get('message')}", show_alert=True)
+            return
+
+        products = res.get("products", [])
+        if not products:
+            await cb.answer("Hozircha faol tovarlar topilmadi.", show_alert=True)
+            return
+
+        text = (
+            f"🚀 <b>VenteBot Raqamli Tovarlar & Obunalar Do'koni</b>\n\n"
+            f"💰 <b>Joriy balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"<i>Kerakli tovar ustiga bosing va xaridni tasdiqlang:</i>"
+        )
+        
+        buttons = []
+        for p in products[:30]:
+            p_id = p.get("id")
+            name = p.get("name", "Product")
+            price_usd = float(p.get("price_usd") or 0)
+            stock = p.get("stock")
+            in_stock = (stock is None or stock > 0)
+            if in_stock:
+                stock_str = f"📦 {stock}" if stock is not None else "📦"
+                btn_txt = f"{name} | ${price_usd:.2f} | {stock_str}"
+            else:
+                btn_txt = f"⚠️ {name} | ${price_usd:.2f} | Out of stock"
+            buttons.append([InlineKeyboardButton(btn_txt, callback_data=f"vb_item_{p_id}")])
+
+        buttons.append([
+            InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders"),
+            InlineKeyboardButton("💳 Balansni to'ldirish", callback_data="menu_wallet")
+        ])
+        buttons.append([InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")])
+        
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vb_item_(\d+)$"))
+    async def cb_vb_item(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        product_id = int(cb.matches[0].group(1))
+        from ventebot_service import ventebot_service
+        bal = get_user_balance(user_id)
+        
+        catalog = await ventebot_service.get_products(lang="uz")
+        products = catalog.get("products", [])
+        product = next((p for p in products if p.get("id") == product_id), None)
+        
+        if not product:
+            await cb.answer("Mahsulot topilmadi!", show_alert=True)
+            return
+
+        name = product.get("name", "")
+        desc = product.get("description", "Tavsif mavjud emas")
+        price_uzs = product.get("price_uzs", 0)
+        price_usd = product.get("price_usd", 0)
+        delivery_type = product.get("delivery_type", "stock")
+        warranty = product.get("warranty_days", 0)
+        stock = product.get("stock")
+        
+        stock_str = f"{stock} ta mavjud" if stock is not None else "Avtomatik aktivatsiya"
+        delivery_str = "Tezkor zaxira (Stock)" if delivery_type == "stock" else "Akkaunt aktivatsiyasi"
+
+        brand_icon_id = None
+        for brand, emoji_id in BRAND_EMOJIS_MAP.items():
+            if brand in name.lower():
+                brand_icon_id = emoji_id
+                break
+        icon_tag = f'<emoji id="{brand_icon_id}">📦</emoji> ' if brand_icon_id else "📦 "
+
+        text = (
+            f"{icon_tag}<b>Mahsulot:</b> {name}\n\n"
+            f"📝 <b>Tavsif:</b> {desc}\n"
+            f"⚡ <b>Yetkazish turi:</b> {delivery_str}\n"
+            f"🛡 <b>Kafolat:</b> {warranty} kun\n"
+            f"📊 <b>Zaxira:</b> {stock_str}\n\n"
+            f"💵 <b>Narxi:</b> <code>{price_uzs:,} so'm</code> (~${price_usd})\n"
+            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n"
+        )
+        
+        buttons = []
+        if bal >= price_uzs:
+            buttons.append([InlineKeyboardButton(f"💳 Xarid qilish ({price_uzs:,} so'm)", callback_data=f"vb_buy_{product_id}")])
+        else:
+            diff = price_uzs - bal
+            text += f"\n⚠️ <i>Xarid uchun balansingizga yana <code>{diff:,} so'm</code> yetmayapti.</i>"
+            buttons.append([InlineKeyboardButton("➕ Balansni to'ldirish", callback_data="menu_wallet")])
+            
+        buttons.append([InlineKeyboardButton("⬅️ Mahsulotlar ro'yxatiga", callback_data="vb_catalog")])
+        buttons.append([InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
+        
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vb_buy_(\d+)$"))
+    async def cb_vb_buy(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        if not await check_service_available("ventebot_store", cb, lang):
+            return
+        product_id = int(cb.matches[0].group(1))
+        from ventebot_service import ventebot_service
+        from mega_features import USER_STATES
+        
+        catalog = await ventebot_service.get_products(lang="uz")
+        products = catalog.get("products", [])
+        product = next((p for p in products if p.get("id") == product_id), None)
+        
+        if not product:
+            await cb.answer("Mahsulot topilmadi!", show_alert=True)
+            return
+
+        delivery_type = product.get("delivery_type", "stock")
+        
+        if delivery_type == "activation":
+            USER_STATES[user_id] = {"action": "waiting_vb_activation", "product_id": product_id}
+            await cb.message.reply_text(
+                f"✍️ <b>Aktivatsiya ma'lumotini kiriting:</b>\n\n"
+                f"<b>{product.get('name')}</b> xizmatini faollashtirish uchun Telegram username (masalan: <code>@{cb.from_user.username or 'username'}</code>), ID yoki emailingizni ushbu chatga yozib yuboring:"
+            )
+            await cb.answer("Ma'lumotingizni yozib yuboring")
+            return
+
+        await cb.answer("Buyurtma rasmiylashtirilmoqda...")
+        loading = await cb.message.reply_text("⏳ Xarid amalga oshirilmoqda va litsenziya olinmoqda...")
+        
+        res = await ventebot_service.buy_product_with_uzs(
+            tg_user_id=user_id,
+            product_id=product_id,
+            quantity=1
+        )
+        
+        if res.get("success"):
+            ans = (
+                f"🎉 <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
+                f"📦 <b>Mahsulot:</b> {res.get('product_name')}\n"
+                f"💰 <b>Yechilgan summa:</b> <code>{res.get('amount_uzs'):,} so'm</code>\n"
+                f"💳 <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs'):,} so'm</code>\n"
+                f"🔢 <b>VenteBot Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
+            )
+            if res.get("delivered_data"):
+                ans += f"🔑 <b>Yetkazilgan hisob / Litsenziya ma'lumotlari:</b>\n<code>{res.get('delivered_data')}</code>\n\n"
+            ans += "<i>Xaridingiz uchun tashakkur! Istalgan vaqt /store -> 'Mening xaridlarim' bo'limidan ko'rishingiz mumkin.</i>"
+            
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders")],
+                [InlineKeyboardButton("🚀 Yana xarid qilish", callback_data="vb_catalog")],
+                [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+            ])
+            await loading.edit_text(ans, reply_markup=kb)
+        else:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Mahsulotlarga qaytish", callback_data="vb_catalog")]
+            ])
+            await loading.edit_text(f"❌ <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Xatolik')}", reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^vb_my_orders$"))
+    async def cb_vb_my_orders(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import get_user_ventebot_orders
+        orders = get_user_ventebot_orders(user_id, limit=10)
+        
+        if not orders:
+            text = "ℹ️ Sizda hali VenteBot orqali amalga oshirilgan xaridlar mavjud emas."
+        else:
+            lines = ["📋 <b>Sizning raqamli xaridlaringiz:</b>\n"]
+            for idx, o in enumerate(orders, 1):
+                p_name = o.get("product_name", "Item")
+                uzs = o.get("amount_uzs", 0)
+                status = o.get("status", "")
+                data_val = o.get("delivered_data", "")
+                date_val = str(o.get("created_at", ""))[:16].replace("T", " ")
+                
+                status_icon = "✅" if status == "COMPLETED" else ("🔄" if status == "REFUNDED" else "⏳")
+                lines.append(f"{idx}. {status_icon} <b>{p_name}</b> ({uzs:,} so'm)")
+                lines.append(f"   📅 <i>{date_val}</i> | Holat: <code>{status}</code>")
+                if data_val and status != "REFUNDED":
+                    short_data = data_val[:120] + "..." if len(data_val) > 120 else data_val
+                    lines.append(f"   🔑 <code>{short_data}</code>\n")
+                else:
+                    lines.append("")
+            text = "\n".join(lines)
+            
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚀 Yangi xarid qilish", callback_data="vb_catalog")],
             [InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")],
             [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])

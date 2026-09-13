@@ -524,11 +524,11 @@ TRANSLATIONS = {
 }
 
 
-def t(key: str, lang: str = "uz", **kwargs) -> str:
-    """Xabarni tanlangan tilda formatlab qaytarish"""
-    safe_lang = lang if lang in SUPPORTED_LANGUAGES else "uz"
+def t(key: str, lang: str = "en", **kwargs) -> str:
+    """Xabarni tanlangan tilda formatlab qaytarish (default: en)"""
+    safe_lang = lang if lang in SUPPORTED_LANGUAGES else "en"
     item = TRANSLATIONS.get(key, {})
-    text = item.get(safe_lang) or item.get("uz") or key
+    text = item.get(safe_lang) or item.get("en") or item.get("uz") or key
     if "{name}" in text and "name" not in kwargs:
         kwargs["name"] = "Foydalanuvchi"
     if kwargs:

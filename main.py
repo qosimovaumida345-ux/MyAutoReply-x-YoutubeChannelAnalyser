@@ -1709,6 +1709,93 @@ async def handle_api_stars_redeem(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 
+# ==================== VENTEBOT RESELLER API HANDLERS ====================
+
+async def handle_api_reseller_products(request):
+    """VenteBot raqamli tovarlar katalogi (keshlangan, so'mdagi narxlar bilan)"""
+    try:
+        from ventebot_service import ventebot_service
+        lang = request.query.get("lang", "uz")
+        force = request.query.get("refresh", "0") in ("1", "true")
+        res = await ventebot_service.get_products(lang=lang, force_refresh=force)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_reseller_quote(request):
+    """VenteBot tovar narxini hisoblab berish (so'm va USD da)"""
+    try:
+        from ventebot_service import ventebot_service
+        data = await request.json()
+        product_id = int(data.get("product_id", 0))
+        qty = int(data.get("quantity", 1))
+        res = await ventebot_service.get_quote(product_id=product_id, quantity=qty)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_reseller_buy(request):
+    """Foydalanuvchi so'm balansidan xarid qilish va VenteBot ga buyurtma yuborish"""
+    try:
+        from ventebot_service import ventebot_service
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        product_id = int(data.get("product_id", 0))
+        qty = int(data.get("quantity", 1))
+        activation_identifier = str(data.get("activation_identifier", "")).strip()
+
+        if user_id <= 0 or product_id <= 0:
+            return web.json_response({"success": False, "message": "user_id va product_id kiritilishi shart"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        res = await ventebot_service.buy_product_with_uzs(
+            tg_user_id=user_id,
+            product_id=product_id,
+            quantity=qty,
+            activation_identifier=activation_identifier,
+        )
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_reseller_my_orders(request):
+    """Foydalanuvchining avvalgi xaridlari ro'yxati"""
+    try:
+        from database import get_user_ventebot_orders
+        user_id = int(request.query.get("user_id", 0))
+        if user_id <= 0:
+            return web.json_response({"success": False, "orders": []}, headers={"Access-Control-Allow-Origin": "*"})
+        orders = get_user_ventebot_orders(user_id)
+        for o in orders:
+            if "created_at" in o and hasattr(o["created_at"], "isoformat"):
+                o["created_at"] = o["created_at"].isoformat()
+        return web.json_response({"success": True, "orders": orders}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_reseller_admin_wallet(request):
+    """Admin uchun VenteBot hamyon balansi va ma'lumotlari"""
+    try:
+        from ventebot_service import ventebot_service
+        from config import OWNER_ID
+        secret = request.headers.get("X-Admin-Secret") or request.query.get("secret")
+        user_id = int(request.query.get("user_id", 0))
+        expected_secret = os.getenv("ADMIN_SECRET") or os.getenv("BOT_TOKEN")
+        
+        is_admin = (user_id and user_id == OWNER_ID) or (secret and secret == expected_secret)
+        if not is_admin:
+            return web.json_response({"success": False, "message": "Ruxsat berilmadi (Admin ruxsati zarur)"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+        force = request.query.get("refresh", "0") in ("1", "true")
+        me = await ventebot_service.get_me(force_refresh=force)
+        return web.json_response(me, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
@@ -1742,6 +1829,13 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/daily-streak/claim", handle_api_stars_daily_claim)
     app.router.add_post("/api/stars/scratch-card/play", handle_api_stars_scratch_card)
     app.router.add_post("/api/stars/redeem-service", handle_api_stars_redeem)
+
+    # VenteBot Reseller API (so'm balansi, xavfsiz atomik buyurtma va kesh)
+    app.router.add_get("/api/reseller/products", handle_api_reseller_products)
+    app.router.add_post("/api/reseller/quote", handle_api_reseller_quote)
+    app.router.add_post("/api/reseller/buy", handle_api_reseller_buy)
+    app.router.add_get("/api/reseller/my-orders", handle_api_reseller_my_orders)
+    app.router.add_get("/api/reseller/admin/wallet", handle_api_reseller_admin_wallet)
 
     # Yangi: CryptoPay Webhook va KYC WebApp
     app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)

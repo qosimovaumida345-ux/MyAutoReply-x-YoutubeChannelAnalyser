@@ -1442,7 +1442,7 @@ def load_mega_features(bot: Client):
     @bot.on_message(filters.command("nft") & filters.private)
     async def nft_cmd(client, message: Message):
         uid = message.from_user.id
-        lang = db.get_user_language(uid) or "uz"
+        lang = db.get_user_language(uid) or "en"
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"{e('GALLERY')} NFT Kolleksiya (Bozor)", callback_data="nft_market")],
             [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
@@ -2561,6 +2561,42 @@ def load_mega_features(bot: Client):
                     await message.reply_text(f"{ce('SUCCESS')} Tranzaksiya RRN kodi (<code>{rrn_code}</code>) muvaffaqiyatli saqlandi!\n\n{inv_text}", reply_markup=inv_kb)
                 else:
                     await message.reply_text(f"{ce('SUCCESS')} Chek kodi (<code>{rrn_code}</code>) saqlandi!")
+                message.stop_propagation()
+
+            # 17. VenteBot Reseller Aktivatsiya ma'lumotini kutish
+            elif action == "waiting_vb_activation":
+                USER_STATES.pop(uid, None)
+                product_id = state.get("product_id")
+                ident = text.strip()
+                if not ident:
+                    await message.reply_text(f"{ce('ERROR')} Faollashtirish ma'lumotini to'g'ri kiriting (masalan: <code>@username</code>)!")
+                    message.stop_propagation()
+                    return
+                
+                loading_msg = await message.reply_text(f"⏳ Buyurtmangiz VenteBot orqali rasmiylashtirilmoqda, iltimos kuting...")
+                from ventebot_service import ventebot_service
+                res = await ventebot_service.buy_product_with_uzs(
+                    tg_user_id=uid,
+                    product_id=product_id,
+                    quantity=1,
+                    activation_identifier=ident
+                )
+                if res.get("success"):
+                    ans = (
+                        f"🎉 <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
+                        f"📦 <b>Mahsulot:</b> {res.get('product_name')}\n"
+                        f"💰 <b>Yechilgan mablag':</b> <code>{res.get('amount_uzs'):,} so'm</code>\n"
+                        f"💳 <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs'):,} so'm</code>\n"
+                        f"🔢 <b>VenteBot Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
+                    )
+                    if res.get("delivered_data"):
+                        ans += f"🔑 <b>Yetkazilgan ma'lumotlar / Kalit:</b>\n<code>{res.get('delivered_data')}</code>\n\n"
+                    else:
+                        ans += f"ℹ️ <b>Holat:</b> {res.get('status', 'Aktivatsiya jarayonida')}\n\n"
+                    ans += "<i>Xaridingiz uchun rahmat! Ma'lumotlaringiz profilingizda saqlandi.</i>"
+                    await loading_msg.edit_text(ans)
+                else:
+                    await loading_msg.edit_text(f"❌ <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Nomaʼlum xatolik')}")
                 message.stop_propagation()
             else:
                 message.continue_propagation()
