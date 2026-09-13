@@ -302,14 +302,20 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
 
     # 12. Reseller Tovar Ro'yxati (vb_item_) va Brand Match
     if "vb_item_" in cb_lower or "vb_cat_" in cb_lower:
+        if any(k in text_lower for k in ["zaxirada yo'q", "out of stock", "tugagan", "mavjud emas", "sold out"]) or text_lower.startswith("⚠️"):
+            return "4997089922276918243"
         for brand, emoji_id in BRAND_EMOJIS_MAP.items():
             if re.search(r'\b' + re.escape(brand) + r'\b', text_lower):
                 return emoji_id
-        if "out of stock" in text_lower or "tugagan" in text_lower or text_lower.startswith("⚠️"):
-            return "4997089922276918243"
         return "5255860701133552970"
 
-    # 13. Qolgan tovarlar va brendlar (Word boundary orqali aniq match)
+    # 13. Proxy
+    if any(k in cb_lower for k in ["mkt_view_proxy", "mkt_buy_proxy"]) or "proxy" in text_lower:
+        return "6327577233305112811"
+
+    # 14. Qolgan tovarlar va brendlar (Word boundary orqali aniq match)
+    if any(k in text_lower for k in ["zaxirada yo'q", "out of stock", "tugagan", "mavjud emas", "sold out"]) or text_lower.startswith("⚠️"):
+        return "4997089922276918243"
     for brand, emoji_id in BRAND_EMOJIS_MAP.items():
         if re.search(r'\b' + re.escape(brand) + r'\b', text_lower) or re.search(r'\b' + re.escape(brand) + r'\b', cb_lower):
             return emoji_id
@@ -324,7 +330,7 @@ def _get_button_style(cb, raw_text, web_url=""):
         return "primary"
 
     # 0. DANGER (Qizil) — Out of stock / tugagan tovarlar
-    if "out of stock" in raw_text or "tugagan" in raw_text or raw_text.startswith("⚠️"):
+    if any(k in raw_text for k in ["zaxirada yo'q", "out of stock", "tugagan", "mavjud emas", "sold out"]) or raw_text.startswith("⚠️"):
         return "danger"
 
     # 1. SUCCESS (Yashil) — Balans, To'lovlar, Xizmatlar, Yutuqlar, Referal, CapCut, VenteBot tovarlar
@@ -6208,13 +6214,18 @@ def create_ytbot():
                     brand_icon_id = emoji_id
                     break
 
-            tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
-            stock_str = f"({stock} ta)" if stock is not None else ""
             if in_stock:
+                tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
+                stock_str = f"({stock} ta)" if stock is not None else ""
                 btn_txt = f"{name} | {price_uzs:,} so'm {stock_str}".strip()
+                b = InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")
+                b.style = "success"
             else:
+                tag = f'<emoji id="4997089922276918243">⚠️</emoji> '
                 btn_txt = f"{name} | {price_uzs:,} so'm (Zaxirada yo'q)"
-            buttons.append([InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")])
+                b = InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")
+                b.style = "danger"
+            buttons.append([b])
 
         if total_pages > 1:
             nav_row = []
