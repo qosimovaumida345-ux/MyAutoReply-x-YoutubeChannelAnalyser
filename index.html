@@ -513,6 +513,7 @@
             const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "" });
             const [showLoginModal, setShowLoginModal] = useState(false);
             const [loginIdInput, setLoginIdInput] = useState('');
+            const [userStats, setUserStats] = useState({ balance_uzs: 0 });
 
             // YouTube Channel Analytics & Video Downloader States
             const [studioStats, setStudioStats] = useState({ total_videos: 0, total_views: 0, total_subscribers: 0, recent_videos: [] });
@@ -850,8 +851,9 @@
                 .catch(err => alert("Xatolik: " + err));
             };
 
-            const handleLogin = (id) => {
-                const num = parseInt(id);
+            const handleLogin = (e) => {
+                if (e && e.preventDefault) e.preventDefault();
+                const num = parseInt(loginIdInput);
                 if (!num || num <= 0) {
                     alert("Iltimos to'g'ri Telegram ID raqamingizni kiriting!");
                     return;
@@ -861,11 +863,25 @@
                 setShowLoginModal(false);
                 loadStudioStats(num);
                 loadChannels(num);
+                loadUserStats(num);
             };
 
             const handleLogout = () => {
                 localStorage.removeItem('creatorflow_tg_user_id');
                 setTgUser({ id: 0, first_name: "Guest Creator", username: "" });
+            };
+
+            const loadUserStats = (uid) => {
+                const targetUid = uid || tgUser.id;
+                if (!targetUid) return;
+                fetch(`/api/bot_user?tg_user_id=${targetUid}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d && d.balance_uzs !== undefined) {
+                            setUserStats({ balance_uzs: d.balance_uzs });
+                        }
+                    })
+                    .catch(() => {});
             };
 
             const loadStudioStats = (uid) => {
@@ -964,6 +980,7 @@
                 if (uid) {
                     loadStudioStats(uid);
                     loadChannels(uid);
+                    loadUserStats(uid);
                 }
 
                 searchVideos("uzbekistan");
