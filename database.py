@@ -480,6 +480,47 @@ def init_db():
         )
     """)
 
+    # 2.4 Bot foydalanuvchilarining yagona reestri (Admin boshqaruvi uchun)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS bot_users (
+            tg_user_id BIGINT PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            last_name TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            last_active_at TIMESTAMP DEFAULT NOW(),
+            is_banned BOOLEAN DEFAULT FALSE,
+            admin_notes TEXT
+        )
+    """)
+
+    # Mavjud barcha jadvallardan bot_users jadvalini avtomatik to'ldirish (Auto-backfill)
+    try:
+        cur.execute("""
+            INSERT INTO bot_users (tg_user_id, created_at, last_active_at)
+            SELECT DISTINCT tg_user_id, NOW(), NOW()
+            FROM user_balances
+            ON CONFLICT (tg_user_id) DO NOTHING;
+            
+            INSERT INTO bot_users (tg_user_id, created_at, last_active_at)
+            SELECT DISTINCT tg_user_id, NOW(), NOW()
+            FROM user_phones
+            ON CONFLICT (tg_user_id) DO NOTHING;
+
+            INSERT INTO bot_users (tg_user_id, created_at, last_active_at)
+            SELECT DISTINCT tg_user_id, NOW(), NOW()
+            FROM kyc_verifications
+            ON CONFLICT (tg_user_id) DO NOTHING;
+            
+            INSERT INTO bot_users (tg_user_id, created_at, last_active_at)
+            SELECT DISTINCT tg_user_id, NOW(), NOW()
+            FROM user_mystery_stats
+            ON CONFLICT (tg_user_id) DO NOTHING;
+        """)
+    except Exception as _bfe:
+        print(f"bot_users auto-backfill note: {_bfe}")
+
+
     # 3. Omad G'ildiragi (Wheel of Fortune)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS wheel_spins (
@@ -5345,6 +5386,271 @@ def claim_gift_case_voucher(code: str, claimed_by: int) -> dict:
         return {"ok": False, "error": str(e)}
     finally:
         conn.close()
+
+
+# ==================== 2.4 ADMIN FOYDALANUVCHILAR & HAMYON BOSHQARUVI ====================
+
+def record_user_activity(tg_user_id: int, username: str = None, first_name: str = None, last_name: str = None):
+    """Har qanday foydalanuvchi murojaatida uni bot_users jadvaliga saqlash va faolligini yangilash"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO bot_users (tg_user_id, username, first_name, last_name, created_at, last_active_at)
+            VALUES (%s, %s, %s, %s, NOW(), NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE SET
+                username = COALESCE(EXCLUDED.username, bot_users.username),
+                first_name = COALESCE(EXCLUDED.first_name, bot_users.first_name),
+                last_name = COALESCE(EXCLUDED.last_name, bot_users.last_name),
+                last_active_at = NOW()
+        """, (tg_user_id, username, first_name, last_name))
+        
+        # User_balances jadvalida ham bo'lmasa yaratib qo'yamiz
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, 0, NOW())
+            ON CONFLICT (tg_user_id) DO NOTHING
+        """, (tg_user_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"record_user_activity error: {e}")
+    finally:
+        conn.close()
+
+
+def get_all_bot_users(page: int = 1, limit: int = 10, search: str = "") -> dict:
+    """Admin uchun barcha foydalanuvchilar ro'yxati (sahifalangan va qidiruv bilan)"""
+    conn = get_db()
+    if not conn: return {"users": [], "total_count": 0, "total_pages": 1, "page": 1}
+    offset = (max(1, page) - 1) * limit
+    try:
+        cur = conn.cursor()
+        params = []
+        where_clause = ""
+        clean_s = str(search).strip()
+        if clean_s:
+            s_like = f"%{clean_s.lstrip('@')}%"
+            if clean_s.isdigit():
+                where_clause = "WHERE u.tg_user_id = %s OR u.username ILIKE %s OR u.first_name ILIKE %s"
+                params.extend([int(clean_s), s_like, s_like])
+            else:
+                where_clause = "WHERE u.username ILIKE %s OR u.first_name ILIKE %s"
+                params.extend([s_like, s_like])
+
+        # Jami foydalanuvchilar soni
+        cur.execute(f"SELECT COUNT(*) as count FROM bot_users u {where_clause}", tuple(params))
+        cnt_row = cur.fetchone()
+        total_count = cnt_row["count"] if isinstance(cnt_row, dict) else cnt_row[0]
+
+        # Foydalanuvchilar ma'lumotlari
+        query = f"""
+            SELECT 
+                u.tg_user_id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.created_at,
+                u.last_active_at,
+                u.is_banned,
+                COALESCE(b.balance_uzs, 0) AS balance_uzs,
+                COALESCE(ms.total_stars_spent, 0) AS total_stars_spent,
+                COALESCE(ms.bad_luck_streak, 0) AS bad_luck_streak,
+                p.phone_number
+            FROM bot_users u
+            LEFT JOIN user_balances b ON b.tg_user_id = u.tg_user_id
+            LEFT JOIN user_mystery_stats ms ON ms.tg_user_id = u.tg_user_id
+            LEFT JOIN user_phones p ON p.tg_user_id = u.tg_user_id
+            {where_clause}
+            ORDER BY u.last_active_at DESC NULLS LAST
+            LIMIT %s OFFSET %s
+        """
+        query_params = params + [limit, offset]
+        cur.execute(query, tuple(query_params))
+        rows = cur.fetchall()
+        users = [dict(r) for r in rows]
+        total_pages = max(1, (total_count + limit - 1) // limit)
+        return {
+            "users": users,
+            "total_count": total_count,
+            "total_pages": total_pages,
+            "page": page
+        }
+    except Exception as e:
+        print(f"get_all_bot_users error: {e}")
+        return {"users": [], "total_count": 0, "total_pages": 1, "page": 1}
+    finally:
+        conn.close()
+
+
+def get_user_full_details(tg_user_id: int) -> dict:
+    """Bitta foydalanuvchining barcha hamyon, sovg'a va xavfsizlik ma'lumotlari"""
+    user_data = {
+        "tg_user_id": tg_user_id,
+        "username": None,
+        "first_name": "Foydalanuvchi",
+        "last_name": None,
+        "created_at": None,
+        "last_active_at": None,
+        "is_banned": bool(is_user_antifraud_banned(tg_user_id)),
+        "is_kyc_verified": bool(is_user_kyc_verified(tg_user_id)),
+        "balance_uzs": int(get_user_balance(tg_user_id)),
+        "ton_balance": float(get_user_ton_balance(tg_user_id)),
+        "ton_wallet": get_user_ton_wallet(tg_user_id),
+        "phone_number": None,
+        "total_stars_spent": 0,
+        "bad_luck_streak": 0,
+        "total_cases_opened": 0,
+        "gifts_count": 0,
+        "purchases_count": 0,
+        "purchases_spent_uzs": 0
+    }
+    conn = get_db()
+    if not conn: return user_data
+    try:
+        cur = conn.cursor()
+        # Profile
+        try:
+            cur.execute("SELECT * FROM bot_users WHERE tg_user_id = %s", (tg_user_id,))
+            u_row = cur.fetchone()
+            if u_row:
+                for k, v in dict(u_row).items():
+                    if k in user_data and v is not None:
+                        user_data[k] = v
+        except Exception:
+            conn.rollback()
+
+        # Telefon raqami
+        try:
+            cur.execute("SELECT phone_number FROM user_phones WHERE tg_user_id = %s", (tg_user_id,))
+            p_row = cur.fetchone()
+            if p_row:
+                user_data["phone_number"] = p_row["phone_number"] if isinstance(p_row, dict) else p_row[0]
+        except Exception:
+            conn.rollback()
+
+        # Mystery Stats (Stars sarfi, streak, o'yinlar)
+        try:
+            cur.execute("SELECT total_stars_spent, bad_luck_streak, total_cases_opened FROM user_mystery_stats WHERE tg_user_id = %s", (tg_user_id,))
+            m_row = cur.fetchone()
+            if m_row:
+                user_data["total_stars_spent"] = m_row.get("total_stars_spent", 0) or 0
+                user_data["bad_luck_streak"] = m_row.get("bad_luck_streak", 0) or 0
+                user_data["total_cases_opened"] = m_row.get("total_cases_opened", 0) or 0
+        except Exception:
+            conn.rollback()
+
+        # Sovg'alar soni
+        try:
+            cur.execute("SELECT COUNT(*) as count FROM pending_gifts WHERE tg_user_id = %s", (tg_user_id,))
+            g_row = cur.fetchone()
+            if g_row:
+                user_data["gifts_count"] = g_row.get("count", 0) if isinstance(g_row, dict) else g_row[0]
+        except Exception:
+            conn.rollback()
+
+        # Xaridlar soni va sarflangan summa
+        try:
+            cur.execute("SELECT COUNT(*) as count, COALESCE(SUM(total_cost_uzs), 0) as spent_uzs FROM user_purchases WHERE tg_user_id = %s", (tg_user_id,))
+            pur_row = cur.fetchone()
+            if pur_row:
+                user_data["purchases_count"] = pur_row.get("count", 0) if isinstance(pur_row, dict) else pur_row[0]
+                user_data["purchases_spent_uzs"] = pur_row.get("spent_uzs", 0) if isinstance(pur_row, dict) else pur_row[1]
+        except Exception:
+            conn.rollback()
+
+        return user_data
+    except Exception as e:
+        print(f"get_user_full_details error: {e}")
+        return user_data
+    finally:
+        conn.close()
+
+
+
+def admin_set_user_balance(tg_user_id: int, new_balance_uzs: int) -> int:
+    """Admin foydalanuvchi balansini aniq summaga o'rnatishi"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE 
+            SET balance_uzs = EXCLUDED.balance_uzs, updated_at = NOW()
+            RETURNING balance_uzs
+        """, (tg_user_id, max(0, int(new_balance_uzs))))
+        b_res = cur.fetchone()
+        nb = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
+        conn.commit()
+        _invalidate_cached(f"user_bal_{tg_user_id}")
+        return nb
+    except Exception as e:
+        conn.rollback()
+        print(f"admin_set_user_balance error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def admin_adjust_user_balance(tg_user_id: int, delta_uzs: int) -> int:
+    """Admin foydalanuvchi balansiga summa qo'shishi yoki ayirishi"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, GREATEST(0, %s), NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE 
+            SET balance_uzs = GREATEST(0, user_balances.balance_uzs + %s), updated_at = NOW()
+            RETURNING balance_uzs
+        """, (tg_user_id, delta_uzs, delta_uzs))
+        b_res = cur.fetchone()
+        nb = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
+        conn.commit()
+        _invalidate_cached(f"user_bal_{tg_user_id}")
+        return nb
+    except Exception as e:
+        conn.rollback()
+        print(f"admin_adjust_user_balance error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def admin_toggle_user_ban(tg_user_id: int, is_banned: bool, reason: str = "") -> bool:
+    """Admin foydalanuvchini bloklash yoki blokdan chiqarishi"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE bot_users
+            SET is_banned = %s, admin_notes = %s
+            WHERE tg_user_id = %s
+        """, (is_banned, reason if reason else None, tg_user_id))
+        
+        if is_banned:
+            cur.execute("""
+                INSERT INTO banned_antifraud_users (tg_user_id, reason, banned_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT DO NOTHING
+            """, (tg_user_id, reason or "Admin tomonidan bloklandi"))
+        else:
+            cur.execute("DELETE FROM banned_antifraud_users WHERE tg_user_id = %s", (tg_user_id,))
+            
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"admin_toggle_user_ban error: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 
 

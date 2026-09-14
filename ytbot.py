@@ -82,10 +82,11 @@ import uuid
 AUTOPOST_ARGS_MAP = {}
 USER_ORDER_STATE = {} # tg_user_id -> dict(action, step, target_url, qty, total_cost)
 INSTA_CACHE = {} # cache_id -> dict(file_path, title, desc)
+ADMIN_ACTION_STATE = {} # admin_id -> dict(action, target_uid)
 
 # Telegram Stars narx paketlari (1 Star ≈ 250-260 UZS)
 STARS_PACKAGES = [
-    {"stars": 15, "amount_uzs": 4000, "label": "15 ⭐ — 4,000 so'm (Minimal)"},
+    {"stars": 20, "amount_uzs": 5000, "label": "20 ⭐ — 5,000 so'm (Minimal)"},
     {"stars": 25, "amount_uzs": 6500, "label": "25 ⭐ — 6,500 so'm"},
     {"stars": 50, "amount_uzs": 13000, "label": "50 ⭐ — 13,000 so'm"},
     {"stars": 100, "amount_uzs": 26000, "label": "100 ⭐ — 26,000 so'm"},
@@ -1411,7 +1412,11 @@ def create_ytbot():
 
     def admin_panel_kb():
         states = get_all_service_states()
-        buttons = []
+        buttons = [
+            [InlineKeyboardButton("👥 Foydalanuvchilar Boshqaruvi", callback_data="adm_users_1")],
+            [InlineKeyboardButton("⭐ Bot Stars Balansi", callback_data="adm_star_bal"),
+             InlineKeyboardButton("🚀 Sovg'alarni Jo'natish", callback_data="adm_flush_gifts")]
+        ]
         for key, name in ADMIN_SERVICES.items():
             is_off = states.get(key, False)
             status_tag = "🔴 O'CHIK" if is_off else "🟢 FAOL"
@@ -1489,10 +1494,419 @@ def create_ytbot():
         except Exception:
             pass
 
+    # ==================== ADMIN FOYDALANUVCHILAR & HAMYON BOSHQARUVI ====================
+
+    async def show_admin_users_page(client, target, page=1, search=""):
+        from database import get_all_bot_users
+        res = get_all_bot_users(page=page, limit=8, search=search)
+        users = res.get("users", [])
+        total_c = res.get("total_count", 0)
+        total_p = res.get("total_pages", 1)
+        cur_p = res.get("page", 1)
+
+        search_note = f"\n🔍 <i>Qidiruv:</i> <code>{search}</code>" if search else ""
+        text = (
+            f"👥 <b>Bot Foydalanuvchilari Boshqaruvi</b>\n\n"
+            f"📊 <b>Jami foydalanuvchilar:</b> <code>{total_c} ta</code>\n"
+            f"📄 <b>Sahifa:</b> <code>{cur_p} / {total_p}</code>"
+            f"{search_note}\n\n"
+            f"👇 <i>Foydalanuvchi ustiga bosib uning hamyonini ko'rishingiz, balansini o'zgartirishingiz yoki bloklashingiz mumkin:</i>"
+        )
+
+        buttons = []
+        for u in users:
+            uid = u["tg_user_id"]
+            u_name = u.get("first_name") or u.get("username") or f"User {uid}"
+            if len(u_name) > 16:
+                u_name = u_name[:15] + "…"
+            u_bal = f"{u.get('balance_uzs', 0):,} so'm"
+            status_icon = "🔴" if u.get("is_banned") else "🟢"
+            buttons.append([
+                InlineKeyboardButton(
+                    f"{status_icon} {u_name} | 💰 {u_bal}",
+                    callback_data=f"adm_u_view_{uid}"
+                )
+            ])
+
+        # Pagination
+        nav_row = []
+        if cur_p > 1:
+            nav_row.append(InlineKeyboardButton("⬅️ Oldingi", callback_data=f"adm_users_{cur_p - 1}"))
+        nav_row.append(InlineKeyboardButton(f"📄 {cur_p}/{total_p}", callback_data="adm_users_noop"))
+        if cur_p < total_p:
+            nav_row.append(InlineKeyboardButton("Keyingi ➡️", callback_data=f"adm_users_{cur_p + 1}"))
+        if nav_row:
+            buttons.append(nav_row)
+
+        buttons.append([
+            InlineKeyboardButton("🔍 Qidirish (ID / Username)", callback_data="adm_users_search"),
+            InlineKeyboardButton("🔄 Yangilash", callback_data=f"adm_users_{cur_p}")
+        ])
+        buttons.append([InlineKeyboardButton("⬅️ Admin Panel", callback_data="adm_panel_refresh")])
+
+        kb = InlineKeyboardMarkup(buttons)
+        if isinstance(target, CallbackQuery):
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+            except MessageNotModified:
+                await target.answer("Eng so'nggi ma'lumotlar.")
+            await target.answer()
+        else:
+            await target.reply_text(text, reply_markup=kb)
+
+
+    async def show_admin_user_card(client, target, uid: int):
+        from database import get_user_full_details
+        u = get_user_full_details(uid)
+        if not u:
+            err_txt = f"❌ Foydalanuvchi topilmadi: <code>{uid}</code>"
+            if isinstance(target, CallbackQuery):
+                await target.answer("Foydalanuvchi topilmadi!", show_alert=True)
+            else:
+                await target.reply_text(err_txt)
+            return
+
+        u_name = f"{u.get('first_name') or ''} {u.get('last_name') or ''}".strip() or "Noma'lum"
+        username_str = f"@{u['username']}" if u.get("username") else "Yo'q"
+        phone_str = u.get("phone_number") or "Bog'lanmagan"
+        kyc_str = "Tasdiqlangan ✅" if u.get("is_kyc_verified") else "Tasdiqlanmagan ⚠️"
+        ban_str = "BLOKLANGAN 🔴" if u.get("is_banned") else "Faol (Bloklanmagan) 🟢"
+        bal_uzs = u.get("balance_uzs", 0)
+        ton_w = u.get("ton_wallet") or "Ulanmagan"
+        ton_b = u.get("ton_balance", 0.0)
+        stars_sp = u.get("total_stars_spent", 0)
+        cases_op = u.get("total_cases_opened", 0)
+        streak = u.get("bad_luck_streak", 0)
+        gifts_c = u.get("gifts_count", 0)
+        pur_c = u.get("purchases_count", 0)
+        pur_sum = u.get("purchases_spent_uzs", 0)
+        c_at = str(u.get("created_at") or "Noma'lum")[:19]
+        l_at = str(u.get("last_active_at") or "Noma'lum")[:19]
+
+        card_text = (
+            f"👤 <b>FOYDALANUVCHI MA'LUMOTLARI & HAMYONI</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 <b>Telegram ID:</b> <code>{uid}</code>\n"
+            f"👤 <b>Ism:</b> {u_name}\n"
+            f"🔗 <b>Username:</b> {username_str}\n"
+            f"📱 <b>Telefon:</b> <code>{phone_str}</code>\n"
+            f"🛡️ <b>KYC Holati:</b> <code>{kyc_str}</code>\n"
+            f"🚫 <b>Holati:</b> <b>{ban_str}</b>\n\n"
+            f"💰 <b>HAMYON & MABLAG'LAR:</b>\n"
+            f"• <b>UZS Balans:</b> <code>{bal_uzs:,} so'm</code>\n"
+            f"• <b>TON Balans:</b> <code>{ton_b} TON</code>\n"
+            f"• <b>TON Manzil:</b> <code>{ton_w}</code>\n\n"
+            f"🎮 <b>O'YINLAR & SOVG'ALAR:</b>\n"
+            f"• <b>Stars Sarfi:</b> <code>{stars_sp} ⭐ Stars</code>\n"
+            f"• <b>Ochilgan keyslar:</b> <code>{cases_op} ta</code>\n"
+            f"• <b>Bad Luck Streak:</b> <code>{streak} ta</code>\n"
+            f"• <b>Yutilgan Sovg'alar:</b> <code>{gifts_c} ta</code>\n"
+            f"• <b>Xaridlar:</b> <code>{pur_c} ta</code> (<code>{pur_sum:,} so'm</code>)\n\n"
+            f"📅 <b>Ro'yxatdan o'tgan:</b> <code>{c_at}</code>\n"
+            f"🕒 <b>So'nggi faollik:</b> <code>{l_at}</code>"
+        )
+
+        ban_btn_text = "🟢 Blokdan chiqarish" if u.get("is_banned") else "🔴 Bloklash (Ban)"
+        ban_btn_action = f"adm_u_unban_{uid}" if u.get("is_banned") else f"adm_u_ban_{uid}"
+
+        buttons = [
+            [
+                InlineKeyboardButton("➕ Balans qo'shish", callback_data=f"adm_u_addbal_{uid}"),
+                InlineKeyboardButton("➖ Balans ayirish", callback_data=f"adm_u_deductbal_{uid}")
+            ],
+            [
+                InlineKeyboardButton("✏️ Balansni o'rnatish", callback_data=f"adm_u_setbal_{uid}"),
+                InlineKeyboardButton(ban_btn_text, callback_data=ban_btn_action)
+            ],
+            [
+                InlineKeyboardButton("✉️ Xabar yuborish", callback_data=f"adm_u_msg_{uid}"),
+                InlineKeyboardButton("🎁 Sovg'alar tarixi", callback_data=f"adm_u_gifts_{uid}")
+            ],
+            [
+                InlineKeyboardButton("⬅️ Foydalanuvchilar ro'yxati", callback_data="adm_users_1")
+            ]
+        ]
+        kb = InlineKeyboardMarkup(buttons)
+
+        if isinstance(target, CallbackQuery):
+            try:
+                await target.message.edit_text(card_text, reply_markup=kb)
+            except MessageNotModified:
+                pass
+            await target.answer()
+        else:
+            await target.reply_text(card_text, reply_markup=kb)
+
+    @bot.on_message(filters.command(["users", "foydalanuvchilar"]) & filters.private)
+    async def admin_users_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        search_query = parts[1] if len(parts) > 1 else ""
+        await show_admin_users_page(client, message, page=1, search=search_query)
+
+    @bot.on_message(filters.command(["user", "foydalanuvchi"]) & filters.private)
+    async def admin_single_user_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 2:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/user &lt;user_id&gt;</code>")
+            return
+        arg = parts[1].strip()
+        if arg.isdigit():
+            await show_admin_user_card(client, message, int(arg))
+        else:
+            await show_admin_users_page(client, message, page=1, search=arg)
+
+    @bot.on_message(filters.command(["setbalance", "balansornat"]) & filters.private)
+    async def set_balance_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 3:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/setbalance &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/setbalance 7271080503 50000</code>")
+            return
+        try:
+            target_uid = int(parts[1].strip())
+            amt = int(parts[2].strip().replace(",", "").replace(" ", ""))
+            from database import admin_set_user_balance
+            nb = admin_set_user_balance(target_uid, amt)
+            await message.reply_text(f"✅ Foydalanuvchi <code>{target_uid}</code> balansi <b>{nb:,} so'm</b> qilib o'rnatildi!")
+        except Exception as e:
+            await message.reply_text(f"❌ Xato: {e}")
+
+    @bot.on_message(filters.command(["addbalance", "balansqosh"]) & filters.private)
+    async def add_balance_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 3:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/addbalance &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/addbalance 7271080503 10000</code>")
+            return
+        try:
+            target_uid = int(parts[1].strip())
+            amt = int(parts[2].strip().replace(",", "").replace(" ", ""))
+            from database import admin_adjust_user_balance
+            nb = admin_adjust_user_balance(target_uid, amt)
+            await message.reply_text(f"✅ Foydalanuvchi <code>{target_uid}</code> balansiga o'zgartirish kiritildi: <b>{nb:,} so'm</b>!")
+        except Exception as e:
+            await message.reply_text(f"❌ Xato: {e}")
+
+    @bot.on_message(filters.command(["ban", "bloklash"]) & filters.private)
+    async def ban_user_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 2 or not parts[1].strip().isdigit():
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/ban &lt;user_id&gt;</code>")
+            return
+        target_uid = int(parts[1].strip())
+        from database import admin_toggle_user_ban
+        admin_toggle_user_ban(target_uid, True, "Admin buyrug'i bilan")
+        await message.reply_text(f"🔴 Foydalanuvchi <code>{target_uid}</code> bloklandi!")
+
+    @bot.on_message(filters.command(["unban", "blokdanolish"]) & filters.private)
+    async def unban_user_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 2 or not parts[1].strip().isdigit():
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/unban &lt;user_id&gt;</code>")
+            return
+        target_uid = int(parts[1].strip())
+        from database import admin_toggle_user_ban
+        admin_toggle_user_ban(target_uid, False)
+        await message.reply_text(f"🟢 Foydalanuvchi <code>{target_uid}</code> blokdan chiqarildi!")
+
+    @bot.on_message(filters.command(["starbalance", "starsbalans"]) & filters.private)
+    async def star_balance_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        from games_monetization import get_bot_star_balance, get_bot_star_transactions
+        from database import get_pending_gifts
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        bal = await get_bot_star_balance(bot_token)
+        pending = get_pending_gifts(limit=100)
+        tx_data = await get_bot_star_transactions(bot_token, limit=5)
+        txs = tx_data.get("transactions", [])
+        
+        tx_lines = ""
+        if txs:
+            tx_lines = "\n\n📋 <b>Oxirgi Stars Tranzaksiyalari:</b>\n" + "\n".join([
+                f"• <code>{tx.get('amount', 0):+} ⭐</code> ({datetime.fromtimestamp(tx.get('date', 0)).strftime('%d.%m %H:%M')})"
+                for tx in txs
+            ])
+            
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚀 Sovg'alarni Jo'natish (Flush)", callback_data="adm_flush_gifts")],
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="adm_star_bal_refresh")],
+            [InlineKeyboardButton("⬅️ Admin Panel", callback_data="adm_panel_refresh")]
+        ])
+        await message.reply_text(
+            f"⭐ <b>Telegram Bot Stars Balansi</b>\n\n"
+            f"🌟 <b>Joriy Stars Balansi:</b> <code>{bal} ⭐ Stars</code>\n"
+            f"⏳ <b>Kutilayotgan sovg'alar:</b> <code>{len(pending)} ta</code>"
+            f"{tx_lines}\n\n"
+            f"<i>Bu Starslar foydalanuvchilar to'lov qilganda bot balansiga tushadi va sendGift orqali real sovg'a yuborishda sarflanadi.</i>",
+            reply_markup=kb
+        )
+
+    @bot.on_callback_query(filters.regex(r"^adm_users_(\d+)$"))
+    async def adm_users_page_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user):
+            await cb.answer("Ruxsat yo'q!", show_alert=True)
+            return
+        m = re.match(r"^adm_users_(\d+)$", cb.data)
+        page = int(m.group(1)) if m else 1
+        await show_admin_users_page(client, cb, page=page)
+
+    @bot.on_callback_query(filters.regex(r"^adm_users_noop$"))
+    async def adm_users_noop_cb(client, cb: CallbackQuery):
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^adm_users_search$"))
+    async def adm_users_search_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        ADMIN_ACTION_STATE[cb.from_user.id] = {"action": "search_user"}
+        await cb.answer()
+        await cb.message.reply_text(
+            "🔍 <b>Foydalanuvchini Qidirish:</b>\n\n"
+            "Foydalanuvchining <b>Telegram ID</b>si yoki <b>Username</b>ini yozib yuboring (masalan: <code>7271080503</code> yoki <code>username</code>):"
+        )
+
+    @bot.on_callback_query(filters.regex(r"^adm_u_view_(\d+)$"))
+    async def adm_u_view_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        m = re.match(r"^adm_u_view_(\d+)$", cb.data)
+        if not m: return
+        uid = int(m.group(1))
+        await show_admin_user_card(client, cb, uid)
+
+    @bot.on_callback_query(filters.regex(r"^adm_u_(addbal|deductbal|setbal|msg)_(\d+)$"))
+    async def adm_u_actions_prompt_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        m = re.match(r"^adm_u_(addbal|deductbal|setbal|msg)_(\d+)$", cb.data)
+        if not m: return
+        act_raw, uid_str = m.groups()
+        uid = int(uid_str)
+        admin_id = cb.from_user.id
+
+        if act_raw == "addbal":
+            ADMIN_ACTION_STATE[admin_id] = {"action": "add_bal", "target_uid": uid}
+            prompt = f"➕ <b>Foydalanuvchi ({uid}) balansiga summa qo'shish:</b>\n\nQo'shiladigan summani so'mda yozib yuboring (masalan: <code>10000</code> yoki <code>50000</code>):"
+        elif act_raw == "deductbal":
+            ADMIN_ACTION_STATE[admin_id] = {"action": "deduct_bal", "target_uid": uid}
+            prompt = f"➖ <b>Foydalanuvchi ({uid}) balansidan summa ayirish:</b>\n\nAyiriladigan summani so'mda yozib yuboring (masalan: <code>10000</code>):"
+        elif act_raw == "setbal":
+            ADMIN_ACTION_STATE[admin_id] = {"action": "set_bal", "target_uid": uid}
+            prompt = f"✏️ <b>Foydalanuvchi ({uid}) yangi balansini o'rnatish:</b>\n\nYangi balans summasini so'mda yozib yuboring (masalan: <code>0</code> yoki <code>100000</code>):"
+        else: # msg
+            ADMIN_ACTION_STATE[admin_id] = {"action": "send_msg", "target_uid": uid}
+            prompt = f"✉️ <b>Foydalanuvchiga ({uid}) xabar yuborish:</b>\n\nXabar matnini yozib yuboring:"
+
+        await cb.answer()
+        await cb.message.reply_text(prompt)
+
+    @bot.on_callback_query(filters.regex(r"^adm_u_(ban|unban)_(\d+)$"))
+    async def adm_u_toggle_ban_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        m = re.match(r"^adm_u_(ban|unban)_(\d+)$", cb.data)
+        if not m: return
+        act, uid_str = m.groups()
+        uid = int(uid_str)
+        from database import admin_toggle_user_ban
+        is_banning = (act == "ban")
+        admin_toggle_user_ban(uid, is_banning, "Admin paneli orqali")
+        alert_msg = f"Foydalanuvchi {uid} bloklandi! 🔴" if is_banning else f"Foydalanuvchi {uid} blokdan chiqarildi! 🟢"
+        await cb.answer(alert_msg, show_alert=True)
+        await show_admin_user_card(client, cb, uid)
+
+    @bot.on_callback_query(filters.regex(r"^adm_u_gifts_(\d+)$"))
+    async def adm_u_gifts_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        m = re.match(r"^adm_u_gifts_(\d+)$", cb.data)
+        if not m: return
+        uid = int(m.group(1))
+        from database import get_user_gift_history
+        gifts = get_user_gift_history(uid, limit=10)
+        if not gifts:
+            await cb.answer("Ushbu foydalanuvchida hali sovg'alar yo'q.", show_alert=True)
+            return
+        g_lines = "\n".join([
+            f"• <b>{g.get('prize_name')}</b> ({g.get('prize_stars')} ⭐) | Status: <code>{g.get('status')}</code>"
+            for g in gifts
+        ])
+        text = f"🎁 <b>Foydalanuvchi {uid} sovg'alari:</b>\n\n{g_lines}"
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Foydalanuvchiga qaytish", callback_data=f"adm_u_view_{uid}")]])
+        await cb.message.edit_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^adm_star_bal(_refresh)?$"))
+    async def adm_star_bal_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        from games_monetization import get_bot_star_balance, get_bot_star_transactions
+        from database import get_pending_gifts
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        bal = await get_bot_star_balance(bot_token)
+        pending = get_pending_gifts(limit=100)
+        tx_data = await get_bot_star_transactions(bot_token, limit=5)
+        txs = tx_data.get("transactions", [])
+        
+        tx_lines = ""
+        if txs:
+            tx_lines = "\n\n📋 <b>Oxirgi Stars Tranzaksiyalari:</b>\n" + "\n".join([
+                f"• <code>{tx.get('amount', 0):+} ⭐</code> ({datetime.fromtimestamp(tx.get('date', 0)).strftime('%d.%m %H:%M')})"
+                for tx in txs
+            ])
+            
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚀 Sovg'alarni Jo'natish (Flush)", callback_data="adm_flush_gifts")],
+            [InlineKeyboardButton("🔄 Yangilash", callback_data="adm_star_bal_refresh")],
+            [InlineKeyboardButton("⬅️ Admin Panel", callback_data="adm_panel_refresh")]
+        ])
+        try:
+            await cb.message.edit_text(
+                f"⭐ <b>Telegram Bot Stars Balansi</b>\n\n"
+                f"🌟 <b>Joriy Stars Balansi:</b> <code>{bal} ⭐ Stars</code>\n"
+                f"⏳ <b>Kutilayotgan sovg'alar:</b> <code>{len(pending)} ta</code>"
+                f"{tx_lines}\n\n"
+                f"<i>Bu Starslar bot balansida saqlanadi va sendGift orqali yutuq sovg'alarini yuborishda sarflanadi.</i>",
+                reply_markup=kb
+            )
+            await cb.answer("Yangilandi!")
+        except MessageNotModified:
+            await cb.answer("Oxirgi holatda.")
+
+    @bot.on_callback_query(filters.regex(r"^adm_flush_gifts$"))
+    async def adm_flush_gifts_cb(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        from database import get_pending_gifts
+        from games_monetization import process_pending_gifts_batch
+        pending = get_pending_gifts(limit=50)
+        if not pending:
+            await cb.answer("Kutilayotgan sovg'alar navbati bo'sh!", show_alert=True)
+            return
+        await cb.answer("⏳ Sovg'alar jo'natilmoqda...")
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        res = await process_pending_gifts_batch(bot_token=bot_token, limit=20)
+        sent_c = res.get("sent_count", 0)
+        failed_c = res.get("failed_count", 0)
+        rem_c = res.get("remaining", 0)
+        await cb.message.reply_text(
+            f"📊 <b>Sovg'alarni jo'natish natijasi:</b>\n\n"
+            f"✅ Jo'natildi: {sent_c} ta\n"
+            f"❌ Xatolik: {failed_c} ta\n"
+            f"⏳ Qoldi: {rem_c} ta"
+        )
+
     @bot.on_message(filters.command("start"))
     async def start_cmd(client, message):
         user_id = message.from_user.id
         is_admin = check_is_admin(message.from_user)
+        try:
+            from database import record_user_activity
+            u = message.from_user
+            record_user_activity(
+                tg_user_id=user_id,
+                username=getattr(u, "username", None),
+                first_name=getattr(u, "first_name", None),
+                last_name=getattr(u, "last_name", None)
+            )
+        except Exception:
+            pass
 
         # 1. Referal yoki Sovg'a Keys Vauchri argument tekshiruvi
         parts = message.text.strip().split()
@@ -1758,7 +2172,7 @@ def create_ytbot():
         ),
         "help_games": (
             "🎰 <b>O'yinlar va Monetizatsiya:</b>\n\n"
-            "• <code>/box</code> — Omadli Quti (Mystery Box — 6,000 so'm / 15 Stars)\n"
+            "• <code>/box</code> — Omadli Quti (Mystery Box — 6,000 so'm / 25 Stars)\n"
             "• <code>/wheel</code> yoki <code>/spin</code> — Omad G'ildiragi (Kunlik bepul spin)\n"
             "• <code>/duel &lt;summa&gt; [burgut|panja]</code> — PvP Tanga Tashlash (Coin Flip)\n"
             "• <code>/lottery</code> — Jekpot Mega Lotereya (3,000 so'm / bilet)\n"
@@ -2613,18 +3027,21 @@ def create_ytbot():
         web_app_url = base_domain if base_domain.startswith("http") else "https://creatorflow-studio.onrender.com"
 
         text = (
-            f"🎁 <b>Omadli Quti & Telegram Stars NFT Cases</b>\n\n"
-            f"Qutini oching va omadingizni sinang! Qutidan <b>OpenRouter ($3)</b>, <b>Google Gemini ($5)</b>, "
-            f"<b>Groq API</b> yoki <b>Katta Keshbek</b> yutib olishingiz mumkin!\n\n"
-            f"🌟 <b>5 Tier Telegram Stars NFT Cases</b> to'liq 3D ochilish animatsiyalari bilan <b>Web App Studio</b>da ishlaydi!\n\n"
-            f"💰 <b>Oddiy quti narxi:</b> <code>6,000 so'm</code>\n"
+            f"🎁 <b>Omadli Quti & Mystery Cases (Stars & UZS So'm)</b>\n\n"
+            f"Keyslarni <b>Telegram Stars</b> yoki <b>UZS (so'm) balansingiz</b> orqali ochishingiz mumkin!\n"
+            f"Har bir keysdan haqiqiy Telegram sovg'alari yoki Telegram Premium yutib olishingiz mumkin!\n\n"
             f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
             f"{recent_text}\n\n"
-            f"<i>Yutish imkoniyati tasodifiy algoritm asosida ishlaydi. Omad tilaymiz!</i>"
+            f"👇 <i>Ochmoqchi bo'lgan keysingizni tanlang:</i>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{e('STAR')} Stars NFT Cases (Web App)", web_app=WebAppInfo(url=web_app_url))],
+            [InlineKeyboardButton("🥉 Bronze Mini (25 ⭐ / 10,000 so'm)", callback_data="box_tier_tier_1")],
+            [InlineKeyboardButton("🥈 Silver Creator (75 ⭐ / 30,000 so'm)", callback_data="box_tier_tier_2")],
+            [InlineKeyboardButton("🥇 Gold Pro Studio (250 ⭐ / 100,000 so'm)", callback_data="box_tier_tier_3")],
+            [InlineKeyboardButton("💎 Platinum VIP (750 ⭐ / 300,000 so'm)", callback_data="box_tier_tier_4")],
+            [InlineKeyboardButton("🪐 Diamond Galaxy (2,500 ⭐ / 1,000,000 so'm)", callback_data="box_tier_tier_5")],
             [InlineKeyboardButton("🎁 Oddiy Quti (6,000 so'm)", callback_data="box_open")],
+            [InlineKeyboardButton(f"{e('STAR')} Stars NFT Cases (Web App 3D)", web_app=WebAppInfo(url=web_app_url))],
             [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
              InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])
@@ -2677,6 +3094,102 @@ def create_ytbot():
             [InlineKeyboardButton("🔁 Yana ochish (6,000 so'm)", callback_data="box_open")],
             [InlineKeyboardButton("⬅️ O'yinlar menyusi", callback_data="menu_games"),
              InlineKeyboardButton(f"{e('BACK')} Bosh menyu", callback_data="back_main")]
+        ])
+        await callback_query.message.edit_text(res_text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^box_tier_([a-zA-Z0-9_]+)$"))
+    async def box_tier_detail_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        tier_key = callback_query.data.replace("box_tier_", "")
+        from games_monetization import build_cases_from_gifts
+        cases = build_cases_from_gifts()
+        case = cases.get(tier_key)
+        if not case:
+            for c in cases.values():
+                if c["key"] == tier_key or c["id"] == tier_key:
+                    case = c
+                    break
+        if not case:
+            await callback_query.answer("Keys topilmadi!", show_alert=True)
+            return
+
+        bal = get_user_balance(user_id)
+        p_stars = case["price_stars"]
+        p_uzs = case.get("price_uzs", p_stars * 400)
+        drops = case.get("drops", [])
+        drops_txt = "\n".join([f"• {d['icon']} <b>{d['name']}</b> ({d['stars']} ⭐)" for d in drops[:5]])
+
+        text = (
+            f"🎁 <b>{case['icon']} {case['name']}</b>\n\n"
+            f"📝 <b>Tavsif:</b> {case['description']}\n\n"
+            f"⭐ <b>Stars narxi:</b> <code>{p_stars} ⭐ Stars</code>\n"
+            f"💳 <b>So'm narxi:</b> <code>{p_uzs:,} so'm</code>\n"
+            f"💰 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"🏆 <b>Qutidan chiqishi mumkin bo'lgan sovg'alar:</b>\n"
+            f"{drops_txt}\n\n"
+            f"👇 <i>Qutini qaysi to'lov turi orqali ochmoqchisiz?</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"💳 UZS Balans bilan ochish ({p_uzs:,} so'm)", callback_data=f"box_open_uzs_{case['id']}")],
+            [InlineKeyboardButton(f"⭐ Stars bilan ochish ({p_stars} ⭐)", callback_data=f"buy_gcase_{case['id']}")],
+            [InlineKeyboardButton("⬅️ Boshqa keys tanlash", callback_data="box_menu")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb)
+        await callback_query.answer()
+
+    @bot.on_callback_query(filters.regex(r"^box_open_uzs_([a-zA-Z0-9_]+)$"))
+    async def box_open_uzs_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        tier_key = callback_query.data.replace("box_open_uzs_", "")
+        from games_monetization import open_stars_case_with_uzs
+        
+        await callback_query.message.edit_text(
+            "🎁 <b>Keys ochilmoqda...</b>\n\n"
+            "[ ▰▰▰▰▰▰▰▱▱▱ ] ⏳\n\n"
+            "<i>Omadingiz sinovdan o'tmoqda...</i>"
+        )
+        await asyncio.sleep(0.8)
+        
+        user_name = (callback_query.from_user.first_name or "Foydalanuvchi") if callback_query.from_user else "Foydalanuvchi"
+        res = open_stars_case_with_uzs(user_id, tier_key, user_name)
+        
+        if not res.get("ok"):
+            err_msg = res.get("error", "Xatolik yuz berdi")
+            if res.get("need_deposit"):
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("💳 Balansni to'ldirish", callback_data="menu_wallet")],
+                    [InlineKeyboardButton("⬅️ Boshqa keys tanlash", callback_data="box_menu")]
+                ])
+                await callback_query.message.edit_text(f"❌ {err_msg}", reply_markup=kb)
+            else:
+                await callback_query.message.edit_text(f"❌ {err_msg}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Orqaga", callback_data="box_menu")]]))
+            return
+
+        p_name = res["prize_name"]
+        p_stars = res["prize_stars"]
+        c_name = res["case_name"]
+        icon = res["icon"]
+        rarity = res.get("rarity", "common").upper()
+        rem_bal = res.get("remaining_balance_uzs", 0)
+        p_uzs = res.get("price_uzs", 10000)
+        rec_id = res.get("gift_record_id", 0)
+        ref_uzs = int(p_stars * 0.75 * 400)
+        
+        res_text = (
+            f"🎉 <b>TABRIKLAYMIZ! YUTUQ!</b>\n\n"
+            f"📦 <b>Ochilgan keys:</b> {c_name}\n"
+            f"🏆 <b>Yutug'ingiz:</b> {icon} <b>{p_name}</b> ({p_stars} ⭐ Stars)\n"
+            f"✨ <b>Noyoblik:</b> <code>[{rarity}]</code>\n"
+            f"💰 <b>Qoldiq balansingiz:</b> <code>{rem_bal:,} so'm</code>\n\n"
+            f"👇 <b>Sovg'angizni qanday qabul qilasiz?</b>\n"
+            f"• <b>Profilga Olish:</b> Haqiqiy Telegram sovg'asi profilingizga jo'natiladi.\n"
+            f"• <b>Sotish (75% Keshbek):</b> Sovg'ani sotib, hisobingizga <code>+{ref_uzs:,} so'm</code> keshbek olasiz!"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Profilga Olish (sendGift)", callback_data=f"gift_claim_{rec_id}_{user_id}")],
+            [InlineKeyboardButton(f"♻️ Sotish (+{ref_uzs:,} so'm Keshbek)", callback_data=f"gift_recycle_{rec_id}_{user_id}")],
+            [InlineKeyboardButton(f"🔁 Yana ochish ({p_uzs:,} so'm)", callback_data=f"box_open_uzs_{tier_key}")],
+            [InlineKeyboardButton("⬅️ Boshqa keys tanlash", callback_data="box_menu")]
         ])
         await callback_query.message.edit_text(res_text, reply_markup=kb)
 
@@ -8328,6 +8841,60 @@ def create_ytbot():
             return
 
         user_id = message.from_user.id
+
+        # Faollikni yangilash
+        try:
+            from database import record_user_activity
+            u = message.from_user
+            record_user_activity(
+                tg_user_id=user_id,
+                username=getattr(u, "username", None),
+                first_name=getattr(u, "first_name", None),
+                last_name=getattr(u, "last_name", None)
+            )
+        except Exception:
+            pass
+
+        # 0. Admin boshqaruv holatlari (balans o'zgartirish, xabar yuborish, qidiruv)
+        if user_id in ADMIN_ACTION_STATE and check_is_admin(message.from_user):
+            st = ADMIN_ACTION_STATE.pop(user_id)
+            act = st.get("action")
+            t_uid = st.get("target_uid")
+            
+            if act == "search_user":
+                await show_admin_users_page(client, message, page=1, search=user_text)
+                return
+                
+            elif act == "send_msg" and t_uid:
+                try:
+                    await client.send_message(
+                        t_uid,
+                        f"🔔 <b>Bot Administratoridan Xabar:</b>\n\n{user_text}\n\n<i>Savollaringiz bo'lsa, qo'llab-quvvatlash xizmatiga murojaat qiling.</i>"
+                    )
+                    await message.reply_text(f"✅ Xabar <code>{t_uid}</code> foydalanuvchisiga muvaffaqiyatli yetkazildi!")
+                except Exception as e:
+                    await message.reply_text(f"❌ Xabar yuborishda xatolik: {e}")
+                return
+                
+            elif act in ("set_bal", "add_bal", "deduct_bal") and t_uid:
+                try:
+                    amt = int(user_text.replace(",", "").replace(" ", ""))
+                    from database import admin_set_user_balance, admin_adjust_user_balance
+                    if act == "set_bal":
+                        nb = admin_set_user_balance(t_uid, amt)
+                        msg_act = f"balansi <b>{nb:,} so'm</b> qilib o'rnatildi"
+                    elif act == "add_bal":
+                        nb = admin_adjust_user_balance(t_uid, amt)
+                        msg_act = f"balansiga <b>+{amt:,} so'm</b> qo'shildi (Yangi balans: {nb:,} so'm)"
+                    else:
+                        nb = admin_adjust_user_balance(t_uid, -amt)
+                        msg_act = f"balansidan <b>-{amt:,} so'm</b> ayirildi (Yangi balans: {nb:,} so'm)"
+                        
+                    await message.reply_text(f"✅ Foydalanuvchi <code>{t_uid}</code> {msg_act}!")
+                    await show_admin_user_card(client, message, t_uid)
+                except ValueError:
+                    await message.reply_text("❌ Faqat butun son kiriting (masalan: 50000)!")
+                return
 
         # 1. Buyurtma jarayonidagi havola tekshiruvi
         if user_id in USER_ORDER_STATE:

@@ -306,10 +306,16 @@ async def fetch_telegram_server_gifts(bot_token: str = None) -> list:
                             new_cases = build_cases_from_gifts(gifts)
                             STARS_CASES.clear()
                             STARS_CASES.update(new_cases)
-                            print(f"🎁 Telegram serveridan {len(gifts)} ta faol sovg'a yuklandi va keyslar yangilandi!")
+                            try:
+                                print(f"[Gifts] Telegram serveridan {len(gifts)} ta faol sovg'a yuklandi va keyslar yangilandi!")
+                            except Exception:
+                                pass
                             return gifts
         except Exception as e:
-            print(f"Telegram getAvailableGifts server fetch error: {e}")
+            try:
+                print(f"[Gifts Error] Telegram getAvailableGifts server fetch error: {e}")
+            except Exception:
+                pass
 
     # Agar tarmoqdan yuklanmasa, diskdagi keshdan tekshiramiz
     if not _LIVE_SERVER_GIFTS:
@@ -449,8 +455,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "key": "starter",
             "name": "Bronze Starter Case",
             "price_stars": 25,
+            "price_uzs": 10000,
             "icon": "📦",
-            "badge": "25 ⭐",
+            "badge": "25 ⭐ / 10,000 so'm",
             "color": "#cd7f32",
             "description": "Telegram serveridagi rasmiy sovg'alar: 25 ⭐ gacha yutuqlar!",
             "drops": format_drops(t1_drops)
@@ -460,8 +467,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "key": "creator",
             "name": "Silver Creator Case",
             "price_stars": 75,
+            "price_uzs": 30000,
             "icon": "🎁",
-            "badge": "75 ⭐",
+            "badge": "75 ⭐ / 30,000 so'm",
             "color": "#c0c0c0",
             "description": "Telegram server sovg'alari: 50 ⭐ dan 250 ⭐ gacha!",
             "drops": format_drops(t2_drops)
@@ -471,8 +479,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "key": "pro",
             "name": "Gold Pro Studio Case",
             "price_stars": 250,
+            "price_uzs": 100000,
             "icon": "🏆",
-            "badge": "250 ⭐",
+            "badge": "250 ⭐ / 100,000 so'm",
             "color": "#ffd700",
             "description": "Telegram server sovg'alari: 100 ⭐ dan 500 ⭐ gacha!",
             "drops": format_drops(t3_drops)
@@ -482,8 +491,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "key": "vip",
             "name": "Platinum VIP Master Case",
             "price_stars": 750,
+            "price_uzs": 300000,
             "icon": "💎",
-            "badge": "750 ⭐",
+            "badge": "750 ⭐ / 300,000 so'm",
             "color": "#00f0ff",
             "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
             "drops": format_drops(t4_drops)
@@ -493,8 +503,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "key": "galaxy",
             "name": "Diamond Galaxy Case",
             "price_stars": 2500,
+            "price_uzs": 1000000,
             "icon": "🪐",
-            "badge": "2,500 ⭐",
+            "badge": "2,500 ⭐ / 1,000,000 so'm",
             "color": "#b026ff",
             "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",
             "drops": format_drops(t5_drops)
@@ -623,6 +634,72 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
     }
 
 
+def open_stars_case_with_uzs(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
+    """
+    Mystery Keysni UZS (so'm) balansi orqali ochish.
+    Foydalanuvchi hisobidan keys narxi so'mda yechiladi va open_stars_case chaqiriladi.
+    Yutuq avtomatik tarzda pending_gifts jadvaliga saqlanadi.
+    """
+    cases = build_cases_from_gifts()
+    case = cases.get(tier_id)
+    if not case:
+        for c in cases.values():
+            if c["key"] == tier_id or c["id"] == tier_id:
+                case = c
+                break
+    if not case:
+        return {"ok": False, "error": f"Noto'g'ri keys tanlandi: {tier_id}"}
+
+    price_uzs = case.get("price_uzs", case["price_stars"] * 400)
+
+    from database import get_user_balance, deduct_user_balance, save_gift_record, update_user_bad_luck
+
+    current_bal = get_user_balance(tg_user_id)
+    if current_bal < price_uzs:
+        return {
+            "ok": False,
+            "error": f"Balansingiz yetarli emas! Sizda: {current_bal:,} so'm bor, keys ochish uchun esa: {price_uzs:,} so'm kerak.",
+            "need_deposit": True,
+            "current_balance": current_bal,
+            "required_balance": price_uzs
+        }
+
+    # Balansdan yechish
+    deducted = deduct_user_balance(tg_user_id, price_uzs)
+    if not deducted:
+        return {"ok": False, "error": "Balansdan mablag' yechishda xatolik yuz berdi"}
+
+    rem_bal = get_user_balance(tg_user_id)
+
+    # Keysni ochish
+    res = open_stars_case(tg_user_id, tier_id, user_name)
+    if not res.get("ok"):
+        from database import add_user_balance
+        add_user_balance(tg_user_id, price_uzs)
+        return res
+
+    # Yutuqni pending_gifts jadvaliga saqlaymiz
+    gift_id = res.get("gift_id")
+    p_name = res["prize_name"]
+    p_stars = res["prize_stars"]
+    c_name = res["case_name"]
+
+    rec_id = save_gift_record(
+        tg_user_id=tg_user_id,
+        gift_id=gift_id,
+        tier_key=case["key"],
+        case_name=c_name,
+        prize_name=p_name,
+        prize_stars=p_stars,
+        status="pending"
+    )
+
+    res["gift_record_id"] = rec_id
+    res["remaining_balance_uzs"] = rem_bal
+    res["price_uzs"] = price_uzs
+    return res
+
+
 def recycle_pending_gift(record_id: int, tg_user_id: int, prize_stars: int) -> dict:
     """
     Sovg'ani 75% keshbek evaziga sotish (Recycle).
@@ -634,6 +711,55 @@ def recycle_pending_gift(record_id: int, tg_user_id: int, prize_stars: int) -> d
 
 
 
+async def get_bot_star_balance(bot_token: str = None) -> int:
+    """
+    Telegram Bot API getMyStarBalance orqali botning ayni paytdagi joriy Stars balansini qaytaradi.
+    Foydalanuvchilar to'lagan barcha Stars shu balansga kelib tushadi va sendGift/giftPremiumSubscription uchun ishlatiladi.
+    """
+    import os, aiohttp
+    from config import BOT_TOKEN
+    token = bot_token or BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+    if not token:
+        return 0
+    url = f"https://api.telegram.org/bot{token}/getMyStarBalance"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                data = await resp.json()
+                if data.get("ok"):
+                    return int(data.get("result", {}).get("amount", 0))
+    except Exception as e:
+        try:
+            print(f"[Star Balance Error]: {e}")
+        except Exception:
+            pass
+    return 0
+
+
+async def get_bot_star_transactions(bot_token: str = None, offset: int = 0, limit: int = 10) -> list:
+    """
+    Telegram Bot API getStarTransactions orqali botga tushgan va sarflangan Stars tranzaksiyalari tarixini qaytaradi.
+    """
+    import os, aiohttp
+    from config import BOT_TOKEN
+    token = bot_token or BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+    if not token:
+        return []
+    url = f"https://api.telegram.org/bot{token}/getStarTransactions?offset={offset}&limit={limit}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                data = await resp.json()
+                if data.get("ok"):
+                    return data.get("result", {}).get("transactions", [])
+    except Exception as e:
+        try:
+            print(f"[Star Transactions Error]: {e}")
+        except Exception:
+            pass
+    return []
+
+
 async def send_telegram_gift(
     user_id: int,
     gift_id: str,
@@ -642,8 +768,9 @@ async def send_telegram_gift(
     pay_for_upgrade: bool = False
 ) -> dict:
     """
-    Telegram Bot API sendGift metodi orqali foydalanuvchiga haqiqiy sovg'a jo'natish.
-    DIQQAT: Sovg'a uchun Stars botning Fragment.com orqali to'ldirilgan o'z hisobidan yechiladi.
+    Telegram Bot API sendGift yoki giftPremiumSubscription metodi orqali
+    foydalanuvchiga haqiqiy sovg'a yoki Telegram Premium obuna jo'natish.
+    DIQQAT: Sovg'a uchun Stars botning foydalanuvchilar to'lagan o'z Stars balansidan (getMyStarBalance) yechiladi.
     """
     import os
     from config import BOT_TOKEN
@@ -698,7 +825,7 @@ async def send_telegram_gift(
                 desc = str(data.get("description", "")).strip()
                 desc_upper = desc.upper()
                 
-                # 1. Bot Stars balansi yetishmasligi (Fragment orqali bot hisobiga Stars kerak)
+                # 1. Bot Stars balansi yetishmasligi
                 if any(kw in desc_upper for kw in ["BALANCE", "STAR", "NOT_ENOUGH", "INSUFFICIENT"]):
                     return {
                         "ok": False,
@@ -718,7 +845,17 @@ async def send_telegram_gift(
                         "error_code": err_code,
                         "is_premium": is_prem
                     }
-                # 3. Boshqa API xatoliklari (noto'g'ri ID yoki bot bloklangan)
+                # 3. Sovg'a Telegram serverida tugagan (Limited Edition Sold Out)
+                elif any(kw in desc_upper for kw in ["LIMITED", "SOLD_OUT", "USAGE_LIMITED", "NOT_AVAILABLE"]):
+                    return {
+                        "ok": False,
+                        "sent": False,
+                        "reason": "gift_sold_out",
+                        "error": desc,
+                        "error_code": err_code,
+                        "is_premium": is_prem
+                    }
+                # 4. Boshqa API xatoliklari
                 else:
                     return {
                         "ok": False,

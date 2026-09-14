@@ -1574,6 +1574,18 @@ async def handle_api_stars_open_case(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_stars_open_case_uzs(request):
+    """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish"""
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        tier_id = str(data.get("tier_id", "tier_1")).strip()
+        from games_monetization import open_stars_case_with_uzs
+        res = open_stars_case_with_uzs(user_id, tier_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
 async def handle_api_stars_create_invoice(request):
     """Telegram Stars to'lovi uchun Telegram createInvoiceLink yaratish"""
     try:
@@ -1817,6 +1829,7 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/cases", handle_api_stars_cases)
     app.router.add_get("/api/stars/live-gifts", handle_api_stars_live_gifts)
     app.router.add_post("/api/stars/open-case", handle_api_stars_open_case)
+    app.router.add_post("/api/stars/open-case-uzs", handle_api_stars_open_case_uzs)
     app.router.add_post("/api/stars/create-invoice", handle_api_stars_create_invoice)
 
     # Yangi 6 ta Monetizatsiya & O'yin API lari
