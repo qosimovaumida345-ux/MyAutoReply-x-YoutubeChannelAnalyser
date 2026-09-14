@@ -5079,7 +5079,7 @@ def get_pending_gifts(status: str = None, limit: int = 100) -> list:
                 SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at
                 FROM pending_gifts
                 WHERE status = %s
-                ORDER BY id ASC
+                ORDER BY prize_stars ASC, id ASC
                 LIMIT %s
             """, (status, limit))
         else:
@@ -5087,7 +5087,7 @@ def get_pending_gifts(status: str = None, limit: int = 100) -> list:
                 SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at
                 FROM pending_gifts
                 WHERE status != 'sent'
-                ORDER BY id ASC
+                ORDER BY prize_stars ASC, id ASC
                 LIMIT %s
             """, (limit,))
         rows = cur.fetchall()

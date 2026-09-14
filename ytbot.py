@@ -8621,41 +8621,73 @@ def create_ytbot():
 
                 parts = raw_payload.split("_")
                 if len(parts) >= 5 and parts[0] == "stars":
-                    try:
-                        tx_id = int(parts[4])
-                        amount_uzs = int(parts[3])
-                        if not user_id and parts[1].isdigit():
-                            user_id = int(parts[1])
-                        charge_id = getattr(action.charge, "id", "") if hasattr(action, "charge") else ""
-                        complete_payment_transaction(tx_id, invoice_id=str(charge_id))
-                        if user_id:
-                            new_bal = get_user_balance(user_id)
-                            notify_txt = (
-                                f"{e('SUCCESS')} <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
-                                f"{e('STAR')} <b>Telegram Stars:</b> {action.total_amount} ⭐\n"
-                                f"{e('MONEY')} <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
-                                f"{e('BALANCE')} <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
-                                f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!"
-                            )
-                            # 1. Pyrogram orqali yuborish
-                            sent = False
-                            try:
-                                await client.send_message(user_id, notify_txt, reply_markup=main_menu_kb(user_id))
-                                sent = True
-                            except Exception as send_err:
-                                print(f"[Stars Payment] client.send_message failed: {send_err}")
-                            # 2. To'g'ridan-to'g'ri Telegram HTTP API orqali zaxira yuborish (agar pyrogram uzilgan bo'lsa)
-                            if not sent:
+                    if parts[1] == "box":
+                        try:
+                            # stars_box_{tier_id}_{user_id}_{timestamp}
+                            tier_id = parts[2]
+                            u_id = int(parts[3])
+                            
+                            from games_monetization import open_stars_case, save_gift_record, process_pending_gifts_batch
+                            res = open_stars_case(u_id, tier_id)
+                            if res.get("ok"):
+                                rec_id = save_gift_record(
+                                    tg_user_id=u_id,
+                                    gift_id=res.get("gift_id"),
+                                    tier_key=tier_id,
+                                    case_name=res.get("case_name", ""),
+                                    prize_name=res.get("prize_name", ""),
+                                    prize_stars=res.get("prize_stars", 0),
+                                    status="pending"
+                                )
+                                import asyncio
+                                bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+                                asyncio.create_task(process_pending_gifts_batch(bot_token=bot_token, limit=5))
+                                
+                                notify_txt = (
+                                    f"🎁 <b>Tabriklaymiz!</b> Siz {res['case_name']} keysini ochdingiz!\n\n"
+                                    f"✨ <b>Yutuq:</b> {res['icon']} {res['prize_name']}\n"
+                                    f"⭐️ <b>Qiymati:</b> {res['prize_stars']} Stars\n\n"
+                                    f"<i>Yutuq profilingizga yuborilmoqda...</i>"
+                                )
+                                await client.send_message(u_id, notify_txt)
+                        except Exception as pay_err:
+                            print(f"[Stars Box Payment] Error: {pay_err}")
+                    else:
+                        try:
+                            tx_id = int(parts[4])
+                            amount_uzs = int(parts[3])
+                            if not user_id and parts[1].isdigit():
+                                user_id = int(parts[1])
+                            charge_id = getattr(action.charge, "id", "") if hasattr(action, "charge") else ""
+                            complete_payment_transaction(tx_id, invoice_id=str(charge_id))
+                            if user_id:
+                                new_bal = get_user_balance(user_id)
+                                notify_txt = (
+                                    f"{e('SUCCESS')} <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
+                                    f"{e('STAR')} <b>Telegram Stars:</b> {action.total_amount} ⭐\n"
+                                    f"{e('MONEY')} <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
+                                    f"{e('BALANCE')} <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
+                                    f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!"
+                                )
+                                # 1. Pyrogram orqali yuborish
+                                sent = False
                                 try:
-                                    import aiohttp
-                                    b_token = getattr(client, "bot_token", None) or BOT_TOKEN
-                                    h_url = f"https://api.telegram.org/bot{b_token}/sendMessage"
-                                    async with aiohttp.ClientSession() as sess:
-                                        await sess.post(h_url, json={"chat_id": user_id, "text": notify_txt, "parse_mode": "HTML"}, timeout=aiohttp.ClientTimeout(total=8))
-                                except Exception as http_e:
-                                    print(f"[Stars Payment] HTTP sendMessage error: {http_e}")
-                    except Exception as pay_err:
-                        print(f"Stars payment error: {pay_err}")
+                                    await client.send_message(user_id, notify_txt, reply_markup=main_menu_kb(user_id))
+                                    sent = True
+                                except Exception as send_err:
+                                    print(f"[Stars Payment] client.send_message failed: {send_err}")
+                                # 2. To'g'ridan-to'g'ri Telegram HTTP API orqali zaxira yuborish (agar pyrogram uzilgan bo'lsa)
+                                if not sent:
+                                    try:
+                                        import aiohttp
+                                        b_token = getattr(client, "bot_token", None) or BOT_TOKEN
+                                        h_url = f"https://api.telegram.org/bot{b_token}/sendMessage"
+                                        async with aiohttp.ClientSession() as sess:
+                                            await sess.post(h_url, json={"chat_id": user_id, "text": notify_txt, "parse_mode": "HTML"}, timeout=aiohttp.ClientTimeout(total=8))
+                                    except Exception as http_e:
+                                        print(f"[Stars Payment] HTTP sendMessage error: {http_e}")
+                        except Exception as pay_err:
+                            print(f"Stars payment error: {pay_err}")
                 elif raw_payload.startswith("aivid_sub_"):
                     try:
                         u_id = int(raw_payload.split("_")[2])

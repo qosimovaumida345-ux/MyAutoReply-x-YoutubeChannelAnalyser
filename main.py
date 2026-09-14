@@ -1588,14 +1588,68 @@ async def handle_api_stars_open_case(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_telegram_file(request):
+    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG) yuklab, frontendga uzatuvchi proxy API"""
+    file_id = request.match_info.get("file_id", "").strip()
+    if not file_id:
+        return web.Response(status=400, text="file_id is required")
+        
+    try:
+        from config import BOT_TOKEN
+        import aiohttp
+        import os
+        token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+        if not token:
+            return web.Response(status=500, text="BOT_TOKEN not configured")
+            
+        async with aiohttp.ClientSession() as session:
+            # 1. file_path ni olish
+            file_url = f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}"
+            async with session.get(file_url, timeout=5) as r1:
+                res1 = await r1.json()
+                if not res1.get("ok"):
+                    return web.Response(status=404, text="File not found on Telegram")
+                file_path = res1["result"]["file_path"]
+                
+            # 2. Faylning o'zini yuklab uzatish
+            download_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
+            async with session.get(download_url, timeout=10) as r2:
+                if r2.status != 200:
+                    return web.Response(status=502, text="Failed to download from Telegram")
+                    
+                content = await r2.read()
+                content_type = r2.headers.get("Content-Type", "application/octet-stream")
+                
+                # TGS fayllar ko'pincha application/x-tgwallpapers o'rniga oddiy keladi, 
+                # shuning uchun extension orqali aniqlaymiz:
+                if file_path.endswith(".tgs"):
+                    content_type = "application/gzip" # TGS (lottie) zlib/gzip bilan siqilgan JSON
+                elif file_path.endswith(".webm"):
+                    content_type = "video/webm"
+                    
+                return web.Response(
+                    body=content,
+                    content_type=content_type,
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Cache-Control": "public, max-age=86400" # 1 kun keshda saqlash
+                    }
+                )
+    except Exception as e:
+        return web.Response(status=500, text=f"Proxy error: {e}")
+
 async def handle_api_stars_open_case_uzs(request):
     """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish"""
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         tier_id = str(data.get("tier_id", "tier_1")).strip()
-        from games_monetization import open_stars_case_with_uzs
+        from games_monetization import open_stars_case_with_uzs, process_pending_gifts_batch
         res = open_stars_case_with_uzs(user_id, tier_id)
+        if res.get("ok"):
+            import asyncio
+            from config import BOT_TOKEN
+            asyncio.create_task(process_pending_gifts_batch(bot_token=BOT_TOKEN, limit=5))
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -1845,6 +1899,7 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/live-gifts", handle_api_stars_live_gifts)
     app.router.add_post("/api/stars/open-case", handle_api_stars_open_case)
     app.router.add_post("/api/stars/open-case-uzs", handle_api_stars_open_case_uzs)
+    app.router.add_get("/api/telegram-file/{file_id}", handle_api_telegram_file)
     app.router.add_post("/api/stars/create-invoice", handle_api_stars_create_invoice)
 
     # Yangi 6 ta Monetizatsiya & O'yin API lari

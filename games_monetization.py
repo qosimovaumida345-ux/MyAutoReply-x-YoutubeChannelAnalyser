@@ -363,6 +363,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
                 "stars": stars,
                 "name": name,
                 "icon": emoji,
+                "file_id": sticker.get("file_id", ""),
                 "is_nft": is_nft,
                 "total_count": total_count,
                 "remaining_count": remains,
@@ -623,6 +624,7 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
         "prize_name": chosen["name"],
         "rarity": chosen["rarity"],
         "icon": chosen["icon"],
+        "file_id": chosen.get("file_id", ""),
         "gift_id": gift_id,
         "is_nft": is_nft,
         "is_premium": is_premium,
@@ -677,6 +679,8 @@ def open_stars_case_with_uzs(tg_user_id: int, tier_id: str, user_name: str = "")
         from database import add_user_balance
         add_user_balance(tg_user_id, price_uzs)
         return res
+
+    res["new_balance"] = rem_bal
 
     # Yutuqni pending_gifts jadvaliga saqlaymiz
     gift_id = res.get("gift_id")

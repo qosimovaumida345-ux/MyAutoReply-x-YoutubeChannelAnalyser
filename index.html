@@ -20,6 +20,9 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <!-- Lottie Player -->
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+
     <!-- Canvas Confetti for Mystery Case Unboxing -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
@@ -3482,7 +3485,11 @@
                                         }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                    <span style={{ fontSize: "32px" }}>{oddsModalCase.icon}</span>
+                                                    {oddsModalCase.file_id ? (
+                                                        <lottie-player src={`/api/telegram-file/${oddsModalCase.file_id}`} background="transparent" speed="1" style={{ width: "32px", height: "32px" }} loop autoplay></lottie-player>
+                                                    ) : (
+                                                        <span style={{ fontSize: "32px" }}>{oddsModalCase.icon}</span>
+                                                    )}
                                                     <div>
                                                         <h3 style={{ fontSize: "18px", fontWeight: 700 }}>{oddsModalCase.name}</h3>
                                                         <span style={{ fontSize: "12px", color: "var(--muted)" }}>Narxi: {oddsModalCase.price_stars} ⭐ Stars</span>
@@ -3516,7 +3523,11 @@
                                                 {oddsModalCase.drops.map((d, i) => (
                                                     <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "12px" }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                            <span style={{ fontSize: "24px" }}>{d.icon}</span>
+                                                            {d.file_id ? (
+                                                                <lottie-player src={`/api/telegram-file/${d.file_id}`} background="transparent" speed="1" style={{ width: "24px", height: "24px" }} loop autoplay></lottie-player>
+                                                            ) : (
+                                                                <span style={{ fontSize: "24px" }}>{d.icon}</span>
+                                                            )}
                                                             <span style={{ fontSize: "13px", fontWeight: 600 }}>{d.name}</span>
                                                         </div>
                                                         <span style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>{d.stars} ⭐</span>
@@ -3621,17 +3632,31 @@
                                                             const item = activeUnboxing.drops[rIdx % activeUnboxing.drops.length];
                                                             return (
                                                                 <div key={rIdx} style={{ textAlign: "center", flexShrink: 0 }}>
-                                                                    <div style={{ fontSize: "52px" }}>{item.icon}</div>
+                                                                    {item.file_id ? (
+                                                                        <lottie-player src={`/api/telegram-file/${item.file_id}`} background="transparent" speed="1" style={{ width: "52px", height: "52px", margin: "0 auto" }} loop autoplay></lottie-player>
+                                                                    ) : (
+                                                                        <div style={{ fontSize: "52px" }}>{item.icon}</div>
+                                                                    )}
                                                                     <div style={{ fontSize: "12px", color: "#bbb", marginTop: "4px" }}>{item.name}</div>
                                                                 </div>
                                                             );
                                                         })}
                                                     </div>
                                                 ) : (
-                                                    <div style={{ animation: "prizePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)" }}>
-                                                        <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>
-                                                            {unboxingPrize ? unboxingPrize.icon : activeUnboxing.drops[0].icon}
-                                                        </div>
+                                                    <div style={{ animation: "prizePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)", textAlign: "center" }}>
+                                                        {unboxingPrize ? (
+                                                            unboxingPrize.file_id ? (
+                                                                <lottie-player src={`/api/telegram-file/${unboxingPrize.file_id}`} background="transparent" speed="1" style={{ width: "80px", height: "80px", margin: "0 auto", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} loop autoplay></lottie-player>
+                                                            ) : (
+                                                                <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>{unboxingPrize.icon}</div>
+                                                            )
+                                                        ) : (
+                                                            activeUnboxing.drops[0].file_id ? (
+                                                                <lottie-player src={`/api/telegram-file/${activeUnboxing.drops[0].file_id}`} background="transparent" speed="1" style={{ width: "80px", height: "80px", margin: "0 auto", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} loop autoplay></lottie-player>
+                                                            ) : (
+                                                                <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>{activeUnboxing.drops[0].icon}</div>
+                                                            )
+                                                        )}
                                                         <div style={{ fontSize: "20px", fontWeight: 800, marginTop: "8px", color: "#ffffff" }}>
                                                             {unboxingPrize ? unboxingPrize.prize_name : activeUnboxing.drops[0].name}
                                                         </div>
@@ -3663,39 +3688,65 @@
                                             )}
 
                                             {/* Action Buttons */}
-                                            <div style={{ display: "flex", gap: "12px" }}>
-                                                <button
-                                                    onClick={() => handleOpenCase(activeUnboxing)}
-                                                    disabled={isRolling}
-                                                    style={{
-                                                        flex: 1,
-                                                        padding: "14px 0",
-                                                        borderRadius: "999px",
-                                                        background: "#7342E2",
-                                                        color: "#ffffff",
-                                                        fontWeight: 700,
-                                                        border: "none",
-                                                        cursor: isRolling ? "not-allowed" : "pointer",
-                                                        opacity: isRolling ? 0.6 : 1,
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: "6px"
-                                                    }}
-                                                >
-                                                    <SvgStar size={16} color="#ffd700" />
-                                                    <span>Yana Ochish ({activeUnboxing.price_stars} Stars)</span>
-                                                </button>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                <div style={{ display: "flex", gap: "8px" }}>
+                                                    <button
+                                                        onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(activeUnboxing); }}
+                                                        disabled={isRolling}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: "14px 0",
+                                                            borderRadius: "12px",
+                                                            background: "#7342E2",
+                                                            color: "#ffffff",
+                                                            fontWeight: 700,
+                                                            border: "none",
+                                                            cursor: isRolling ? "not-allowed" : "pointer",
+                                                            opacity: isRolling ? 0.6 : 1,
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: "6px"
+                                                        }}
+                                                    >
+                                                        <SvgStar size={16} color="#ffd700" />
+                                                        <span>Yana Ochish ({activeUnboxing.price_stars} ⭐)</span>
+                                                    </button>
+                                                    
+                                                    <button
+                                                        onClick={() => handleOpenCaseUzs(activeUnboxing)}
+                                                        disabled={isRolling}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: "14px 0",
+                                                            borderRadius: "12px",
+                                                            background: "#4CAF50",
+                                                            color: "#ffffff",
+                                                            fontWeight: 700,
+                                                            border: "none",
+                                                            cursor: isRolling ? "not-allowed" : "pointer",
+                                                            opacity: isRolling ? 0.6 : 1,
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: "6px"
+                                                        }}
+                                                    >
+                                                        <span>Yana Ochish ({(activeUnboxing.price_uzs || activeUnboxing.price_stars * 400).toLocaleString()} so'm)</span>
+                                                    </button>
+                                                </div>
+
                                                 <button
                                                     onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); }}
                                                     style={{
                                                         padding: "14px 24px",
-                                                        borderRadius: "999px",
+                                                        borderRadius: "12px",
                                                         background: "rgba(255,255,255,0.1)",
                                                         color: "#ffffff",
                                                         fontWeight: 600,
                                                         border: "none",
-                                                        cursor: "pointer"
+                                                        cursor: "pointer",
+                                                        width: "100%"
                                                     }}
                                                 >
                                                     Yopish
