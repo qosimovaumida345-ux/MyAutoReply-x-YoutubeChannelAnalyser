@@ -504,6 +504,24 @@
             </svg>
         );
 
+        const MediaRenderer = ({ fileId, fileType, icon, size = "80px", style = {} }) => {
+            if (!fileId) {
+                return <div style={{ fontSize: `calc(${size} * 0.9)`, ...style }}>{icon}</div>;
+            }
+            const src = `/api/telegram-file/${fileId}`;
+            const mergedStyle = { width: size, height: size, margin: "0 auto", ...style };
+            
+            if (fileType === "video") {
+                return <video src={src} autoPlay loop muted playsInline style={mergedStyle}></video>;
+            } else if (fileType === "tgs") {
+                return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+            } else if (fileType === "webp") {
+                return <img src={src} style={{ ...mergedStyle, objectFit: "contain" }} alt="Gift" />;
+            }
+            // fallback
+            return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+        };
+
         // ==================== MAIN APPLICATION ====================
         function App() {
             // View state: 'landing' (Hero Section Password Manager) vs 'dashboard' (Alwayzz Studio Mode)
@@ -3486,7 +3504,7 @@
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                                     {oddsModalCase.file_id ? (
-                                                        <lottie-player src={`/api/telegram-file/${oddsModalCase.file_id}`} background="transparent" speed="1" style={{ width: "32px", height: "32px" }} loop autoplay></lottie-player>
+                                                        <MediaRenderer fileId={oddsModalCase.file_id} fileType={oddsModalCase.file_type} icon={oddsModalCase.icon} size="32px" />
                                                     ) : (
                                                         <span style={{ fontSize: "32px" }}>{oddsModalCase.icon}</span>
                                                     )}
@@ -3524,7 +3542,7 @@
                                                     <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "12px" }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                                             {d.file_id ? (
-                                                                <lottie-player src={`/api/telegram-file/${d.file_id}`} background="transparent" speed="1" style={{ width: "24px", height: "24px" }} loop autoplay></lottie-player>
+                                                                <MediaRenderer fileId={d.file_id} fileType={d.file_type} icon={d.icon} size="24px" />
                                                             ) : (
                                                                 <span style={{ fontSize: "24px" }}>{d.icon}</span>
                                                             )}
@@ -3633,7 +3651,7 @@
                                                             return (
                                                                 <div key={rIdx} style={{ textAlign: "center", flexShrink: 0 }}>
                                                                     {item.file_id ? (
-                                                                        <lottie-player src={`/api/telegram-file/${item.file_id}`} background="transparent" speed="1" style={{ width: "52px", height: "52px", margin: "0 auto" }} loop autoplay></lottie-player>
+                                                                        <MediaRenderer fileId={item.file_id} fileType={item.file_type} icon={item.icon} size="52px" />
                                                                     ) : (
                                                                         <div style={{ fontSize: "52px" }}>{item.icon}</div>
                                                                     )}
@@ -3646,13 +3664,13 @@
                                                     <div style={{ animation: "prizePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)", textAlign: "center" }}>
                                                         {unboxingPrize ? (
                                                             unboxingPrize.file_id ? (
-                                                                <lottie-player src={`/api/telegram-file/${unboxingPrize.file_id}`} background="transparent" speed="1" style={{ width: "80px", height: "80px", margin: "0 auto", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} loop autoplay></lottie-player>
+                                                                <MediaRenderer fileId={unboxingPrize.file_id} fileType={unboxingPrize.file_type} icon={unboxingPrize.icon} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
                                                             ) : (
                                                                 <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>{unboxingPrize.icon}</div>
                                                             )
                                                         ) : (
                                                             activeUnboxing.drops[0].file_id ? (
-                                                                <lottie-player src={`/api/telegram-file/${activeUnboxing.drops[0].file_id}`} background="transparent" speed="1" style={{ width: "80px", height: "80px", margin: "0 auto", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} loop autoplay></lottie-player>
+                                                                <MediaRenderer fileId={activeUnboxing.drops[0].file_id} fileType={activeUnboxing.drops[0].file_type} icon={activeUnboxing.drops[0].icon} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
                                                             ) : (
                                                                 <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>{activeUnboxing.drops[0].icon}</div>
                                                             )

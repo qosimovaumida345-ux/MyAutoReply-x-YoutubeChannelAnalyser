@@ -1619,21 +1619,23 @@ async def handle_api_telegram_file(request):
                     
                 content = await r2.read()
                 content_type = r2.headers.get("Content-Type", "application/octet-stream")
+                headers = {
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=86400" # 1 kun keshda saqlash
+                }
                 
                 # TGS fayllar ko'pincha application/x-tgwallpapers o'rniga oddiy keladi, 
                 # shuning uchun extension orqali aniqlaymiz:
                 if file_path.endswith(".tgs"):
-                    content_type = "application/gzip" # TGS (lottie) zlib/gzip bilan siqilgan JSON
+                    content_type = "application/json" # TGS (lottie) zlib/gzip bilan siqilgan JSON
+                    headers["Content-Encoding"] = "gzip"
                 elif file_path.endswith(".webm"):
                     content_type = "video/webm"
                     
                 return web.Response(
                     body=content,
                     content_type=content_type,
-                    headers={
-                        "Access-Control-Allow-Origin": "*",
-                        "Cache-Control": "public, max-age=86400" # 1 kun keshda saqlash
-                    }
+                    headers=headers
                 )
     except Exception as e:
         return web.Response(status=500, text=f"Proxy error: {e}")

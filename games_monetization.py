@@ -351,6 +351,14 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             upgrade_stars = g.get("upgrade_star_count")
             is_nft = bool(upgrade_stars or total_count)
             
+            is_animated = sticker.get("is_animated", False)
+            is_video = sticker.get("is_video", False)
+            file_type = "webp"
+            if is_video:
+                file_type = "video"
+            elif is_animated:
+                file_type = "tgs"
+            
             emoji = sticker.get("emoji") or ("👑" if is_nft else "🎁")
             name = f"Telegram Sovg'a ({stars} ⭐)"
             if is_nft:
@@ -364,6 +372,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
                 "name": name,
                 "icon": emoji,
                 "file_id": sticker.get("file_id", ""),
+                "file_type": file_type,
                 "is_nft": is_nft,
                 "total_count": total_count,
                 "remaining_count": remains,
@@ -433,22 +442,29 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     def format_drops(drop_list):
         if not drop_list:
             return []
-        if len(drop_list) == 1:
-            return [{**drop_list[0], "weight": 100, "rarity": "common"}]
-        elif len(drop_list) == 2:
-            return [
-                {**drop_list[0], "weight": 75, "rarity": "common"},
-                {**drop_list[1], "weight": 25, "rarity": "rare"}
-            ]
-        else:
-            common_item = drop_list[0]
-            rare_item = drop_list[len(drop_list) // 2]
-            legendary_item = drop_list[-1]
-            return [
-                {**common_item, "weight": 70, "rarity": "common"},
-                {**rare_item, "weight": 25, "rarity": "rare"},
-                {**legendary_item, "weight": 5, "rarity": "legendary"}
-            ]
+            
+        formatted = []
+        for i, item in enumerate(drop_list):
+            stars = item.get("stars", 100)
+            
+            # Ehtimollik (weight) arzon sovg'alarga balandroq beriladi
+            # weight = max(1, 1000 / (stars ^ 1.5)) ko'rinishida taqsimlash
+            if stars <= 15: weight = 60
+            elif stars <= 25: weight = 25
+            elif stars <= 50: weight = 10
+            elif stars <= 100: weight = 4
+            elif stars <= 500: weight = 2
+            else: weight = 1
+            
+            # Rarity belgilash
+            if weight >= 20: rarity = "common"
+            elif weight >= 5: rarity = "rare"
+            else: rarity = "legendary"
+            
+            formatted.append({**item, "weight": weight, "rarity": rarity})
+            
+        # O'xshash weightlarni bir xil qilib qoldiramiz, ularning jami qatnashadi
+        return formatted
 
     cases = {
         "tier_1": {
@@ -625,6 +641,7 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
         "rarity": chosen["rarity"],
         "icon": chosen["icon"],
         "file_id": chosen.get("file_id", ""),
+        "file_type": chosen.get("file_type", "webp"),
         "gift_id": gift_id,
         "is_nft": is_nft,
         "is_premium": is_premium,
