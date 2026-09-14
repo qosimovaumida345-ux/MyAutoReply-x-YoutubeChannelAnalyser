@@ -2190,6 +2190,20 @@ async def main():
                 except Exception as e:
                     print(f"Humo listener startup error: {e}")
 
+                try:
+                    from games_monetization import fetch_telegram_server_gifts
+                    server_gifts = await fetch_telegram_server_gifts(BOT_TOKEN)
+                    print(f"🎁 Telegram serveridan {len(server_gifts)} ta rasmiy sovg'a yuklandi va STARS_CASES yangilandi.")
+                except Exception as gift_err:
+                    print(f"Server gifts startup error: {gift_err}")
+
+                try:
+                    from ytbot import gift_autoflush_worker
+                    asyncio.create_task(gift_autoflush_worker(bot))
+                    print("🎁 Telegram Stars Sovg'alarni avto-yuboruvchi (AutoFlush Worker) ishga tushirildi.")
+                except Exception as flush_err:
+                    print(f"AutoFlush worker startup error: {flush_err}")
+
             async def run_bot():
                 await bot.start()
                 print("✨ CreatorFlow Studio Bot muvaffaqiyatli ishga tushdi!")

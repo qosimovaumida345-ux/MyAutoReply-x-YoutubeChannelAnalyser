@@ -532,7 +532,7 @@
             const [userGifts, setUserGifts] = useState([
                 { prize_name: "Delicious Cake", prize_stars: 15, rarity: "common", icon: "🎂", date: "Bugun" },
                 { prize_name: "Bouquet of Flowers", prize_stars: 50, rarity: "rare", icon: "💐", date: "Bugun" },
-                { prize_name: "Durov's Black Cap NFT", prize_stars: 1000, rarity: "legendary", icon: "🧢", is_nft: true, serial_no: "#749", date: "Kecha" }
+                { prize_name: "Black Cap Collectible", prize_stars: 1000, rarity: "legendary", icon: "🧢", is_nft: true, date: "Kecha" }
             ]);
 
             // ==================== 6 MONETIZATION SUITE STATES ====================
@@ -981,8 +981,8 @@
                             { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, icon: "BOX", color: "#cd7f32", badge: "25 Stars", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "STAR", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "STAR", is_nft: false }] },
                             { id: "tier_2", name: "Silver Creator Case", price_stars: 75, icon: "BOX", color: "#c0c0c0", badge: "75 Stars", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "STAR", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "STAR", is_nft: false }] },
                             { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, icon: "BOX", color: "#ffd700", badge: "250 Stars", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "STAR", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "STAR", is_nft: false }] },
-                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, icon: "BOX", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 1000, name: "Durov's Black Cap NFT", rarity: "legendary", icon: "STAR", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }] },
-                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, icon: "BOX", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1500, name: "Plush Pepe NFT", rarity: "rare", icon: "STAR", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }, { stars: 5000, name: "Royal Crown Collectible NFT", rarity: "legendary", icon: "STAR", is_nft: true, blockchain: "TON", marketplace: "Fragment.com" }] },
+                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, icon: "BOX", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 1000, name: "Black Cap Collectible", rarity: "legendary", icon: "STAR", is_nft: true }] },
+                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, icon: "BOX", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1500, name: "Plush Collectible", rarity: "rare", icon: "STAR", is_nft: true }, { stars: 5000, name: "Royal Crown Collectible", rarity: "legendary", icon: "STAR", is_nft: true }] },
                         ]);
                     });
 
@@ -2546,9 +2546,9 @@
                                                         <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700", margin: "4px 0" }}>
                                                             {g.prize_stars} ⭐ Stars
                                                         </div>
-                                                        {g.is_nft && g.serial_no && (
+                                                        {g.is_nft && (
                                                             <div style={{ fontSize: "11px", fontWeight: 600, color: "#7342E2", margin: "2px 0 6px" }}>
-                                                                💎 {g.serial_no}
+                                                                🎁 Telegram Gift
                                                             </div>
                                                         )}
                                                         <div style={{ display: "flex", justifyContent: "center", gap: "6px", flexWrap: "wrap", marginTop: "6px" }}>
@@ -3515,18 +3515,18 @@
                                             {!isRolling && unboxingPrize && (
                                                 <div style={{ marginBottom: "24px", background: unboxingPrize.is_nft ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(115,66,226,0.2))" : "rgba(255,215,0,0.1)", padding: "16px", borderRadius: "16px", border: `1px solid ${unboxingPrize.is_nft ? 'rgba(115,66,226,0.5)' : 'rgba(255,215,0,0.3)'}` }}>
                                                     <div style={{ fontSize: "13px", color: unboxingPrize.is_nft ? "#00f0ff" : "#ffd700", fontWeight: 700, textTransform: "uppercase" }}>
-                                                        {unboxingPrize.is_nft ? "AFSONAVIY TON NFT QO'LGA KIRITILDI!" : "YUTUQ QO'LGA KIRITILDI!"}
+                                                        {unboxingPrize.is_nft ? "LIMITED EDITION TELEGRAM SOVG'ASI!" : "YUTUQ QO'LGA KIRITILDI!"}
                                                     </div>
                                                     <div style={{ fontSize: "18px", fontWeight: 700, margin: "6px 0" }}>
                                                         {unboxingPrize.prize_name}
                                                     </div>
-                                                    {unboxingPrize.is_nft && unboxingPrize.serial_no && (
+                                                    {unboxingPrize.is_nft && unboxingPrize.total_count && (
                                                         <div style={{ fontSize: "12px", color: "#ffd700", fontWeight: 600, margin: "4px 0" }}>
-                                                            Nusxa: {unboxingPrize.serial_no} • Fragment.com Ready
+                                                            Qoldiq: {unboxingPrize.remaining_count || 0} / {unboxingPrize.total_count} ta
                                                         </div>
                                                     )}
                                                     <div style={{ fontSize: "13px", color: "#aaa" }}>
-                                                        {unboxingPrize.is_nft ? "NFT profilingizga biriktirildi va TON tarmog'iga chiqarishga tayyor!" : "Sovg'a sizning Telegram profilingiz vitrinasiga kiritildi!"}
+                                                        {unboxingPrize.is_nft ? "Eksklyuziv Telegram sovg'asi profilingizga yuboriladi!" : "Sovg'a sizning Telegram profilingizga yetkaziladi!"}
                                                     </div>
                                                 </div>
                                             )}

@@ -1494,11 +1494,65 @@ def create_ytbot():
         user_id = message.from_user.id
         is_admin = check_is_admin(message.from_user)
 
-        # 1. Referal argument tekshiruvi: /start ref_123456 yoki /start 123456
+        # 1. Referal yoki Sovg'a Keys Vauchri argument tekshiruvi
         parts = message.text.strip().split()
         if len(parts) > 1:
-            ref_arg = parts[1]
-            ref_id_str = ref_arg.replace("ref_", "")
+            raw_arg = parts[1].strip()
+            if raw_arg.startswith("gcase_"):
+                # Do'stga sovg'a qilingan keys vaucherini ochish
+                code = raw_arg.replace("gcase_", "").strip()
+                from database import claim_gift_case_voucher, save_gift_record
+                from games_monetization import open_stars_case
+                c_res = claim_gift_case_voucher(code, user_id)
+                if not c_res.get("ok"):
+                    await message.reply_text(f"❌ <b>Sovg'a xatosi:</b> {c_res.get('error')}")
+                    return
+
+                tier_k = c_res["tier_key"]
+                c_name = c_res["case_name"]
+                sender_id = c_res["created_by"]
+
+                open_res = open_stars_case(user_id, tier_k)
+                if open_res.get("ok"):
+                    p_name = open_res["prize_name"]
+                    p_stars = open_res["prize_stars"]
+                    icon = open_res["icon"]
+                    rarity = open_res["rarity"].upper()
+                    g_id = open_res.get("gift_id")
+
+                    rec_id = save_gift_record(user_id, g_id, tier_k, c_name, p_name, p_stars, status="pending")
+                    ref_uzs = int(p_stars * 0.75 * 400)
+
+                    msg_text = (
+                        f"🎉 <b>TABRIKLAYMIZ! DO'STINGIZDAN SOVG'A KEYS QABUL QILINDI!</b>\n\n"
+                        f"👤 <b>Sovg'a yuboruvchi:</b> <code>user_{sender_id}</code>\n"
+                        f"📦 <b>Sovg'a:</b> {c_name}\n\n"
+                        f"🎊 <b>Qutidan chiqqan yutuq:</b>\n"
+                        f"{icon} <b>{p_name}</b> ({p_stars} ⭐ Stars)\n"
+                        f"✨ <b>Noyoblik:</b> <code>[{rarity}]</code>\n\n"
+                        f"👇 <b>Sovg'angizni qanday qabul qilasiz?</b>\n"
+                        f"• <b>Profilga Olish:</b> Haqiqiy Telegram sovg'asi profilingizga jo'natiladi.\n"
+                        f"• <b>Sotish (75% Keshbek):</b> Sovg'ani sotib, hisobingizga <code>+{ref_uzs:,} so'm</code> keshbek olasiz!"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🎁 Profilga Olish (sendGift)", callback_data=f"gift_claim_{rec_id}_{user_id}")],
+                        [InlineKeyboardButton(f"♻️ Sotish (+{ref_uzs:,} so'm Keshbek)", callback_data=f"gift_recycle_{rec_id}_{user_id}")],
+                        [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+                    ])
+                    await message.reply_text(msg_text, reply_markup=kb)
+
+                    # Sovg'a yuboruvchiga bildirishnoma
+                    try:
+                        await client.send_message(
+                            sender_id,
+                            f"🎁 <b>Do'stingiz siz yuborgan sovg'a keysni ochdi!</b>\n\n"
+                            f"Do'stingizga <b>{p_name}</b> ({p_stars} ⭐) sovg'asi tushdi! 🎉"
+                        )
+                    except Exception:
+                        pass
+                    return
+
+            ref_id_str = raw_arg.replace("ref_", "")
             if ref_id_str.isdigit():
                 ref_id = int(ref_id_str)
                 if ref_id != user_id:
@@ -2627,6 +2681,215 @@ def create_ytbot():
         await callback_query.message.edit_text(res_text, reply_markup=kb)
 
 
+    # ==================== 1.1 STARS SOVG'ALARNI QABUL QILISH & SOTISH (RECYCLE) ====================
+    @bot.on_callback_query(filters.regex(r"^gift_claim_(\d+)_(\d+)$"))
+    async def gift_claim_callback(client, callback_query: CallbackQuery):
+        match = re.match(r"^gift_claim_(\d+)_(\d+)$", callback_query.data)
+        if not match:
+            return
+        rec_id = int(match.group(1))
+        target_uid = int(match.group(2))
+        user_id = callback_query.from_user.id
+        
+        if user_id != target_uid:
+            await callback_query.answer("⚠️ Bu sovg'a sizga tegishli emas!", show_alert=True)
+            return
+            
+        from database import get_pending_gifts, update_gift_record_status
+        from games_monetization import send_telegram_gift
+        
+        all_pending = get_pending_gifts(limit=200)
+        gift_item = next((p for p in all_pending if p["id"] == rec_id), None)
+        
+        if not gift_item:
+            await callback_query.answer("Ushbu sovg'a allaqachon yuborilgan yoki sotilgan!", show_alert=True)
+            return
+            
+        await callback_query.answer("⏳ Sovg'a Telegram profilingizga yuborilmoqda...")
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        gift_res = await send_telegram_gift(
+            user_id=user_id,
+            gift_id=gift_item["gift_id"],
+            bot_token=bot_token,
+            text=f"CreatorFlow Studio — {gift_item['case_name']} yutug'ingiz!"
+        )
+        
+        if gift_res.get("ok"):
+            update_gift_record_status(rec_id, status="sent")
+            await callback_query.message.edit_text(
+                f"🎉 <b>TABRIKLAYMIZ! SOVG'A TELEGRAM PROFILINGIZGA YUBORILDI!</b>\n\n"
+                f"🎁 <b>Sovg'a:</b> {gift_item['prize_name']}\n"
+                f"⭐ <b>Qiymati:</b> {gift_item['prize_stars']} ⭐ Stars\n\n"
+                f"<i>Telegram profilingizdagi 'Gifts' (Sovg'alar) bo'limida ko'rishingiz va vitrinangizga qo'yishingiz mumkin.</i>",
+                reply_markup=main_menu_kb(user_id)
+            )
+        else:
+            reason = gift_res.get("reason", "api_error")
+            err_desc = gift_res.get("error", "")
+            if reason == "balance_insufficient":
+                update_gift_record_status(rec_id, status="pending_balance", error_message=err_desc)
+                await callback_query.message.edit_text(
+                    f"⏳ <b>Sovg'angiz tizimda band qilindi (Rezerv)!</b>\n\n"
+                    f"🎁 <b>Sovg'a:</b> {gift_item['prize_name']}\n\n"
+                    f"<i>Botning sovg'alar Stars balansi to'ldirilishi bilan (24 soat ichida) ushbu sovg'a avtomatik tarzda profilingizga yetkaziladi.</i>",
+                    reply_markup=main_menu_kb(user_id)
+                )
+            elif reason == "user_privacy":
+                update_gift_record_status(rec_id, status="pending_privacy", error_message=err_desc)
+                await callback_query.message.edit_text(
+                    f"⚠️ <b>Telegram profilingizda sovg'a qabul qilish taqiqlangan!</b>\n\n"
+                    f"<i>Iltimos, Telegram: Sozlamalar ➔ Maxfiylik ➔ Sovg'alar (Gifts) bo'limida 'Hamma' ga ruxsat bering. Sovg'angiz zaxiraga olindi va ruxsat berishingiz bilan profilingizga yuboriladi!</i>",
+                    reply_markup=main_menu_kb(user_id)
+                )
+            else:
+                update_gift_record_status(rec_id, status="pending", error_message=err_desc)
+                await callback_query.message.edit_text(
+                    f"⏳ <b>Sovg'angiz zaxiraga olindi!</b>\n\n"
+                    f"<i>Telegram serveri bandligi sababli sovg'a navbatga qo'yildi va tez orada profilingizga yetkaziladi.</i>",
+                    reply_markup=main_menu_kb(user_id)
+                )
+
+    @bot.on_callback_query(filters.regex(r"^gift_recycle_(\d+)_(\d+)$"))
+    async def gift_recycle_callback(client, callback_query: CallbackQuery):
+        match = re.match(r"^gift_recycle_(\d+)_(\d+)$", callback_query.data)
+        if not match:
+            return
+        rec_id = int(match.group(1))
+        target_uid = int(match.group(2))
+        user_id = callback_query.from_user.id
+        
+        if user_id != target_uid:
+            await callback_query.answer("⚠️ Bu sovg'a sizga tegishli emas!", show_alert=True)
+            return
+            
+        from database import get_pending_gifts
+        from games_monetization import recycle_pending_gift
+        
+        all_pending = get_pending_gifts(limit=200)
+        gift_item = next((p for p in all_pending if p["id"] == rec_id), None)
+        
+        if not gift_item:
+            await callback_query.answer("Ushbu sovg'a allaqachon yuborilgan yoki sotilgan!", show_alert=True)
+            return
+            
+        prize_stars = gift_item.get("prize_stars", 15)
+        rec_res = recycle_pending_gift(rec_id, user_id, prize_stars)
+        
+        if rec_res.get("ok"):
+            ref_uzs = rec_res["refund_uzs"]
+            n_bal = rec_res["new_balance"]
+            p_name = rec_res["prize_name"]
+            await callback_query.message.edit_text(
+                f"♻️ <b>SOVG'A MUVAFFAQIYATLI SOTILDI (75% KESHBEK)!</b>\n\n"
+                f"📦 <b>Sotilgan sovg'a:</b> {p_name} ({prize_stars} ⭐)\n"
+                f"💰 <b>Qo'shilgan summa:</b> +<code>{ref_uzs:,} so'm</code>\n"
+                f"💳 <b>Joriy balansingiz:</b> <code>{n_bal:,} so'm</code>\n\n"
+                f"<i>Mablag'ingiz hisobingizga kirdi. Endi yangi xizmatlar yoki keys ochishingiz mumkin!</i>",
+                reply_markup=main_menu_kb(user_id)
+            )
+            await callback_query.answer("Sovg'a sotildi va keshbek balansingizga tushdi! 💰")
+        else:
+            await callback_query.answer(f"Xato: {rec_res.get('error')}", show_alert=True)
+
+    # ==================== 1.2 /giftcase (DO'STGA KEYS SOVG'A QILISH) ====================
+    @bot.on_message(filters.command(["giftcase", "sovga"]))
+    async def giftcase_cmd(client, message):
+        user_id = message.from_user.id
+        from games_monetization import STARS_CASES
+        
+        buttons = []
+        for ck, c in STARS_CASES.items():
+            buttons.append([InlineKeyboardButton(f"{c['icon']} {c['name']} ({c['price_stars']} ⭐)", callback_data=f"buy_gcase_{ck}")])
+        buttons.append([InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")])
+        
+        await message.reply_text(
+            f"🎁 <b>Do'stingizga Stars Mystery Case sovg'a qiling!</b>\n\n"
+            f"Quyidagi keyslardan birini tanlang va Telegram Stars orqali to'lang. "
+            f"To'lovdan so'ng sizga maxsus sovg'a havolasi beriladi, uni do'stingizga yuborasiz va do'stingiz keysni o'z hisobiga ochadi!\n\n"
+            f"👇 <b>Sovg'a qilmoqchi bo'lgan keysingizni tanlang:</b>",
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
+
+    @bot.on_message(filters.command(["flushgifts", "pendinggifts"]) & filters.private)
+    async def flush_gifts_cmd(client, message: Message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("❌ Ushbu buyruq faqat bot administratori uchun!")
+            return
+            
+        from database import get_pending_gifts
+        from games_monetization import process_pending_gifts_batch
+        
+        pending = get_pending_gifts(limit=50)
+        if not pending:
+            await message.reply_text("✅ Kutilayotgan sovg'alar navbati bo'sh. Barcha sovg'alar jo'natilgan!")
+            return
+            
+        wait_m = await message.reply_text(f"⏳ Navbatdagi <b>{len(pending)} ta</b> sovg'ani jo'natish boshlandi...")
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        res = await process_pending_gifts_batch(bot_token=bot_token, limit=20)
+        
+        sent_c = res.get("sent_count", 0)
+        failed_c = res.get("failed_count", 0)
+        rem_c = res.get("remaining", 0)
+        b_stop = res.get("balance_stopped", False)
+        
+        status_note = "\n⚠️ <b>Bot Stars balansi tugadi! Fragment orqali to'ldiring.</b>" if b_stop else ""
+        await wait_m.edit_text(
+            f"📊 <b>Sovg'alar Navbati Hisoboti:</b>\n\n"
+            f"✅ <b>Jo'natildi:</b> {sent_c} ta\n"
+            f"❌ <b>Xatolik:</b> {failed_c} ta\n"
+            f"⏳ <b>Navbatda qoldi:</b> {rem_c} ta"
+            f"{status_note}"
+        )
+
+    @bot.on_callback_query(filters.regex(r"^buy_gcase_([a-zA-Z0-9_]+)$"))
+    async def buy_gcase_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        tier_key = callback_query.data.replace("buy_gcase_", "")
+        from games_monetization import STARS_CASES
+        case = STARS_CASES.get(tier_key)
+        if not case:
+            for c in STARS_CASES.values():
+                if c["key"] == tier_key or c["id"] == tier_key:
+                    case = c
+                    break
+        if not case:
+            await callback_query.answer("Keys topilmadi!", show_alert=True)
+            return
+
+        import time as _t
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        import aiohttp
+        url = f"https://api.telegram.org/bot{bot_token}/createInvoiceLink"
+        payload = {
+            "title": f"🎁 Sovg'a: {case['name']}",
+            "description": f"Do'stingiz uchun {case['name']} sovg'a vaucheri",
+            "payload": f"stars_gcase_{case['key']}_{user_id}_{int(_t.time())}",
+            "currency": "XTR",
+            "prices": [{"label": f"Sovg'a {case['name']}", "amount": case["price_stars"]}]
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as resp:
+                    data = await resp.json()
+                    if data.get("ok"):
+                        inv_link = data.get("result")
+                        kb = InlineKeyboardMarkup([
+                            [InlineKeyboardButton(f"⭐ {case['price_stars']} Stars To'lash", url=inv_link)],
+                            [InlineKeyboardButton("⬅️ Boshqa keys tanlash", callback_data="box_menu")]
+                        ])
+                        await callback_query.message.edit_text(
+                            f"🎁 <b>Do'stingiz uchun {case['name']}</b>\n\n"
+                            f"⭐ <b>Narxi:</b> <code>{case['price_stars']} ⭐ Stars</code>\n\n"
+                            f"<i>To'lovni amalga oshirish uchun quyidagi tugmani bosing. To'lov tasdiqlangach darhol ulashish havolasi beriladi:</i>",
+                            reply_markup=kb
+                        )
+                    else:
+                        await callback_query.answer(f"Xato: {data.get('description')}", show_alert=True)
+        except Exception as e:
+            await callback_query.answer(f"Xato: {e}", show_alert=True)
+
+
     # ==================== 2. /wheel & /spin (Omad G'ildiragi) ====================
     @bot.on_message(filters.command(["wheel", "spin"]))
     async def wheel_cmd(client, message):
@@ -2905,6 +3168,49 @@ def create_ytbot():
         await callback_query.message.edit_text(text, reply_markup=kb)
         await callback_query.answer("Yangilandi!" if callback_query.data == "lottery_refresh" else None)
 
+
+    # ==================== 5.0 /pendinggifts & /flushgifts (Stars Sovg'alar Navbati) ====================
+    @bot.on_message(filters.command(["pendinggifts", "kutilayotgansovgalar"]))
+    async def pendinggifts_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("⛔ Bu buyruq faqat bot administratorlari uchun!")
+            return
+        from database import get_pending_gifts
+        pending = get_pending_gifts(limit=30)
+        if not pending:
+            await message.reply_text("✅ <b>Kutilayotgan sovg'alar yo'q!</b> Barcha yutilgan Stars sovg'alari foydalanuvchilarga muvaffaqiyatli jo'natilgan.")
+            return
+
+        lines = [f"🎁 <b>Kutilayotgan Sovg'alar Navbati ({len(pending)} ta):</b>\n"]
+        for p in pending:
+            status_emoji = "⏳" if p['status'] == 'pending' else ("💳" if p['status'] == 'pending_balance' else "🔒")
+            lines.append(
+                f"• {status_emoji} <b>ID:</b> <code>{p['id']}</code> | <b>User:</b> <code>{p['tg_user_id']}</code>\n"
+                f"   Sovg'a: <b>{p['prize_name']}</b> ({p['prize_stars']} ⭐)\n"
+                f"   Status: <code>{p['status']}</code>" + (f" (<i>{p['error_message']}</i>)" if p.get('error_message') else "")
+            )
+        lines.append("\n💡 <i>Bot hisobiga Stars to'ldirgandan so'ng navbatdagi sovg'alarni yuborish uchun:</i> <code>/flushgifts</code>")
+        await message.reply_text("\n".join(lines))
+
+    @bot.on_message(filters.command(["flushgifts", "sendpendinggifts"]))
+    async def flushgifts_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text("⛔ Bu buyruq faqat bot administratorlari uchun!")
+            return
+        wait_m = await message.reply_text("⏳ <b>Kutilayotgan sovg'alar yuborilmoqda...</b> Iltimos, kuting.")
+        from games_monetization import process_pending_gifts_batch
+        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+        res = await process_pending_gifts_batch(bot_token=bot_token, limit=25)
+        
+        msg = (
+            f"📊 <b>Sovg'alar yuborish natijasi:</b>\n\n"
+            f"✅ <b>Muvaffaqiyatli jo'natildi:</b> {res['sent_count']} ta\n"
+            f"❌ <b>Xatolik / yetkazilmadi:</b> {res['failed_count']} ta\n"
+            f"⏳ <b>Navbatda qolgan:</b> {res['remaining']} ta\n"
+        )
+        if res.get("balance_stopped"):
+            msg += "\n⚠️ <b>Bot Stars balansi tugadi!</b> Qolgan sovg'alarni jo'natish uchun Fragment.com orqali bot hisobiga qo'shimcha Stars yuklang."
+        await wait_m.edit_text(msg)
 
     # ==================== 5. /makegift & /redeem (Vaucherlar) ====================
     @bot.on_message(filters.command("makegift"))
@@ -7862,7 +8168,9 @@ def create_ytbot():
                         parts = raw_payload.split("_")
                         tier_key = parts[2]
                         u_id = user_id or int(parts[3])
-                        from games_monetization import open_stars_case
+                        from games_monetization import open_stars_case, send_telegram_gift
+                        from database import save_gift_record
+                        
                         res = open_stars_case(u_id, tier_key)
                         if res.get("ok"):
                             prize_name = res["prize_name"]
@@ -7870,27 +8178,82 @@ def create_ytbot():
                             case_name = res["case_name"]
                             icon = res["icon"]
                             rarity = res["rarity"].upper()
+                            gift_id = res.get("gift_id")
+                            is_premium = res.get("is_premium", False)
+                            prem_months = res.get("premium_months")
+                            super_luck = res.get("super_luck", False)
                             
-                            # Hisobga Stars qiymatidagi keshbek yoki sovg'a qo'shish
-                            add_user_balance(u_id, prize_stars * 400)
+                            # 1. Boshlang'ich holatda pending_gifts ga yozib olamiz
+                            rec_id = save_gift_record(
+                                tg_user_id=u_id,
+                                gift_id=gift_id,
+                                tier_key=tier_key,
+                                case_name=case_name,
+                                prize_name=prize_name,
+                                prize_stars=prize_stars,
+                                status="pending"
+                            )
                             
-                            nft_msg = ""
-                            if res.get("is_nft") and res.get("serial_no"):
-                                nft_msg = f"\n💎 <b>TON Blockchain NFT:</b> <code>{res['serial_no']}</code>\n🌐 <b>Marketplace:</b> Fragment.com (TON Network)\n"
+                            refund_uzs = int(prize_stars * 0.75 * 400)
+                            
+                            super_luck_badge = "\n🍀 <b>[Super Omad Faollashdi!]</b> Omadsizlikdan himoya yutug'i!\n" if super_luck else ""
+                            premium_badge = f"\n💎 <b>Telegram Premium ({prem_months} oylik rasmiy obuna)!</b>\n" if is_premium else ""
 
-                            await client.send_message(
-                                u_id,
+                            text_msg = (
                                 f"🎉 <b>TABRIKLAYMIZ! STARS MYSTERY CASE OCHILDI!</b>\n\n"
                                 f"📦 <b>Keys:</b> {case_name}\n"
                                 f"{icon} <b>Sizning Yutug'ingiz:</b> {prize_name}\n"
                                 f"⭐ <b>Sovg'a Qiymati:</b> {prize_stars} ⭐ Stars\n"
                                 f"✨ <b>Noyoblik:</b> <code>[{rarity}]</code>"
-                                f"{nft_msg}\n"
-                                f"💰 Mukofot profilingiz vitrinasiga biriktirildi!",
-                                reply_markup=main_menu_kb(u_id)
+                                f"{super_luck_badge}"
+                                f"{premium_badge}\n"
+                                f"👇 <b>Sovg'angizni qanday qabul qilasiz?</b>\n"
+                                f"• <b>Profilga Olish:</b> Haqiqiy Telegram sovg'asi profilingizga jo'natiladi.\n"
+                                f"• <b>Sotish (75% Keshbek):</b> Sovg'ani sotib, hisobingizga <code>+{refund_uzs:,} so'm</code> keshbek olasiz!"
                             )
+                            
+                            kb = InlineKeyboardMarkup([
+                                [InlineKeyboardButton("🎁 Profilga Olish (sendGift)", callback_data=f"gift_claim_{rec_id}_{u_id}")],
+                                [InlineKeyboardButton(f"♻️ Sotish (+{refund_uzs:,} so'm Keshbek)", callback_data=f"gift_recycle_{rec_id}_{u_id}")],
+                                [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+                            ])
+
+                            await client.send_message(u_id, text_msg, reply_markup=kb)
                     except Exception as box_err:
                         print(f"Stars box payment error: {box_err}")
+                elif raw_payload.startswith("stars_gcase_"):
+                    try:
+                        parts = raw_payload.split("_")
+                        tier_key = parts[2]
+                        u_id = user_id or int(parts[3])
+                        from games_monetization import STARS_CASES
+                        from database import create_gift_case_voucher
+                        case_info = STARS_CASES.get(tier_key, {})
+                        case_name = case_info.get("name", "Stars Mystery Case")
+                        price_stars = case_info.get("price_stars", action.total_amount)
+                        
+                        code = create_gift_case_voucher(u_id, tier_key, case_name, price_stars)
+                        bot_username = getattr(client, "me", None)
+                        b_uname = getattr(bot_username, "username", "") or "CreatorFlow_Studio_Bot"
+                        gift_link = f"https://t.me/{b_uname}?start=gcase_{code}"
+                        
+                        share_text = f"🎁 Sizga do'stingizdan 1 ta {case_name} sovg'a yuborildi! Ochish uchun bosing: {gift_link}"
+                        share_url = f"https://t.me/share/url?url={gift_link}&text=Sizga%201%20ta%20{case_name}%20sovg'a%20qilindi!%20Ochish%20uchun%20bosing!"
+
+                        await client.send_message(
+                            u_id,
+                            f"🎉 <b>Do'stingiz uchun sovg'a keysi tayyor!</b>\n\n"
+                            f"📦 <b>Sovg'a:</b> {case_name} ({price_stars} ⭐)\n"
+                            f"🔑 <b>Sovg'a Kodi:</b> <code>{code}</code>\n"
+                            f"🔗 <b>Sovg'a Havolasi:</b>\n<code>{gift_link}</code>\n\n"
+                            f"<i>Ushbu havolani do'stingizga yuboring. Do'stingiz havolani bosishi bilan keys uning hisobiga ochiladi!</i>",
+                            reply_markup=InlineKeyboardMarkup([
+                                [InlineKeyboardButton("📲 Do'stga Ulashish", url=share_url)],
+                                [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+                            ])
+                        )
+                    except Exception as gcase_err:
+                        print(f"Stars gcase payment error: {gcase_err}")
 
     # ==================== VIDEO FAYL UNIKALIZATSIYA HANDLER ====================
     @bot.on_message((filters.video | filters.document) & filters.private)
@@ -8355,6 +8718,47 @@ async def autostream_expiration_worker(bot: Client):
         await asyncio.sleep(60)
 
 
+async def gift_autoflush_worker(bot: Client):
+    """Har 15 daqiqada kutilayotgan sovg'alarni avtomatik jo'natadi va bot Stars balansi yetishmasa adminga bildirishnoma beradi"""
+    from games_monetization import process_pending_gifts_batch
+    from database import get_pending_gifts
+    from config import OWNER_ID
+    import os, time
+    
+    admin_id = 0
+    try:
+        admin_id = int(os.environ.get("OWNER_ID", OWNER_ID or 0))
+    except Exception:
+        pass
+        
+    last_admin_alert_ts = 0
+    await asyncio.sleep(20)
+
+    while True:
+        try:
+            pending = get_pending_gifts(limit=15)
+            if pending:
+                bot_token = getattr(bot, "bot_token", None) or BOT_TOKEN
+                res = await process_pending_gifts_batch(bot_token=bot_token, limit=15)
+                if res.get("balance_stopped"):
+                    now = time.time()
+                    if (now - last_admin_alert_ts > 7200) and admin_id:
+                        rem = res.get("remaining", len(pending))
+                        try:
+                            await bot.send_message(
+                                admin_id,
+                                f"⚠️ <b>[DIQQAT] Bot Stars Balansi Yetarli Emas!</b>\n\n"
+                                f"Navbatda <b>{rem} ta</b> foydalanuvchi sovg'alari kutilmoqda.\n"
+                                f"Iltimos, Fragment.com orqali bot hisobiga Stars yuklang, so'ngra /flushgifts buyrug'ini bosing!"
+                            )
+                            last_admin_alert_ts = now
+                        except Exception as alert_err:
+                            print(f"Admin alert error: {alert_err}")
+        except Exception as e:
+            print(f"gift_autoflush_worker error: {e}")
+        await asyncio.sleep(900)
+
+
 async def run_ytbot():
     bot = create_ytbot()
     if bot is None:
@@ -8368,4 +8772,10 @@ async def run_ytbot():
     from instagram_cloner import start_instagram_sync_daemon
     asyncio.create_task(start_antifraud_sentinel_daemon(bot, interval_seconds=3600))
     asyncio.create_task(start_instagram_sync_daemon(bot, interval_seconds=1800))
+    try:
+        from games_monetization import fetch_telegram_server_gifts
+        asyncio.create_task(fetch_telegram_server_gifts(getattr(bot, 'bot_token', None) or BOT_TOKEN))
+    except Exception as e:
+        print(f"run_ytbot gift startup error: {e}")
+    asyncio.create_task(gift_autoflush_worker(bot))
     await asyncio.Event().wait()

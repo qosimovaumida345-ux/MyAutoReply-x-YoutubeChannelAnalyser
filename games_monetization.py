@@ -249,20 +249,43 @@ def get_recent_box_winners(limit: int = 5) -> list:
 
 _LIVE_SERVER_GIFTS = []
 _LAST_SERVER_FETCH = 0
+_GIFTS_CACHE_FILE = "telegram_gifts_cache.json"
+
+def _load_cached_server_gifts() -> list:
+    """Diskdagi keshdan oxirgi olingan haqiqiy Telegram sovg'alarini yuklash"""
+    import os, json
+    if os.path.exists(_GIFTS_CACHE_FILE):
+        try:
+            with open(_GIFTS_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception as e:
+            print(f"Sovg'alar keshini o'qishda xato: {e}")
+    return []
+
+def _save_cached_server_gifts(gifts: list):
+    """Telegram sovg'alarini diskka keshlab qo'yish"""
+    import json
+    if gifts and isinstance(gifts, list):
+        try:
+            with open(_GIFTS_CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(gifts, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Sovg'alar keshini saqlashda xato: {e}")
 
 async def fetch_telegram_server_gifts(bot_token: str = None) -> list:
     """
     Telegram Bot API getAvailableGifts orqali Telegram serveridagi
-    BARCHA faol rasmiy sovg'alarni jonli yuklab oladi.
+    BARCHA faol rasmiy sovg'alarni jonli yuklab oladi va STARS_CASES ni yangilaydi.
     Hech qanday statik cheklov yo'q - serverda qancha bo'lsa, hammasini oladi.
     """
-    global _LIVE_SERVER_GIFTS, _LAST_SERVER_FETCH
-    import time
+    global _LIVE_SERVER_GIFTS, _LAST_SERVER_FETCH, STARS_CASES
+    import time, os
     now = time.time()
     if _LIVE_SERVER_GIFTS and (now - _LAST_SERVER_FETCH < 180):
         return _LIVE_SERVER_GIFTS
 
-    import os
     from config import BOT_TOKEN
     token = bot_token or BOT_TOKEN or os.getenv("BOT_TOKEN", "")
     if token:
@@ -270,25 +293,46 @@ async def fetch_telegram_server_gifts(bot_token: str = None) -> list:
             import aiohttp
             url = f"https://api.telegram.org/bot{token}/getAvailableGifts"
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=6) as resp:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
                     data = await resp.json()
                     if data.get("ok"):
                         gifts = data.get("result", {}).get("gifts", [])
                         if gifts:
                             _LIVE_SERVER_GIFTS = gifts
                             _LAST_SERVER_FETCH = now
+                            _save_cached_server_gifts(gifts)
+                            
+                            # Global STARS_CASES ni jonli yangilaymiz
+                            new_cases = build_cases_from_gifts(gifts)
+                            STARS_CASES.clear()
+                            STARS_CASES.update(new_cases)
+                            print(f"🎁 Telegram serveridan {len(gifts)} ta faol sovg'a yuklandi va keyslar yangilandi!")
                             return gifts
         except Exception as e:
             print(f"Telegram getAvailableGifts server fetch error: {e}")
+
+    # Agar tarmoqdan yuklanmasa, diskdagi keshdan tekshiramiz
+    if not _LIVE_SERVER_GIFTS:
+        cached = _load_cached_server_gifts()
+        if cached:
+            _LIVE_SERVER_GIFTS = cached
+            new_cases = build_cases_from_gifts(cached)
+            STARS_CASES.clear()
+            STARS_CASES.update(new_cases)
+            return cached
 
     return _LIVE_SERVER_GIFTS
 
 def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     """
     Serverdan olingan sovg'alarni avtomatik ravishda qiymati va NFT darajasiga ko'ra
-    5 ta keysga taqsimlaydi. Hech qanday statik hardcode yo'q.
+    5 ta keysga taqsimlaydi.
+    Barcha soxta serial raqamlar va Fragment.com matnlari tozalangan.
     """
+    global _LIVE_SERVER_GIFTS
     gifts = raw_gifts if raw_gifts is not None else _LIVE_SERVER_GIFTS
+    if not gifts:
+        gifts = _load_cached_server_gifts()
     
     items = []
     if gifts:
@@ -304,9 +348,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             emoji = sticker.get("emoji") or ("👑" if is_nft else "🎁")
             name = f"Telegram Sovg'a ({stars} ⭐)"
             if is_nft:
-                name = f"Limited Collectible NFT ({stars} ⭐)"
-                if total_count:
-                    name += f" [#{remains or 0}/{total_count}]"
+                name = f"Limited Edition Sovg'a ({stars} ⭐)"
+                if total_count and remains is not None:
+                    name += f" [{remains}/{total_count}]"
 
             items.append({
                 "id": gid,
@@ -316,41 +360,72 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
                 "is_nft": is_nft,
                 "total_count": total_count,
                 "remaining_count": remains,
-                "upgrade_stars": upgrade_stars,
-                "blockchain": "TON" if is_nft else None,
-                "marketplace": "Fragment.com" if is_nft else None
+                "upgrade_stars": upgrade_stars
             })
 
     items.sort(key=lambda x: x["stars"])
 
     # Har bir tier uchun drops ro'yxati (serverdan olingan sovg'alar bo'yicha)
-    t1_drops = [it for it in items if it["stars"] <= 50] or [
-        {"id": "tg_cake", "stars": 15, "name": "Delicious Cake", "icon": "🎂", "is_nft": False},
-        {"id": "tg_star", "stars": 25, "name": "Green Star", "icon": "💚", "is_nft": False},
-        {"id": "tg_bear", "stars": 50, "name": "Teddy Bear", "icon": "🧸", "is_nft": False}
-    ]
-    t2_drops = [it for it in items if 25 <= it["stars"] <= 250] or [
-        {"id": "tg_bouquet", "stars": 50, "name": "Bouquet of Flowers", "icon": "💐", "is_nft": False},
-        {"id": "tg_champagne", "stars": 100, "name": "Champagne Bottle", "icon": "🍾", "is_nft": False},
-        {"id": "tg_ring", "stars": 250, "name": "Diamond Ring", "icon": "💍", "is_nft": False}
-    ]
-    t3_drops = [it for it in items if 100 <= it["stars"] <= 500] or [
-        {"id": "tg_champagne", "stars": 100, "name": "Champagne Bottle", "icon": "🍾", "is_nft": False},
-        {"id": "tg_ring", "stars": 250, "name": "Diamond Ring", "icon": "💍", "is_nft": False},
-        {"id": "tg_trophy", "stars": 500, "name": "Golden Trophy", "icon": "🏆", "is_nft": False}
-    ]
-    t4_drops = [it for it in items if (250 <= it["stars"] <= 1000) or it["is_nft"]] or [
-        {"id": "tg_trophy", "stars": 500, "name": "Golden Trophy", "icon": "🏆", "is_nft": False},
-        {"id": "tg_rocket", "stars": 1000, "name": "Space Rocket", "icon": "🚀", "is_nft": False},
-        {"id": "tg_durov_cap", "stars": 1000, "name": "Durov's Black Cap NFT", "icon": "🧢", "is_nft": True, "blockchain": "TON", "marketplace": "Fragment.com"}
-    ]
-    t5_drops = [it for it in items if it["stars"] >= 1000 or it["is_nft"]] or [
-        {"id": "tg_rocket", "stars": 1000, "name": "Space Rocket", "icon": "🚀", "is_nft": False},
-        {"id": "tg_pepe", "stars": 1500, "name": "Plush Pepe NFT", "icon": "🐸", "is_nft": True, "blockchain": "TON", "marketplace": "Fragment.com"},
-        {"id": "tg_crown", "stars": 5000, "name": "Royal Crown Collectible NFT", "icon": "👑", "is_nft": True, "blockchain": "TON", "marketplace": "Fragment.com"}
-    ]
+    if items:
+        t1_drops = [it for it in items if it["stars"] <= 50] or items[:max(1, len(items)//5)]
+        t2_drops = [it for it in items if 25 <= it["stars"] <= 250] or items[len(items)//5:max(2, 2*len(items)//5)]
+        t3_drops = [it for it in items if 100 <= it["stars"] <= 500] or items[2*len(items)//5:max(3, 3*len(items)//5)]
+        t4_drops = [it for it in items if (250 <= it["stars"] <= 1000) or it["is_nft"]] or items[3*len(items)//5:max(4, 4*len(items)//5)]
+        t5_drops = [it for it in items if it["stars"] >= 1000 or it["is_nft"]] or items[4*len(items)//5:]
+    else:
+        # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
+        t1_drops = [
+            {"id": "5183889020478160001", "stars": 15, "name": "Delicious Cake", "icon": "🎂", "is_nft": False},
+            {"id": "5183889020478160002", "stars": 25, "name": "Green Star", "icon": "💚", "is_nft": False},
+            {"id": "5183889020478160003", "stars": 50, "name": "Teddy Bear", "icon": "🧸", "is_nft": False}
+        ]
+        t2_drops = [
+            {"id": "5183889020478160004", "stars": 50, "name": "Bouquet of Flowers", "icon": "💐", "is_nft": False},
+            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "🍾", "is_nft": False},
+            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "💍", "is_nft": False}
+        ]
+        t3_drops = [
+            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "🍾", "is_nft": False},
+            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "💍", "is_nft": False},
+            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "🏆", "is_nft": False}
+        ]
+        t4_drops = [
+            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "🏆", "is_nft": False},
+            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "🚀", "is_nft": False},
+            {"id": "5183889020478160009", "stars": 1000, "name": "Black Cap Collectible", "icon": "🧢", "is_nft": True}
+        ]
+        t5_drops = [
+            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "🚀", "is_nft": False},
+            {"id": "5183889020478160010", "stars": 1500, "name": "Plush Collectible", "icon": "🐸", "is_nft": True},
+            {"id": "5183889020478160011", "stars": 5000, "name": "Royal Crown Collectible", "icon": "👑", "is_nft": True}
+        ]
+
+    # Maxsus Telegram Premium Yutuqlari (Faqat etarlicha depozit/aylanma qilganlarga beriladi)
+    # 3 oylik: 1100 Stars (min talab: 1210 Stars), 6 oylik: 2150 Stars (min talab: 2365 Stars)
+    t4_drops.append({
+        "id": "tg_prem_3m",
+        "stars": 1100,
+        "name": "Telegram Premium (3 Oylik)",
+        "icon": "⭐",
+        "is_nft": False,
+        "is_premium": True,
+        "premium_months": 3,
+        "min_stars_required": 1210
+    })
+    t5_drops.append({
+        "id": "tg_prem_6m",
+        "stars": 2150,
+        "name": "Telegram Premium (6 Oylik)",
+        "icon": "💎",
+        "is_nft": False,
+        "is_premium": True,
+        "premium_months": 6,
+        "min_stars_required": 2365
+    })
 
     def format_drops(drop_list):
+        if not drop_list:
+            return []
         if len(drop_list) == 1:
             return [{**drop_list[0], "weight": 100, "rarity": "common"}]
         elif len(drop_list) == 2:
@@ -410,7 +485,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "icon": "💎",
             "badge": "750 ⭐",
             "color": "#00f0ff",
-            "description": "Telegram serveridagi premium sovg'alar va TON Blockchain NFT lar!",
+            "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
             "drops": format_drops(t4_drops)
         },
         "tier_5": {
@@ -421,7 +496,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "icon": "🪐",
             "badge": "2,500 ⭐",
             "color": "#b026ff",
-            "description": "Telegram serveridagi eksklyuziv va Limited Edition NFT Collectibles!",
+            "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",
             "drops": format_drops(t5_drops)
         }
     }
@@ -438,7 +513,8 @@ def get_stars_cases_info():
 def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
     """
     5 Tierli Telegram Stars Mystery Case ochish.
-    Foydalanuvchi to'lagan Stars qiymatiga mos ehtimollik bilan yutuqni aniqlaydi.
+    Bad Luck Protection (kassa kafolatlangan 15+ Stars foydada) va
+    Telegram Premium depozit himoyasi (kamida +10% aylanma talabi) bilan ishlaydi.
     """
     cases = build_cases_from_gifts()
     case = cases.get(tier_id)
@@ -451,13 +527,53 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
         return {"ok": False, "error": f"Noto'g'ri keys tanlandi: {tier_id}"}
 
     drops = case["drops"]
-    weights = [d["weight"] for d in drops]
-    chosen = random.choices(drops, weights=weights, k=1)[0]
+    if not drops:
+        return {"ok": False, "error": "Ushbu keysda sovg'alar mavjud emas"}
+
+    from database import get_user_bad_luck_streak, update_user_bad_luck, get_user_total_stars_spent
+    
+    bad_luck_streak = get_user_bad_luck_streak(tg_user_id)
+    super_luck = False
+    chosen = None
+
+    # 1. BAD LUCK PROTECTION (Kassa kafolatlangan 15+ Stars foydada qoladi!)
+    if bad_luck_streak >= 3:
+        # Masalan: 25 ⭐ keysda max yutuq 10 ⭐ (Kassaga kamida 15 ⭐ foyda qoladi)
+        # 75 ⭐ keysda max yutuq 35 ⭐ (Kassaga kamida 40 ⭐ foyda qoladi)
+        # 250 ⭐ keysda max yutuq 120 ⭐ (Kassaga kamida 130 ⭐ foyda qoladi)
+        max_allowed_stars = max(10, case["price_stars"] - 15)
+        # Premium obuna Super Luck bilan berilmaydi (faqat real depozit bilan olinadi)
+        candidates = [d for d in drops if d["stars"] <= max_allowed_stars and not d.get("is_premium")]
+        if candidates:
+            # Eng yaxshi mos sovg'ani tanlaymiz
+            chosen = candidates[-1]
+            super_luck = True
+            update_user_bad_luck(tg_user_id, is_loss=False, stars_cost=case["price_stars"])
+
+    # 2. Standart tasodifiy tanlov (agar Super Luck bo'lmasa)
+    if not chosen:
+        weights = [d["weight"] for d in drops]
+        chosen = random.choices(drops, weights=weights, k=1)[0]
+        
+        # 3. TELEGRAM PREMIUM DEPOZIT FILTRI (Kassa minusga kirmasligi uchun)
+        if chosen.get("is_premium"):
+            min_req = chosen.get("min_stars_required", 1210)
+            total_spent = get_user_total_stars_spent(tg_user_id)
+            # Foydalanuvchi umumiy sarflagan mablag'i Premium narxidan kamida 10% ko'p bo'lmasa:
+            if total_spent < min_req:
+                # Premium o'rniga oddiy Telegram sovg'asiga almashtiriladi
+                regular_drops = [d for d in drops if not d.get("is_premium")]
+                chosen = regular_drops[len(regular_drops)//2] if regular_drops else drops[0]
+
+        # Omadsizlik hisobini yangilash
+        if chosen["stars"] < case["price_stars"]:
+            update_user_bad_luck(tg_user_id, is_loss=True, stars_cost=case["price_stars"])
+        else:
+            update_user_bad_luck(tg_user_id, is_loss=False, stars_cost=case["price_stars"])
 
     is_nft = chosen.get("is_nft", False)
-    serial_no = f"#{random.randint(100, 9999)} of 10,000" if is_nft else None
-    blockchain = chosen.get("blockchain", "TON") if is_nft else None
-    marketplace = chosen.get("marketplace", "Fragment.com") if is_nft else None
+    is_premium = chosen.get("is_premium", False)
+    gift_id = str(chosen.get("id", ""))
 
     # Mukofotni bazaga yozish
     conn = get_db()
@@ -496,12 +612,178 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
         "prize_name": chosen["name"],
         "rarity": chosen["rarity"],
         "icon": chosen["icon"],
-        "gift_id": chosen.get("id"),
+        "gift_id": gift_id,
         "is_nft": is_nft,
-        "serial_no": serial_no,
-        "blockchain": blockchain,
-        "marketplace": marketplace
+        "is_premium": is_premium,
+        "premium_months": chosen.get("premium_months"),
+        "super_luck": super_luck,
+        "total_count": chosen.get("total_count"),
+        "remaining_count": chosen.get("remaining_count"),
+        "upgrade_stars": chosen.get("upgrade_stars")
     }
+
+
+def recycle_pending_gift(record_id: int, tg_user_id: int, prize_stars: int) -> dict:
+    """
+    Sovg'ani 75% keshbek evaziga sotish (Recycle).
+    1 Stars = 400 so'm hisobida 75% keshbek balansga qaytariladi (25% kassa sof foydasi).
+    """
+    from database import recycle_gift_record
+    refund_uzs = int(prize_stars * 0.75 * 400)
+    return recycle_gift_record(record_id, tg_user_id, refund_uzs)
+
+
+
+async def send_telegram_gift(
+    user_id: int,
+    gift_id: str,
+    bot_token: str = None,
+    text: str = None,
+    pay_for_upgrade: bool = False
+) -> dict:
+    """
+    Telegram Bot API sendGift metodi orqali foydalanuvchiga haqiqiy sovg'a jo'natish.
+    DIQQAT: Sovg'a uchun Stars botning Fragment.com orqali to'ldirilgan o'z hisobidan yechiladi.
+    """
+    import os
+    from config import BOT_TOKEN
+    token = bot_token or BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+    if not token:
+        return {"ok": False, "sent": False, "reason": "no_token", "error": "BOT_TOKEN topilmadi"}
+
+    url = f"https://api.telegram.org/bot{token}/sendGift"
+    payload = {
+        "user_id": int(user_id),
+        "gift_id": str(gift_id)
+    }
+    if text:
+        payload["text"] = str(text)[:128]
+    if pay_for_upgrade:
+        payload["pay_for_upgrade"] = True
+
+    is_prem = str(gift_id).startswith("tg_prem_")
+    if is_prem:
+        # Telegram Premium obunasi (giftPremiumSubscription)
+        # 3 oylik: 1100 Stars qiymati (Bot API da 1000 Stars), 6 oylik: 2150 Stars (Bot API da 1500 Stars)
+        months = 6 if "6m" in str(gift_id) else 3
+        star_count = 1500 if months == 6 else 1000
+        url = f"https://api.telegram.org/bot{token}/giftPremiumSubscription"
+        payload = {
+            "user_id": int(user_id),
+            "month_count": months,
+            "star_count": star_count
+        }
+        if text:
+            payload["text"] = str(text)[:128]
+
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                data = await resp.json()
+                if data.get("ok"):
+                    return {"ok": True, "sent": True, "result": data.get("result"), "is_premium": is_prem}
+                
+                # Agar Premium obunada star_count mos kelmasa, alternativ star_count (1100 / 2150) bilan qayta urinish
+                if is_prem:
+                    alt_star_count = 2150 if months == 6 else 1100
+                    payload["star_count"] = alt_star_count
+                    async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as retry_resp:
+                        retry_data = await retry_resp.json()
+                        if retry_data.get("ok"):
+                            return {"ok": True, "sent": True, "result": retry_data.get("result"), "is_premium": True}
+
+                # Xatolik sababini aniqlash
+                err_code = data.get("error_code", 400)
+                desc = str(data.get("description", "")).strip()
+                desc_upper = desc.upper()
+                
+                # 1. Bot Stars balansi yetishmasligi (Fragment orqali bot hisobiga Stars kerak)
+                if any(kw in desc_upper for kw in ["BALANCE", "STAR", "NOT_ENOUGH", "INSUFFICIENT"]):
+                    return {
+                        "ok": False,
+                        "sent": False,
+                        "reason": "balance_insufficient",
+                        "error": desc,
+                        "error_code": err_code,
+                        "is_premium": is_prem
+                    }
+                # 2. Foydalanuvchi profilida sovg'alar qabul qilish taqiqlangan (Privacy)
+                elif any(kw in desc_upper for kw in ["PRIVACY", "RESTRICTED", "DISALLOWED", "USER_GIFTS"]):
+                    return {
+                        "ok": False,
+                        "sent": False,
+                        "reason": "user_privacy",
+                        "error": desc,
+                        "error_code": err_code,
+                        "is_premium": is_prem
+                    }
+                # 3. Boshqa API xatoliklari (noto'g'ri ID yoki bot bloklangan)
+                else:
+                    return {
+                        "ok": False,
+                        "sent": False,
+                        "reason": "api_error",
+                        "error": desc,
+                        "error_code": err_code,
+                        "is_premium": is_prem
+                    }
+    except Exception as e:
+        return {
+            "ok": False,
+            "sent": False,
+            "reason": "network_error",
+            "error": str(e),
+            "is_premium": is_prem
+        }
+
+
+async def process_pending_gifts_batch(bot_token: str = None, limit: int = 20) -> dict:
+    """
+    Kutilayotgan sovg'alarni ommaviy jo'natish (Admin buyrug'i yoki fon cron vazifasi uchun).
+    Bot Stars balansi to'ldirilgandan so'ng navbatdagi sovg'alarni yuboradi.
+    """
+    from database import get_pending_gifts, update_gift_record_status
+    pending_list = get_pending_gifts(limit=limit)
+    if not pending_list:
+        return {"ok": True, "sent_count": 0, "remaining": 0, "message": "Kutilayotgan sovg'alar yo'q."}
+
+    sent_count = 0
+    failed_count = 0
+    balance_stopped = False
+
+    for item in pending_list:
+        rec_id = item["id"]
+        u_id = item["tg_user_id"]
+        g_id = item["gift_id"]
+
+        res = await send_telegram_gift(u_id, g_id, bot_token=bot_token)
+        if res.get("ok"):
+            update_gift_record_status(rec_id, status="sent")
+            sent_count += 1
+        else:
+            reason = res.get("reason", "api_error")
+            err = res.get("error", "Noma'lum xato")
+            if reason == "balance_insufficient":
+                update_gift_record_status(rec_id, status="pending_balance", error_message=err)
+                balance_stopped = True
+                break  # Bot Stars balansi tugagan bo'lsa, keyingilarini urinib vaqt sarflamaymiz
+            elif reason == "user_privacy":
+                update_gift_record_status(rec_id, status="pending_privacy", error_message=err)
+                failed_count += 1
+            else:
+                update_gift_record_status(rec_id, status="pending", error_message=err)
+                failed_count += 1
+
+    remaining = len(get_pending_gifts(limit=limit))
+    return {
+        "ok": True,
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "remaining": remaining,
+        "balance_stopped": balance_stopped
+    }
+
 
 
 # ==================== 3. OMAD G'ILDIRAGI (WHEEL OF FORTUNE) ====================

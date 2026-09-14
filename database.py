@@ -435,6 +435,51 @@ def init_db():
         )
     """)
 
+    # 2.1 Telegram Stars Pending Gifts (Real Telegram Sovg'alar navbati va arxivi)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pending_gifts (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            gift_id TEXT NOT NULL,
+            tier_key TEXT,
+            case_name TEXT,
+            prize_name TEXT,
+            prize_stars INT DEFAULT 0,
+            status TEXT DEFAULT 'pending',
+            error_message TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW(),
+            sent_at TIMESTAMP
+        )
+    """)
+
+    # 2.2 Do'stga Sovg'a Qilingan Keyslar (Gift Case Vouchers)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS gift_case_vouchers (
+            id SERIAL PRIMARY KEY,
+            code TEXT UNIQUE NOT NULL,
+            tier_key TEXT NOT NULL,
+            case_name TEXT,
+            price_stars INT NOT NULL,
+            created_by BIGINT NOT NULL,
+            claimed_by BIGINT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT NOW(),
+            claimed_at TIMESTAMP
+        )
+    """)
+
+    # 2.3 Bad Luck Protection & Mystery Case Foydalanuvchi Statistikasi
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_mystery_stats (
+            tg_user_id BIGINT PRIMARY KEY,
+            bad_luck_streak INT DEFAULT 0,
+            total_cases_opened INT DEFAULT 0,
+            total_stars_spent BIGINT DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # 3. Omad G'ildiragi (Wheel of Fortune)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS wheel_spins (
@@ -4940,6 +4985,368 @@ def update_ventebot_order_status(order_id: int, status: str, delivered_data: str
         return False
     finally:
         conn.close()
+
+
+# ==================== TELEGRAM STARS REAL GIFTS & PENDING QUEUE ====================
+
+def save_gift_record(
+    tg_user_id: int,
+    gift_id: str,
+    tier_key: str = "",
+    case_name: str = "",
+    prize_name: str = "",
+    prize_stars: int = 0,
+    status: str = "pending",
+    error_message: str = None
+) -> int:
+    """Yangi yutilgan sovg'a yozuvini saqlash (status: 'sent', 'pending', 'pending_balance', 'pending_privacy', 'failed')"""
+    conn = get_db()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        sent_at_sql = "NOW()" if status == "sent" else "NULL"
+        cur.execute(f"""
+            INSERT INTO pending_gifts (
+                tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at, updated_at, sent_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), {sent_at_sql})
+            RETURNING id
+        """, (tg_user_id, str(gift_id), tier_key, case_name, prize_name, prize_stars, status, error_message))
+        res = cur.fetchone()
+        conn.commit()
+        if res:
+            return res["id"] if isinstance(res, dict) else res[0]
+        return 0
+    except Exception as e:
+        conn.rollback()
+        print(f"save_gift_record error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_pending_gifts(status: str = None, limit: int = 100) -> list:
+    """Kutilayotgan sovg'alarni olish (status berilmasa, barcha yuborilmaganlar olinadi)"""
+    conn = get_db()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        if status:
+            cur.execute("""
+                SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at
+                FROM pending_gifts
+                WHERE status = %s
+                ORDER BY id ASC
+                LIMIT %s
+            """, (status, limit))
+        else:
+            cur.execute("""
+                SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at
+                FROM pending_gifts
+                WHERE status != 'sent'
+                ORDER BY id ASC
+                LIMIT %s
+            """, (limit,))
+        rows = cur.fetchall()
+        results = []
+        for r in rows:
+            if isinstance(r, dict):
+                results.append(r)
+            else:
+                results.append({
+                    "id": r[0],
+                    "tg_user_id": r[1],
+                    "gift_id": r[2],
+                    "tier_key": r[3],
+                    "case_name": r[4],
+                    "prize_name": r[5],
+                    "prize_stars": r[6],
+                    "status": r[7],
+                    "error_message": r[8],
+                    "created_at": r[9]
+                })
+        return results
+    except Exception as e:
+        print(f"get_pending_gifts error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def update_gift_record_status(record_id: int, status: str, error_message: str = None) -> bool:
+    """Sovg'a yozuvi statusini yangilash (masalan, yuborilganda 'sent')"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        if status == "sent":
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = %s, error_message = %s, sent_at = NOW(), updated_at = NOW()
+                WHERE id = %s
+            """, (status, error_message, record_id))
+        else:
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = %s, error_message = %s, updated_at = NOW()
+                WHERE id = %s
+            """, (status, error_message, record_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"update_gift_record_status error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_user_gift_history(tg_user_id: int, limit: int = 20) -> list:
+    """Foydalanuvchining sovg'alar tarixi"""
+    conn = get_db()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, gift_id, case_name, prize_name, prize_stars, status, created_at, sent_at
+            FROM pending_gifts
+            WHERE tg_user_id = %s
+            ORDER BY id DESC
+            LIMIT %s
+        """, (tg_user_id, limit))
+        rows = cur.fetchall()
+        results = []
+        for r in rows:
+            if isinstance(r, dict):
+                results.append(r)
+            else:
+                results.append({
+                    "id": r[0],
+                    "gift_id": r[1],
+                    "case_name": r[2],
+                    "prize_name": r[3],
+                    "prize_stars": r[4],
+                    "status": r[5],
+                    "created_at": r[6],
+                    "sent_at": r[7]
+                })
+        return results
+    except Exception as e:
+        print(f"get_user_gift_history error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def get_user_total_stars_spent(tg_user_id: int) -> int:
+    """Foydalanuvchining botda jami sarflagan Stars miqdorini aniqlash (Telegram Premium filtri uchun)"""
+    conn = get_db()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        # 1. user_mystery_stats dan tekshirish
+        cur.execute("SELECT total_stars_spent FROM user_mystery_stats WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if row:
+            spent = row["total_stars_spent"] if isinstance(row, dict) else row[0]
+            if spent and spent > 0:
+                return int(spent)
+        
+        # 2. Agar mavjud bo'lmasa mystery_box_logs dan yig'ish
+        cur.execute("""
+            SELECT COALESCE(SUM(cost_uzs), 0)
+            FROM mystery_box_logs
+            WHERE tg_user_id = %s AND prize_type LIKE 'stars_%%'
+        """, (tg_user_id,))
+        m_row = cur.fetchone()
+        sum_spent = m_row[0] if m_row else 0
+        return int(sum_spent)
+    except Exception as e:
+        print(f"get_user_total_stars_spent error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def get_user_bad_luck_streak(tg_user_id: int) -> int:
+    """Foydalanuvchining joriy ketma-ket omadsizlik soni"""
+    conn = get_db()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT bad_luck_streak FROM user_mystery_stats WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if row:
+            return row["bad_luck_streak"] if isinstance(row, dict) else row[0]
+        return 0
+    except Exception as e:
+        return 0
+    finally:
+        conn.close()
+
+
+def update_user_bad_luck(tg_user_id: int, is_loss: bool, stars_cost: int = 0) -> int:
+    """Omadsizlik sonini yangilash va umumiy sarflangan Starsni yozish"""
+    conn = get_db()
+    if not conn:
+        return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_mystery_stats (tg_user_id, bad_luck_streak, total_cases_opened, total_stars_spent, updated_at)
+            VALUES (%s, %s, 1, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET bad_luck_streak = CASE WHEN %s THEN user_mystery_stats.bad_luck_streak + 1 ELSE 0 END,
+                total_cases_opened = user_mystery_stats.total_cases_opened + 1,
+                total_stars_spent = user_mystery_stats.total_stars_spent + %s,
+                updated_at = NOW()
+            RETURNING bad_luck_streak
+        """, (tg_user_id, 1 if is_loss else 0, stars_cost, is_loss, stars_cost))
+        row = cur.fetchone()
+        conn.commit()
+        if row:
+            return row["bad_luck_streak"] if isinstance(row, dict) else row[0]
+        return 0
+    except Exception as e:
+        conn.rollback()
+        print(f"update_user_bad_luck error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def recycle_gift_record(record_id: int, tg_user_id: int, refund_uzs: int) -> dict:
+    """
+    Sovg'ani 75% keshbek evaziga sotish (Recycle).
+    Kassada 25% sof foyda qoladi, bot Stars sarflamaydi, foydalanuvchi balansiga so'm qo'shiladi.
+    """
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT id, status, prize_name, prize_stars FROM pending_gifts WHERE id = %s AND tg_user_id = %s FOR UPDATE", (record_id, tg_user_id))
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return {"ok": False, "error": "Sovg'a topilmadi!"}
+            
+        status = row["status"] if isinstance(row, dict) else row[1]
+        prize_name = row["prize_name"] if isinstance(row, dict) else row[2]
+        
+        if status in ("sent", "recycled"):
+            conn.rollback()
+            return {"ok": False, "error": f"Ushbu sovg'a allaqachon {status} qilingan!"}
+
+        # 1. Sovg'a holatini recycled ga o'tkazamiz
+        cur.execute("""
+            UPDATE pending_gifts
+            SET status = 'recycled', error_message = 'Foydalanuvchi 75%% keshbekka sotdi', updated_at = NOW()
+            WHERE id = %s
+        """, (record_id,))
+
+        # 2. Foydalanuvchi balansiga 75% keshbek qo'shamiz
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs)
+            VALUES (%s, %s)
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+            RETURNING balance_uzs
+        """, (tg_user_id, refund_uzs))
+        b_res = cur.fetchone()
+        new_bal = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
+
+        conn.commit()
+        _invalidate_cached(f"bal_{tg_user_id}")
+        return {
+            "ok": True,
+            "refund_uzs": refund_uzs,
+            "new_balance": new_bal,
+            "prize_name": prize_name
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"recycle_gift_record error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def create_gift_case_voucher(created_by: int, tier_key: str, case_name: str, price_stars: int) -> str:
+    """Do'stga keys sovg'a qilish uchun maxsus vaucher kod yaratish"""
+    import secrets
+    conn = get_db()
+    if not conn:
+        return ""
+    code = "GCASE-" + secrets.token_hex(4).upper()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO gift_case_vouchers (code, tier_key, case_name, price_stars, created_by, status)
+            VALUES (%s, %s, %s, %s, %s, 'active')
+        """, (code, tier_key, case_name, price_stars, created_by))
+        conn.commit()
+        return code
+    except Exception as e:
+        conn.rollback()
+        print(f"create_gift_case_voucher error: {e}")
+        return ""
+    finally:
+        conn.close()
+
+
+def claim_gift_case_voucher(code: str, claimed_by: int) -> dict:
+    """Do'stga berilgan keys vaucherini ochish"""
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    clean_code = str(code).strip().upper()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM gift_case_vouchers WHERE code = %s FOR UPDATE", (clean_code,))
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return {"ok": False, "error": "Bunday sovg'a keys vaucheri topilmadi!"}
+
+        status = row["status"] if isinstance(row, dict) else row[6]
+        if status != "active":
+            conn.rollback()
+            return {"ok": False, "error": "Ushbu sovg'a keys allaqachon ochilgan yoki bekor qilingan!"}
+
+        tier_key = row["tier_key"] if isinstance(row, dict) else row[2]
+        case_name = row["case_name"] if isinstance(row, dict) else row[3]
+        created_by = row["created_by"] if isinstance(row, dict) else row[5]
+
+        # Holatini claimed ga o'tkazish
+        cur.execute("""
+            UPDATE gift_case_vouchers
+            SET status = 'claimed', claimed_by = %s, claimed_at = NOW()
+            WHERE code = %s
+        """, (claimed_by, clean_code))
+        conn.commit()
+
+        return {
+            "ok": True,
+            "tier_key": tier_key,
+            "case_name": case_name,
+            "created_by": created_by
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"claim_gift_case_voucher error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
 
 
 
