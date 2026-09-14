@@ -1516,14 +1516,21 @@ def create_ytbot():
         buttons = []
         for u in users:
             uid = u["tg_user_id"]
-            u_name = u.get("first_name") or u.get("username") or f"User {uid}"
-            if len(u_name) > 16:
-                u_name = u_name[:15] + "…"
+            uname = u.get("username")
+            fname = u.get("first_name") or ""
+            if uname:
+                label_name = f"@{uname}"
+            elif fname:
+                label_name = fname
+            else:
+                label_name = f"ID: {uid}"
+            if len(label_name) > 16:
+                label_name = label_name[:15] + "…"
             u_bal = f"{u.get('balance_uzs', 0):,} so'm"
             status_icon = "🔴" if u.get("is_banned") else "🟢"
             buttons.append([
                 InlineKeyboardButton(
-                    f"{status_icon} {u_name} | 💰 {u_bal}",
+                    f"{status_icon} {label_name} | 💰 {u_bal}",
                     callback_data=f"adm_u_view_{uid}"
                 )
             ])
@@ -1722,7 +1729,7 @@ def create_ytbot():
         bal = await get_bot_star_balance(bot_token)
         pending = get_pending_gifts(limit=100)
         tx_data = await get_bot_star_transactions(bot_token, limit=5)
-        txs = tx_data.get("transactions", [])
+        txs = tx_data if isinstance(tx_data, list) else (tx_data.get("transactions", []) if isinstance(tx_data, dict) else [])
         
         tx_lines = ""
         if txs:
@@ -1843,7 +1850,7 @@ def create_ytbot():
         bal = await get_bot_star_balance(bot_token)
         pending = get_pending_gifts(limit=100)
         tx_data = await get_bot_star_transactions(bot_token, limit=5)
-        txs = tx_data.get("transactions", [])
+        txs = tx_data if isinstance(tx_data, list) else (tx_data.get("transactions", []) if isinstance(tx_data, dict) else [])
         
         tx_lines = ""
         if txs:
@@ -8617,19 +8624,36 @@ def create_ytbot():
                     try:
                         tx_id = int(parts[4])
                         amount_uzs = int(parts[3])
+                        if not user_id and parts[1].isdigit():
+                            user_id = int(parts[1])
                         charge_id = getattr(action.charge, "id", "") if hasattr(action, "charge") else ""
                         complete_payment_transaction(tx_id, invoice_id=str(charge_id))
                         if user_id:
                             new_bal = get_user_balance(user_id)
-                            await client.send_message(
-                                user_id,
+                            notify_txt = (
                                 f"{e('SUCCESS')} <b>To'lovingiz muvaffaqiyatli qabul qilindi!</b>\n\n"
                                 f"{e('STAR')} <b>Telegram Stars:</b> {action.total_amount} ⭐\n"
                                 f"{e('MONEY')} <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
                                 f"{e('BALANCE')} <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
-                                f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!",
-                                reply_markup=main_menu_kb(user_id)
+                                f"{e('ROCKET')} Endi layk, obuna va izoh xizmatlaridan bemalol foydalanishingiz mumkin!"
                             )
+                            # 1. Pyrogram orqali yuborish
+                            sent = False
+                            try:
+                                await client.send_message(user_id, notify_txt, reply_markup=main_menu_kb(user_id))
+                                sent = True
+                            except Exception as send_err:
+                                print(f"[Stars Payment] client.send_message failed: {send_err}")
+                            # 2. To'g'ridan-to'g'ri Telegram HTTP API orqali zaxira yuborish (agar pyrogram uzilgan bo'lsa)
+                            if not sent:
+                                try:
+                                    import aiohttp
+                                    b_token = getattr(client, "bot_token", None) or BOT_TOKEN
+                                    h_url = f"https://api.telegram.org/bot{b_token}/sendMessage"
+                                    async with aiohttp.ClientSession() as sess:
+                                        await sess.post(h_url, json={"chat_id": user_id, "text": notify_txt, "parse_mode": "HTML"}, timeout=aiohttp.ClientTimeout(total=8))
+                                except Exception as http_e:
+                                    print(f"[Stars Payment] HTTP sendMessage error: {http_e}")
                     except Exception as pay_err:
                         print(f"Stars payment error: {pay_err}")
                 elif raw_payload.startswith("aivid_sub_"):
@@ -8878,7 +8902,10 @@ def create_ytbot():
                 
             elif act in ("set_bal", "add_bal", "deduct_bal") and t_uid:
                 try:
-                    amt = int(user_text.replace(",", "").replace(" ", ""))
+                    clean_str = re.sub(r"[^\d\-]", "", user_text)
+                    if not clean_str or clean_str == "-":
+                        raise ValueError("Raqam topilmadi")
+                    amt = int(clean_str)
                     from database import admin_set_user_balance, admin_adjust_user_balance
                     if act == "set_bal":
                         nb = admin_set_user_balance(t_uid, amt)

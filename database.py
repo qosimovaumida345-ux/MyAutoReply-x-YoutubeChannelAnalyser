@@ -5420,6 +5420,41 @@ def record_user_activity(tg_user_id: int, username: str = None, first_name: str 
         conn.close()
 
 
+def sync_tg_user_profile(tg_user_id: int):
+    """Telegram Bot API orqali foydalanuvchining ism va username ini avtomatik yangilash"""
+    try:
+        import urllib.request, json
+        from config import BOT_TOKEN
+        if not BOT_TOKEN: return None
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChat?chat_id={tg_user_id}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("ok"):
+                res = data.get("result", {})
+                uname = res.get("username")
+                fname = res.get("first_name")
+                lname = res.get("last_name")
+                c = get_db()
+                if c:
+                    cr = c.cursor()
+                    cr.execute("""
+                        INSERT INTO bot_users (tg_user_id, username, first_name, last_name, last_active_at)
+                        VALUES (%s, %s, %s, %s, NOW())
+                        ON CONFLICT (tg_user_id) DO UPDATE
+                        SET username = COALESCE(EXCLUDED.username, bot_users.username),
+                            first_name = COALESCE(EXCLUDED.first_name, bot_users.first_name),
+                            last_name = COALESCE(EXCLUDED.last_name, bot_users.last_name),
+                            last_active_at = NOW()
+                    """, (tg_user_id, uname, fname, lname))
+                    c.commit()
+                    c.close()
+                return {"username": uname, "first_name": fname, "last_name": lname}
+    except Exception:
+        pass
+    return None
+
+
 def get_all_bot_users(page: int = 1, limit: int = 10, search: str = "") -> dict:
     """Admin uchun barcha foydalanuvchilar ro'yxati (sahifalangan va qidiruv bilan)"""
     conn = get_db()
@@ -5470,6 +5505,16 @@ def get_all_bot_users(page: int = 1, limit: int = 10, search: str = "") -> dict:
         cur.execute(query, tuple(query_params))
         rows = cur.fetchall()
         users = [dict(r) for r in rows]
+        
+        # Username yoki ism yetishmayotgan bo'lsa jonli Telegram API orqali to'ldiramiz
+        for u in users:
+            if not u.get("username") and not u.get("first_name"):
+                enriched = sync_tg_user_profile(u["tg_user_id"])
+                if enriched:
+                    if enriched.get("username"): u["username"] = enriched["username"]
+                    if enriched.get("first_name"): u["first_name"] = enriched["first_name"]
+                    if enriched.get("last_name"): u["last_name"] = enriched["last_name"]
+
         total_pages = max(1, (total_count + limit - 1) // limit)
         return {
             "users": users,
@@ -5518,6 +5563,12 @@ def get_user_full_details(tg_user_id: int) -> dict:
                 for k, v in dict(u_row).items():
                     if k in user_data and v is not None:
                         user_data[k] = v
+            if not user_data.get("username") or user_data.get("first_name") == "Foydalanuvchi":
+                enriched = sync_tg_user_profile(tg_user_id)
+                if enriched:
+                    if enriched.get("username"): user_data["username"] = enriched["username"]
+                    if enriched.get("first_name"): user_data["first_name"] = enriched["first_name"]
+                    if enriched.get("last_name"): user_data["last_name"] = enriched["last_name"]
         except Exception:
             conn.rollback()
 

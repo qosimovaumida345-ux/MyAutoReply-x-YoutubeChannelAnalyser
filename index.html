@@ -1042,6 +1042,60 @@
                 });
             };
 
+            // Trigger Case Opening with UZS (So'm Balansi orqali)
+            const handleOpenCaseUzs = (c) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
+                const priceUzs = c.price_uzs || (c.price_stars * 400);
+                const currentBal = (userStats && userStats.balance_uzs) || 0;
+                if (currentBal < priceUzs) {
+                    alert(`Balansingiz yetarli emas!\n\nKeys narxi: ${priceUzs.toLocaleString()} so'm\nSizning balansingiz: ${currentBal.toLocaleString()} so'm\n\nIltimos, avval bot orqali balansingizni to'ldiring.`);
+                    return;
+                }
+
+                setActiveUnboxing(c);
+                setIsRolling(true);
+                setUnboxingPrize(null);
+
+                const tickTimer = setInterval(playTickSound, 120);
+
+                // Call backend API for real UZS unboxing
+                fetch('/api/stars/open-case-uzs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    setTimeout(() => {
+                        clearInterval(tickTimer);
+                        setIsRolling(false);
+                        if (data.ok) {
+                            setUnboxingPrize(data);
+                            setUserGifts(prev => [{ ...data, date: "Hozir" }, ...prev]);
+                            playWinFanfare();
+                            if (window.confetti) {
+                                window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                            }
+                            if (data.new_balance !== undefined) {
+                                setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
+                            }
+                        } else {
+                            setActiveUnboxing(null);
+                            alert(data.error || "Xatolik: Balansingiz yetarli emas yoki sovg'ani ochib bo'lmadi.");
+                        }
+                    }, 2800);
+                })
+                .catch(() => {
+                    clearInterval(tickTimer);
+                    setIsRolling(false);
+                    setActiveUnboxing(null);
+                    alert("Tarmoq xatosi: Server bilan aloqa o'rnatilmadi.");
+                });
+            };
+
             // Trigger Telegram Stars Payment Invoice
             const handleBuyInvoice = (c) => {
                 if (!tgUser || !tgUser.id || tgUser.id <= 0) {
@@ -2424,10 +2478,15 @@
                                                         color: "#ffd700",
                                                         padding: "4px 10px",
                                                         borderRadius: "999px",
-                                                        fontSize: "12px",
-                                                        fontWeight: 700
+                                                        fontSize: "11px",
+                                                        fontWeight: 700,
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "4px"
                                                     }}>
-                                                        {c.price_stars} ⭐
+                                                        <span>{c.price_stars} ⭐</span>
+                                                        <span style={{ color: "rgba(255,255,255,0.4)" }}>|</span>
+                                                        <span style={{ color: "#10b981" }}>{(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm</span>
                                                     </div>
 
                                                     {/* Case Icon */}
@@ -2473,28 +2532,53 @@
                                                         📊 Ehtimollar & Sovg'alar
                                                     </button>
 
-                                                    {/* Open Button */}
-                                                    <button
-                                                        className="shimmer-btn"
-                                                        onClick={() => handleBuyInvoice(c)}
-                                                        style={{
-                                                            width: "100%",
-                                                            padding: "12px 0",
-                                                            borderRadius: "999px",
-                                                            background: c.color || "#7342E2",
-                                                            color: "#ffffff",
-                                                            border: "none",
-                                                            fontWeight: 700,
-                                                            fontSize: "14px",
-                                                            cursor: "pointer",
-                                                            boxShadow: `0 4px 16px ${c.color}40`,
-                                                            transition: "transform 0.15s"
-                                                        }}
-                                                        onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
-                                                        onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-                                                    >
-                                                        Ochish ({c.price_stars} ⭐)
-                                                    </button>
+                                                    {/* Dual Open Buttons: So'm (UZS) & Stars */}
+                                                    <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                        {/* 1. So'm Balansi Bilan Ochish */}
+                                                        <button
+                                                            className="shimmer-btn"
+                                                            onClick={() => handleOpenCaseUzs(c)}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "11px 0",
+                                                                borderRadius: "999px",
+                                                                background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                                                color: "#ffffff",
+                                                                border: "none",
+                                                                fontWeight: 700,
+                                                                fontSize: "13px",
+                                                                cursor: "pointer",
+                                                                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.28)",
+                                                                transition: "transform 0.15s"
+                                                            }}
+                                                            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
+                                                            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                                        >
+                                                            💳 Ochish ({(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm)
+                                                        </button>
+
+                                                        {/* 2. Stars Bilan Ochish */}
+                                                        <button
+                                                            onClick={() => handleBuyInvoice(c)}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "10px 0",
+                                                                borderRadius: "999px",
+                                                                background: c.color || "#7342E2",
+                                                                color: "#ffffff",
+                                                                border: "none",
+                                                                fontWeight: 700,
+                                                                fontSize: "13px",
+                                                                cursor: "pointer",
+                                                                boxShadow: `0 4px 14px ${c.color || '#7342E2'}30`,
+                                                                transition: "transform 0.15s"
+                                                            }}
+                                                            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
+                                                            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                                        >
+                                                            ⭐ Ochish ({c.price_stars} ⭐)
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -3423,12 +3507,42 @@
                                                 ))}
                                             </div>
 
-                                            <button
-                                                onClick={() => { const c = oddsModalCase; setOddsModalCase(null); handleBuyInvoice(c); }}
-                                                style={{ width: "100%", padding: "14px 0", borderRadius: "999px", background: oddsModalCase.color || "#7342E2", color: "#ffffff", border: "none", fontWeight: 700, cursor: "pointer" }}
-                                            >
-                                                Keysni Ochish ({oddsModalCase.price_stars} ⭐)
-                                            </button>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                                <button
+                                                    className="shimmer-btn"
+                                                    onClick={() => { const c = oddsModalCase; setOddsModalCase(null); handleOpenCaseUzs(c); }}
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "13px 0",
+                                                        borderRadius: "999px",
+                                                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                                        color: "#ffffff",
+                                                        border: "none",
+                                                        fontWeight: 700,
+                                                        cursor: "pointer",
+                                                        fontSize: "14px",
+                                                        boxShadow: "0 4px 14px rgba(16, 185, 129, 0.28)"
+                                                    }}
+                                                >
+                                                    💳 So'm Balansi Bilan Ochish ({(oddsModalCase.price_uzs || oddsModalCase.price_stars * 400).toLocaleString()} so'm)
+                                                </button>
+                                                <button
+                                                    onClick={() => { const c = oddsModalCase; setOddsModalCase(null); handleBuyInvoice(c); }}
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "12px 0",
+                                                        borderRadius: "999px",
+                                                        background: oddsModalCase.color || "#7342E2",
+                                                        color: "#ffffff",
+                                                        border: "none",
+                                                        fontWeight: 700,
+                                                        cursor: "pointer",
+                                                        fontSize: "14px"
+                                                    }}
+                                                >
+                                                    ⭐ Telegram Stars Bilan Ochish ({oddsModalCase.price_stars} ⭐)
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
