@@ -8934,10 +8934,10 @@ def create_ytbot():
                 
             elif act in ("set_bal", "add_bal", "deduct_bal") and t_uid:
                 try:
-                    clean_str = re.sub(r"[^\d\-]", "", user_text)
-                    if not clean_str or clean_str == "-":
+                    clean_str = re.sub(r"[^\d]", "", user_text)
+                    if not clean_str:
                         raise ValueError("Raqam topilmadi")
-                    amt = int(clean_str)
+                    amt = abs(int(clean_str))
                     from database import admin_set_user_balance, admin_adjust_user_balance
                     if act == "set_bal":
                         nb = admin_set_user_balance(t_uid, amt)
@@ -8953,6 +8953,8 @@ def create_ytbot():
                     await show_admin_user_card(client, message, t_uid)
                 except ValueError:
                     await message.reply_text("❌ Faqat butun son kiriting (masalan: 50000)!")
+                except Exception as e:
+                    await message.reply_text(f"❌ Balansni o'zgartirishda xatolik: <code>{e}</code>")
                 return
 
         # 1. Buyurtma jarayonidagi havola tekshiruvi

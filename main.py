@@ -82,6 +82,60 @@ async def _dispatch_task_to_remote(urls, task_id, label):
     return False
 
 
+# ==================== GEMINI PRICE WATCHER ====================
+async def gemini_price_watcher(bot):
+    """Gemini 18 oylik narxini tekshirish — $0.50 dan kam bo'lsa adminga xabar yuborish"""
+    from config import OWNER_ID
+    last_alerted_price = None
+    THRESHOLD = 0.50
+    CHECK_INTERVAL = 900  # 15 daqiqa
+    PRODUCT_ID = 16
+
+    print(f"📊 Gemini Price Watcher ishga tushdi (Product ID: {PRODUCT_ID}, Chegara: ${THRESHOLD})")
+    await asyncio.sleep(60)  # Startup uchun kutish
+
+    while True:
+        try:
+            from ventebot_service import ventebot_service
+            data = await ventebot_service.get_products(force_refresh=True)
+            products = data.get("products", [])
+
+            gemini_product = None
+            for p in products:
+                if p.get("id") == PRODUCT_ID or "gemini 18" in (p.get("name") or "").lower():
+                    gemini_product = p
+                    break
+
+            if gemini_product:
+                price_usd = float(gemini_product.get("price_usd") or gemini_product.get("price") or 0)
+                stock = gemini_product.get("stock", "N/A")
+                print(f"[PriceWatcher] Gemini 18M: ${price_usd} | Zaxira: {stock}")
+
+                if price_usd > 0 and price_usd < THRESHOLD:
+                    if last_alerted_price is None or abs(price_usd - last_alerted_price) >= 0.01:
+                        try:
+                            alert_text = (
+                                f"⚡ <b>DIQQAT! Gemini 18 oylik narxi tushdi!</b>\n\n"
+                                f"📉 <b>Yangi narx:</b> <code>${price_usd}</code>\n"
+                                f"🎯 <b>Chegara:</b> <code>${THRESHOLD}</code>\n"
+                                f"📦 <b>Zaxira:</b> <code>{stock} ta</code>\n\n"
+                                f"🛒 <i>Hoziroq xarid qilishingiz yoki zaxirani to'ldirishingiz mumkin!</i>"
+                            )
+                            await bot.send_message(OWNER_ID, alert_text)
+                            last_alerted_price = price_usd
+                            print(f"[PriceWatcher] ⚡ Admin ga ogohlantirish yuborildi: ${price_usd}")
+                        except Exception as send_err:
+                            print(f"[PriceWatcher] Admin ga xabar yuborishda xato: {send_err}")
+                else:
+                    if last_alerted_price is not None and price_usd >= THRESHOLD:
+                        last_alerted_price = None
+
+        except Exception as e:
+            print(f"[PriceWatcher] Tekshirishda xato: {e}")
+
+        await asyncio.sleep(CHECK_INTERVAL)
+
+
 # ==================== AUTOPILOT WORKER ====================
 async def run_autopilot_worker():
     import asyncio
@@ -2288,6 +2342,12 @@ async def main():
                     print("🎁 Telegram Stars Sovg'alarni avto-yuboruvchi (AutoFlush Worker) ishga tushirildi.")
                 except Exception as flush_err:
                     print(f"AutoFlush worker startup error: {flush_err}")
+
+                try:
+                    asyncio.create_task(gemini_price_watcher(bot))
+                    print("📊 Gemini 18M Price Watcher ishga tushirildi ($0.50 dan kam bo'lsa ogohlantirish)")
+                except Exception as pw_err:
+                    print(f"Gemini Price Watcher startup error: {pw_err}")
 
             async def run_bot():
                 await bot.start()

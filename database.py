@@ -5636,12 +5636,12 @@ def admin_set_user_balance(tg_user_id: int, new_balance_uzs: int) -> int:
         b_res = cur.fetchone()
         nb = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
         conn.commit()
-        _invalidate_cached(f"user_bal_{tg_user_id}")
+        _invalidate_cached(f"bal_{tg_user_id}")
         return nb
     except Exception as e:
         conn.rollback()
         print(f"admin_set_user_balance error: {e}")
-        return 0
+        raise
     finally:
         conn.close()
 
@@ -5662,12 +5662,12 @@ def admin_adjust_user_balance(tg_user_id: int, delta_uzs: int) -> int:
         b_res = cur.fetchone()
         nb = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
         conn.commit()
-        _invalidate_cached(f"user_bal_{tg_user_id}")
+        _invalidate_cached(f"bal_{tg_user_id}")
         return nb
     except Exception as e:
         conn.rollback()
         print(f"admin_adjust_user_balance error: {e}")
-        return 0
+        raise
     finally:
         conn.close()
 
