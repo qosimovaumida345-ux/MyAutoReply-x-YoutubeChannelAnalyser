@@ -2582,21 +2582,36 @@ def load_mega_features(bot: Client):
                     activation_identifier=ident
                 )
                 if res.get("success"):
+                    import html
+                    delivered_raw = str(res.get("delivered_data") or "").strip()
+                    delivered_escaped = html.escape(delivered_raw)
+
                     ans = (
-                        f"🎉 <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
-                        f"📦 <b>Mahsulot:</b> {res.get('product_name')}\n"
-                        f"💰 <b>Yechilgan mablag':</b> <code>{res.get('amount_uzs'):,} so'm</code>\n"
-                        f"💳 <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs'):,} so'm</code>\n"
-                        f"🔢 <b>VenteBot Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
+                        f"{ce('SUCCESS')} <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
+                        f"{ce('BOX')} <b>Mahsulot:</b> {html.escape(str(res.get('product_name') or ''))}\n"
+                        f"{ce('WALLET')} <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs', 0):,} so'm</code>\n"
+                        f"{ce('KEY')} <b>VenteBot Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
                     )
-                    if res.get("delivered_data"):
-                        ans += f"🔑 <b>Yetkazilgan ma'lumotlar / Kalit:</b>\n<code>{res.get('delivered_data')}</code>\n\n"
+                    if delivered_escaped:
+                        ans += f"{ce('KEY')} <b>Yetkazilgan ma'lumotlar / Kalit:</b>\n<code>{delivered_escaped}</code>\n\n"
                     else:
-                        ans += f"ℹ️ <b>Holat:</b> {res.get('status', 'Aktivatsiya jarayonida')}\n\n"
+                        ans += f"{ce('INFO')} <b>Holat:</b> {res.get('status', 'Aktivatsiya jarayonida')}\n\n"
                     ans += "<i>Xaridingiz uchun rahmat! Ma'lumotlaringiz profilingizda saqlandi.</i>"
-                    await loading_msg.edit_text(ans)
+
+                    btns = []
+                    if delivered_raw.startswith("http://") or delivered_raw.startswith("https://"):
+                        btns.append([InlineKeyboardButton(f"{ce('ROCKET')} Havolani ochish", url=delivered_raw)])
+                    btns.extend([
+                        [InlineKeyboardButton(f"{ce('CART')} Mening xaridlarim", callback_data="vb_my_orders")],
+                        [InlineKeyboardButton(f"{ce('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
+                        [InlineKeyboardButton(f"{ce('HOME')} Bosh menyu", callback_data="back_main")]
+                    ])
+                    await loading_msg.edit_text(ans, reply_markup=InlineKeyboardMarkup(btns))
                 else:
-                    await loading_msg.edit_text(f"❌ <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Nomaʼlum xatolik')}")
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(f"{ce('BACK')} Do'konga qaytish", callback_data="menu_marketplace")]
+                    ])
+                    await loading_msg.edit_text(f"{ce('CROSS')} <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Nomaʼlum xatolik')}", reply_markup=kb)
                 message.stop_propagation()
             else:
                 message.continue_propagation()

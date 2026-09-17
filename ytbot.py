@@ -17,7 +17,7 @@ except RuntimeError:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
 from pyrogram import Client, filters, StopPropagation
-from pyrogram.errors import MessageNotModified
+from pyrogram.errors import MessageNotModified, QueryIdInvalid
 from pyrogram.enums import ParseMode, ChatAction
 from pyrogram.types import (
     WebAppInfo,
@@ -554,7 +554,7 @@ async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None)
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=12, connect=5)) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=5, connect=3)) as resp:
                 data = await resp.json()
                 if resp.status == 200 and data.get("ok"):
                     return True
@@ -571,7 +571,7 @@ async def _bot_api_edit(bot_token, chat_id, message_id, text, reply_markup=None)
                     }
                     if "reply_markup" in payload:
                         caption_payload["reply_markup"] = payload["reply_markup"]
-                    async with session.post(caption_url, json=caption_payload, timeout=aiohttp.ClientTimeout(total=12, connect=5)) as c_resp:
+                    async with session.post(caption_url, json=caption_payload, timeout=aiohttp.ClientTimeout(total=5, connect=3)) as c_resp:
                         c_data = await c_resp.json()
                         if c_resp.status == 200 and c_data.get("ok"):
                             return True
@@ -692,6 +692,21 @@ async def _patched_send_video(self, chat_id, video, caption=None, parse_mode=Non
         parse_mode = ParseMode.HTML
     return await _orig_send_video(self, chat_id, video, caption=caption, parse_mode=parse_mode, **kwargs)
 Client.send_video = _patched_send_video
+
+_orig_cb_answer = CallbackQuery.answer
+async def _patched_cb_answer(self, *args, **kwargs):
+    try:
+        return await _orig_cb_answer(self, *args, **kwargs)
+    except (QueryIdInvalid, MessageNotModified):
+        return True
+    except Exception as e:
+        err_str = str(e).lower()
+        if "query_id_invalid" in err_str or "query is too old" in err_str:
+            return True
+        import logging
+        logging.debug(f"cb.answer safely handled exception: {e}")
+        return False
+CallbackQuery.answer = _patched_cb_answer
 # ================================================================
 
 # ==================== YOUTUBE API ====================
@@ -7167,26 +7182,32 @@ def create_ytbot():
         )
 
         if res.get("success"):
+            import html
+            delivered_raw = str(res.get("delivered_data") or "").strip()
+            delivered_escaped = html.escape(delivered_raw)
+
             ans = (
                 f"{ce('SUCCESS')} <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
-                f"{ce('BOX')} <b>Mahsulot:</b> {res.get('product_name')}\n"
-                f"{ce('MONEY')} <b>Yechilgan summa:</b> <code>{res.get('amount_uzs'):,} so'm</code>\n"
-                f"{ce('WALLET')} <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs'):,} so'm</code>\n"
+                f"{ce('BOX')} <b>Mahsulot:</b> {html.escape(str(res.get('product_name') or ''))}\n"
+                f"{ce('WALLET')} <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs', 0):,} so'm</code>\n"
                 f"{ce('KEY')} <b>Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
             )
-            if res.get("delivered_data"):
-                ans += f"{ce('KEY')} <b>Yetkazilgan hisob / Litsenziya ma'lumotlari:</b>\n<code>{res.get('delivered_data')}</code>\n\n"
+            if delivered_escaped:
+                ans += f"{ce('KEY')} <b>Yetkazilgan hisob / Litsenziya ma'lumotlari:</b>\n<code>{delivered_escaped}</code>\n\n"
             ans += "<i>Xaridingiz uchun tashakkur! Istalgan vaqt /store -> 'Mening xaridlarim' bo'limidan ko'rishingiz mumkin.</i>"
 
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"{e('CART')} Mening xaridlarim", callback_data="vb_my_orders")],
-                [InlineKeyboardButton(f"{e('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
-                [InlineKeyboardButton(f"{e('HOME')} Bosh menyu", callback_data="back_main")]
+            btns = []
+            if delivered_raw.startswith("http://") or delivered_raw.startswith("https://"):
+                btns.append([InlineKeyboardButton(f"{ce('ROCKET')} Obunani faollashtirish", url=delivered_raw)])
+            btns.extend([
+                [InlineKeyboardButton(f"{ce('CART')} Mening xaridlarim", callback_data="vb_my_orders")],
+                [InlineKeyboardButton(f"{ce('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
+                [InlineKeyboardButton(f"{ce('HOME')} Bosh menyu", callback_data="back_main")]
             ])
-            await loading.edit_text(ans, reply_markup=kb)
+            await loading.edit_text(ans, reply_markup=InlineKeyboardMarkup(btns))
         else:
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"{e('BACK')} Do'konga qaytish", callback_data="menu_marketplace")]
+                [InlineKeyboardButton(f"{ce('BACK')} Do'konga qaytish", callback_data="menu_marketplace")]
             ])
             await loading.edit_text(f"{ce('CROSS')} <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Xatolik')}", reply_markup=kb)
 
@@ -7202,13 +7223,12 @@ def create_ytbot():
             lines = [f"{ce('CART')} <b>Sizning raqamli xaridlaringiz:</b>\n"]
             for idx, o in enumerate(orders, 1):
                 p_name = o.get("product_name", "Item")
-                uzs = o.get("amount_uzs", 0)
                 status = o.get("status", "")
                 data_val = o.get("delivered_data", "")
                 date_val = str(o.get("created_at", ""))[:16].replace("T", " ")
 
                 status_icon = ce('SUCCESS') if status == "COMPLETED" else (ce('REFRESH') if status == "REFUNDED" else ce('WAIT'))
-                lines.append(f"{idx}. {status_icon} <b>{p_name}</b> ({uzs:,} so'm)")
+                lines.append(f"{idx}. {status_icon} <b>{p_name}</b>")
                 lines.append(f"   {ce('CALENDAR')} <i>{date_val}</i> | Holat: <code>{status}</code>")
                 if data_val and status != "REFUNDED":
                     short_data = data_val[:120] + "..." if len(data_val) > 120 else data_val
@@ -7218,11 +7238,10 @@ def create_ytbot():
             text = "\n".join(lines)
 
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{e('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
-            [InlineKeyboardButton(f"{e('HOME')} Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton(f"{ce('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
+            [InlineKeyboardButton(f"{ce('HOME')} Bosh menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
-        await cb.answer()
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^insta_dl_([a-f0-9]+)$"))

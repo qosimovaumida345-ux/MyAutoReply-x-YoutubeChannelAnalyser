@@ -438,14 +438,24 @@ class VenteBotClient:
                         url,
                         json=payload,
                         headers=self._get_headers(),
-                        timeout=aiohttp.ClientTimeout(total=20),
+                        timeout=aiohttp.ClientTimeout(total=30, connect=10),
                     ) as resp:
                         resp_data = await resp.json()
-                        if resp.status in (200, 201) and resp_data.get("id"):
+                        order_obj = resp_data.get("order") if isinstance(resp_data.get("order"), dict) else {}
+                        if not order_obj and isinstance(resp_data, dict):
+                            order_obj = resp_data
+
+                        if resp.status in (200, 201) and (resp_data.get("success") is True or order_obj.get("id")):
                             order_success = True
-                            ventebot_order_data = resp_data
+                            ventebot_order_data = {**resp_data, **order_obj}
                         else:
-                            error_reason = resp_data.get("message") or f"VenteBot xatosi: HTTP {resp.status}"
+                            error_reason = (
+                                resp_data.get("message")
+                                or resp_data.get("detail")
+                                or resp_data.get("error")
+                                or (order_obj.get("message") if isinstance(order_obj, dict) else None)
+                                or f"VenteBot xatosi: HTTP {resp.status}"
+                            )
             except Exception as e:
                 logger.error(f"VenteBot order HTTP so'rov xatosi: {e}")
                 error_reason = f"Tarmoq uzilishi: {str(e)}"
@@ -484,9 +494,15 @@ class VenteBotClient:
             delivered_items = ventebot_order_data.get("items", [])
             delivered_text = ""
             if delivered_items:
-                delivered_text = "\n".join([str(item.get("account_data", "")) for item in delivered_items if item.get("account_data")])
-            elif ventebot_order_data.get("status") == "AWAITING_ACTIVATION":
-                delivered_text = "Faollashtirish jarayonda (AWAITING_ACTIVATION)"
+                delivered_text = "\n".join([str(item.get("account_data", "")).strip() for item in delivered_items if item.get("account_data")])
+            if not delivered_text and ventebot_order_data.get("account_data"):
+                delivered_text = str(ventebot_order_data.get("account_data")).strip()
+            if not delivered_text:
+                status_val = str(ventebot_order_data.get("status", "")).upper()
+                if status_val in ("AWAITING_ACTIVATION", "AWAITING_ACTIVATION_INFO"):
+                    delivered_text = "Faollashtirish jarayonda (AWAITING_ACTIVATION). Tez orada taqdim etiladi."
+                elif status_val == "PAID_PENDING_DELIVERY":
+                    delivered_text = "Yetkazib berilishi kutilmoqda (PAID_PENDING_DELIVERY)."
 
             db_order_id = save_ventebot_order(
                 tg_user_id=tg_user_id,
@@ -528,7 +544,11 @@ class VenteBotClient:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=self._get_headers(), timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    return await resp.json()
+                    data = await resp.json()
+                    if isinstance(data, dict):
+                        order_obj = data.get("order") if isinstance(data.get("order"), dict) else {}
+                        return {**data, **order_obj}
+                    return data
         except Exception as e:
             return {"success": False, "message": str(e)}
 
