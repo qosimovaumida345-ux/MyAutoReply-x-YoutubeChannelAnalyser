@@ -4166,7 +4166,16 @@ def create_ytbot():
                 "merge_output_format": "mp4",
                 "quiet": True,
                 "no_warnings": True,
-                "max_filesize": 50 * 1024 * 1024
+                "max_filesize": 50 * 1024 * 1024,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["ios", "android", "mweb", "web"],
+                        "player_skip": ["webpage"],
+                    }
+                },
+                "retries": 5,
+                "fragment_retries": 5,
+                "skip_unavailable_fragments": True
             }
             def _dl_yt():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -9063,7 +9072,16 @@ def create_ytbot():
                         "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
                         "merge_output_format": "mp4",
                         "quiet": True,
-                        "no_warnings": True
+                        "no_warnings": True,
+                        "extractor_args": {
+                            "youtube": {
+                                "player_client": ["ios", "android", "mweb", "web"],
+                                "player_skip": ["webpage"],
+                            }
+                        },
+                        "retries": 5,
+                        "fragment_retries": 5,
+                        "skip_unavailable_fragments": True
                     }
                     def _dl():
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -9152,7 +9170,16 @@ def create_ytbot():
                         "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
                         "merge_output_format": "mp4",
                         "quiet": True,
-                        "no_warnings": True
+                        "no_warnings": True,
+                        "extractor_args": {
+                            "youtube": {
+                                "player_client": ["ios", "android", "mweb", "web"],
+                                "player_skip": ["webpage"],
+                            }
+                        },
+                        "retries": 5,
+                        "fragment_retries": 5,
+                        "skip_unavailable_fragments": True
                     }
                     def _dl():
                         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

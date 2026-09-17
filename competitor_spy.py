@@ -60,6 +60,12 @@ def extract_competitor_metadata(video_url: str) -> dict:
         "no_warnings": True,
         "extract_flat": False,
         "skip_download": True,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["ios", "android", "mweb", "web"],
+                "player_skip": ["webpage"],
+            }
+        },
     }
 
     try:
