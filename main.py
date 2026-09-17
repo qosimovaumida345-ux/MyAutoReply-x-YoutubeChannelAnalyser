@@ -2349,6 +2349,14 @@ async def main():
                 except Exception as pw_err:
                     print(f"Gemini Price Watcher startup error: {pw_err}")
 
+                try:
+                    from store_channel_service import run_channel_autopilot
+                    asyncio.create_task(run_channel_autopilot(bot))
+                    print("📢 @CreatorFlow_Store kanal avtopiloti (restock, xaridlar, aksiyalar) ishga tushirildi.")
+                except Exception as cp_err:
+                    print(f"Kanal avtopilot xatosi: {cp_err}")
+
+
             async def run_bot():
                 await bot.start()
                 print("✨ CreatorFlow Studio Bot muvaffaqiyatli ishga tushdi!")

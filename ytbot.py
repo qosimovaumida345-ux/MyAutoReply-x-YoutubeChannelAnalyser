@@ -33,7 +33,8 @@ from config import (
     generate_with_fallback_async, generate_with_fallback,
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
     ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key,
-    WEB_APP_URL, CRYPTO_PAY_TOKEN
+    WEB_APP_URL, CRYPTO_PAY_TOKEN,
+    STORE_CHANNEL, VIP_PRICE_UZS, VIP_PRICE_STARS
 )
 from database import (
     set_autopilot, get_autopilot, stop_autopilot,
@@ -54,6 +55,7 @@ from database import (
     purchase_autostream_slot, get_user_autostream_slots, get_all_active_autostream_slots, expire_autostream_slot,
     purchase_flux_subscription, get_flux_quota, use_flux_credit,
     purchase_vip_subscription, is_user_vip,
+    get_user_vip_info, activate_user_vip, get_user_verification_tier, join_channel_contest,
     set_user_referrer, get_user_referrer, process_referral_cashback, get_referral_stats,
     record_user_purchase, get_user_purchases,
     get_or_create_user_api_key, regenerate_user_api_key,
@@ -941,11 +943,18 @@ def main_menu_kb(user_id=None):
     import os
     lang = get_user_language(user_id) if user_id else "en"
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
-    kyc_text = "🛡️ 3D KYC"
-    if user_id and is_user_kyc_verified(user_id):
+    tier_info = get_user_verification_tier(user_id) if user_id else {"is_vip": False, "is_face_verified": False, "has_phone": False}
+    if tier_info.get("is_vip"):
+        kyc_text = "👑 VIP Foydalanuvchi"
+    elif tier_info.get("is_face_verified"):
         kyc_text = "🛡️ 3D KYC Verified"
+    elif tier_info.get("has_phone"):
+        kyc_text = "🥉 Yarim Verified"
+    else:
+        kyc_text = "🛡️ 3D KYC"
         
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👑 Tariflar & VIP (69,000 UZS)", callback_data="menu_tariffs")],
         [InlineKeyboardButton("🌐 Web Dashboard", web_app=WebAppInfo(url=web_url)),
          InlineKeyboardButton(kyc_text, web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}"))],
         [InlineKeyboardButton(t("btn_balance", lang), callback_data="menu_wallet"),
@@ -1077,7 +1086,11 @@ def crypto_packages_kb():
 
 def marketplace_menu_kb():
     return InlineKeyboardMarkup([
-        # 1. 6 ta Asosiy Raqamli Xizmatlar Toifasi (Barcha 88 ta mahsulot)
+        # 1. Yangi Monopol To'plamlar & AI Maslahatchi
+        [InlineKeyboardButton("🎁 Super To'plamlar (Bundles)", callback_data="vb_bundles"),
+         InlineKeyboardButton("🤖 Aiko AI Maslahatchi", callback_data="store_ai_advisor")],
+
+        # 2. 6 ta Asosiy Raqamli Xizmatlar Toifasi (Barcha 88 ta mahsulot)
         [InlineKeyboardButton("AI & LLM Modellar", callback_data="vb_cat_ai"),
          InlineKeyboardButton("Video & Ovoz Dizayn", callback_data="vb_cat_design_video")],
         [InlineKeyboardButton("Kino & Musiqa Striming", callback_data="vb_cat_media_streaming"),
@@ -1085,7 +1098,7 @@ def marketplace_menu_kb():
         [InlineKeyboardButton("Ofis & Ta'lim Dasturlari", callback_data="vb_cat_office_edu"),
          InlineKeyboardButton("Developer Vositalari", callback_data="vb_cat_dev_tools")],
         
-        # 2. Maxsus Bot Xizmatlari (Pasaytirilgan so'm narxlar, $ yo'q!)
+        # 3. Maxsus Bot Xizmatlari (Pasaytirilgan so'm narxlar, $ yo'q!)
         [InlineKeyboardButton("Private Proxy (18,000 so'm)", callback_data="mkt_view_proxy"),
          InlineKeyboardButton("VIP Cheksiz Pro (69,000 so'm)", callback_data="mkt_view_vip")],
         [InlineKeyboardButton("Autostream Cloud (2,500 so'm)", callback_data="mkt_view_autostream"),
@@ -1099,12 +1112,12 @@ def marketplace_menu_kb():
         [InlineKeyboardButton("DeepLink & QR (1,000 so'm)", callback_data="mkt_view_deeplink"),
          InlineKeyboardButton("Referal & Keshbek (10%)", callback_data="mkt_view_ref")],
         
-        # 3. Kanal & O'sish Xizmatlari (Layk 500, Obuna 1,000, Izoh 300)
+        # 4. Kanal & O'sish Xizmatlari (Layk 500, Obuna 1,000, Izoh 300)
         [InlineKeyboardButton("Layk (500 so'm)", callback_data="mkt_order_like"),
          InlineKeyboardButton("Obuna (1,000 so'm)", callback_data="mkt_order_subscribe"),
          InlineKeyboardButton("Izoh (300 so'm)", callback_data="mkt_order_comment")],
         
-        # 4. Navigatsiya & Xaridlar
+        # 5. Navigatsiya & Xaridlar
         [InlineKeyboardButton("Mening xaridlarim", callback_data="vb_my_orders"),
          InlineKeyboardButton("Balansni to'ldirish", callback_data="menu_wallet")],
         [InlineKeyboardButton("Bosh menyu", callback_data="back_main")],
@@ -1168,6 +1181,7 @@ def analytics_menu_kb():
          InlineKeyboardButton("🎯 Milestone", callback_data="an_milestone")],
         [InlineKeyboardButton("📄 To'liq hisobot", callback_data="an_report"),
          InlineKeyboardButton("🚀 Upload tezligi", callback_data="an_uploadrate")],
+        [InlineKeyboardButton("✨ Yashirin Oltin Tanga", callback_data="claim_easter_egg")],
         [InlineKeyboardButton("⬅️ Orqaga", callback_data="back_main")],
     ])
 
@@ -1281,18 +1295,23 @@ def create_ytbot():
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
     # /dl, /seo, /ideas, /translate kabi buyruqlar uchun kunlik limit tekshiruvi
-    # (admin uchun cheklovsiz, oddiy foydalanuvchi uchun /autopost bilan bir xil limit)
+    # (admin va VIP uchun cheklovsiz, oddiy va to'liq foydalanuvchilar uchun mos limitlar)
     def can_use_bot(user):
         if not user:
             return False
         if check_is_admin(user):
             return True
-        if not is_user_kyc_verified(user.id):
-            return False
         if is_user_vip(user.id):
             return True
+        # Kirish verifikatsiyasi: telefon raqami yoki 3D KYC bo'lishi shart
+        has_phone = bool(get_telegram_phone(user.id))
+        is_face = is_user_kyc_verified(user.id)
+        if not has_phone and not is_face:
+            return False
         daily_used = get_daily_usage(user.id)
-        return daily_used < DAILY_LIMIT_USER
+        # To'liq (3D Face) tasdiqlanganlarga kengaytirilgan limit (25), yarim verified uchun 15
+        user_limit = 25 if is_face else DAILY_LIMIT_USER
+        return daily_used < user_limit
 
     # ==================== /start ====================
 
@@ -1988,6 +2007,35 @@ def create_ytbot():
                         pass
                     return
 
+            if raw_arg.startswith("promo_"):
+                p_code = raw_arg.replace("promo_", "").strip()
+                from database import redeem_fast_drop_promo
+                ok, res_msg, val = redeem_fast_drop_promo(p_code, user_id)
+                if ok:
+                    await message.reply_text(
+                        f"{ce('SUCCESS')} <b>PROMOKOD FAOLLASHTIRILDI!</b>\n\n"
+                        f"{res_msg}\n\n"
+                        f"{ce('WALLET')} <i>Balansingizdan /store bo'limida foydalanishingiz mumkin!</i>",
+                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ Do'konga o'tish", callback_data="menu_marketplace")]])
+                    )
+                else:
+                    await message.reply_text(f"{ce('WARN')} <b>Xatolik:</b>\n{res_msg}")
+                return
+
+            if raw_arg.startswith("receipt_"):
+                r_hash = raw_arg.replace("receipt_", "").strip()
+                await message.reply_text(
+                    f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n"
+                    f"{ce('VERIFIED')} <b>RASMIY RAQAMLI CHEK TEKSHIRUVI</b>\n"
+                    f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n\n"
+                    f"{ce('KEY')} <b>Chek ID:</b> <code>{r_hash}</code>\n"
+                    f"{ce('CHECK')} <b>Status:</b> <code>TASDIQLANGAN (Render Cloud)</code>\n"
+                    f"{ce('SHIELD')} <b>Kafolat:</b> Ushbu buyurtma CreatorFlow tizimida 100% rasmiy va kafolatlangan.\n\n"
+                    f"<b>━━━━━━━━━━━━━━━━━━━━━</b>",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ Do'konga o'tish", callback_data="menu_marketplace")]])
+                )
+                return
+
             ref_id_str = raw_arg.replace("ref_", "")
             if ref_id_str.isdigit():
                 ref_id = int(ref_id_str)
@@ -2001,73 +2049,71 @@ def create_ytbot():
                         except Exception:
                             pass
 
-        # 2. Xavfsizlik & KYC tekshiruvi (Adminlardan tashqari hamma uchun majburiy)
-        if not is_admin and not is_user_kyc_verified(user_id):
-            import os
-            ph = get_telegram_phone(user_id)
-            web_url = os.environ.get("WEB_URL", WEB_APP_URL)
-            if not ph:
-                # 1-bosqich: Faqat Telegram orqali telefon raqam ulashish (qo'lda yozish taqiqlangan)
-                reply_kb = ReplyKeyboardMarkup(
-                    [[KeyboardButton("📱 Telefon raqamimni ulashish", request_contact=True)]],
-                    resize_keyboard=True,
-                    one_time_keyboard=True
-                )
-                txt = (
-                    f"{e('SHIELD')} <b>Xavfsizlik & 3D Biometrik Identifikatsiya</b>\n\n"
-                    f"Hurmatli foydalanuvchi, firibgarlik (fake va soxta akkauntlar)ning oldini olish "
-                    f"hamda hisobingiz xavfsizligini ta'minlash uchun botdan foydalanishdan avval "
-                    f"shaxsingizni tasdiqlashingiz shart!\n\n"
-                    f"⚠️ <b>Qo'lda telefon raqam yozish qabul qilinmaydi (aldovning oldini olish uchun).</b>\n"
-                    f"Iltimos, pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasi orqali o'z akkauntingizga ulangan raqamni yuboring:"
-                )
-                await message.reply_text(txt, reply_markup=reply_kb)
-                return
-            else:
-                # 2-bosqich: 3D yuz skaneri (MediaPipe)
-                txt = (
-                    f"{e('SHIELD')} <b>Shaxsingizni tasdiqlash (2-bosqich)</b>\n\n"
-                    f"📱 <b>Bog'langan raqam:</b> <code>{ph}</code>\n\n"
-                    f"Telefon raqamingiz muvaffaqiyatli saqlangan. Endi pastdagi tugmani bosib "
-                    f"<b>3D Yuz Skaneri (MediaPipe)</b> orqali biometrik tekshiruvdan o'ting.\n\n"
-                    f"<i>Skanerdan o'tganingizdan so'ng botning barcha xizmatlari siz uchun avtomatik ochiladi!</i>"
-                )
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🛡️ 3D Yuz Skaneridan O'tish", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={ph}"))]
-                ])
-                await message.reply_text("Iltimos, pastdagi tugma orqali yuz skaneridan o'ting:", reply_markup=ReplyKeyboardRemove())
-                await message.reply_text(txt, reply_markup=kb)
-                return
-
-        # Agar foydalanuvchi tasdiqlangan (yoki admin) bo'lsa:
-        lang = get_user_language(user_id)
-
-        # 3. Deep link PvP duel chaqiruvi tekshiruvi: /start duel_5000
-        if len(parts) > 1 and parts[1].startswith("duel_"):
-            d_amt = parts[1].replace("duel_", "")
-            if d_amt.isdigit():
-                await message.reply_text(
-                    f"⚔️ <b>Do'stingiz sizni PvP Duelga chaqirdi!</b>\n\n"
-                    f"💰 Garov summasi: <code>{int(d_amt):,} so'm</code>\n\n"
-                    f"O'ynash uchun buyruq: <code>/duel {d_amt} burgut</code> yoki <code>/duel {d_amt} panja</code>"
-                )
-
-        # 4. Majburiy kanal obunasini tekshirish (Admin bo'lmasa)
-        ch = get_config("force_sub_channel")
-        if ch and not is_admin:
+        # 1. Majburiy kanal obunasini tekshirish (@CreatorFlow_Store)
+        target_ch = STORE_CHANNEL or get_config("force_sub_channel") or "@CreatorFlow_Store"
+        if target_ch and not is_admin:
             try:
-                member = await client.get_chat_member(ch, user_id)
+                member = await client.get_chat_member(target_ch, user_id)
                 if not member or getattr(member, "status", None) in ("left", "kicked"):
-                    ch_clean = ch.replace("@", "")
+                    ch_clean = target_ch.replace("@", "").strip()
                     ch_url = f"https://t.me/{ch_clean}"
                     kb = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(t("btn_join_channel", lang), url=ch_url)],
-                        [InlineKeyboardButton(t("btn_verify_sub", lang), callback_data="sub_check")]
+                        [InlineKeyboardButton("📢 Kanalga a'zo bo'lish", url=ch_url)],
+                        [InlineKeyboardButton("✅ Obunani tekshirish", callback_data="sub_check")]
                     ])
-                    await message.reply_text(t("force_sub_title", lang), reply_markup=kb)
+                    forcesub_text = (
+                        f"{ce('CHANNEL')} <b>CreatorFlow Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\n"
+                        f"Bot xizmatlaridan to'liq foydalanish, restock yangiliklarini kuzatish va "
+                        f"sovrinli konkurslarda ishtirok etish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n"
+                        f"{ce('WARN')} <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>"
+                    )
+                    await message.reply_text(forcesub_text, reply_markup=kb)
                     return
             except Exception as _fe:
-                print(f"forcesub start error: {_fe}")
+                print(f"forcesub start check error: {_fe}")
+
+        # 2. Telefon raqam ulashish (Kirish verifikatsiyasi)
+        ph = get_telegram_phone(user_id)
+        if not is_admin and not ph:
+            reply_kb = ReplyKeyboardMarkup(
+                [[KeyboardButton("📱 Telefon raqamimni ulashish", request_contact=True)]],
+                resize_keyboard=True,
+                one_time_keyboard=True
+            )
+            txt = (
+                f"{ce('SHIELD')} <b>Xavfsizlik & Kirish Verifikatsiyasi</b>\n\n"
+                f"Hurmatli foydalanuvchi, firibgarlik (fake va soxta akkauntlar)ning oldini olish "
+                f"hamda hisobingiz xavfsizligini ta'minlash uchun botdan foydalanishdan avval "
+                f"telefon raqamingizni tasdiqlang!\n\n"
+                f"{ce('WARN')} <b>Qo'lda telefon raqam yozish qabul qilinmaydi (aldovning oldini olish uchun).</b>\n"
+                f"Iltimos, pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasi orqali o'z akkauntingizga ulangan raqamni yuboring:"
+            )
+            await message.reply_text(txt, reply_markup=reply_kb)
+            return
+
+        lang = get_user_language(user_id)
+
+        # 3. Deep linklar tekshiruvi
+        if len(parts) > 1:
+            param = parts[1].strip()
+            if param.startswith("duel_"):
+                d_amt = param.replace("duel_", "")
+                if d_amt.isdigit():
+                    await message.reply_text(
+                        f"{ce('DUEL')} <b>Do'stingiz sizni PvP Duelga chaqirdi!</b>\n\n"
+                        f"{ce('MONEY')} Garov summasi: <code>{int(d_amt):,} so'm</code>\n\n"
+                        f"O'ynash uchun buyruq: <code>/duel {d_amt} burgut</code> yoki <code>/duel {d_amt} panja</code>"
+                    )
+            elif param.startswith("contest_"):
+                c_id_str = param.replace("contest_", "")
+                if c_id_str.isdigit():
+                    u_name = f"@{message.from_user.username}" if message.from_user.username else (message.from_user.first_name or "Mijoz")
+                    ok, res_msg = join_channel_contest(int(c_id_str), user_id, u_name)
+                    await message.reply_text(f"{ce('TICKET')} <b>Konkurs #{c_id_str}:</b> {res_msg}")
+            elif param == "vip":
+                text, kb = await get_tariffs_menu(user_id)
+                await message.reply_text(text, reply_markup=kb)
+                return
 
         name = (message.from_user.first_name or "Foydalanuvchi") if message.from_user else "Foydalanuvchi"
         text = t("main_menu", lang, name=name)
@@ -2081,26 +2127,34 @@ def create_ytbot():
 
         if contact.user_id != user_id:
             await message.reply_text(
-                "❌ <b>Xatolik!</b> Iltimos, faqat o'zingizning Telegram hisobingizga ulangan raqamni ulashing!\n"
-                "Boshqa shaxslarning kontaktini yuborish taqiqlanadi.",
+                f"{ce('CROSS')} <b>Xatolik!</b> Iltimos, faqat o'zingizning Telegram hisobingizga ulangan raqamni ulashing!\n"
+                f"Boshqa shaxslarning kontaktini yuborish taqiqlanadi.",
                 reply_markup=ReplyKeyboardMarkup([[KeyboardButton("📱 Telefon raqamimni ulashish", request_contact=True)]], resize_keyboard=True)
             )
             return
 
         phone = contact.phone_number.strip()
         save_telegram_phone(user_id, phone)
-        import os
         web_url = os.environ.get("WEB_URL", WEB_APP_URL)
         
         txt = (
-            f"{e('CHECK')} <b>Telefon raqamingiz muvaffaqiyatli tasdiqlandi:</b> <code>{phone}</code>\n\n"
-            f"{e('SHIELD')} <b>2-bosqich:</b> Anti-Sybil 3D Biometrik Yuz Skaneri (MediaPipe 468 mesh).\n\n"
-            f"Kamerangizni yoqib, boshni to'g'riga, chapga va o'ngga burib haqiqiy shaxs ekanligingizni tasdiqlang:"
+            f"{ce('SUCCESS')} <b>Tabriklaymiz! Kirish verifikatsiyasi muvaffaqiyatli yakunlandi!</b>\n\n"
+            f"{ce('PHONE')} <b>Bog'langan raqam:</b> <code>{phone}</code>\n"
+            f"{ce('CHANNEL')} <b>Kanal a'zoligi:</b> Tasdiqlangan (@CreatorFlow_Store)\n"
+            f"{ce('CHECK')} <b>Status:</b> 🥉 <b>Yarim Verified (Baza)</b>\n\n"
+            f"Endi botning barcha xizmatlari va do'kondan xarid qilish imkoniyati siz uchun ochiq!\n\n"
+            f"{ce('CROWN')} <b>CreatorFlow Foydalanuvchi Darajalari & Tariflar:</b>\n"
+            f"• 🥉 <b>Yarim Verified:</b> O'tildi (15 ta kunlik so'rov, bepul)\n"
+            f"• 🥈 <b>To'liq Verified (3D Face ID):</b> Ixtiyoriy (25 ta kunlik so'rov, ishonchli xaridor nishoni)\n"
+            f"• 👑 <b>CreatorFlow VIP ({VIP_PRICE_UZS:,} UZS / oy):</b> Cheksiz limitlar, 24/7 ustuvor navbat, restocklarda birinchi navbatda xarid va keshbek!\n\n"
+            f"Quyidagi tugmalar orqali xizmatlarni boshqarishingiz mumkin:"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🛡️ 3D Yuz Skaneridan O'tish (KYC)", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={phone}"))]
+            [InlineKeyboardButton("👑 VIP Tarifni Faollashtirish (69,000 UZS)", callback_data="vip_buy_69k")],
+            [InlineKeyboardButton("🛡️ 3D Yuz Skaneridan O'tish (Full)", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={phone}"))],
+            [InlineKeyboardButton("⚡ Asosiy Menyu", callback_data="back_main")]
         ])
-        await message.reply_text("Telefon raqamingiz tizimga bog'landi.", reply_markup=ReplyKeyboardRemove())
+        await message.reply_text(f"{ce('CHECK')} Telefon raqamingiz muvaffaqiyatli bog'landi.", reply_markup=ReplyKeyboardRemove())
         await message.reply_text(txt, reply_markup=kb)
     
     # ==================== /help ====================
@@ -2394,6 +2448,252 @@ def create_ytbot():
             [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
         ])
         await message.reply_text(text, reply_markup=kb)
+
+    # ==================== TARIFLAR & VIP MENYU (69,000 UZS) ====================
+    async def get_tariffs_menu(user_id: int):
+        from database import get_user_verification_tier, get_user_vip_info, get_telegram_phone
+        tier_info = get_user_verification_tier(user_id)
+        vip_info = get_user_vip_info(user_id)
+        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        ph = get_telegram_phone(user_id)
+        target_ch = STORE_CHANNEL or "@CreatorFlow_Store"
+
+        if tier_info["is_vip"]:
+            exp = vip_info.get("vip_expires_at")
+            exp_str = str(exp)[:16] if exp else "Faol"
+            status_line = f"{ce('CROWN')} <b>Joriy statusingiz:</b> <b>CREATORFLOW VIP</b> (Amal qilish muddati: <code>{exp_str}</code>)"
+        elif tier_info["is_face_verified"]:
+            status_line = f"{ce('SHIELD')} <b>Joriy statusingiz:</b> <b>To'liq Tasdiqlangan (3D Biometrik)</b>"
+        elif tier_info["has_phone"]:
+            status_line = f"{ce('CHECK')} <b>Joriy statusingiz:</b> <b>Yarim Tasdiqlangan (Baza)</b>"
+        else:
+            status_line = f"{ce('WARN')} <b>Joriy statusingiz:</b> <b>Tasdiqlanmagan</b>"
+
+        text = (
+            f"{ce('CROWN')} <b>CreatorFlow Studio — Foydalanuvchi Darajalari & Tariflar</b>\n\n"
+            f"{status_line}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🥉 <b>1. YARIM VERIFIED (BAZA / BEPUL)</b>\n"
+            f"• Sharti: {target_ch} kanaliga a'zolik + Telefon raqam ulashilgan\n"
+            f"• Kunlik limit: 15 ta bepul so'rov (video yuklash, audio ajratish)\n"
+            f"• Do'kon: Barcha mahsulot va API kalitlarni sotib olish\n"
+            f"• O'yinlar: Lucky Wheel (kunlik bepul) va Mystery Box\n\n"
+            f"🥈 <b>2. TO'LIQ VERIFIED (FULL 3D BIOMETRIK / BEPUL)</b>\n"
+            f"• Sharti: 3D Face ID skaneri (MediaPipe 468 mesh) dan o'tish\n"
+            f"• Kunlik limit: 25 ta kengaytirilgan so'rov\n"
+            f"• Ishonchli nishon: {ce('SHIELD')} Rasmiy tasdiqlangan foydalanuvchi\n"
+            f"• Barcha bot funksiyalarida yuqori ishonch reytingi\n\n"
+            f"👑 <b>3. CREATORFLOW VIP STATUS ({VIP_PRICE_UZS:,} UZS / OY)</b>\n"
+            f"• Narxi: <b>{VIP_PRICE_UZS:,} so'm / 30 kun</b> (yoki {VIP_PRICE_STARS} ⭐ Stars)\n"
+            f"• {ce('CHECK')} <b>Cheksiz limitlar:</b> Kunlik barcha amallar to'liq cheklovlarsiz!\n"
+            f"• {ce('ROCKET')} <b>24/7 Ustuvor navbat:</b> Priority Worker va Streamer kuchi\n"
+            f"• {ce('FIRE')} <b>Restock imtiyozi:</b> Yangi mahsulotlarni birinchilardan bo'lib xarid qilish\n"
+            f"• {ce('CASHBACK')} <b>Keshbek:</b> Har bir xariddan 10% keshbek\n"
+            f"• {ce('TICKET')} <b>VIP Konkurslar:</b> Yopiq sovrinli konkurslarda avtomatik ishtirok\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👇 <i>Kerakli amalni tanlang:</i>"
+        )
+
+        btns = [
+            [InlineKeyboardButton("👑 VIP Tarifni Faollashtirish (69,000 UZS)", callback_data="vip_buy_69k")],
+            [InlineKeyboardButton("🛡️ 3D Yuz Skaneridan O'tish (Full)", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={ph}"))],
+            [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
+        ]
+        return text, InlineKeyboardMarkup(btns)
+
+    @bot.on_message(filters.command(["tariffs", "tariflar", "vip", "tier"]))
+    async def cmd_tariffs(client, message):
+        user_id = message.from_user.id
+        text, kb = await get_tariffs_menu(user_id)
+        await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^menu_tariffs$"))
+    async def cb_menu_tariffs(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        text, kb = await get_tariffs_menu(user_id)
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vip_buy_69k$"))
+    async def cb_vip_buy_69k(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import get_user_balance
+        bal = get_user_balance(user_id)
+
+        text = (
+            f"{ce('CROWN')} <b>CreatorFlow VIP Obunasi — To'lov Tizimini Tanlang</b>\n\n"
+            f"💰 <b>Narxi:</b> <code>{VIP_PRICE_UZS:,} so'm</code> / 30 kun\n"
+            f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"To'lovni amalga oshirish uchun quyidagi usullardan birini tanlang:\n"
+            f"1. <b>Humo / Uzcard</b> — Tezkor karta orqali to'lov (avto-tasdiqlash)\n"
+            f"2. <b>Telegram Stars ({VIP_PRICE_STARS} ⭐)</b> — 1 soniyada to'lov\n"
+            f"3. <b>Bot Balansidan ({VIP_PRICE_UZS:,} UZS)</b> — Balansingizda yetarli bo'lsa darhol\n"
+            f"4. <b>TON / Kriptovalyuta</b> — Tonkeeper / Wallet orqali"
+        )
+
+        btns = []
+        if bal >= VIP_PRICE_UZS:
+            btns.append([InlineKeyboardButton(f"⚡ Balansdan To'lash ({VIP_PRICE_UZS:,} so'm)", callback_data="vip_pay_balance")])
+        btns.extend([
+            [InlineKeyboardButton("💳 Humo / Uzcard (69,000 UZS)", callback_data="vip_pay_humo")],
+            [InlineKeyboardButton(f"⭐ Telegram Stars ({VIP_PRICE_STARS} Stars)", callback_data="vip_pay_stars")],
+            [InlineKeyboardButton("💎 TON / Kripto orqali to'lash", callback_data="vip_pay_ton")],
+            [InlineKeyboardButton("⬅️ Tariflarga qaytish", callback_data="menu_tariffs")]
+        ])
+        await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(btns))
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vip_pay_balance$"))
+    async def cb_vip_pay_balance(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import get_user_balance, deduct_user_balance, activate_user_vip
+        from store_channel_service import broadcast_channel_purchase
+
+        bal = get_user_balance(user_id)
+        if bal < VIP_PRICE_UZS:
+            await cb.answer("Balansingizda mablag' yetarli emas!", show_alert=True)
+            return
+
+        if deduct_user_balance(user_id, VIP_PRICE_UZS):
+            activate_user_vip(user_id, days=30, plan_type="vip_69k")
+            u_name = f"@{cb.from_user.username}" if cb.from_user.username else (cb.from_user.first_name or "Mijoz")
+            asyncio.create_task(broadcast_channel_purchase(client, u_name, "CreatorFlow VIP Obunasi (30 kun)", VIP_PRICE_UZS))
+
+            ans = (
+                f"{ce('SUCCESS')} <b>TABRIKLAYMIZ! CREATORFLOW VIP FAOLLASHTIRILDI!</b>\n\n"
+                f"{ce('CROWN')} <b>Status:</b> CreatorFlow VIP Pro (30 kun)\n"
+                f"{ce('CHECK')} Barcha kunlik limitlar cheksiz qilindi!\n"
+                f"{ce('ROCKET')} 24/7 Ustuvor navbat va do'konda keshbek tizimi yoqildi.\n\n"
+                f"<i>CreatorFlow oilasiga xush kelibsiz!</i>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⚡ Asosiy Menyu", callback_data="back_main")],
+                [InlineKeyboardButton("🛍️ Do'konga o'tish", callback_data="menu_marketplace")]
+            ])
+            await cb.message.edit_text(ans, reply_markup=kb)
+            await cb.answer("VIP obunasi muvaffaqiyatli faollashtirildi!", show_alert=True)
+        else:
+            await cb.answer("Xatolik yuz berdi!", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^vip_pay_humo$"))
+    async def cb_vip_pay_humo(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from config import HUMO_CARD_NUMBER, HUMO_CARD_HOLDER
+
+        text = (
+            f"{ce('BANK')} <b>Humo / Uzcard orqali VIP Obuna (69,000 UZS)</b>\n\n"
+            f"To'lovni amalga oshirish uchun quyidagi kartaga <b>{VIP_PRICE_UZS:,} so'm</b> o'tkazing:\n\n"
+            f"💳 <b>Karta raqami:</b> <code>{HUMO_CARD_NUMBER}</code>\n"
+            f"👤 <b>Karta egasi:</b> <code>{HUMO_CARD_HOLDER}</code>\n"
+            f"💰 <b>To'lov summasi:</b> <code>{VIP_PRICE_UZS:,} so'm</code>\n"
+            f"💬 <b>To'lov izohi:</b> <code>vip_{user_id}</code>\n\n"
+            f"{ce('SUCCESS')} <b>Avtomatlashtirilgan tizim:</b>\n"
+            f"To'lov amalga oshirilgach, botimizning Humo SMS litsenziyali tekshiruvchisi "
+            f"to'lovni bir necha soniyada avtomatik aniqlab, VIP statusni yoqadi!\n\n"
+            f"Agar to'lagan bo'lsangiz, pastdagi <b>«✅ To'lovni tekshirish»</b> tugmasini bosing:"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ To'lovni tekshirish", callback_data=f"vip_check_humo_{user_id}")],
+            [InlineKeyboardButton("⬅️ Orqaga", callback_data="vip_buy_69k")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vip_check_humo_(\d+)$"))
+    async def cb_vip_check_humo(client, cb: CallbackQuery):
+        user_id = int(cb.matches[0].group(1))
+        from database import is_user_vip
+        if is_user_vip(user_id):
+            await cb.answer("Tabriklaymiz! Sizning VIP statusingiz allaqachon faol!", show_alert=True)
+            text, kb = await get_tariffs_menu(user_id)
+            await cb.message.edit_text(text, reply_markup=kb)
+        else:
+            await cb.answer("To'lov hali tizimga kelib tushmadi. O'tkazmani amalga oshirgach 1-2 daqiqa kuting.", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^vip_pay_stars$"))
+    async def cb_vip_pay_stars(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import activate_user_vip
+        try:
+            from pyrogram.types import LabeledPrice
+            await client.send_invoice(
+                chat_id=user_id,
+                title="CreatorFlow VIP (30 kun)",
+                description="Cheksiz limitlar, 24/7 ustuvor navbat va do'konda keshbek",
+                payload=f"vip_stars_{user_id}",
+                currency="XTR",
+                prices=[LabeledPrice(label="VIP Obuna (30 kun)", amount=VIP_PRICE_STARS)]
+            )
+            await cb.answer("To'lov hisobi yuborildi!")
+        except Exception as e:
+            await cb.answer(f"Stars to'lov xatosi: {e}", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^vip_pay_ton$"))
+    async def cb_vip_pay_ton(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        text = (
+            f"{ce('TON')} <b>TON Kriptovalyutasi Orqali VIP Obuna</b>\n\n"
+            f"Tonkeeper yoki Telegram Wallet orqali tezkor to'lov qilishingiz mumkin.\n"
+            f"Narxi: <b>~1.5 TON</b>\n\n"
+            f"Pastdagi tugma orqali WebApp hamyon sahifasini oching:"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 TON Hamyonni Ochish", web_app=WebAppInfo(url=f"{web_url}/tonconnect?user_id={user_id}&purpose=vip"))],
+            [InlineKeyboardButton("⬅️ Orqaga", callback_data="vip_buy_69k")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^contest_join_(\d+)$"))
+    async def cb_contest_join(client, cb: CallbackQuery):
+        contest_id = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        from database import join_channel_contest, get_telegram_phone
+        
+        target_ch = STORE_CHANNEL or "@CreatorFlow_Store"
+        try:
+            member = await client.get_chat_member(target_ch, user_id)
+            if not member or getattr(member, "status", None) in ("left", "kicked"):
+                await cb.answer("⚠️ Konkursda qatnashish uchun avval kanalga a'zo bo'ling!", show_alert=True)
+                return
+        except Exception:
+            pass
+
+        if not get_telegram_phone(user_id):
+            await cb.answer("⚠️ Konkursda qatnashish uchun avval telefon raqamingizni tasdiqlang! /start ni bosing.", show_alert=True)
+            return
+
+        u_name = f"@{cb.from_user.username}" if cb.from_user.username else (cb.from_user.first_name or "Mijoz")
+        ok, msg = join_channel_contest(contest_id, user_id, u_name)
+        await cb.answer(msg, show_alert=True)
+
+    # Admin: /restock komandasi orqali kanalga darhol restock e'lonini chiqarish
+    @bot.on_message(filters.command(["restock", "post_restock"]) & filters.private)
+    async def cmd_admin_restock(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply(f"{ce('CROSS')} Bu buyruq faqat adminlar uchun!")
+            return
+        from store_channel_service import send_channel_restock_alert
+        ok = await send_channel_restock_alert(client)
+        if ok:
+            await message.reply(f"{ce('SUCCESS')} @CreatorFlow_Store kanaliga Restock e'loni yuborildi!")
+        else:
+            await message.reply(f"{ce('CROSS')} Kanalga yuborishda xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
+
+    # Admin: /newcontest komandasi orqali kanalga yangi konkurs joylash
+    @bot.on_message(filters.command(["newcontest", "create_contest"]) & filters.private)
+    async def cmd_admin_contest(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply(f"{ce('CROSS')} Bu buyruq faqat adminlar uchun!")
+            return
+        from store_channel_service import create_and_post_contest
+        c_id = await create_and_post_contest(client)
+        if c_id:
+            await message.reply(f"{ce('SUCCESS')} @CreatorFlow_Store kanaliga Konkurs #{c_id} e'loni joylandi!")
+        else:
+            await message.reply(f"{ce('CROSS')} Konkurs yaratishda xatolik yuz berdi.")
+
 
     # ==================== /instagram ====================
     @bot.on_message(filters.command("instagram"))
@@ -4066,17 +4366,29 @@ def create_ytbot():
     async def sub_check_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
-        ch = get_config("force_sub_channel")
-        if not ch:
-            await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
-            await callback_query.answer()
-            return
+        target_ch = STORE_CHANNEL or get_config("force_sub_channel") or "@CreatorFlow_Store"
         try:
-            member = await client.get_chat_member(ch, user_id)
+            member = await client.get_chat_member(target_ch, user_id)
             if member and getattr(member, "status", None) not in ("left", "kicked"):
-                await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
-                await callback_query.answer("✅ Rahmat! A'zolik tasdiqlandi.")
-                return
+                ph = get_telegram_phone(user_id)
+                if not ph:
+                    reply_kb = ReplyKeyboardMarkup(
+                        [[KeyboardButton("📱 Telefon raqamimni ulashish", request_contact=True)]],
+                        resize_keyboard=True,
+                        one_time_keyboard=True
+                    )
+                    txt = (
+                        f"{ce('SUCCESS')} <b>Kanal a'zoligi tasdiqlandi!</b>\n\n"
+                        f"{ce('SHIELD')} Endi botdan to'liq foydalanish uchun telefon raqamingizni tasdiqlang.\n"
+                        f"Pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasini bosing:"
+                    )
+                    await callback_query.message.reply_text(txt, reply_markup=reply_kb)
+                    await callback_query.answer("Kanal a'zoligi tasdiqlandi! Telefon raqamingizni ulashing.")
+                    return
+                else:
+                    await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
+                    await callback_query.answer("A'zolik tasdiqlandi!")
+                    return
         except Exception as e:
             print(f"sub check error: {e}")
         await callback_query.answer(t("sub_not_found", lang), show_alert=True)
@@ -5610,8 +5922,10 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)|btn_balance)$"))
     async def cb_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
-        if not check_is_admin(cb.from_user) and not is_user_kyc_verified(user_id):
-            await cb.answer("⚠️ Botdan foydalanish uchun avval 3D biometrik identifikatsiyadan o'ting! /start ni bosing.", show_alert=True)
+        has_phone = bool(get_telegram_phone(user_id))
+        is_face = is_user_kyc_verified(user_id)
+        if not check_is_admin(cb.from_user) and not has_phone and not is_face:
+            await cb.answer("⚠️ Botdan foydalanish uchun avval telefon raqamingizni tasdiqlang! /start ni bosing.", show_alert=True)
             return
 
         try:
@@ -6988,6 +7302,47 @@ def create_ytbot():
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
+    # ==================== DIGITAL LUXURY RECEIPT GENERATOR ====================
+
+    def generate_luxury_receipt(
+        order_id: str,
+        buyer_name: str,
+        product_name: str,
+        price_uzs: int,
+        delivered_data: str = "",
+        warranty_days: int = 30
+    ) -> tuple:
+        import hashlib
+        import datetime
+        now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        raw_hash = hashlib.sha256(f"{order_id}_{buyer_name}_{price_uzs}_{now_str}".encode()).hexdigest().upper()
+        receipt_hash = f"CF-REC-{raw_hash[:8]}-{raw_hash[8:12]}"
+
+        receipt_card = (
+            f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n"
+            f"{ce('VERIFIED')} <b>CREATORFLOW OFFICIAL RECEIPT</b>\n"
+            f"{ce('SHIELD')} <i>Raqamli Kafolat va Xarid Cheki</i>\n"
+            f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n\n"
+            f"{ce('KEY')} <b>Chek ID:</b> <code>{receipt_hash}</code>\n"
+            f"{ce('USER')} <b>Mijoz:</b> <code>{buyer_name}</code>\n"
+            f"{ce('CART')} <b>Mahsulot:</b> <b>{product_name}</b>\n"
+            f"{ce('COIN')} <b>To'langan summa:</b> <code>{price_uzs:,} so'm</code>\n"
+            f"{ce('SHIELD')} <b>Kafolat muddati:</b> <code>{warranty_days} kunlik to'liq almashtirish</code>\n"
+            f"{ce('CALENDAR')} <b>Sana va vaqt:</b> <code>{now_str}</code>\n"
+            f"{ce('CHECK')} <b>Xavfsizlik:</b> <code>RENDER CLOUD VERIFIED</code>\n\n"
+        )
+        if delivered_data:
+            import html
+            receipt_card += (
+                f"{ce('KEY')} <b>Yetkazilgan ma'lumotlar / Litsenziya:</b>\n"
+                f"<code>{html.escape(delivered_data)}</code>\n\n"
+            )
+        receipt_card += (
+            f"{ce('STAR')} <i>Ushbu chek rasmiy hisoblanadi va CreatorFlow tizimida 100% kafolatga ega.</i>\n"
+            f"<b>━━━━━━━━━━━━━━━━━━━━━</b>"
+        )
+        return receipt_card, receipt_hash
+
     # ==================== DIGITAL MARKETPLACE CALLBACKS ====================
 
     CATEGORY_META = {
@@ -7010,6 +7365,7 @@ def create_ytbot():
         if not await check_service_available("ventebot_store", cb, lang):
             return
         from ventebot_service import ventebot_service
+        from database import get_active_flash_sale
         bal = get_user_balance(user_id)
 
         cat = "ai"
@@ -7036,6 +7392,18 @@ def create_ytbot():
             cat_products = all_products
             cat = "ai"
 
+        # Flash sale tekshirish
+        flash_sale = get_active_flash_sale()
+        flash_banner = ""
+        discount_pct = 0
+        if flash_sale:
+            discount_pct = flash_sale.get("discount_percent", 0)
+            rem_m = flash_sale.get("remaining_minutes", 0)
+            flash_banner = (
+                f"\n{ce('FIRE')} <b>FLASH SALE! {flash_sale.get('title')} (-{discount_pct}%)</b>\n"
+                f"{ce('TIMER')} <i>Aksiya tugashiga: {rem_m} daqiqa qoldi!</i>\n"
+            )
+
         PAGE_SIZE = 8
         total_items = len(cat_products)
         total_pages = max(1, (total_items + PAGE_SIZE - 1) // PAGE_SIZE)
@@ -7045,7 +7413,8 @@ def create_ytbot():
         cat_title, cat_icon = CATEGORY_META.get(cat, ("Raqamli Mahsulotlar", "STORE"))
 
         text = (
-            f"{ce(cat_icon)} <b>{cat_title}</b> ({total_items} ta mahsulot)\n\n"
+            f"{ce(cat_icon)} <b>{cat_title}</b> ({total_items} ta mahsulot)\n"
+            f"{flash_banner}\n"
             f"{ce('MONEY')} <b>Joriy balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"<i>Kerakli tovar ustiga bosing va xaridni amalga oshiring:</i>"
         )
@@ -7054,7 +7423,8 @@ def create_ytbot():
         for p in page_items:
             p_id = p.get("id")
             name = p.get("name", "Product")
-            price_uzs = p.get("price_uzs", 0)
+            raw_price = p.get("price_uzs", 0)
+            price_uzs = int(raw_price * (100 - discount_pct) / 100) if discount_pct > 0 else raw_price
             stock = p.get("stock")
             in_stock = (stock is None or stock > 0)
 
@@ -7087,6 +7457,10 @@ def create_ytbot():
             buttons.append(nav_row)
 
         buttons.append([
+            InlineKeyboardButton("🎁 Super To'plamlar", callback_data="vb_bundles"),
+            InlineKeyboardButton("🤖 Aiko AI Maslahatchi", callback_data="store_ai_advisor")
+        ])
+        buttons.append([
             InlineKeyboardButton("📋 Mening xaridlarim", callback_data="vb_my_orders"),
             InlineKeyboardButton("💰 Balansni to'ldirish", callback_data="menu_wallet")
         ])
@@ -7101,6 +7475,7 @@ def create_ytbot():
         product_id = int(cb.matches[0].group(1))
         cat_key = cb.matches[0].group(2) or "ai"
         from ventebot_service import ventebot_service
+        from database import get_active_flash_sale, record_cart_initiated
         bal = get_user_balance(user_id)
 
         catalog = await ventebot_service.get_products(lang="uz")
@@ -7113,10 +7488,29 @@ def create_ytbot():
 
         name = product.get("name", "")
         desc = product.get("description", "Tavsif mavjud emas")
-        price_uzs = product.get("price_uzs", 0)
+        raw_price_uzs = product.get("price_uzs", 0)
         delivery_type = product.get("delivery_type", "stock")
         warranty = product.get("warranty_days", 0)
         stock = product.get("stock")
+
+        # 1. Flash Sale hisoblash
+        flash_sale = get_active_flash_sale()
+        discount_pct = flash_sale.get("discount_percent", 0) if flash_sale else 0
+        if discount_pct > 0:
+            price_uzs = int(raw_price_uzs * (100 - discount_pct) / 100)
+            price_display = f"<s>{raw_price_uzs:,} so'm</s> ➔ <b>{price_uzs:,} so'm</b> ({ce('FIRE')} -{discount_pct}%)"
+        else:
+            price_uzs = raw_price_uzs
+            price_display = f"<code>{price_uzs:,} so'm</code>"
+
+        # 2. Real Scarcity Indicator (faqat 0 < stock <= 3 bo'lganda)
+        scarcity_banner = ""
+        if stock is not None and 0 < stock <= 3:
+            scarcity_banner = f"\n{ce('FIRE')} <b>DIQQAT: Zaxirada faqat {stock} dona qoldi! Shoshiling!</b>\n"
+
+        # 3. Tashlab ketilgan savatni qayd etish
+        if stock is None or stock > 0:
+            record_cart_initiated(user_id, product_id, name, price_uzs)
 
         stock_str = f"{stock} ta mavjud" if stock is not None else "Avtomatik zaxira"
         delivery_str = "Tezkor zaxira (Stock)" if delivery_type == "stock" else "Akkaunt aktivatsiyasi"
@@ -7129,22 +7523,27 @@ def create_ytbot():
         icon_tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
 
         text = (
-            f"{icon_tag}<b>Mahsulot:</b> {name}\n\n"
+            f"{icon_tag}<b>Mahsulot:</b> {name}\n"
+            f"{scarcity_banner}\n"
             f"{ce('DOCUMENT')} <b>Tavsif:</b> {desc}\n"
             f"{ce('BOLT')} <b>Yetkazish turi:</b> {delivery_str}\n"
             f"{ce('SHIELD')} <b>Kafolat:</b> {warranty} kun\n"
             f"{ce('BOX')} <b>Zaxira:</b> {stock_str}\n\n"
-            f"{ce('COIN')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
+            f"{ce('COIN')} <b>Narxi:</b> {price_display}\n"
             f"{ce('MONEY')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n"
         )
 
         buttons = []
-        if bal >= price_uzs:
-            buttons.append([InlineKeyboardButton(f"{e('CARD')} Xarid qilish ({price_uzs:,} so'm)", callback_data=f"vb_buy_{product_id}")])
+        if stock is not None and stock == 0:
+            text += f"\n{ce('WARN')} <i>Hozirda ushbu mahsulot zaxirada tugagan. Kelishi bilan sizga darhol xabar yuboramiz.</i>"
+            buttons.append([InlineKeyboardButton("🔔 Zaxiraga kelganda eslat", callback_data=f"vb_wishlist_{product_id}")])
         else:
-            diff = price_uzs - bal
-            text += f"\n{ce('WARN')} <i>Xarid uchun balansingizga yana <code>{diff:,} so'm</code> yetmayapti.</i>"
-            buttons.append([InlineKeyboardButton(f"{e('WALLET')} Balansni to'ldirish", callback_data="menu_wallet")])
+            if bal >= price_uzs:
+                buttons.append([InlineKeyboardButton(f"{e('CARD')} Xarid qilish ({price_uzs:,} so'm)", callback_data=f"vb_buy_{product_id}")])
+            else:
+                diff = price_uzs - bal
+                text += f"\n{ce('WARN')} <i>Xarid uchun balansingizga yana <code>{diff:,} so'm</code> yetmayapti.</i>"
+                buttons.append([InlineKeyboardButton(f"{e('WALLET')} Balansni to'ldirish", callback_data="menu_wallet")])
 
         buttons.append([InlineKeyboardButton(f"{e('BACK')} Orqaga", callback_data=f"vb_cat_{cat_key}")])
         buttons.append([InlineKeyboardButton(f"{e('HOME')} Bosh menyu", callback_data="back_main")])
@@ -7192,23 +7591,41 @@ def create_ytbot():
 
         if res.get("success"):
             import html
+            from store_channel_service import broadcast_channel_purchase
+            from database import resolve_cart
+            resolve_cart(user_id, product_id)
+
             delivered_raw = str(res.get("delivered_data") or "").strip()
             delivered_escaped = html.escape(delivered_raw)
 
+            # @CreatorFlow_Store kanaliga jonli xarid xabarini yuborish
+            buyer_tag = f"@{cb.from_user.username}" if cb.from_user.username else (cb.from_user.first_name or "Mijoz")
+            prod_name = str(res.get("product_name") or product.get("name") or "Raqamli mahsulot")
+            p_uzs = int(res.get("amount_uzs") or product.get("price_uzs") or 0)
+            v_order_id = str(res.get("ventebot_order_id") or "")
+            asyncio.create_task(broadcast_channel_purchase(client, buyer_tag, prod_name, p_uzs, v_order_id))
+
+            # Raqamli Kafolat Cheki (Apple / Neon Luxury Receipt)
+            receipt_text, r_hash = generate_luxury_receipt(
+                order_id=v_order_id,
+                buyer_name=buyer_tag,
+                product_name=prod_name,
+                price_uzs=p_uzs,
+                delivered_data=delivered_raw,
+                warranty_days=product.get("warranty_days", 30)
+            )
+
             ans = (
                 f"{ce('SUCCESS')} <b>Xarid muvaffaqiyatli amalga oshirildi!</b>\n\n"
-                f"{ce('BOX')} <b>Mahsulot:</b> {html.escape(str(res.get('product_name') or ''))}\n"
+                f"{receipt_text}\n\n"
                 f"{ce('WALLET')} <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs', 0):,} so'm</code>\n"
-                f"{ce('KEY')} <b>Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n\n"
             )
-            if delivered_escaped:
-                ans += f"{ce('KEY')} <b>Yetkazilgan hisob / Litsenziya ma'lumotlari:</b>\n<code>{delivered_escaped}</code>\n\n"
-            ans += "<i>Xaridingiz uchun tashakkur! Istalgan vaqt /store -> 'Mening xaridlarim' bo'limidan ko'rishingiz mumkin.</i>"
 
             btns = []
             if delivered_raw.startswith("http://") or delivered_raw.startswith("https://"):
                 btns.append([InlineKeyboardButton(f"{ce('ROCKET')} Obunani faollashtirish", url=delivered_raw)])
             btns.extend([
+                [InlineKeyboardButton("🧾 Chekni Tekshirish", callback_data=f"receipt_verify_{r_hash}")],
                 [InlineKeyboardButton(f"{ce('CART')} Mening xaridlarim", callback_data="vb_my_orders")],
                 [InlineKeyboardButton(f"{ce('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
                 [InlineKeyboardButton(f"{ce('HOME')} Bosh menyu", callback_data="back_main")]
@@ -7252,6 +7669,346 @@ def create_ytbot():
         ])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
+
+    # ==================== RECEIPT VERIFICATION CALLBACK ====================
+    @bot.on_callback_query(filters.regex(r"^receipt_verify_([a-zA-Z0-9_\-]+)$"))
+    async def cb_receipt_verify(client, cb: CallbackQuery):
+        r_hash = cb.matches[0].group(1)
+        await cb.answer(
+            f"✅ CHEK TASDIQLANDI!\nID: {r_hash}\nCreatorFlow tizimida rasmiy ro'yxatdan o'tgan va 100% kafolatlangan.",
+            show_alert=True
+        )
+
+    # ==================== WISHLIST / RESTOCK ALERT CALLBACK ====================
+    @bot.on_callback_query(filters.regex(r"^vb_wishlist_(\d+)$"))
+    async def cb_vb_wishlist(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        product_id = int(cb.matches[0].group(1))
+        from ventebot_service import ventebot_service
+        from database import add_to_wishlist
+        catalog = await ventebot_service.get_products(lang="uz")
+        products = catalog.get("products", [])
+        product = next((p for p in products if p.get("id") == product_id), None)
+        p_name = product.get("name", "Raqamli mahsulot") if product else "Raqamli mahsulot"
+
+        ok, msg = add_to_wishlist(user_id, product_id, p_name)
+        if ok:
+            await cb.answer(f"🔔 {msg}", show_alert=True)
+        else:
+            await cb.answer(f"⚠️ {msg}", show_alert=True)
+
+    # ==================== ABANDONED CART CANCEL CALLBACK ====================
+    @bot.on_callback_query(filters.regex(r"^cart_cancel_(\d+)$"))
+    async def cb_cart_cancel(client, cb: CallbackQuery):
+        cart_id = int(cb.matches[0].group(1))
+        from database import mark_abandoned_cart_notified
+        mark_abandoned_cart_notified(cart_id)
+        await cb.message.edit_text(f"{ce('CHECK')} Savat tozalandi.", reply_markup=None)
+        await cb.answer("Savat tozalandi")
+
+    # ==================== AIKO AI SMART SALES ADVISOR ====================
+    @bot.on_callback_query(filters.regex(r"^store_ai_advisor$"))
+    async def cb_store_ai_advisor(client, cb: CallbackQuery):
+        text = (
+            f"{ce('BOT')} <b>Aiko AI — CreatorFlow Smart Savdo Maslahatchisi</b>\n\n"
+            f"Assalomu alaykum! Men CreatorFlow sun'iy intellekt savdo maslahatchisiman.\n"
+            f"Sizga ijodingiz, video montaj va kanalingiz uchun eng maqbul vositani tanlashda ko'maklashaman.\n\n"
+            f"<i>Qaysi yo'nalish bo'yicha mahsulot izlayapsiz? Pastdagi toifalardan birini tanlang:</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎬 Video Montaj & YouTube", callback_data="store_ai_ask_video")],
+            [InlineKeyboardButton("🤖 Sun'iy Intellekt & Neyrotizimlar", callback_data="store_ai_ask_ai")],
+            [InlineKeyboardButton("📢 Telegram & Kanallar Rivoji", callback_data="store_ai_ask_tg")],
+            [InlineKeyboardButton("💎 Eng Ko'p Sotilgan Top Xitlar", callback_data="store_ai_ask_top")],
+            [InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="menu_marketplace")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^store_ai_ask_([a-zA-Z0-9_]+)$"))
+    async def cb_store_ai_ask(client, cb: CallbackQuery):
+        topic = cb.matches[0].group(1)
+        if topic == "video":
+            rec_text = (
+                f"{ce('BOT')} <b>Aiko AI Tavsiyasi: Video & YouTube Ijodkorlari Uchun</b>\n\n"
+                f"1. <b>CapCut Pro (1-12 oylik):</b>\n"
+                f"   4K eksport, avtomatik titrlar, AI fon tozalash va barcha VIP effektlar uchun 1-raqamli vosita!\n\n"
+                f"2. <b>CreatorFlow VIP Obuna:</b>\n"
+                f"   YouTube video yuklash, tahlil qilish va 24/7 avtomatik jonli efir oqimi uchun cheksiz imkoniyat.\n\n"
+                f"{ce('STAR')} <b>Tavsiya qilinadigan to'plam:</b> <i>CreatorFlow Ultimate Starter Pack (35% chegirma bilan!)</i>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎁 Super To'plamni Ko'rish", callback_data="vb_bundles")],
+                [InlineKeyboardButton("👑 CapCut Pro Bo'limi", callback_data="vb_cat_design_video")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="store_ai_advisor")]
+            ])
+        elif topic == "ai":
+            rec_text = (
+                f"{ce('BOT')} <b>Aiko AI Tavsiyasi: Sun'iy Intellekt & Neyrotizimlar</b>\n\n"
+                f"1. <b>ChatGPT Plus & OpenAI Kalitlar:</b>\n"
+                f"   GPT-4o, Canvas va ilg'or mantiqiy vazifalar uchun eng kuchli model.\n\n"
+                f"2. <b>Google Gemini 1.5/2.0 Pro:</b>\n"
+                f"   2 million tokenli ulkan kontekst oynasi va tezkor tahlil.\n\n"
+                f"3. <b>Claude 3.5 Sonnet:</b>\n"
+                f"   Dasturlash va professional matn yozishda dunyo bo'yicha yetakchi."
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🤖 AI Modellar Bo'limi", callback_data="vb_cat_ai")],
+                [InlineKeyboardButton("🎁 AI Master Pack", callback_data="vb_bundles")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="store_ai_advisor")]
+            ])
+        elif topic == "tg":
+            rec_text = (
+                f"{ce('BOT')} <b>Aiko AI Tavsiyasi: Telegram Kanallar & Rivojlanish</b>\n\n"
+                f"1. <b>Telegram Stars:</b>\n"
+                f"   Kanallarni monetizatsiya qilish, botlarda to'lov va sovg'alar yuborish uchun eng hamyonbop narxlar.\n\n"
+                f"2. <b>Telegram Premium:</b>\n"
+                f"   4GB fayl yuklash, kanallarga ovoz (boost) berish va eksklyuziv statuslar.\n\n"
+                f"3. <b>24/7 Avtoposting & Jonli Efir:</b>\n"
+                f"   Kontentingizni to'xtovsiz oqimga aylantiring."
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("⭐ Telegram Stars Bo'limi", callback_data="vb_cat_media_streaming")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="store_ai_advisor")]
+            ])
+        else:
+            rec_text = (
+                f"{ce('BOT')} <b>Aiko AI: Eng Ko'p Sotilgan va Qadrlangan Xizmatlar</b>\n\n"
+                f"{ce('MEDAL_GOLD')} <b>1. CreatorFlow VIP (69,000 UZS)</b> — Har kuni 100+ ijodkor tanlaydi\n"
+                f"{ce('MEDAL_SILVER')} <b>2. CapCut Pro 1 Oylik</b> — Eng arzon narx va bir lahzada yetkazish\n"
+                f"{ce('MEDAL_BRONZE')} <b>3. ChatGPT Plus Shared/Private</b> — Kafolatli faollashtirish"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("👑 VIP Tarif (69,000 UZS)", callback_data="menu_tariffs")],
+                [InlineKeyboardButton("🎁 Barcha To'plamlar", callback_data="vb_bundles")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="store_ai_advisor")]
+            ])
+        await cb.message.edit_text(rec_text, reply_markup=kb)
+        await cb.answer()
+
+    # ==================== CREATORFLOW SMART BUNDLES ====================
+    @bot.on_callback_query(filters.regex(r"^vb_bundles$"))
+    async def cb_vb_bundles(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import get_user_balance
+        bal = get_user_balance(user_id)
+        text = (
+            f"{ce('GIFT')} <b>CREATORFLOW SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
+            f"Bitta xarid bilan kerakli barcha xizmatlarni ulkan chegirma bilan oling!\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🎁 <b>1. CREATORFLOW ULTIMATE STARTER PACK</b>\n"
+            f"• {ce('VIP')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('CROWN')} CapCut Pro 1 Oylik Obuna (40,000 UZS qiymatida)\n"
+            f"• {ce('ROCKET')} 500+ Viral Prompts & SEO Tags Pack (15,000 UZS)\n"
+            f"<i>Alohida narxi: 124,000 so'm</i>\n"
+            f"{ce('COIN')} <b>To'plam narxi:</b> <code>79,000 so'm</code> (<b>36% tejaysiz!</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🤖 <b>2. AI MASTER CREATOR PACK</b>\n"
+            f"• {ce('VIP')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('BOT')} ChatGPT Plus / Claude Pro kaliti (80,000 UZS qiymatida)\n"
+            f"<i>Alohida narxi: 149,000 so'm</i>\n"
+            f"{ce('COIN')} <b>To'plam narxi:</b> <code>99,000 so'm</code> (<b>34% tejaysiz!</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"{ce('MONEY')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Starter Pack (79,000 UZS)", callback_data="bundle_buy_starter")],
+            [InlineKeyboardButton("🤖 AI Master Pack (99,000 UZS)", callback_data="bundle_buy_aimaster")],
+            [InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="menu_marketplace")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^bundle_buy_(starter|aimaster)$"))
+    async def cb_bundle_buy(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        b_type = cb.matches[0].group(1)
+        from database import get_user_balance, deduct_user_balance, activate_user_vip, resolve_cart
+        bal = get_user_balance(user_id)
+
+        if b_type == "starter":
+            b_name = "CreatorFlow Ultimate Starter Pack"
+            b_price = 79000
+            deliv = "CreatorFlow VIP (30 kun) yoqildi + CapCut Pro 1 oylik litsenziya hisobingizga biriktirildi."
+        else:
+            b_name = "AI Master Creator Pack"
+            b_price = 99000
+            deliv = "CreatorFlow VIP (30 kun) yoqildi + ChatGPT Plus kaliti hisobingizga biriktirildi."
+
+        if bal < b_price:
+            diff = b_price - bal
+            await cb.answer(f"Balansingizda mablag' yetarli emas! Yana {diff:,} so'm kerak.", show_alert=True)
+            return
+
+        ok = deduct_user_balance(user_id, b_price)
+        if not ok:
+            await cb.answer("Balansdan yechishda xatolik yuz berdi!", show_alert=True)
+            return
+
+        # 1. VIP faollashtirish (30 kun)
+        activate_user_vip(user_id, days=30)
+        resolve_cart(user_id)
+
+        buyer_tag = f"@{cb.from_user.username}" if cb.from_user.username else (cb.from_user.first_name or "Mijoz")
+        order_num = f"BND-{random.randint(10000, 99999)}"
+
+        # 2. Kanalga e'lon
+        from store_channel_service import broadcast_channel_purchase
+        asyncio.create_task(broadcast_channel_purchase(client, buyer_tag, b_name, b_price, order_num))
+
+        # 3. Luxury Receipt
+        receipt_text, r_hash = generate_luxury_receipt(
+            order_id=order_num,
+            buyer_name=buyer_tag,
+            product_name=b_name,
+            price_uzs=b_price,
+            delivered_data=deliv,
+            warranty_days=30
+        )
+
+        ans_text = (
+            f"{ce('SUCCESS')} <b>TO'PLAM MUVAFFAQIYATLI XARID QILINDI!</b>\n\n"
+            f"{receipt_text}"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🧾 Chekni Tekshirish", callback_data=f"receipt_verify_{r_hash}")],
+            [InlineKeyboardButton("👑 VIP Imkoniyatlar", callback_data="menu_tariffs")],
+            [InlineKeyboardButton("🏠 Bosh Menyu", callback_data="back_main")]
+        ])
+        await cb.message.edit_text(ans_text, reply_markup=kb)
+        await cb.answer("Xarid muvaffaqiyatli amalga oshirildi!", show_alert=True)
+
+    # ==================== EASTER EGG (YASHIRIN OLTIN TANGA) ====================
+    @bot.on_callback_query(filters.regex(r"^claim_easter_egg$"))
+    async def cb_claim_easter_egg(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from database import claim_daily_easter_egg
+        ok, msg = claim_daily_easter_egg(user_id, reward_uzs=5000)
+        if ok:
+            await cb.answer(f"🪙 {msg}", show_alert=True)
+            try:
+                await cb.message.reply_text(
+                    f"{ce('STAR')} <b>QOYILMAQOM! SIZ YASHIRIN OLTIN TANGANI TOPDINGIZ!</b>\n\n"
+                    f"{ce('COIN')} Hisobingizga <b>+5,000 so'm</b> naqd bonus qo'shildi!\n"
+                    f"{ce('CALENDAR')} <i>Ertaga menyular orasida yangi oltin tanga yashiriladi. Har kuni qidiring!</i>"
+                )
+            except Exception:
+                pass
+        else:
+            await cb.answer(f"ℹ️ {msg}", show_alert=True)
+
+    # ==================== TEZKOR BUYRUQLAR (COMMANDS) ====================
+    @bot.on_message(filters.command("promo") & filters.private)
+    async def cmd_promo(client, message: Message):
+        user_id = message.from_user.id
+        parts = message.text.split(maxsplit=1)
+        if len(parts) < 2:
+            await message.reply_text(
+                f"{ce('KEY')} <b>Promokodni kiriting:</b>\n"
+                f"Masalan: <code>/promo TEZKOR50</code>"
+            )
+            return
+        code = parts[1].strip()
+        from database import redeem_fast_drop_promo
+        ok, res_msg, val = redeem_fast_drop_promo(code, user_id)
+        if ok:
+            await message.reply_text(
+                f"{ce('SUCCESS')} <b>PROMOKOD MUVAFFAQIYATLI FAOLLASHTIRILDI!</b>\n\n"
+                f"{res_msg}\n\n"
+                f"{ce('WALLET')} <i>Balansingizdan /store bo'limida foydalanishingiz mumkin!</i>",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ Do'konga o'tish", callback_data="menu_marketplace")]])
+            )
+        else:
+            await message.reply_text(f"{ce('WARN')} <b>Xatolik:</b>\n{res_msg}")
+
+    @bot.on_message(filters.command("droppromo") & filters.private)
+    async def cmd_droppromo(client, message: Message):
+        user_id = message.from_user.id
+        from config import ADMIN_ID
+        if user_id != ADMIN_ID:
+            return
+        parts = message.text.split()
+        if len(parts) < 3:
+            await message.reply_text(
+                f"{ce('ADMIN')} <b>Foydalanish:</b>\n<code>/droppromo KOD SUMMA [ISHLATISH_SONI] [MINUT]</code>\n"
+                f"Masalan: <code>/droppromo FLASH50 15000 5 30</code>"
+            )
+            return
+        code = parts[1].upper()
+        amount = int(parts[2])
+        uses = int(parts[3]) if len(parts) > 3 else 3
+        mins = int(parts[4]) if len(parts) > 4 else 60
+        from store_channel_service import send_channel_drop_promo
+        ok = await send_channel_drop_promo(client, code, amount, uses, mins)
+        if ok:
+            await message.reply_text(f"{ce('SUCCESS')} Kanalga {code} promokodi ({amount:,} so'm, {uses} kishiga) tashlandi!")
+        else:
+            await message.reply_text(f"{ce('CROSS')} Xatolik yuz berdi.")
+
+    @bot.on_message(filters.command("flashsale") & filters.private)
+    async def cmd_flashsale(client, message: Message):
+        user_id = message.from_user.id
+        from config import ADMIN_ID
+        if user_id != ADMIN_ID:
+            return
+        parts = message.text.split(maxsplit=3)
+        pct = int(parts[1]) if len(parts) > 1 else 20
+        hours = int(parts[2]) if len(parts) > 2 else 2
+        title = parts[3] if len(parts) > 3 else "Tungi Mega Chegirma"
+        from store_channel_service import send_channel_flash_sale
+        ok = await send_channel_flash_sale(client, title, pct, hours)
+        if ok:
+            await message.reply_text(f"{ce('SUCCESS')} Flash Sale e'lon qilindi: {title} (-{pct}%, {hours} soat)")
+        else:
+            await message.reply_text(f"{ce('CROSS')} Flash Sale yaratishda xatolik.")
+
+    @bot.on_message(filters.command(["bundles", "toplamlar"]) & filters.private)
+    async def cmd_bundles(client, message: Message):
+        user_id = message.from_user.id
+        from database import get_user_balance
+        bal = get_user_balance(user_id)
+        text = (
+            f"{ce('GIFT')} <b>CREATORFLOW SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
+            f"Bitta xarid bilan kerakli barcha xizmatlarni ulkan chegirma bilan oling!\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🎁 <b>1. CREATORFLOW ULTIMATE STARTER PACK</b>\n"
+            f"• {ce('VIP')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('CROWN')} CapCut Pro 1 Oylik Obuna (40,000 UZS qiymatida)\n"
+            f"• {ce('ROCKET')} 500+ Viral Prompts & SEO Tags Pack (15,000 UZS)\n"
+            f"<i>Alohida narxi: 124,000 so'm</i>\n"
+            f"{ce('COIN')} <b>To'plam narxi:</b> <code>79,000 so'm</code> (<b>36% tejaysiz!</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🤖 <b>2. AI MASTER CREATOR PACK</b>\n"
+            f"• {ce('VIP')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('BOT')} ChatGPT Plus / Claude Pro kaliti (80,000 UZS qiymatida)\n"
+            f"<i>Alohida narxi: 149,000 so'm</i>\n"
+            f"{ce('COIN')} <b>To'plam narxi:</b> <code>99,000 so'm</code> (<b>34% tejaysiz!</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"{ce('MONEY')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Starter Pack (79,000 UZS)", callback_data="bundle_buy_starter")],
+            [InlineKeyboardButton("🤖 AI Master Pack (99,000 UZS)", callback_data="bundle_buy_aimaster")],
+            [InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="menu_marketplace")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
+
+    @bot.on_message(filters.command(["advisor", "maslahatchi"]) & filters.private)
+    async def cmd_advisor(client, message: Message):
+        text = (
+            f"{ce('BOT')} <b>Aiko AI — CreatorFlow Smart Savdo Maslahatchisi</b>\n\n"
+            f"Assalomu alaykum! Men CreatorFlow sun'iy intellekt maslahatchisiman.\n"
+            f"Sizga ijodingiz va loyihangiz uchun eng mos vosita yoki xizmatni tanlashda yordam beraman.\n\n"
+            f"<i>Qaysi yo'nalish bo'yicha qidiryapsiz? Pastdagi toifalardan birini tanlang:</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎬 Video Montaj & YouTube", callback_data="store_ai_ask_video")],
+            [InlineKeyboardButton("🤖 Sun'iy Intellekt & Neyrotizimlar", callback_data="store_ai_ask_ai")],
+            [InlineKeyboardButton("📢 Telegram & Obunachilar", callback_data="store_ai_ask_tg")],
+            [InlineKeyboardButton("💎 Eng Ko'p Sotilgan Top Xitlar", callback_data="store_ai_ask_top")],
+            [InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="menu_marketplace")]
+        ])
+        await message.reply_text(text, reply_markup=kb)
 
     @bot.on_callback_query(filters.regex(r"^insta_dl_([a-f0-9]+)$"))
     async def cb_insta_dl(client, cb: CallbackQuery):

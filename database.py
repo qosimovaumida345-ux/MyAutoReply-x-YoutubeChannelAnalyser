@@ -893,9 +893,128 @@ def init_db():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_ventebot_orders_user ON ventebot_reseller_orders(tg_user_id)")
     
+    # VIP Obunalar jadvali (69,000 UZS / oy)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_vip_subscriptions (
+            tg_user_id BIGINT PRIMARY KEY,
+            is_vip BOOLEAN DEFAULT FALSE,
+            vip_expires_at TIMESTAMP,
+            plan_type TEXT DEFAULT 'vip_69k',
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_user_vip_expires ON user_vip_subscriptions(vip_expires_at)")
+
+    # Kanal Konkurslari jadvali (@CreatorFlow_Store)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS channel_contests (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            prize_text TEXT NOT NULL,
+            channel_msg_id BIGINT,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT NOW(),
+            ends_at TIMESTAMP
+        )
+    """)
+
+    # Konkurs Ishtirokchilari jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS contest_participants (
+            id SERIAL PRIMARY KEY,
+            contest_id INT REFERENCES channel_contests(id) ON DELETE CASCADE,
+            tg_user_id BIGINT NOT NULL,
+            user_name TEXT,
+            joined_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(contest_id, tg_user_id)
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_contest_part_user ON contest_participants(contest_id, tg_user_id)")
+
+    # 1. Zaxira kutish (Wishlist) jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS restock_wishlist (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            product_id INT NOT NULL,
+            product_name TEXT NOT NULL,
+            notified BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(tg_user_id, product_id)
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_wishlist_prod ON restock_wishlist(product_id, notified)")
+
+    # 2. Tashlab ketilgan savat (Abandoned carts) jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS abandoned_carts (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            product_id INT NOT NULL,
+            product_name TEXT NOT NULL,
+            price_uzs BIGINT NOT NULL,
+            notified BOOLEAN DEFAULT FALSE,
+            resolved BOOLEAN DEFAULT FALSE,
+            initiated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_abandoned_user ON abandoned_carts(tg_user_id, resolved, notified)")
+
+    # 3. Tezkor Promokodlar (Fast Drop Promos) jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS fast_drop_promos (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(64) UNIQUE NOT NULL,
+            reward_type VARCHAR(32) DEFAULT 'balance',
+            reward_value BIGINT NOT NULL,
+            max_uses INT DEFAULT 3,
+            current_uses INT DEFAULT 0,
+            expires_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+    # 4. Promokod ishlatganlar jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS promo_redemptions (
+            id SERIAL PRIMARY KEY,
+            promo_id INT REFERENCES fast_drop_promos(id) ON DELETE CASCADE,
+            tg_user_id BIGINT NOT NULL,
+            redeemed_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(promo_id, tg_user_id)
+        )
+    """)
+
+    # 5. Yashirin Oltin Tanga (Easter Egg claims) jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS easter_egg_claims (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            claim_date DATE NOT NULL,
+            reward_uzs INT DEFAULT 5000,
+            claimed_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE(tg_user_id, claim_date)
+        )
+    """)
+
+    # 6. Flash Sale (Vaqtinchalik Chegirmalar) jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS flash_sales (
+            id SERIAL PRIMARY KEY,
+            title TEXT NOT NULL,
+            discount_percent INT DEFAULT 20,
+            is_active BOOLEAN DEFAULT TRUE,
+            ends_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
+
+
     
     # Run background migrations
     try:
@@ -5701,6 +5820,555 @@ def admin_toggle_user_ban(tg_user_id: int, is_banned: bool, reason: str = "") ->
         return False
     finally:
         conn.close()
+
+
+# ==================== VIP SUBSCRIPTIONS (69,000 UZS) ====================
+
+def is_user_vip(tg_user_id: int) -> bool:
+    """Foydalanuvchida faol VIP status mavjudligini tekshirish (kesh bilan)"""
+    cached = _get_cached(f"vip_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
+
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT is_vip, vip_expires_at FROM user_vip_subscriptions
+            WHERE tg_user_id = %s
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        if not row:
+            _set_cached(f"vip_{tg_user_id}", False, 180)
+            return False
+        
+        is_vip = bool(row["is_vip"] if isinstance(row, dict) else row[0])
+        exp = row["vip_expires_at"] if isinstance(row, dict) else row[1]
+        
+        if is_vip and exp:
+            import datetime
+            if datetime.datetime.now() > exp:
+                cur.execute("UPDATE user_vip_subscriptions SET is_vip = FALSE WHERE tg_user_id = %s", (tg_user_id,))
+                conn.commit()
+                _set_cached(f"vip_{tg_user_id}", False, 180)
+                return False
+
+        _set_cached(f"vip_{tg_user_id}", is_vip, 300 if is_vip else 180)
+        return is_vip
+    except Exception as e:
+        print(f"is_user_vip error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_vip_info(tg_user_id: int) -> dict:
+    """Foydalanuvchi VIP obunasi haqida to'liq ma'lumot"""
+    conn = get_db()
+    if not conn: return {"is_vip": False}
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM user_vip_subscriptions WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"is_vip": False, "tg_user_id": tg_user_id}
+        d = dict(row)
+        import datetime
+        exp = d.get("vip_expires_at")
+        if exp and datetime.datetime.now() > exp:
+            d["is_vip"] = False
+        return d
+    except Exception as e:
+        print(f"get_user_vip_info error: {e}")
+        return {"is_vip": False}
+    finally:
+        conn.close()
+
+def activate_user_vip(tg_user_id: int, days: int = 30, plan_type: str = "vip_69k") -> bool:
+    """Foydalanuvchiga VIP tarifni faollashtirish yoki muddatini uzaytirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        import datetime
+        cur = conn.cursor()
+        cur.execute("SELECT vip_expires_at, is_vip FROM user_vip_subscriptions WHERE tg_user_id = %s", (tg_user_id,))
+        row = cur.fetchone()
+        
+        now = datetime.datetime.now()
+        if row and (row["is_vip"] if isinstance(row, dict) else row[1]):
+            curr_exp = row["vip_expires_at"] if isinstance(row, dict) else row[0]
+            start_date = curr_exp if curr_exp and curr_exp > now else now
+        else:
+            start_date = now
+            
+        new_exp = start_date + datetime.timedelta(days=days)
+        
+        cur.execute("""
+            INSERT INTO user_vip_subscriptions (tg_user_id, is_vip, vip_expires_at, plan_type, updated_at)
+            VALUES (%s, TRUE, %s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET is_vip = TRUE,
+                vip_expires_at = EXCLUDED.vip_expires_at,
+                plan_type = EXCLUDED.plan_type,
+                updated_at = NOW()
+        """, (tg_user_id, new_exp, plan_type))
+        conn.commit()
+        _set_cached(f"vip_{tg_user_id}", True, 300)
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"activate_user_vip error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_verification_tier(tg_user_id: int) -> dict:
+    """
+    Foydalanuvchining verifikatsiya va tarif darajasini aniqlash:
+    - tier 1: "unverified" (telefon yoki kanal a'zoligi yo'q)
+    - tier 2: "half_verified" (telefon raqam tasdiqlangan + kanalga a'zo)
+    - tier 3: "full_verified" (3D face biometrik tasdiqlangan)
+    - tier 4: "vip" (69,000 UZS lik VIP faol)
+    """
+    has_phone = bool(get_telegram_phone(tg_user_id))
+    is_face = is_user_kyc_verified(tg_user_id)
+    vip_active = is_user_vip(tg_user_id)
+    
+    if vip_active:
+        tier_code = "vip"
+        tier_level = 4
+        tier_title = "CreatorFlow VIP (69,000 UZS)"
+    elif is_face:
+        tier_code = "full_verified"
+        tier_level = 3
+        tier_title = "To'liq Tasdiqlangan (3D Biometrik)"
+    elif has_phone:
+        tier_code = "half_verified"
+        tier_level = 2
+        tier_title = "Yarim Tasdiqlangan (Telefon + Kanal)"
+    else:
+        tier_code = "unverified"
+        tier_level = 1
+        tier_title = "Tasdiqlanmagan"
+
+    return {
+        "tier_level": tier_level,
+        "tier_code": tier_code,
+        "tier_title": tier_title,
+        "has_phone": has_phone,
+        "is_face_verified": is_face,
+        "is_vip": vip_active
+    }
+
+
+# ==================== CHANNEL CONTESTS & GIVEAWAYS ====================
+
+def create_channel_contest(title: str, prize_text: str, duration_hours: int = 24, channel_msg_id: int = None) -> int:
+    """Kanal uchun yangi konkurs yaratish"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        import datetime
+        ends_at = datetime.datetime.now() + datetime.timedelta(hours=duration_hours)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO channel_contests (title, prize_text, channel_msg_id, status, ends_at)
+            VALUES (%s, %s, %s, 'active', %s)
+            RETURNING id
+        """, (title, prize_text, channel_msg_id, ends_at))
+        row = cur.fetchone()
+        conn.commit()
+        return row["id"] if isinstance(row, dict) else row[0]
+    except Exception as e:
+        conn.rollback()
+        print(f"create_channel_contest error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+def join_channel_contest(contest_id: int, tg_user_id: int, user_name: str = "") -> tuple:
+    """Foydalanuvchini konkursga ro'yxatdan o'tkazish"""
+    conn = get_db()
+    if not conn: return False, "Database xatoligi"
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT status, ends_at FROM channel_contests WHERE id = %s", (contest_id,))
+        c = cur.fetchone()
+        if not c:
+            return False, "Konkurs topilmadi"
+        
+        status = c["status"] if isinstance(c, dict) else c[0]
+        ends_at = c["ends_at"] if isinstance(c, dict) else c[1]
+        import datetime
+        if status != "active" or (ends_at and datetime.datetime.now() > ends_at):
+            return False, "Ushbu konkurs yakunlangan"
+
+        cur.execute("""
+            INSERT INTO contest_participants (contest_id, tg_user_id, user_name)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (contest_id, tg_user_id) DO NOTHING
+            RETURNING id
+        """, (contest_id, tg_user_id, user_name))
+        row = cur.fetchone()
+        conn.commit()
+        if row:
+            return True, "Muvaffaqiyatli qatnashdingiz! Omad yor bo'lsin!"
+        else:
+            return False, "Siz ushbu konkursda allaqachon ro'yxatdan o'tgansiz!"
+    except Exception as e:
+        conn.rollback()
+        print(f"join_channel_contest error: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
+def get_active_contests() -> list:
+    """Hozirgi faol konkurslarni olish"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT c.*, COUNT(p.id) as participants_count
+            FROM channel_contests c
+            LEFT JOIN contest_participants p ON p.contest_id = c.id
+            WHERE c.status = 'active' AND (c.ends_at IS NULL OR c.ends_at > NOW())
+            GROUP BY c.id
+            ORDER BY c.id DESC
+        """)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        print(f"get_active_contests error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def pick_contest_winners(contest_id: int, winners_count: int = 1) -> list:
+    """Konkurs g'oliblarini tasodifiy aniqlash"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        import random
+        cur = conn.cursor()
+        cur.execute("SELECT tg_user_id, user_name FROM contest_participants WHERE contest_id = %s", (contest_id,))
+        participants = cur.fetchall()
+        if not participants:
+            return []
+        p_list = [dict(p) for p in participants]
+        winners = random.sample(p_list, min(len(p_list), winners_count))
+        cur.execute("UPDATE channel_contests SET status = 'completed' WHERE id = %s", (contest_id,))
+        conn.commit()
+        return winners
+    except Exception as e:
+        conn.rollback()
+        print(f"pick_contest_winners error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+# ==================== 1. WISHLIST / RESTOCK ALERTS ====================
+
+def add_to_wishlist(tg_user_id: int, product_id: int, product_name: str) -> tuple:
+    """Foydalanuvchini tovar zaxirasi to'ldirilganda eslatish ro'yxatiga qo'shish"""
+    conn = get_db()
+    if not conn: return False, "Database xatosi"
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO restock_wishlist (tg_user_id, product_id, product_name, notified, created_at)
+            VALUES (%s, %s, %s, FALSE, NOW())
+            ON CONFLICT (tg_user_id, product_id) DO UPDATE
+            SET notified = FALSE, created_at = NOW()
+            RETURNING id
+        """, (tg_user_id, product_id, product_name))
+        conn.commit()
+        return True, "Zaxiraga kelganda sizga darhol xabar yuboramiz!"
+    except Exception as e:
+        conn.rollback()
+        print(f"add_to_wishlist error: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
+def get_wishlist_users_for_product(product_id: int) -> list:
+    """Ushbu mahsulotni kutayotgan foydalanuvchilar ID ro'yxati"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT tg_user_id FROM restock_wishlist WHERE product_id = %s AND notified = FALSE", (product_id,))
+        rows = cur.fetchall()
+        return [r["tg_user_id"] if isinstance(r, dict) else r[0] for r in rows] if rows else []
+    except Exception as e:
+        print(f"get_wishlist_users_for_product error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def mark_wishlist_notified(product_id: int):
+    """Kutayotganlarga xabar yuborilgan deb belgilash"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE restock_wishlist SET notified = TRUE WHERE product_id = %s", (product_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"mark_wishlist_notified error: {e}")
+    finally:
+        conn.close()
+
+
+# ==================== 2. ABANDONED CARTS (TASHLAB KETILGAN SAVAT) ====================
+
+def record_cart_initiated(tg_user_id: int, product_id: int, product_name: str, price_uzs: int):
+    """Foydalanuvchi to'lov bosqichiga kelganda qayd etish"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO abandoned_carts (tg_user_id, product_id, product_name, price_uzs, notified, resolved, initiated_at)
+            VALUES (%s, %s, %s, %s, FALSE, FALSE, NOW())
+        """, (tg_user_id, product_id, product_name, price_uzs))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"record_cart_initiated error: {e}")
+    finally:
+        conn.close()
+
+def resolve_cart(tg_user_id: int, product_id: int = None):
+    """Xarid amalga oshgach savatni yopish"""
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        if product_id:
+            cur.execute("UPDATE abandoned_carts SET resolved = TRUE WHERE tg_user_id = %s AND product_id = %s AND resolved = FALSE", (tg_user_id, product_id))
+        else:
+            cur.execute("UPDATE abandoned_carts SET resolved = TRUE WHERE tg_user_id = %s AND resolved = FALSE", (tg_user_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"resolve_cart error: {e}")
+    finally:
+        conn.close()
+
+def get_abandoned_carts_to_notify(minutes_ago: int = 20) -> list:
+    """20-30 daqiqa oldin boshlangan, lekin xarid qilinmagan savatlar ro'yxati"""
+    conn = get_db()
+    if not conn: return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, tg_user_id, product_id, product_name, price_uzs
+            FROM abandoned_carts
+            WHERE resolved = FALSE AND notified = FALSE
+              AND initiated_at <= NOW() - (%s || ' minutes')::INTERVAL
+              AND initiated_at >= NOW() - INTERVAL '2 hours'
+            LIMIT 20
+        """, (str(minutes_ago),))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        print(f"get_abandoned_carts_to_notify error: {e}")
+        return []
+    finally:
+        conn.close()
+
+def mark_abandoned_cart_notified(cart_id: int):
+    conn = get_db()
+    if not conn: return
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE abandoned_carts SET notified = TRUE WHERE id = %s", (cart_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print(f"mark_abandoned_cart_notified error: {e}")
+    finally:
+        conn.close()
+
+
+# ==================== 3. FAST DROP PROMOS (TEZKOR PROMOKODLAR) ====================
+
+def create_fast_drop_promo(code: str, reward_type: str = "balance", reward_value: int = 10000, max_uses: int = 3, duration_minutes: int = 60) -> int:
+    """Kanalga tashlanadigan cheklangan promokod yaratish"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        import datetime
+        expires_at = datetime.datetime.now() + datetime.timedelta(minutes=duration_minutes)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO fast_drop_promos (code, reward_type, reward_value, max_uses, current_uses, expires_at)
+            VALUES (%s, %s, %s, %s, 0, %s)
+            ON CONFLICT (code) DO UPDATE
+            SET reward_value = EXCLUDED.reward_value,
+                max_uses = EXCLUDED.max_uses,
+                current_uses = 0,
+                expires_at = EXCLUDED.expires_at
+            RETURNING id
+        """, (code.strip().upper(), reward_type, reward_value, max_uses, expires_at))
+        row = cur.fetchone()
+        conn.commit()
+        return row["id"] if isinstance(row, dict) else row[0]
+    except Exception as e:
+        conn.rollback()
+        print(f"create_fast_drop_promo error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+def redeem_fast_drop_promo(code: str, tg_user_id: int) -> tuple:
+    """Promokodni faollashtirish va mukofot berish"""
+    conn = get_db()
+    if not conn: return False, "Database xatoligi", 0
+    try:
+        clean_code = code.strip().upper()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM fast_drop_promos WHERE code = %s FOR UPDATE", (clean_code,))
+        promo = cur.fetchone()
+        if not promo:
+            return False, "Promokod topilmadi yoki noto'g'ri!", 0
+        
+        p = dict(promo)
+        import datetime
+        if p.get("expires_at") and datetime.datetime.now() > p["expires_at"]:
+            return False, "Ushbu promokodning amal qilish muddati tugagan!", 0
+        if p.get("current_uses", 0) >= p.get("max_uses", 1):
+            return False, "Kechirasiz! Ushbu promokodning limit soni allaqachon tugagan!", 0
+
+        # Oldin ishlatganmi?
+        cur.execute("SELECT id FROM promo_redemptions WHERE promo_id = %s AND tg_user_id = %s", (p["id"], tg_user_id))
+        if cur.fetchone():
+            return False, "Siz ushbu promokodni allaqachon faollashtirgansiz!", 0
+
+        # Ro'yxatdan o'tkazish
+        cur.execute("INSERT INTO promo_redemptions (promo_id, tg_user_id) VALUES (%s, %s)", (p["id"], tg_user_id))
+        cur.execute("UPDATE fast_drop_promos SET current_uses = current_uses + 1 WHERE id = %s", (p["id"],))
+
+        # Mukofotni berish
+        reward_type = p.get("reward_type", "balance")
+        reward_val = p.get("reward_value", 0)
+        
+        if reward_type == "balance":
+            cur.execute("""
+                INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (tg_user_id) DO UPDATE
+                SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                    updated_at = NOW()
+            """, (tg_user_id, reward_val))
+            conn.commit()
+            return True, f"Tabriklaymiz! Hisobingizga +{reward_val:,} so'm bonus berildi!", reward_val
+        elif reward_type == "vip":
+            conn.commit()
+            activate_user_vip(tg_user_id, days=reward_val)
+            return True, f"Tabriklaymiz! Sizga {reward_val} kunlik CreatorFlow VIP berildi!", reward_val
+        else:
+            conn.commit()
+            return True, "Promokod muvaffaqiyatli ishlatildi!", reward_val
+    except Exception as e:
+        conn.rollback()
+        print(f"redeem_fast_drop_promo error: {e}")
+        return False, str(e), 0
+    finally:
+        conn.close()
+
+
+# ==================== 4. EASTER EGG (YASHIRIN OLTIN TANGA) ====================
+
+def claim_daily_easter_egg(tg_user_id: int, reward_uzs: int = 5000) -> tuple:
+    """Foydalanuvchi menyular orasida topgan Yashirin Oltin Tangani yechib olishi"""
+    conn = get_db()
+    if not conn: return False, "Database xatoligi"
+    try:
+        import datetime
+        today = datetime.date.today()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM easter_egg_claims WHERE tg_user_id = %s AND claim_date = %s", (tg_user_id, today))
+        if cur.fetchone():
+            return False, "Siz bugungi Yashirin Oltin Tangani allaqachon topgansiz! Ertaga yana qidiring."
+
+        cur.execute("""
+            INSERT INTO easter_egg_claims (tg_user_id, claim_date, reward_uzs)
+            VALUES (%s, %s, %s)
+        """, (tg_user_id, today, reward_uzs))
+        
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + %s,
+                updated_at = NOW()
+        """, (tg_user_id, reward_uzs, reward_uzs))
+        conn.commit()
+        return True, f"Qoyilmaqom! Yashirin Oltin Tangani topdingiz va hisobingizga +{reward_uzs:,} so'm qo'shildi!"
+    except Exception as e:
+        conn.rollback()
+        print(f"claim_daily_easter_egg error: {e}")
+        return False, str(e)
+    finally:
+        conn.close()
+
+
+# ==================== 5. FLASH SALE (VAQTINCHALIK CHEGIRMALAR) ====================
+
+def create_flash_sale(title: str, discount_percent: int = 20, duration_hours: int = 2) -> int:
+    """Kanal va do'kon uchun cheklangan vaqtli chegirma yaratish"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        import datetime
+        ends_at = datetime.datetime.now() + datetime.timedelta(hours=duration_hours)
+        cur = conn.cursor()
+        cur.execute("UPDATE flash_sales SET is_active = FALSE WHERE is_active = TRUE")
+        cur.execute("""
+            INSERT INTO flash_sales (title, discount_percent, is_active, ends_at)
+            VALUES (%s, %s, TRUE, %s)
+            RETURNING id
+        """, (title, discount_percent, ends_at))
+        row = cur.fetchone()
+        conn.commit()
+        return row["id"] if isinstance(row, dict) else row[0]
+    except Exception as e:
+        conn.rollback()
+        print(f"create_flash_sale error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+def get_active_flash_sale() -> dict:
+    """Aktiv Flash Sale mavjudligini tekshirish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        import datetime
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM flash_sales
+            WHERE is_active = TRUE AND ends_at > NOW()
+            ORDER BY id DESC LIMIT 1
+        """)
+        row = cur.fetchone()
+        if not row: return None
+        d = dict(row)
+        now = datetime.datetime.now()
+        rem_seconds = max(0, int((d["ends_at"] - now).total_seconds()))
+        d["remaining_minutes"] = rem_seconds // 60
+        return d
+    except Exception as e:
+        print(f"get_active_flash_sale error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
 
 
 
