@@ -626,7 +626,11 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
             msg_id = await _bot_api_send(bot_token, cid, text, bot_api_kb, reply_to_id)
             if msg_id:
                 from pyrogram.types import Message, Chat
-                return Message(id=int(msg_id), chat=Chat(id=int(cid), type="private"), client=self)
+                try:
+                    chat_id_int = int(cid)
+                except (ValueError, TypeError):
+                    chat_id_int = 0
+                return Message(id=int(msg_id), chat=Chat(id=chat_id_int, type="private"), client=self)
 
     try:
         return await _orig_send_message(self, chat_id, text, parse_mode=parse_mode, reply_markup=reply_markup, **kwargs)
@@ -973,6 +977,7 @@ def main_menu_kb(user_id=None):
          InlineKeyboardButton("📢 Kanal & Video", callback_data="menu_channel")],
         [InlineKeyboardButton("📊 Analitika", callback_data="menu_analytics"),
          InlineKeyboardButton(t("btn_lang", lang), callback_data="menu_lang")],
+        [InlineKeyboardButton("🎁 Super To'plamlar (Bundles)", callback_data="menu_bundles")],
         [InlineKeyboardButton(t("btn_help", lang), callback_data="menu_help")],
     ])
 
@@ -2172,7 +2177,10 @@ def create_ytbot():
         "• <code>/api</code> — Developer & Reseller REST API\n"
         "• <code>/dashboard</code> — WebApp Dashboard Mini App\n"
         "• <code>/shortfactory</code> — AI Shorts video generatori\n"
-        "• <code>/autostream</code> — 24/7 Jonli efir boshqaruvchisi\n\n"
+        "• <code>/autostream</code> — 24/7 Jonli efir boshqaruvchisi\n"
+        "• <code>/bundles</code> — Super To'plamlar (Smart Bundles)\n"
+        "• <code>/flashsale</code> — Flash Sale chegirma (Admin)\n"
+        "• <code>/droppromo</code> — Tezkor promokod tashlash (Admin)\n\n"
         "👇 <i>Bo'limlar bo'yicha batafsil ko'rish uchun quyidagi tugmalardan foydalaning:</i>"
     )
 
@@ -7787,6 +7795,43 @@ def create_ytbot():
         await cb.answer()
 
     # ==================== CREATORFLOW SMART BUNDLES ====================
+    @bot.on_callback_query(filters.regex(r"^menu_bundles$"))
+    async def cb_menu_bundles(client, cb: CallbackQuery):
+        """Bosh menyudan Super To'plamlar tugmasi bosilganda"""
+        await cb.answer()
+        # vb_bundles handler bilan bir xil logikani ishlatish
+        user_id = cb.from_user.id
+        from database import get_user_balance
+        bal = get_user_balance(user_id)
+        text = (
+            f"{ce('GIFT')} <b>CREATORFLOW SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
+            f"Bitta xarid bilan kerakli barcha xizmatlarni ulkan chegirma bilan oling!\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🎁 <b>1. CREATORFLOW ULTIMATE STARTER PACK</b>\n"
+            f"• {ce('VIP')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('CROWN')} CapCut Pro 1 Oylik Obuna (40,000 UZS qiymatida)\n"
+            f"• {ce('ROCKET')} 500+ Viral Prompts & SEO Tags Pack (15,000 UZS)\n"
+            f"<i>Alohida narxi: 124,000 so'm</i>\n"
+            f"{ce('COIN')} <b>To'plam narxi:</b> <code>79,000 so'm</code> (<b>36% tejaysiz!</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🤖 <b>2. AI MASTER CREATOR PACK</b>\n"
+            f"• {ce('VIP')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('BOT')} ChatGPT Plus / Claude Pro kaliti (80,000 UZS qiymatida)\n"
+            f"<i>Alohida narxi: 149,000 so'm</i>\n"
+            f"{ce('COIN')} <b>To'plam narxi:</b> <code>99,000 so'm</code> (<b>34% tejaysiz!</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"{ce('MONEY')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎁 Starter Pack (79,000 UZS)", callback_data="bundle_buy_starter")],
+            [InlineKeyboardButton("🤖 AI Master Pack (99,000 UZS)", callback_data="bundle_buy_aimaster")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        try:
+            await cb.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await cb.message.reply_text(text, reply_markup=kb)
+
     @bot.on_callback_query(filters.regex(r"^vb_bundles$"))
     async def cb_vb_bundles(client, cb: CallbackQuery):
         user_id = cb.from_user.id
@@ -7924,8 +7969,7 @@ def create_ytbot():
     @bot.on_message(filters.command("droppromo") & filters.private)
     async def cmd_droppromo(client, message: Message):
         user_id = message.from_user.id
-        from config import ADMIN_ID
-        if user_id != ADMIN_ID:
+        if not check_is_admin(message.from_user):
             return
         parts = message.text.split()
         if len(parts) < 3:
@@ -7948,8 +7992,7 @@ def create_ytbot():
     @bot.on_message(filters.command("flashsale") & filters.private)
     async def cmd_flashsale(client, message: Message):
         user_id = message.from_user.id
-        from config import ADMIN_ID
-        if user_id != ADMIN_ID:
+        if not check_is_admin(message.from_user):
             return
         parts = message.text.split(maxsplit=3)
         pct = int(parts[1]) if len(parts) > 1 else 20
