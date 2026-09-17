@@ -618,8 +618,16 @@ async def _patched_send_message(self, chat_id, text, parse_mode=None, reply_mark
         parse_mode = ParseMode.HTML
 
     bot_token = getattr(self, "bot_token", None) or BOT_TOKEN or os.getenv("BOT_TOKEN")
-    if bot_token and reply_markup and isinstance(reply_markup, (InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove)):
-        cid = getattr(chat_id, "id", chat_id)
+    # Kanallar va guruhlarga Pyrogram native orqali yuborish (custom emoji to'g'ri ishlashi uchun)
+    # Bot API custom emojilarni faqat Premium bot uchun render qiladi
+    _cid_raw = getattr(chat_id, "id", chat_id)
+    _is_channel_or_group = (
+        (isinstance(_cid_raw, str) and _cid_raw.startswith("@")) or
+        (isinstance(_cid_raw, int) and _cid_raw < 0) or
+        (isinstance(_cid_raw, str) and _cid_raw.lstrip("-").isdigit() and int(_cid_raw) < 0)
+    )
+    if bot_token and reply_markup and isinstance(reply_markup, (InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove)) and not _is_channel_or_group:
+        cid = _cid_raw
         if isinstance(cid, (int, str)):
             bot_api_kb = _build_bot_api_reply_markup(reply_markup, user_id=cid)
             reply_to_id = kwargs.get("reply_to_message_id")
@@ -657,8 +665,14 @@ async def _patched_edit_message_text(self, chat_id, message_id, text, parse_mode
         parse_mode = ParseMode.HTML
 
     bot_token = getattr(self, "bot_token", None) or BOT_TOKEN or os.getenv("BOT_TOKEN")
-    if bot_token and reply_markup and isinstance(reply_markup, (InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove)):
-        cid = getattr(chat_id, "id", chat_id)
+    _cid_raw = getattr(chat_id, "id", chat_id)
+    _is_channel_or_group = (
+        (isinstance(_cid_raw, str) and _cid_raw.startswith("@")) or
+        (isinstance(_cid_raw, int) and _cid_raw < 0) or
+        (isinstance(_cid_raw, str) and _cid_raw.lstrip("-").isdigit() and int(_cid_raw) < 0)
+    )
+    if bot_token and reply_markup and isinstance(reply_markup, (InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove)) and not _is_channel_or_group:
+        cid = _cid_raw
         mid = getattr(message_id, "id", getattr(message_id, "message_id", message_id))
         if isinstance(cid, (int, str)) and mid:
             bot_api_kb = _build_bot_api_reply_markup(reply_markup, user_id=cid)
