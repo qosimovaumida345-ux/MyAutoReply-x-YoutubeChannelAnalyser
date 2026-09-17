@@ -762,5 +762,13 @@ async def run_userbot():
     await app.start()
     print("Userbot muvaffaqiyatli ishga tushdi!")
     print("Buyruqlar: .arhelp yozing istalgan chatda")
-    
+
+    # Userbot clientni store_channel_service ga uzatish — kanal postlari Premium custom emoji bilan yuboriladi
+    try:
+        from store_channel_service import set_userbot_client
+        set_userbot_client(app)
+        print("📢 Store Channel: Userbot (Premium) custom emoji mode faollashtirildi!")
+    except Exception as e:
+        print(f"Store channel userbot init xatosi: {e}")
+
     await asyncio.Event().wait()

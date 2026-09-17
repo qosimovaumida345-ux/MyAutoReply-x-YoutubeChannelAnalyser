@@ -2,6 +2,7 @@
 CreatorFlow Studio - Store Channel Automation Service (@CreatorFlow_Store)
 Avtomatik restock, live xaridlar oqimi, aksiyalar va konkurslar boshqaruvchisi.
 Barcha xabarlar tasdiqlangan Custom Emojilar bilan boyitilgan (hech qanday oddiy emoji yo'q).
+Kanal xabarlari Premium userbot orqali yuboriladi (custom emojilar to'g'ri render bo'lishi uchun).
 """
 
 import asyncio
@@ -15,6 +16,7 @@ import random
 from typing import Optional, List, Dict
 from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.enums import ParseMode
 
 
 from config import STORE_CHANNEL, VIP_PRICE_UZS
@@ -35,6 +37,47 @@ from database import (
 )
 
 logger = logging.getLogger("store_channel_service")
+
+# ==================== USERBOT CLIENT (PREMIUM CUSTOM EMOJI UCHUN) ====================
+_userbot_client: Optional[Client] = None
+
+def set_userbot_client(client: Client):
+    """Userbot clientni global saqlash — custom emojilar userbot orqali kanalga yuboriladi."""
+    global _userbot_client
+    _userbot_client = client
+    logger.info("Store channel service: Userbot client o'rnatildi (Premium custom emoji enabled).")
+
+async def _send_channel_message(bot_client: Client, text: str, reply_markup=None) -> Optional[int]:
+    """
+    Kanalga xabar yuborish. Avval userbot (Premium) orqali harakat qiladi —
+    custom emojilar to'g'ri render bo'lishi uchun.
+    Agar userbot mavjud bo'lmasa yoki xato bo'lsa, bot client orqali yuboradi.
+    """
+    if not STORE_CHANNEL:
+        return None
+
+    # 1. Userbot orqali yuborish (Premium = custom emoji ishlaydi)
+    if _userbot_client:
+        try:
+            msg = await _userbot_client.send_message(
+                STORE_CHANNEL, text,
+                parse_mode=ParseMode.HTML,
+                reply_markup=reply_markup
+            )
+            logger.info("Kanal xabari USERBOT (Premium) orqali yuborildi — custom emojilar faol.")
+            return msg.id if msg else None
+        except Exception as ub_err:
+            logger.warning(f"Userbot orqali kanalga yuborishda xato: {ub_err}, bot ga fallback...")
+
+    # 2. Bot orqali fallback
+    try:
+        msg = await bot_client.send_message(STORE_CHANNEL, text, reply_markup=reply_markup)
+        logger.info("Kanal xabari BOT orqali yuborildi (custom emoji fallback).")
+        return msg.id if msg else None
+    except Exception as bot_err:
+        logger.error(f"Bot orqali kanalga yuborishda xato: {bot_err}")
+        return None
+
 
 # ==================== LIVE XARIDLAR (PURCHASE BROADCAST) ====================
 
@@ -82,7 +125,7 @@ async def broadcast_channel_purchase(
             [InlineKeyboardButton(f"Botga o'tish", url=f"https://t.me/{bot_username}")]
         ])
 
-        await client.send_message(STORE_CHANNEL, text, reply_markup=kb)
+        await _send_channel_message(client, text, reply_markup=kb)
         logger.info(f"Kanalga xarid xabari yuborildi: {product_name} - {price_uzs} so'm")
         return True
     except Exception as err:
@@ -125,7 +168,7 @@ async def send_channel_restock_alert(client: Client, items_summary: Optional[str
             [InlineKeyboardButton(f"VIP Tarif (69,000 UZS)", url=f"https://t.me/{bot_username}?start=vip")]
         ])
 
-        await client.send_message(STORE_CHANNEL, text, reply_markup=kb)
+        await _send_channel_message(client, text, reply_markup=kb)
         logger.info("Kanalga restock e'loni yuborildi.")
         return True
     except Exception as err:
@@ -205,7 +248,7 @@ async def send_channel_promo(client: Client, promo_index: Optional[int] = None) 
             [InlineKeyboardButton("Bosh Menyu", url=f"https://t.me/{bot_username}")]
         ])
 
-        await client.send_message(STORE_CHANNEL, text, reply_markup=kb)
+        await _send_channel_message(client, text, reply_markup=kb)
         logger.info(f"Kanalga reklama yuborildi: {promo['id']}")
         return True
     except Exception as err:
@@ -257,7 +300,7 @@ async def create_and_post_contest(
             [InlineKeyboardButton("Botga o'tish", url=f"https://t.me/{bot_username}")]
         ])
 
-        msg = await client.send_message(STORE_CHANNEL, text, reply_markup=kb)
+        await _send_channel_message(client, text, reply_markup=kb)
         return contest_id
     except Exception as err:
         logger.error(f"create_and_post_contest xatosi: {err}")
@@ -291,7 +334,7 @@ async def send_channel_flash_sale(
             [InlineKeyboardButton("Chegirmada xarid qilish", url=f"https://t.me/{bot_username}?start=store")],
             [InlineKeyboardButton("VIP Tarif (69,000 UZS)", url=f"https://t.me/{bot_username}?start=vip")]
         ])
-        await client.send_message(STORE_CHANNEL, text, reply_markup=kb)
+        await _send_channel_message(client, text, reply_markup=kb)
         logger.info(f"Kanalga Flash Sale e'loni yuborildi: {title} (-{discount_percent}%)")
         return True
     except Exception as err:
@@ -328,7 +371,7 @@ async def send_channel_drop_promo(
             [InlineKeyboardButton("Promokodni faollashtirish", url=f"https://t.me/{bot_username}?start=promo_{code}")],
             [InlineKeyboardButton("Botga o'tish", url=f"https://t.me/{bot_username}")]
         ])
-        await client.send_message(STORE_CHANNEL, text, reply_markup=kb)
+        await _send_channel_message(client, text, reply_markup=kb)
         logger.info(f"Kanalga tezkor promokod tashlandi: {code}")
         return True
     except Exception as err:
