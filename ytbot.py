@@ -6951,43 +6951,60 @@ def create_ytbot():
         if tool == "claudecode":
             if os_type == "win":
                 one_click_cmd = (
-                    f'npm install -g @anthropic-ai/claude-code; '
+                    f'$claudeDir = "$HOME\\.claude"; if (-not (Test-Path $claudeDir)) {{ New-Item -ItemType Directory -Path $claudeDir -Force | Out-Null }}; '
+                    f'$cfg = @{{ env = @{{ OPENROUTER_API_KEY = "{api_key}"; ANTHROPIC_BASE_URL = "https://openrouter.ai/api"; ANTHROPIC_AUTH_TOKEN = "{api_key}"; ANTHROPIC_API_KEY = ""; ANTHROPIC_MODEL = "{model_name}"; ANTHROPIC_DEFAULT_HAIKU_MODEL = "{model_name}"; ANTHROPIC_DEFAULT_SONNET_MODEL = "{model_name}"; ANTHROPIC_DEFAULT_OPUS_MODEL = "{model_name}" }} }} | ConvertTo-Json; '
+                    f'Set-Content -Path "$claudeDir\\settings.json" -Value $cfg -Force; '
                     f'$env:ANTHROPIC_BASE_URL="https://openrouter.ai/api"; '
-                    f'$env:ANTHROPIC_API_KEY="{api_key}"; '
+                    f'$env:ANTHROPIC_AUTH_TOKEN="{api_key}"; '
+                    f'$env:ANTHROPIC_API_KEY=""; '
                     f'$env:ANTHROPIC_MODEL="{model_name}"; '
+                    f'$env:ANTHROPIC_DEFAULT_HAIKU_MODEL="{model_name}"; '
+                    f'$env:ANTHROPIC_DEFAULT_SONNET_MODEL="{model_name}"; '
+                    f'$env:ANTHROPIC_DEFAULT_OPUS_MODEL="{model_name}"; '
                     f'claude'
                 )
                 perm_cmd = (
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_AUTH_TOKEN','{api_key}','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('OPENROUTER_API_KEY','{api_key}','User'); "
                     f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_BASE_URL','https://openrouter.ai/api','User'); "
-                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_API_KEY','{api_key}','User'); "
-                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_MODEL','{model_name}','User')"
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_MODEL','{model_name}','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_DEFAULT_HAIKU_MODEL','{model_name}','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_DEFAULT_SONNET_MODEL','{model_name}','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_DEFAULT_OPUS_MODEL','{model_name}','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_API_KEY',$null,'User')"
                 )
                 os_hint = "PowerShell oynasini oching (Win + R -> powershell)"
             elif os_type == "mac":
                 one_click_cmd = (
-                    f'npm install -g @anthropic-ai/claude-code && '
+                    f'mkdir -p ~/.claude && '
+                    f'printf \'{{"env":{{"OPENROUTER_API_KEY":"{api_key}","ANTHROPIC_BASE_URL":"https://openrouter.ai/api","ANTHROPIC_AUTH_TOKEN":"{api_key}","ANTHROPIC_API_KEY":"","ANTHROPIC_MODEL":"{model_name}","ANTHROPIC_DEFAULT_HAIKU_MODEL":"{model_name}","ANTHROPIC_DEFAULT_SONNET_MODEL":"{model_name}","ANTHROPIC_DEFAULT_OPUS_MODEL":"{model_name}"}}}}\' > ~/.claude/settings.json && '
                     f'export ANTHROPIC_BASE_URL="https://openrouter.ai/api" && '
-                    f'export ANTHROPIC_API_KEY="{api_key}" && '
+                    f'export ANTHROPIC_AUTH_TOKEN="{api_key}" && '
+                    f'export ANTHROPIC_API_KEY="" && '
                     f'export ANTHROPIC_MODEL="{model_name}" && '
                     f'claude'
                 )
                 perm_cmd = (
                     f'echo \'export ANTHROPIC_BASE_URL="https://openrouter.ai/api"\' >> ~/.zshrc && '
-                    f'echo \'export ANTHROPIC_API_KEY="{api_key}"\' >> ~/.zshrc && '
+                    f'echo \'export ANTHROPIC_AUTH_TOKEN="{api_key}"\' >> ~/.zshrc && '
+                    f'echo \'export ANTHROPIC_API_KEY=""\' >> ~/.zshrc && '
                     f'echo \'export ANTHROPIC_MODEL="{model_name}"\' >> ~/.zshrc && source ~/.zshrc'
                 )
                 os_hint = "Terminal oynasini oching (Cmd + Space -> Terminal)"
             else: # linux
                 one_click_cmd = (
-                    f'sudo npm install -g @anthropic-ai/claude-code && '
+                    f'mkdir -p ~/.claude && '
+                    f'printf \'{{"env":{{"OPENROUTER_API_KEY":"{api_key}","ANTHROPIC_BASE_URL":"https://openrouter.ai/api","ANTHROPIC_AUTH_TOKEN":"{api_key}","ANTHROPIC_API_KEY":"","ANTHROPIC_MODEL":"{model_name}","ANTHROPIC_DEFAULT_HAIKU_MODEL":"{model_name}","ANTHROPIC_DEFAULT_SONNET_MODEL":"{model_name}","ANTHROPIC_DEFAULT_OPUS_MODEL":"{model_name}"}}}}\' > ~/.claude/settings.json && '
                     f'export ANTHROPIC_BASE_URL="https://openrouter.ai/api" && '
-                    f'export ANTHROPIC_API_KEY="{api_key}" && '
+                    f'export ANTHROPIC_AUTH_TOKEN="{api_key}" && '
+                    f'export ANTHROPIC_API_KEY="" && '
                     f'export ANTHROPIC_MODEL="{model_name}" && '
                     f'claude'
                 )
                 perm_cmd = (
                     f'echo \'export ANTHROPIC_BASE_URL="https://openrouter.ai/api"\' >> ~/.bashrc && '
-                    f'echo \'export ANTHROPIC_API_KEY="{api_key}"\' >> ~/.bashrc && '
+                    f'echo \'export ANTHROPIC_AUTH_TOKEN="{api_key}"\' >> ~/.bashrc && '
+                    f'echo \'export ANTHROPIC_API_KEY=""\' >> ~/.bashrc && '
                     f'echo \'export ANTHROPIC_MODEL="{model_name}"\' >> ~/.bashrc && source ~/.bashrc'
                 )
                 os_hint = "Linux terminalini oching (Ctrl + Alt + T)"
