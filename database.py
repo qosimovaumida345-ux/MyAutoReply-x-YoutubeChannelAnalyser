@@ -6369,6 +6369,76 @@ def get_active_flash_sale() -> dict:
         conn.close()
 
 
+# ==================== CLAUDE CODE & CODEX TERMINAL SETUP ====================
+def get_openrouter_key_for_setup() -> str:
+    """Claude Code / Codex setup uchun bazadagi OpenRouter kalitini olish (o'chirmasdan / statusini o'zgartirmasdan)"""
+    conn = get_db()
+    if not conn:
+        import os
+        return os.getenv("OPENROUTER_API_KEY", "")
+    try:
+        cur = conn.cursor()
+        # 1. Avval api_keys_stock jadvalidan mavjud yoki eng oxirgi openrouter kalitini olish
+        cur.execute("""
+            SELECT api_key FROM api_keys_stock 
+            WHERE service_type = 'openrouter' 
+            ORDER BY id DESC LIMIT 1
+        """)
+        row = cur.fetchone()
+        if row and row.get("api_key"):
+            return str(row["api_key"]).strip()
+        
+        # 2. Agar api_keys_stock da bo'lmasa, user_api_keys dan
+        cur.execute("""
+            SELECT api_key FROM user_api_keys 
+            WHERE is_active = TRUE 
+            ORDER BY id DESC LIMIT 1
+        """)
+        row2 = cur.fetchone()
+        if row2 and row2.get("api_key"):
+            return str(row2["api_key"]).strip()
+            
+        import os
+        return os.getenv("OPENROUTER_API_KEY", "")
+    except Exception as e:
+        print(f"get_openrouter_key_for_setup error: {e}")
+        import os
+        return os.getenv("OPENROUTER_API_KEY", "")
+    finally:
+        conn.close()
+
+
+def has_user_purchased_ai_coding_agent(tg_user_id: int) -> bool:
+    """Foydalanuvchi Claude Code / Codex setup xizmatini oldin sotib olganligini tekshirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id FROM user_purchases 
+            WHERE tg_user_id = %s AND item_type = 'ai_coding_agent' 
+            LIMIT 1
+        """, (tg_user_id,))
+        return cur.fetchone() is not None
+    except Exception as e:
+        print(f"has_user_purchased_ai_coding_agent error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def record_ai_coding_agent_purchase(tg_user_id: int, price_uzs: int = 15000) -> dict:
+    """Foydalanuvchi hisobidan 15,000 so'm yechib, setup xaridini qayd qilish"""
+    return record_user_purchase(
+        tg_user_id=tg_user_id,
+        item_type="ai_coding_agent",
+        item_name="Claude Code & Codex Terminal Setup",
+        price_uzs=price_uzs,
+        payload="model:nvidia/nemotron-3-ultra-550b-a55b:free"
+    )
+
+
+
 
 
 

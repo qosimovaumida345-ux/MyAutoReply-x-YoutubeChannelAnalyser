@@ -61,7 +61,8 @@ from database import (
     get_or_create_user_api_key, regenerate_user_api_key,
     set_user_language, get_user_language, get_top_referrers, get_top_duel_winners,
     get_config, set_config,
-    is_service_disabled, toggle_service, get_all_service_states, ADMIN_SERVICES
+    is_service_disabled, toggle_service, get_all_service_states, ADMIN_SERVICES,
+    get_openrouter_key_for_setup, has_user_purchased_ai_coding_agent, record_ai_coding_agent_purchase
 )
 from locales import t, SUPPORTED_LANGUAGES
 from games_monetization import (
@@ -1118,6 +1119,7 @@ def marketplace_menu_kb():
          InlineKeyboardButton("Developer Vositalari", callback_data="vb_cat_dev_tools")],
         
         # 3. Maxsus Bot Xizmatlari (Pasaytirilgan so'm narxlar, $ yo'q!)
+        [InlineKeyboardButton("💻 Claude Code & Codex Setup (15,000 so'm)", callback_data="mkt_view_coding_agent")],
         [InlineKeyboardButton("Private Proxy (18,000 so'm)", callback_data="mkt_view_proxy"),
          InlineKeyboardButton("VIP Cheksiz Pro (69,000 so'm)", callback_data="mkt_view_vip")],
         [InlineKeyboardButton("Autostream Cloud (2,500 so'm)", callback_data="mkt_view_autostream"),
@@ -2409,7 +2411,8 @@ def create_ytbot():
             f"<b>{ce('GLOBE')} Proxy & Server Quvvati:</b>\n"
             f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> 18,000 so'm — <i>Zaxirada: {pr_stock} ta</i>\n"
             f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n"
-            f"<b>{ce('AI')} AI Modellar & API Resurslar:</b>\n"
+            f"<b>{ce('AI')} AI Modellar & Developer Vositalar:</b>\n"
+            f"• {ce('CLAUDE_CODE')} <b>Claude Code & Codex Setup:</b> 15,000 so'm — <i>Terminalda bepul AI kodlash</i>\n"
             f"• {ce('OPENROUTER')} <b>OpenRouter API:</b> 25,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
             f"• {ce('GEMINI')} <b>Google Gemini API:</b> 25,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
             f"• {ce('GROQ')} <b>Groq Cloud API:</b> 18,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
@@ -6112,7 +6115,8 @@ def create_ytbot():
                 f"<b>{ce('GLOBE')} Proxy & Server Quvvati:</b>\n"
                 f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> 18,000 so'm — <i>Zaxirada: {pr_stock} ta</i>\n"
                 f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n"
-                f"<b>{ce('AI')} AI Modellar & API Resurslar:</b>\n"
+                f"<b>{ce('AI')} AI Modellar & Developer Vositalar:</b>\n"
+                f"• {ce('CLAUDE_CODE')} <b>Claude Code & Codex Setup:</b> 15,000 so'm — <i>Terminalda bepul AI kodlash</i>\n"
                 f"• {ce('OPENROUTER')} <b>OpenRouter API:</b> 25,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
                 f"• {ce('GEMINI')} <b>Google Gemini API:</b> 25,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
                 f"• {ce('GROQ')} <b>Groq Cloud API:</b> 18,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
@@ -6751,6 +6755,290 @@ def create_ytbot():
         ])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer("Xarid muvaffaqiyatli yakunlandi!", show_alert=False)
+
+    # ==================== CLAUDE CODE & CODEX TERMINAL SETUP (15,000 so'm) ====================
+    @bot.on_message(filters.command(["claudecode", "codex", "codingagent", "aiagent", "aider"]))
+    async def cmd_claudecode_direct(client, message):
+        user_id = message.from_user.id
+        bal = get_user_balance(user_id)
+        already_purchased = has_user_purchased_ai_coding_agent(user_id)
+        
+        if already_purchased:
+            text = (
+                f"{ce('SUCCESS')} <b>Sizning AI Coding Assistant Setup profilingiz faol!</b>\n\n"
+                f"{ce('BOT')} Qimmatli obunalarsiz terminalda ishlaydigan AI agentingiz sozlamalari tayyor.\n\n"
+                f"{ce('PIN')} <b>O'rnatmoqchi bo'lgan AI vositangizni tanlang:</b>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"🤖 Claude Code (Anthropic CLI)", callback_data="setup_pick_tool_claudecode")],
+                [InlineKeyboardButton(f"🧠 Codex / Aider AI (OpenAI & Free)", callback_data="setup_pick_tool_codex")],
+                [InlineKeyboardButton(f"🛒 Do'konga qaytish", callback_data="menu_marketplace")]
+            ])
+            await message.reply_text(text, reply_markup=kb)
+            return
+
+        price_uzs = 15000
+        desc = (
+            f"{ce('CLAUDE_CODE')} <b>Claude Code & Codex Terminal Setup</b>\n\n"
+            f"Dasturchilar va noprogrammerlar uchun kompyuter terminalida avtonom ishlaydigan kuchli AI dasturchini o'rnatib berish xizmati!\n\n"
+            f"<b>{ce('LIGHTNING')} Imkoniyatlari:</b>\n"
+            f"• Terminalda mustaqil kod yozadi, fayllarni tuzatadi va xatolarni (bug) o'zi topadi\n"
+            f"• Qimmatli obunalarsiz <code>nvidia/nemotron-3-ultra-550b-a55b:free</code> orqali bepul ulanish\n"
+            f"• 1-klikda terminalga tashlab ishga tushirish uchun tayyor avtomatik buyruq\n"
+            f"• Windows (PowerShell), MacOS va Linux uchun to'liq moslangan\n\n"
+            f"{ce('MONEY')} <b>Xizmat narxi:</b> <code>{price_uzs:,} so'm</code> <i>(Bir marta to'lanadi, doimiy kirish)</i>\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{ce('PIN')} O'rnatish uchun quyidagi tugmani bosing:"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"Sotib olish va Sozlash ({price_uzs:,} so'm)", callback_data="mkt_buy_coding_agent")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
+        ])
+        await message.reply_text(desc, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^mkt_view_coding_agent$"))
+    async def cb_mkt_view_coding_agent(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        bal = get_user_balance(user_id)
+        already_purchased = has_user_purchased_ai_coding_agent(user_id)
+        
+        if already_purchased:
+            text = (
+                f"{ce('SUCCESS')} <b>Sizning AI Coding Assistant Setup profilingiz faol!</b>\n\n"
+                f"{ce('BOT')} Qimmatli obunalarsiz terminalda ishlaydigan AI agentingiz sozlamalari tayyor.\n\n"
+                f"{ce('PIN')} <b>O'rnatmoqchi bo'lgan AI vositangizni tanlang:</b>"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"🤖 Claude Code (Anthropic CLI)", callback_data="setup_pick_tool_claudecode")],
+                [InlineKeyboardButton(f"🧠 Codex / Aider AI (OpenAI & Free)", callback_data="setup_pick_tool_codex")],
+                [InlineKeyboardButton(f"🛒 Do'konga qaytish", callback_data="menu_marketplace")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.answer()
+            return
+
+        price_uzs = 15000
+        desc = (
+            f"{ce('CLAUDE_CODE')} <b>Claude Code & Codex Terminal Setup</b>\n\n"
+            f"Dasturchilar va noprogrammerlar uchun kompyuter terminalida avtonom ishlaydigan kuchli AI dasturchini o'rnatib berish xizmati!\n\n"
+            f"<b>{ce('LIGHTNING')} Imkoniyatlari:</b>\n"
+            f"• Terminalda mustaqil kod yozadi, fayllarni tuzatadi va xatolarni (bug) o'zi topadi\n"
+            f"• Qimmatli obunalarsiz <code>nvidia/nemotron-3-ultra-550b-a55b:free</code> orqali bepul ulanish\n"
+            f"• 1-klikda terminalga tashlab ishga tushirish uchun tayyor avtomatik buyruq\n"
+            f"• Windows (PowerShell), MacOS va Linux uchun to'liq moslangan\n\n"
+            f"{ce('MONEY')} <b>Xizmat narxi:</b> <code>{price_uzs:,} so'm</code> <i>(Bir marta to'lanadi, doimiy kirish)</i>\n"
+            f"{ce('BALANCE')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{ce('PIN')} O'rnatish uchun quyidagi tugmani bosing:"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"Sotib olish va Sozlash ({price_uzs:,} so'm)", callback_data="mkt_buy_coding_agent")],
+            [InlineKeyboardButton("Orqaga", callback_data="menu_marketplace")]
+        ])
+        await cb.message.edit_text(desc, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^mkt_buy_coding_agent$"))
+    async def cb_mkt_buy_coding_agent(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        bal = get_user_balance(user_id)
+        already_purchased = has_user_purchased_ai_coding_agent(user_id)
+        if already_purchased:
+            await cb_setup_tool_select(client, cb)
+            return
+
+        price_uzs = 15000
+        if bal < price_uzs:
+            diff = price_uzs - bal
+            text = (
+                f"{ce('WARN')} <b>Balansingizda mablag' yetarli emas!</b>\n\n"
+                f"Xarid uchun: <code>{price_uzs:,} so'm</code>\n"
+                f"Joriy balansingiz: <code>{bal:,} so'm</code>\n"
+                f"Yetishmayotgan summa: <code>{diff:,} so'm</code>\n\n"
+                f"Iltimos, avval hisobingizni to'ldiring:"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 HUMO / Uzcard orqali to'ldirish", callback_data="pay_humo_menu")],
+                [InlineKeyboardButton("💎 CryptoPay / TON orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton("⭐ Stars orqali to'ldirish", callback_data="pay_stars_menu")],
+                [InlineKeyboardButton("⬅️ Orqaga", callback_data="mkt_view_coding_agent")]
+            ])
+            await cb.message.edit_text(text, reply_markup=kb)
+            await cb.answer()
+            return
+
+        confirm_text = (
+            f"{ce('CART')} <b>Xaridni tasdiqlash</b>\n\n"
+            f"Mahsulot: <b>Claude Code & Codex Terminal Setup</b>\n"
+            f"Model: <code>nvidia/nemotron-3-ultra-550b-a55b:free</code>\n"
+            f"Narxi: <code>{price_uzs:,} so'm</code>\n"
+            f"Joriy balansingiz: <code>{bal:,} so'm</code>\n"
+            f"Xariddan so'ng qoladi: <code>{(bal - price_uzs):,} so'm</code>\n\n"
+            f"Hisobingizdan mablag' yechilib, Windows, Mac va Linux uchun to'liq avtomatik sozlash buyrug'i taqdim etiladi. Tasdiqlaysizmi?"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Ha, xarid qilaman", callback_data="mkt_confirm_coding_agent")],
+            [InlineKeyboardButton("❌ Bekor qilish", callback_data="mkt_view_coding_agent")]
+        ])
+        await cb.message.edit_text(confirm_text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^mkt_confirm_coding_agent$"))
+    async def cb_mkt_confirm_coding_agent(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        already_purchased = has_user_purchased_ai_coding_agent(user_id)
+        if not already_purchased:
+            res = record_ai_coding_agent_purchase(user_id, 15000)
+            if not res.get("ok"):
+                err = res.get("error", "Hisobdan mablag' yechishda xatolik yuz berdi")
+                await cb.answer(f"Xatolik: {err}", show_alert=True)
+                return
+
+        await cb.answer("Xarid muvaffaqiyatli amalga oshirildi!", show_alert=False)
+        await cb_setup_tool_select(client, cb)
+
+    @bot.on_callback_query(filters.regex(r"^setup_tool_select$"))
+    async def cb_setup_tool_select(client, cb: CallbackQuery):
+        text = (
+            f"{ce('BOT')} <b>1-Qadam: O'rnatmoqchi bo'lgan AI Vositasini tanlang</b>\n\n"
+            f"Kompyuteringiz terminalida qaysi agentni ishlatmoqchisiz?\n\n"
+            f"1️⃣ <b>Claude Code:</b> Anthropic-ning rasmiy terminal agenti. Fayllar, git va buyruqlar bilan avtonom ishlaydi.\n"
+            f"2️⃣ <b>Codex / Aider AI:</b> Terminaldagi eng ommabop ochiq kodli agent. Ochiq modellar (Nemotron, DeepSeek) bilan 100% barqaror ishlaydi.\n\n"
+            f"<i>Kerakli vositani tanlang:</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🤖 Claude Code (Anthropic CLI)", callback_data="setup_pick_tool_claudecode")],
+            [InlineKeyboardButton("🧠 Codex / Aider AI (OpenAI & Free)", callback_data="setup_pick_tool_codex")],
+            [InlineKeyboardButton("⬅️ Do'konga qaytish", callback_data="menu_marketplace")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^setup_pick_tool_(claudecode|codex)$"))
+    async def cb_setup_pick_tool(client, cb: CallbackQuery):
+        tool = cb.matches[0].group(1)
+        tool_name = "Claude Code (Anthropic CLI)" if tool == "claudecode" else "Codex / Aider AI"
+
+        text = (
+            f"{ce('LAPTOP')} <b>2-Qadam: Operatsion Tizimingizni (OS) tanlang</b>\n\n"
+            f"Tanlangan vosita: <b>{tool_name}</b>\n\n"
+            f"Kompyuteringiz qaysi tizimda ishlaydi?\n"
+            f"Shunga qarab 1-klikda ishga tushuvchi maxsus buyruq yaratiladi:"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🪟 Windows (PowerShell)", callback_data=f"setup_gen_{tool}_win")],
+            [InlineKeyboardButton("🍏 MacOS (Terminal)", callback_data=f"setup_gen_{tool}_mac")],
+            [InlineKeyboardButton("🐧 Linux (Ubuntu / Debian)", callback_data=f"setup_gen_{tool}_linux")],
+            [InlineKeyboardButton("⬅️ Vositalarga qaytish", callback_data="setup_tool_select")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^setup_gen_(claudecode|codex)_(win|mac|linux)$"))
+    async def cb_setup_generate_command(client, cb: CallbackQuery):
+        tool = cb.matches[0].group(1)
+        os_type = cb.matches[0].group(2)
+        
+        # Bazadan API kalitini olish (olib tashlamasdan)
+        api_key = get_openrouter_key_for_setup()
+        if not api_key:
+            api_key = "sk-or-v1-demo-key"
+
+        model_name = "nvidia/nemotron-3-ultra-550b-a55b:free"
+        
+        tool_title = "Claude Code" if tool == "claudecode" else "Codex / Aider AI"
+        os_title = "Windows (PowerShell)" if os_type == "win" else ("MacOS (Zsh/Terminal)" if os_type == "mac" else "Linux (Bash)")
+        
+        if tool == "claudecode":
+            if os_type == "win":
+                one_click_cmd = (
+                    f'npm install -g @anthropic-ai/claude-code; '
+                    f'$env:ANTHROPIC_BASE_URL="https://openrouter.ai/api"; '
+                    f'$env:ANTHROPIC_API_KEY="{api_key}"; '
+                    f'$env:ANTHROPIC_MODEL="{model_name}"; '
+                    f'claude'
+                )
+                perm_cmd = (
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_BASE_URL','https://openrouter.ai/api','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_API_KEY','{api_key}','User'); "
+                    f"[System.Environment]::SetEnvironmentVariable('ANTHROPIC_MODEL','{model_name}','User')"
+                )
+                os_hint = "PowerShell oynasini oching (Win + R -> powershell)"
+            elif os_type == "mac":
+                one_click_cmd = (
+                    f'npm install -g @anthropic-ai/claude-code && '
+                    f'export ANTHROPIC_BASE_URL="https://openrouter.ai/api" && '
+                    f'export ANTHROPIC_API_KEY="{api_key}" && '
+                    f'export ANTHROPIC_MODEL="{model_name}" && '
+                    f'claude'
+                )
+                perm_cmd = (
+                    f'echo \'export ANTHROPIC_BASE_URL="https://openrouter.ai/api"\' >> ~/.zshrc && '
+                    f'echo \'export ANTHROPIC_API_KEY="{api_key}"\' >> ~/.zshrc && '
+                    f'echo \'export ANTHROPIC_MODEL="{model_name}"\' >> ~/.zshrc && source ~/.zshrc'
+                )
+                os_hint = "Terminal oynasini oching (Cmd + Space -> Terminal)"
+            else: # linux
+                one_click_cmd = (
+                    f'sudo npm install -g @anthropic-ai/claude-code && '
+                    f'export ANTHROPIC_BASE_URL="https://openrouter.ai/api" && '
+                    f'export ANTHROPIC_API_KEY="{api_key}" && '
+                    f'export ANTHROPIC_MODEL="{model_name}" && '
+                    f'claude'
+                )
+                perm_cmd = (
+                    f'echo \'export ANTHROPIC_BASE_URL="https://openrouter.ai/api"\' >> ~/.bashrc && '
+                    f'echo \'export ANTHROPIC_API_KEY="{api_key}"\' >> ~/.bashrc && '
+                    f'echo \'export ANTHROPIC_MODEL="{model_name}"\' >> ~/.bashrc && source ~/.bashrc'
+                )
+                os_hint = "Linux terminalini oching (Ctrl + Alt + T)"
+        else: # codex / aider
+            if os_type == "win":
+                one_click_cmd = (
+                    f'pip install aider-chat; '
+                    f'$env:OPENROUTER_API_KEY="{api_key}"; '
+                    f'aider --model openrouter/{model_name}'
+                )
+                perm_cmd = f"[System.Environment]::SetEnvironmentVariable('OPENROUTER_API_KEY','{api_key}','User')"
+                os_hint = "PowerShell oynasini oching (Win + R -> powershell)"
+            elif os_type == "mac":
+                one_click_cmd = (
+                    f'pip install aider-chat && '
+                    f'export OPENROUTER_API_KEY="{api_key}" && '
+                    f'aider --model openrouter/{model_name}'
+                )
+                perm_cmd = f'echo \'export OPENROUTER_API_KEY="{api_key}"\' >> ~/.zshrc && source ~/.zshrc'
+                os_hint = "Terminal oynasini oching (Cmd + Space -> Terminal)"
+            else: # linux
+                one_click_cmd = (
+                    f'pip3 install aider-chat && '
+                    f'export OPENROUTER_API_KEY="{api_key}" && '
+                    f'aider --model openrouter/{model_name}'
+                )
+                perm_cmd = f'echo \'export OPENROUTER_API_KEY="{api_key}"\' >> ~/.bashrc && source ~/.bashrc'
+                os_hint = "Linux terminalini oching (Ctrl + Alt + T)"
+
+        text = (
+            f"🎉 {ce('SUCCESS')} <b>{tool_title} ({os_title}) uchun Sozlash Tayyor!</b>\n\n"
+            f"🤖 <b>Model:</b> <code>{model_name}</code>\n"
+            f"🌐 <b>Endpoint:</b> <code>https://openrouter.ai/api</code>\n"
+            f"🔑 <b>API Kalit:</b> <code>{api_key[:10]}...{api_key[-4:] if len(api_key)>14 else ''}</code> <i>(Avtomat ulangan)</i>\n\n"
+            f"⚡ <b>1-KLIKDA ISHGA TUSHIRISH BUYRUG'I:</b>\n"
+            f"<i>(Quyidagi buyruq ustiga bosing — u avtomat nusxalanadi):</i>\n\n"
+            f"<code>{one_click_cmd}</code>\n\n"
+            f"📌 <b>Qanday ishlatiladi?</b>\n"
+            f"1. {os_hint}\n"
+            f"2. Yuqoridagi kodni terminalga joylab (Paste), <b>Enter</b> bosing\n"
+            f"3. Dastur avtomatik o'rnatiladi va to'g'ridan-to'g'ri terminalingizda kod yozishni boshlaydi!\n\n"
+            f"💡 <i>Doimiy saqlash buyrug'i (har safar kalit kiritmaslik uchun):</i>\n"
+            f"<code>{perm_cmd}</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Boshqa OS / Vosita tanlash", callback_data="setup_tool_select")],
+            [InlineKeyboardButton("🛒 Do'konga qaytish", callback_data="menu_marketplace")],
+            [InlineKeyboardButton("🏠 Bosh menyu", callback_data="back_main")]
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer("Sozlash buyrug'i tayyor!", show_alert=False)
 
     # ==================== DEDICATED PRIVATE PROXY (18,000 so'm) ====================
     @bot.on_callback_query(filters.regex(r"^mkt_view_proxy$"))
