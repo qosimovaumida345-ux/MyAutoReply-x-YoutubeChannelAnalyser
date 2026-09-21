@@ -26,5 +26,4 @@ RUN yt-dlp --remote-components ejs:github \
 
 COPY . .
 
-EXPOSE 10000
-CMD ["python", "main.py"]
+CMD ["sh", "-c", "if [ \"$PORT\" = \"8080\" ]; then python worker.py; else python main.py; fi"]
