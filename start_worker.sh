@@ -1,13 +1,16 @@
 #!/bin/bash
 set -e
 
+# Google Cloud Shell apt-get ogohlantirishini o'chirish
+mkdir -p ~/.cloudshell && touch ~/.cloudshell/no-apt-get-warning
+
 echo "============================================================"
 echo " 1. FFMPEG o'rnatilmoqda / tekshirilmoqda..."
 echo "============================================================"
 if ! command -v ffmpeg &> /dev/null; then
-    sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+    sudo apt-get install -y -qq ffmpeg || pip install -q imageio-ffmpeg
 fi
-echo "✅ ffmpeg tayyor: $(which ffmpeg)"
+echo "✅ ffmpeg tayyor: $(which ffmpeg || echo 'imageio-ffmpeg')"
 
 echo "============================================================"
 echo " 2. Worker server ishga tushmoqda..."
