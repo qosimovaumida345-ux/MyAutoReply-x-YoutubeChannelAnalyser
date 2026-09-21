@@ -23,63 +23,8 @@ from database import save_yt_connection
 # ytbot instance ni saqlash (callback dan xabar yuborish uchun)
 ytbot_instance = None
 
-# ==================== SHARED BUSY-STATE (ROLE=worker/autoposter/streamer/main) ====================
-# Ham poll-loop, ham tashqidan HTTP orqali push qilingan /claim-task shu holatga qaraydi,
-# shunda ikkalasi bir vaqtda ikkita ishni boshlab qo'ymaydi (bitta process — bitta og'ir ish).
-_autopost_busy_state = {"busy": False, "task_id": None}
-_stream_busy_state = {"busy": False, "task_id": None}
-
-# ROLE=main o'zi hozir nechta og'ir vazifani (RAM chegarasi ichida) bajarayotgani.
-# MAIN_MAX_CONCURRENT_TASKS dan oshsa, main o'zi yangi ish olmaydi — faqat DB navbatiga yozadi.
-_main_running_tasks = {"count": 0}
 
 
-async def _dispatch_task_to_remote(urls, task_id, label):
-    """
-    Berilgan URL ro'yxatidagi serverlarni birma-bir /status orqali tekshiradi,
-    birinchi bo'sh topilganiga /claim-task bilan task_id ni push qiladi.
-
-    Qaytaradi: True — muvaffaqiyatli boshqa serverga topshirildi (main bu
-    task bilan endi ishi yo'q, DB status'ni o'sha server yangilaydi).
-    False — hech kim bo'sh emas yoki hech kim javob bermadi (chaqiruvchi
-    o'zi bajarish yoki DB navbatida qoldirishni hal qiladi).
-    """
-    if not urls:
-        return False
-
-    import aiohttp
-    from config import DISPATCH_HTTP_TIMEOUT
-    timeout = aiohttp.ClientTimeout(total=DISPATCH_HTTP_TIMEOUT)
-
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        for url in urls:
-            try:
-                async with session.get(f"{url}/status") as resp:
-                    if resp.status != 200:
-                        continue
-                    status_data = await resp.json()
-                    if status_data.get("busy"):
-                        continue
-            except Exception as e:
-                print(f"[dispatch/{label}] {url}/status javob bermadi: {e}")
-                continue
-
-            # Bo'sh ko'rinadi — task push qilishga urinamiz.
-            # Agar shu orada boshqa main instance yoki bu server band bo'lib
-            # qolgan bo'lsa, claim_*_by_id baribir xavfsiz rad etadi (409).
-            try:
-                async with session.post(f"{url}/claim-task", json={"task_id": task_id}) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if data.get("ok"):
-                            print(f"[dispatch/{label}] Task #{task_id} → {url} ga yuborildi")
-                            return True
-                    print(f"[dispatch/{label}] {url} taskni rad etdi (status={resp.status})")
-            except Exception as e:
-                print(f"[dispatch/{label}] {url}/claim-task xatosi: {e}")
-                continue
-
-    return False
 
 
 # ==================== GEMINI PRICE WATCHER ====================

@@ -4496,53 +4496,36 @@ def create_ytbot():
                     await wait_msg.delete()
                     return
             
-            import yt_dlp
-            ydl_opts = {
-                "outtmpl": out_path,
-                "format": "bestvideo[height<=720][filesize<45M]+bestaudio/best[height<=720][filesize<45M]/best[filesize<45M]/best",
-                "merge_output_format": "mp4",
-                "quiet": True,
-                "no_warnings": True,
-                "max_filesize": 50 * 1024 * 1024,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["ios", "android", "mweb", "web"],
-                        "player_skip": ["webpage"],
-                    }
-                },
-                "retries": 5,
-                "fragment_retries": 5,
-                "skip_unavailable_fragments": True
-            }
-            def _dl_yt():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(target_url, download=True)
+            # Worker serverga yuborish (yt-dlp + ffmpeg shu yerda bajariladi)
+            from config import WORKER_API_URL
+            if not WORKER_API_URL:
+                await wait_msg.edit_text("❌ Worker server sozlanmagan. Admin bilan bog'laning.")
+                return
             
-            info = await asyncio.to_thread(_dl_yt)
+            import httpx
+            promo = t("dl_promo_caption", lang, bot_user=bot_user)
+            cookies_text = None
+            try:
+                from database import get_user_cookies
+                cookies_text = get_user_cookies(user_id)
+            except: pass
             
-            actual_path = out_path
-            if not os.path.exists(out_path):
-                base, _ = os.path.splitext(out_path)
-                for f in os.listdir("downloads"):
-                    if f.startswith(os.path.basename(base)):
-                        actual_path = os.path.join("downloads", f)
-                        break
-                        
-            if os.path.exists(actual_path):
-                v_title = info.get("title", "Video") if isinstance(info, dict) else "Video"
-                promo = t("dl_promo_caption", lang, bot_user=bot_user)
-                caption = f"🎬 <b>{v_title[:60]}</b>{promo}"
-                await message.reply_video(video=actual_path, caption=caption, supports_streaming=True)
+            async with httpx.AsyncClient(timeout=180) as http:
+                resp = await http.post(f"{WORKER_API_URL}/download", json={
+                    "url": target_url,
+                    "chat_id": message.chat.id,
+                    "format": "720",
+                    "caption": f"🎬 <b>Video</b>{promo}",
+                    "cookies_text": cookies_text
+                })
+            
+            if resp.status_code == 200:
                 await wait_msg.delete()
-                try: os.remove(actual_path)
-                except: pass
             else:
-                await wait_msg.edit_text("❌ Videoni yuklab bo'lmadi. Havolani tekshirib qayta urinib ko'ring.")
+                error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                await wait_msg.edit_text(f"❌ Videoni yuklab bo'lmadi: {error_data.get('error', 'Noma\'lum xato')}")
         except Exception as e:
             await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {e}")
-            if os.path.exists(out_path):
-                try: os.remove(out_path)
-                except: pass
 
     # ==================== /autopost ====================
     
@@ -10180,81 +10163,34 @@ def create_ytbot():
                 deduct_user_balance(user_id, price_uzs)
                 record_user_purchase(user_id, "Video Unikalizatsiya & Content ID", price_uzs, {"url": target_url})
                 
-                os.makedirs("downloads", exist_ok=True)
-                raw_path = f"downloads/unikal_raw_{user_id}_{uuid.uuid4().hex[:6]}.mp4"
-                clean_path = f"downloads/unikal_clean_{user_id}_{uuid.uuid4().hex[:6]}.mp4"
-                
                 try:
-                    import yt_dlp
-                    ydl_opts = {
-                        "outtmpl": raw_path,
-                        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
-                        "merge_output_format": "mp4",
-                        "quiet": True,
-                        "no_warnings": True,
-                        "extractor_args": {
-                            "youtube": {
-                                "player_client": ["ios", "android", "mweb", "web"],
-                                "player_skip": ["webpage"],
-                            }
-                        },
-                        "retries": 5,
-                        "fragment_retries": 5,
-                        "skip_unavailable_fragments": True
-                    }
-                    def _dl():
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            return ydl.extract_info(target_url, download=True)
-                    info = await asyncio.to_thread(_dl)
-                    if not os.path.exists(raw_path):
-                        base, _ = os.path.splitext(raw_path)
-                        for f in os.listdir("downloads"):
-                            if f.startswith(os.path.basename(base)):
-                                raw_path = os.path.join("downloads", f)
-                                break
+                    from config import WORKER_API_URL
+                    if not WORKER_API_URL:
+                        await wait_msg.edit_text(f"{e('ERROR')} Worker server sozlanmagan. Admin bilan bog'laning.")
+                        return
                     
-                    ffmpeg_exe = get_ffmpeg_binary()
-                    cmd = [
-                        ffmpeg_exe, "-y", "-i", raw_path,
-                        "-vf", "eq=contrast=1.03:brightness=0.01:saturation=1.04,scale='min(1080,iw)':-2",
-                        "-af", "atempo=1.02,asetrate=44100*1.015,aresample=44100",
-                        "-map_metadata", "-1",
-                        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
-                        "-c:a", "aac", "-b:a", "128k",
-                        clean_path
-                    ]
+                    import httpx
+                    cookies_text = None
+                    try:
+                        from database import get_user_cookies
+                        cookies_text = get_user_cookies(user_id)
+                    except: pass
                     
-                    proc = await asyncio.create_subprocess_exec(
-                        *cmd,
-                        stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.PIPE
-                    )
-                    await proc.communicate()
+                    async with httpx.AsyncClient(timeout=180) as http:
+                        resp = await http.post(f"{WORKER_API_URL}/uniqualize", json={
+                            "url": target_url,
+                            "chat_id": message.chat.id,
+                            "cookies_text": cookies_text
+                        })
                     
-                    if os.path.exists(clean_path):
-                        v_title = info.get("title", "Unikal Video") if isinstance(info, dict) else "Unikal Video"
-                        caption = (
-                            f"{e('LIGHTNING')} <b>Video Muvaffaqiyatli Unikalizatsiya Qilindi!</b>\n\n"
-                            f"🎬 <b>Sarlavha:</b> {v_title[:70]}\n"
-                            f"🛡️ <b>Qo'llangan himoya choralari:</b>\n"
-                            f"• Audio pitch shift (+1.5% va +2% tempo) — Content ID ovoz to'lqinini chetlab o'tish\n"
-                            f"• Video EQ gamma, kontrast va to'yinganlik filtrlari\n"
-                            f"• Barcha metadatalar butunlay olib tashlandi\n\n"
-                            f"⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
-                        )
-                        await message.reply_video(video=clean_path, caption=caption, supports_streaming=True)
+                    if resp.status_code == 200:
                         await wait_msg.delete()
                     else:
-                        await wait_msg.edit_text(f"{e('ERROR')} Videoni qayta ishlashda xatolik yuz berdi. Iltimos qayta urinib ko'ring.")
+                        error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                        err_detail = error_data.get("error", "Noma'lum xato")
+                        await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya xatosi: {err_detail}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 except Exception as unikal_err:
                     await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya jarayonida xatolik: {unikal_err}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
-                finally:
-                    if os.path.exists(raw_path):
-                        try: os.remove(raw_path)
-                        except: pass
-                    if os.path.exists(clean_path):
-                        try: os.remove(clean_path)
-                        except: pass
                 return
 
             elif st.get("step") == "awaiting_clipper_url":
@@ -10279,102 +10215,34 @@ def create_ytbot():
                 deduct_user_balance(user_id, price_uzs)
                 record_user_purchase(user_id, "Smart Shorts Clipper (3 ta Shorts)", price_uzs, {"url": target_url})
                 
-                os.makedirs("downloads", exist_ok=True)
-                raw_path = f"downloads/clipper_raw_{user_id}_{uuid.uuid4().hex[:6]}.mp4"
-                
                 try:
-                    import yt_dlp
-                    ydl_opts = {
-                        "outtmpl": raw_path,
-                        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
-                        "merge_output_format": "mp4",
-                        "quiet": True,
-                        "no_warnings": True,
-                        "extractor_args": {
-                            "youtube": {
-                                "player_client": ["ios", "android", "mweb", "web"],
-                                "player_skip": ["webpage"],
-                            }
-                        },
-                        "retries": 5,
-                        "fragment_retries": 5,
-                        "skip_unavailable_fragments": True
-                    }
-                    def _dl():
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            return ydl.extract_info(target_url, download=True)
-                    info = await asyncio.to_thread(_dl)
-                    duration = int(info.get("duration", 180)) if isinstance(info, dict) else 180
-                    title = info.get("title", "Video") if isinstance(info, dict) else "Video"
+                    from config import WORKER_API_URL
+                    if not WORKER_API_URL:
+                        await wait_msg.edit_text(f"{e('ERROR')} Worker server sozlanmagan. Admin bilan bog'laning.")
+                        return
                     
-                    if not os.path.exists(raw_path):
-                        base, _ = os.path.splitext(raw_path)
-                        for f in os.listdir("downloads"):
-                            if f.startswith(os.path.basename(base)):
-                                raw_path = os.path.join("downloads", f)
-                                break
+                    import httpx
+                    cookies_text = None
+                    try:
+                        from database import get_user_cookies
+                        cookies_text = get_user_cookies(user_id)
+                    except: pass
                     
-                    # Compute 3 segments: each 25-40 seconds
-                    s1_start = max(5, int(duration * 0.15))
-                    s1_end = min(s1_start + 35, duration - 10)
+                    async with httpx.AsyncClient(timeout=300) as http:
+                        resp = await http.post(f"{WORKER_API_URL}/clip", json={
+                            "url": target_url,
+                            "chat_id": message.chat.id,
+                            "cookies_text": cookies_text
+                        })
                     
-                    s2_start = max(s1_end + 10, int(duration * 0.45))
-                    s2_end = min(s2_start + 40, duration - 10)
-                    
-                    s3_start = max(s2_end + 10, int(duration * 0.75))
-                    s3_end = min(s3_start + 35, duration - 2)
-                    
-                    segments = [
-                        {"num": 1, "start": s1_start, "end": s1_end, "hook": "Buni hech kim kutmagan edi! 🔥"},
-                        {"num": 2, "start": s2_start, "end": s2_end, "hook": "Eng muhim va hayratlanarli qismi 😱"},
-                        {"num": 3, "start": s3_start, "end": s3_end, "hook": "Oxirigacha ko'ring, xulosa qiling! ⚡"}
-                    ]
-                    
-                    ffmpeg_exe = get_ffmpeg_binary()
-                    for seg in segments:
-                        clip_path = f"downloads/clip_{user_id}_{seg['num']}_{uuid.uuid4().hex[:4]}.mp4"
-                        clip_dur = seg["end"] - seg["start"]
-                        if clip_dur < 10:
-                            clip_dur = 20
-                        
-                        cmd = [
-                            ffmpeg_exe, "-y",
-                            "-ss", str(seg["start"]),
-                            "-i", raw_path,
-                            "-t", str(clip_dur),
-                            "-vf", "crop=ih*9/16:ih,scale=720:1280",
-                            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                            "-c:a", "aac", "-b:a", "128k",
-                            clip_path
-                        ]
-                        proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-                        await proc.communicate()
-                        
-                        if os.path.exists(clip_path):
-                            caption = (
-                                f"{e('CLIPPER')} <b>Shorts #{seg['num']} Tayyor!</b>\n\n"
-                                f"🎬 <b>Mavzu:</b> {title[:50]}\n"
-                                f"🎣 <b>Virusli Hook:</b> {seg['hook']}\n"
-                                f"⏱ <b>Vaqti:</b> {seg['start']}s — {seg['end']}s ({clip_dur}s)\n"
-                                f"📱 <b>Format:</b> 9:16 Vertikal Full HD\n"
-                                f"🏷️ <i>#Shorts #YouTube #Viral</i>\n\n"
-                                f"⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>"
-                            )
-                            await message.reply_video(video=clip_path, caption=caption, supports_streaming=True)
-                            try: os.remove(clip_path)
-                            except: pass
-                    
-                    await wait_msg.delete()
-                    await message.reply_text(
-                        f"{e('SUCCESS')} <b>3 ta vertikal Shorts videongiz muvaffaqiyatli yetkazildi!</b>\n"
-                        f"Kanalga yuklab trendga chiqishingiz mumkin! 🚀"
-                    )
+                    if resp.status_code == 200:
+                        await wait_msg.delete()
+                    else:
+                        error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                        err_detail = error_data.get("error", "Noma'lum xato")
+                        await wait_msg.edit_text(f"{e('ERROR')} Shorts kesish xatosi: {err_detail}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 except Exception as clip_err:
                     await wait_msg.edit_text(f"{e('ERROR')} Shorts kesishda xatolik yuz berdi: {clip_err}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
-                finally:
-                    if os.path.exists(raw_path):
-                        try: os.remove(raw_path)
-                        except: pass
                 return
 
         # 2. Instagram Reels havola tekshiruvi

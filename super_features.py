@@ -1,5 +1,4 @@
 import os
-import yt_dlp
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import get_youtube_key
@@ -31,59 +30,22 @@ def load_super_features(bot: Client):
             await message.reply_text("❌ URL bering: `/dl https://youtube.com/...`")
             return
             
-        url = message.text.split(maxsplit=1)[1]
-        msg = await message.reply_text("⏳ Formatlar tekshirilmoqda...")
-        
+        url = message.text.split(maxsplit=1)[1].strip()
         short_id = str(uuid.uuid4())[:8]
         DL_URL_MAP[short_id] = url
         
-        ydl_opts = {
-            'quiet': True,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['ios', 'web', 'android', 'mweb'],
-                    'player_skip': ['webpage'],
-                }
-            }
-        }
-        
-        from database import get_user_cookies, get_user_download_proxy
-        user_dl_proxy = get_user_download_proxy(message.from_user.id)
-        if user_dl_proxy:
-            ydl_opts['proxy'] = user_dl_proxy
-        cookies_text = get_user_cookies(message.from_user.id)
-        cookie_path = None
-        if cookies_text:
-            cookie_path = f"downloads/cookies_{message.from_user.id}.txt"
-            os.makedirs("downloads", exist_ok=True)
-            with open(cookie_path, "w", encoding="utf-8") as f:
-                f.write(cookies_text)
-            ydl_opts['cookiefile'] = cookie_path
-            
-        try:
-            def _extract():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    return ydl.extract_info(url, download=False)
-            
-            info = await asyncio.to_thread(_extract)
-                
-            buttons = [
-                [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{short_id}")],
-                [InlineKeyboardButton("🎥 8K (4320p)", callback_data=f"down_8k|{short_id}"),
-                 InlineKeyboardButton("🎥 4K (2160p)", callback_data=f"down_4k|{short_id}")],
-                [InlineKeyboardButton("🎥 1440p (2K)", callback_data=f"down_1440|{short_id}"),
-                 InlineKeyboardButton("🎬 1080p (FHD)", callback_data=f"down_1080|{short_id}")],
-                [InlineKeyboardButton("🎬 720p (HD)", callback_data=f"down_720|{short_id}"),
-                 InlineKeyboardButton("🎬 480p", callback_data=f"down_480|{short_id}")],
-                [InlineKeyboardButton("🎬 360p", callback_data=f"down_360|{short_id}"),
-                 InlineKeyboardButton("🚀 Eng yaxshisi", callback_data=f"down_best|{short_id}")]
-            ]
-            await msg.edit_text(f"🎬 **{info.get('title', 'Video')}**\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
-        except Exception as e:
-            await msg.edit_text(f"❌ Xatolik: {e}")
-        finally:
-            if cookie_path and os.path.exists(cookie_path):
-                os.remove(cookie_path)
+        buttons = [
+            [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{short_id}")],
+            [InlineKeyboardButton("🎥 8K (4320p)", callback_data=f"down_8k|{short_id}"),
+             InlineKeyboardButton("🎥 4K (2160p)", callback_data=f"down_4k|{short_id}")],
+            [InlineKeyboardButton("🎥 1440p (2K)", callback_data=f"down_1440|{short_id}"),
+             InlineKeyboardButton("🎬 1080p (FHD)", callback_data=f"down_1080|{short_id}")],
+            [InlineKeyboardButton("🎬 720p (HD)", callback_data=f"down_720|{short_id}"),
+             InlineKeyboardButton("🎬 480p", callback_data=f"down_480|{short_id}")],
+            [InlineKeyboardButton("🎬 360p", callback_data=f"down_360|{short_id}"),
+             InlineKeyboardButton("🚀 Eng yaxshisi", callback_data=f"down_best|{short_id}")]
+        ]
+        await message.reply_text(f"🎬 <b>Video tanlandi:</b>\n<code>{url[:70]}</code>\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
 
     # Callback for downloads
     @bot.on_callback_query(filters.regex(r"^down_"))
@@ -99,6 +61,42 @@ def load_super_features(bot: Client):
         
         await callback_query.message.edit_text("⏳ Yuklab olinmoqda... Iltimos kuting.")
         
+        from config import WORKER_API_URL
+        fmt = action.replace("down_", "")
+        
+        if WORKER_API_URL:
+            import httpx
+            from database import get_user_cookies, get_user_download_proxy
+            cookies_text = get_user_cookies(callback_query.from_user.id)
+            user_dl_proxy = get_user_download_proxy(callback_query.from_user.id)
+            try:
+                async with httpx.AsyncClient(timeout=300) as http:
+                    resp = await http.post(f"{WORKER_API_URL}/download", json={
+                        "url": url,
+                        "chat_id": callback_query.message.chat.id,
+                        "format": fmt,
+                        "cookies_text": cookies_text,
+                        "proxy": user_dl_proxy
+                    })
+                if resp.status_code == 200:
+                    await callback_query.message.delete()
+                    return
+                else:
+                    err_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                    err_msg = err_data.get("error", "Noma'lum server xatosi")
+                    await callback_query.message.edit_text(f"❌ Yuklab olishda xatolik: {err_msg}")
+                    return
+            except Exception as w_err:
+                await callback_query.message.edit_text(f"❌ Worker serverga ulanishda xatolik: {w_err}")
+                return
+
+        # Fallback to local yt-dlp if WORKER_API_URL is not set
+        try:
+            import yt_dlp
+        except ImportError:
+            await callback_query.message.edit_text("❌ Serverda yuklab olish sozlanmagan (WORKER_API_URL kerak).")
+            return
+            
         os.makedirs("downloads", exist_ok=True)
         filename = f"downloads/vid_{random.randint(1000, 9999)}"
         
