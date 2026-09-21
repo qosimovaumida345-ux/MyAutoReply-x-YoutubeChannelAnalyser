@@ -61,35 +61,36 @@ def load_super_features(bot: Client):
         
         await callback_query.message.edit_text("⏳ Yuklab olinmoqda... Iltimos kuting.")
         
-        from config import WORKER_API_URL, BOT_TOKEN
+        from config import BOT_TOKEN
+        from worker_client import dispatch_task
         fmt = action.replace("down_", "")
         
-        if WORKER_API_URL:
-            import httpx
-            from database import get_user_cookies, get_user_download_proxy
-            cookies_text = get_user_cookies(callback_query.from_user.id)
-            user_dl_proxy = get_user_download_proxy(callback_query.from_user.id)
-            try:
-                async with httpx.AsyncClient(timeout=300) as http:
-                    resp = await http.post(f"{WORKER_API_URL}/download", json={
-                        "url": url,
-                        "chat_id": callback_query.message.chat.id,
-                        "format": fmt,
-                        "cookies_text": cookies_text,
-                        "proxy": user_dl_proxy,
-                        "bot_token": BOT_TOKEN
-                    })
-                if resp.status_code == 200:
-                    await callback_query.message.delete()
-                    return
+        from database import get_user_cookies, get_user_download_proxy
+        cookies_text = get_user_cookies(callback_query.from_user.id)
+        user_dl_proxy = get_user_download_proxy(callback_query.from_user.id)
+        
+        try:
+            res = await dispatch_task(
+                task_type="download",
+                url=url,
+                chat_id=callback_query.message.chat.id,
+                format=fmt,
+                cookies_text=cookies_text,
+                proxy=user_dl_proxy,
+                bot_token=BOT_TOKEN
+            )
+            if res.get("ok"):
+                if res.get("provider") == "github":
+                    await callback_query.message.edit_text("⚡ <b>So'rov qabul qilindi!</b>\n☁️ 7 GB RAM Cloud Serverda yuklanmoqda (taxminan 30-45 soniya)...")
                 else:
-                    err_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                    err_msg = err_data.get("error", "Noma'lum server xatosi")
-                    await callback_query.message.edit_text(f"❌ Yuklab olishda xatolik: {err_msg}")
-                    return
-            except Exception as w_err:
-                await callback_query.message.edit_text(f"❌ Worker serverga ulanishda xatolik: {w_err}")
+                    await callback_query.message.delete()
                 return
+            else:
+                await callback_query.message.edit_text(f"❌ Yuklab olishda xatolik: {res.get('error', 'Noma\'lum xato')}")
+                return
+        except Exception as w_err:
+            await callback_query.message.edit_text(f"❌ Serverga ulanishda xatolik: {w_err}")
+            return
 
         # Fallback to local yt-dlp if WORKER_API_URL is not set
         try:

@@ -4496,13 +4496,9 @@ def create_ytbot():
                     await wait_msg.delete()
                     return
             
-            # Worker serverga yuborish (yt-dlp + ffmpeg shu yerda bajariladi)
-            from config import WORKER_API_URL, BOT_TOKEN
-            if not WORKER_API_URL:
-                await wait_msg.edit_text("❌ Worker server sozlanmagan. Admin bilan bog'laning.")
-                return
-            
-            import httpx
+            # Worker server / 24/7 GitHub Actions (7 GB RAM) orqali bajarish
+            from config import BOT_TOKEN
+            from worker_client import dispatch_task
             promo = t("dl_promo_caption", lang, bot_user=bot_user)
             cookies_text = None
             try:
@@ -4510,21 +4506,23 @@ def create_ytbot():
                 cookies_text = get_user_cookies(user_id)
             except: pass
             
-            async with httpx.AsyncClient(timeout=180) as http:
-                resp = await http.post(f"{WORKER_API_URL}/download", json={
-                    "url": target_url,
-                    "chat_id": message.chat.id,
-                    "format": "720",
-                    "caption": f"🎬 <b>Video</b>{promo}",
-                    "cookies_text": cookies_text,
-                    "bot_token": BOT_TOKEN
-                })
+            res = await dispatch_task(
+                task_type="download",
+                url=target_url,
+                chat_id=message.chat.id,
+                format="720",
+                caption=f"🎬 <b>Video</b>{promo}",
+                cookies_text=cookies_text,
+                bot_token=BOT_TOKEN
+            )
             
-            if resp.status_code == 200:
-                await wait_msg.delete()
+            if res.get("ok"):
+                if res.get("provider") == "github":
+                    await wait_msg.edit_text("⚡ <b>So'rov qabul qilindi!</b>\n☁️ 7 GB RAM Cloud Serverda yuklanmoqda (taxminan 30-45 soniya)...")
+                else:
+                    await wait_msg.delete()
             else:
-                error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                await wait_msg.edit_text(f"❌ Videoni yuklab bo'lmadi: {error_data.get('error', 'Noma\'lum xato')}")
+                await wait_msg.edit_text(f"❌ Videoni yuklab bo'lmadi: {res.get('error', 'Noma\'lum xato')}")
         except Exception as e:
             await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {e}")
 
@@ -10165,32 +10163,29 @@ def create_ytbot():
                 record_user_purchase(user_id, "Video Unikalizatsiya & Content ID", price_uzs, {"url": target_url})
                 
                 try:
-                    from config import WORKER_API_URL, BOT_TOKEN
-                    if not WORKER_API_URL:
-                        await wait_msg.edit_text(f"{e('ERROR')} Worker server sozlanmagan. Admin bilan bog'laning.")
-                        return
-                    
-                    import httpx
+                    from config import BOT_TOKEN
+                    from worker_client import dispatch_task
                     cookies_text = None
                     try:
                         from database import get_user_cookies
                         cookies_text = get_user_cookies(user_id)
                     except: pass
                     
-                    async with httpx.AsyncClient(timeout=180) as http:
-                        resp = await http.post(f"{WORKER_API_URL}/uniqualize", json={
-                            "url": target_url,
-                            "chat_id": message.chat.id,
-                            "cookies_text": cookies_text,
-                            "bot_token": BOT_TOKEN
-                        })
+                    res = await dispatch_task(
+                        task_type="uniqualize",
+                        url=target_url,
+                        chat_id=message.chat.id,
+                        cookies_text=cookies_text,
+                        bot_token=BOT_TOKEN
+                    )
                     
-                    if resp.status_code == 200:
-                        await wait_msg.delete()
+                    if res.get("ok"):
+                        if res.get("provider") == "github":
+                            await wait_msg.edit_text(f"{e('WAIT')} <b>So'rov qabul qilindi!</b>\n☁️ 7 GB RAM Cloud Serverda unikalizatsiya qilinmoqda (taxminan 45-60 soniya)...")
+                        else:
+                            await wait_msg.delete()
                     else:
-                        error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                        err_detail = error_data.get("error", "Noma'lum xato")
-                        await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya xatosi: {err_detail}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
+                        await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya xatosi: {res.get('error', 'Noma\'lum xato')}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 except Exception as unikal_err:
                     await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya jarayonida xatolik: {unikal_err}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 return
@@ -10218,32 +10213,29 @@ def create_ytbot():
                 record_user_purchase(user_id, "Smart Shorts Clipper (3 ta Shorts)", price_uzs, {"url": target_url})
                 
                 try:
-                    from config import WORKER_API_URL, BOT_TOKEN
-                    if not WORKER_API_URL:
-                        await wait_msg.edit_text(f"{e('ERROR')} Worker server sozlanmagan. Admin bilan bog'laning.")
-                        return
-                    
-                    import httpx
+                    from config import BOT_TOKEN
+                    from worker_client import dispatch_task
                     cookies_text = None
                     try:
                         from database import get_user_cookies
                         cookies_text = get_user_cookies(user_id)
                     except: pass
                     
-                    async with httpx.AsyncClient(timeout=300) as http:
-                        resp = await http.post(f"{WORKER_API_URL}/clip", json={
-                            "url": target_url,
-                            "chat_id": message.chat.id,
-                            "cookies_text": cookies_text,
-                            "bot_token": BOT_TOKEN
-                        })
+                    res = await dispatch_task(
+                        task_type="clip",
+                        url=target_url,
+                        chat_id=message.chat.id,
+                        cookies_text=cookies_text,
+                        bot_token=BOT_TOKEN
+                    )
                     
-                    if resp.status_code == 200:
-                        await wait_msg.delete()
+                    if res.get("ok"):
+                        if res.get("provider") == "github":
+                            await wait_msg.edit_text(f"{e('WAIT')} <b>So'rov qabul qilindi!</b>\n☁️ 7 GB RAM Cloud Serverda 3 ta vertikal Shorts tayyorlanmoqda (taxminan 60 soniya)...")
+                        else:
+                            await wait_msg.delete()
                     else:
-                        error_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                        err_detail = error_data.get("error", "Noma'lum xato")
-                        await wait_msg.edit_text(f"{e('ERROR')} Shorts kesish xatosi: {err_detail}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
+                        await wait_msg.edit_text(f"{e('ERROR')} Shorts kesish xatosi: {res.get('error', 'Noma\'lum xato')}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 except Exception as clip_err:
                     await wait_msg.edit_text(f"{e('ERROR')} Shorts kesishda xatolik yuz berdi: {clip_err}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 return

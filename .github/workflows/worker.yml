@@ -1,0 +1,72 @@
+name: CreatorFlow Background Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_type:
+        description: 'Task Type (download, uniqualize, clip)'
+        required: true
+        default: 'download'
+      url:
+        description: 'Target Video URL'
+        required: true
+      chat_id:
+        description: 'Telegram Chat ID'
+        required: true
+      format:
+        description: 'Format or Quality (720, 1080, mp3, etc.)'
+        required: false
+        default: '720'
+      caption:
+        description: 'Caption for video'
+        required: false
+        default: ''
+      proxy:
+        description: 'Proxy URL if needed'
+        required: false
+        default: ''
+      bot_token:
+        description: 'Telegram Bot Token'
+        required: false
+        default: ''
+
+jobs:
+  process-task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Mask Sensitive Tokens
+        run: |
+          if [ -n "${{ github.event.inputs.bot_token }}" ]; then
+            echo "::add-mask::${{ github.event.inputs.bot_token }}"
+          fi
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -U yt-dlp httpx
+
+      - name: Check FFmpeg
+        run: |
+          ffmpeg -version
+
+      - name: Run Action Worker
+        env:
+          TASK_TYPE: ${{ github.event.inputs.task_type }}
+          TARGET_URL: ${{ github.event.inputs.url }}
+          CHAT_ID: ${{ github.event.inputs.chat_id }}
+          FORMAT: ${{ github.event.inputs.format }}
+          CAPTION: ${{ github.event.inputs.caption }}
+          PROXY: ${{ github.event.inputs.proxy }}
+          BOT_TOKEN: ${{ github.event.inputs.bot_token }}
+        run: |
+          python action_worker.py
