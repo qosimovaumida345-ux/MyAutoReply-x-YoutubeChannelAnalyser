@@ -86,7 +86,8 @@ def load_super_features(bot: Client):
                     await callback_query.message.delete()
                 return
             else:
-                await callback_query.message.edit_text(f"❌ Yuklab olishda xatolik: {res.get('error', 'Noma\'lum xato')}")
+                err_text = res.get("error") or "Noma'lum xato"
+                await callback_query.message.edit_text(f"❌ Yuklab olishda xatolik: {err_text}")
                 return
         except Exception as w_err:
             await callback_query.message.edit_text(f"❌ Serverga ulanishda xatolik: {w_err}")

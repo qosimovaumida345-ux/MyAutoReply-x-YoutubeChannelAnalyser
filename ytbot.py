@@ -4522,7 +4522,8 @@ def create_ytbot():
                 else:
                     await wait_msg.delete()
             else:
-                await wait_msg.edit_text(f"❌ Videoni yuklab bo'lmadi: {res.get('error', 'Noma\'lum xato')}")
+                err_text = res.get("error") or "Noma'lum xato"
+                await wait_msg.edit_text(f"❌ Videoni yuklab bo'lmadi: {err_text}")
         except Exception as e:
             await wait_msg.edit_text(f"❌ Xatolik yuz berdi: {e}")
 
@@ -10185,7 +10186,8 @@ def create_ytbot():
                         else:
                             await wait_msg.delete()
                     else:
-                        await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya xatosi: {res.get('error', 'Noma\'lum xato')}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
+                        err_text = res.get("error") or "Noma'lum xato"
+                        await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya xatosi: {err_text}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 except Exception as unikal_err:
                     await wait_msg.edit_text(f"{e('ERROR')} Unikalizatsiya jarayonida xatolik: {unikal_err}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 return
@@ -10235,7 +10237,8 @@ def create_ytbot():
                         else:
                             await wait_msg.delete()
                     else:
-                        await wait_msg.edit_text(f"{e('ERROR')} Shorts kesish xatosi: {res.get('error', 'Noma\'lum xato')}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
+                        err_text = res.get("error") or "Noma'lum xato"
+                        await wait_msg.edit_text(f"{e('ERROR')} Shorts kesish xatosi: {err_text}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 except Exception as clip_err:
                     await wait_msg.edit_text(f"{e('ERROR')} Shorts kesishda xatolik yuz berdi: {clip_err}\n⚠️ <i>Eslatma: Qaytarib berilmaydi (NO REFUNDS).</i>")
                 return
