@@ -17,6 +17,9 @@ import shutil
 import logging
 from datetime import datetime
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -34,6 +37,9 @@ os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 # ==================== BOT TOKEN (Telegram orqali video yuborish uchun) ====================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 
+def _resolve_bot_token(req_token: Optional[str] = None) -> str:
+    return (req_token or "").strip() or os.environ.get("BOT_TOKEN", "").strip() or BOT_TOKEN.strip()
+
 # ==================== REQUEST MODELLARI ====================
 
 class DownloadRequest(BaseModel):
@@ -44,6 +50,7 @@ class DownloadRequest(BaseModel):
     caption: Optional[str] = ""
     cookies_text: Optional[str] = None
     proxy: Optional[str] = None
+    bot_token: Optional[str] = None
 
 class UniqualizeRequest(BaseModel):
     """Video unikalizatsiya so'rovi"""
@@ -51,6 +58,7 @@ class UniqualizeRequest(BaseModel):
     chat_id: int
     caption: Optional[str] = ""
     cookies_text: Optional[str] = None
+    bot_token: Optional[str] = None
 
 class ClipRequest(BaseModel):
     """Shorts clipper so'rovi"""
@@ -58,6 +66,7 @@ class ClipRequest(BaseModel):
     chat_id: int
     caption: Optional[str] = ""
     cookies_text: Optional[str] = None
+    bot_token: Optional[str] = None
 
 
 # ==================== YORDAMCHI FUNKSIYALAR ====================
@@ -139,15 +148,16 @@ def _find_downloaded_file(expected_path):
     return None
 
 
-async def _send_video_to_telegram(chat_id: int, file_path: str, caption: str = ""):
+async def _send_video_to_telegram(chat_id: int, file_path: str, caption: str = "", bot_token: Optional[str] = None):
     """Videoni Telegram Bot API orqali to'g'ridan-to'g'ri yuborish"""
     import httpx
 
-    if not BOT_TOKEN:
+    token = _resolve_bot_token(bot_token)
+    if not token:
         logger.error("BOT_TOKEN yo'q — videoni Telegram ga yuborib bo'lmaydi!")
         return False
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVideo"
+    url = f"https://api.telegram.org/bot{token}/sendVideo"
 
     async with httpx.AsyncClient(timeout=300) as client:
         with open(file_path, "rb") as f:
@@ -170,14 +180,15 @@ async def _send_video_to_telegram(chat_id: int, file_path: str, caption: str = "
             return False
 
 
-async def _send_audio_to_telegram(chat_id: int, file_path: str, caption: str = "", title: str = "Audio"):
+async def _send_audio_to_telegram(chat_id: int, file_path: str, caption: str = "", title: str = "Audio", bot_token: Optional[str] = None):
     """Audio faylni Telegram ga yuborish"""
     import httpx
 
-    if not BOT_TOKEN:
+    token = _resolve_bot_token(bot_token)
+    if not token:
         return False
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendAudio"
+    url = f"https://api.telegram.org/bot{token}/sendAudio"
 
     async with httpx.AsyncClient(timeout=300) as client:
         with open(file_path, "rb") as f:
@@ -195,14 +206,15 @@ async def _send_audio_to_telegram(chat_id: int, file_path: str, caption: str = "
         return response.status_code == 200
 
 
-async def _send_message_to_telegram(chat_id: int, text: str):
+async def _send_message_to_telegram(chat_id: int, text: str, bot_token: Optional[str] = None):
     """Oddiy matn xabar yuborish"""
     import httpx
 
-    if not BOT_TOKEN:
+    token = _resolve_bot_token(bot_token)
+    if not token:
         return False
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
 
     async with httpx.AsyncClient(timeout=30) as client:
         response = await client.post(url, json={
@@ -215,6 +227,18 @@ async def _send_message_to_telegram(chat_id: int, text: str):
 
 # ==================== API ENDPOINTLAR ====================
 
+@app.get("/")
+async def root():
+    """Worker server asosiy sahifasi"""
+    return {
+        "status": "ok",
+        "service": "CreatorFlow Worker",
+        "bot_token_configured": bool(_resolve_bot_token()),
+        "ffmpeg": shutil.which("ffmpeg") is not None,
+        "message": "Worker server muvaffaqiyatli ishlamoqda!"
+    }
+
+
 @app.get("/health")
 async def health_check():
     """Worker server holatini tekshirish"""
@@ -223,7 +247,7 @@ async def health_check():
         "worker": "creatorflow-worker",
         "timestamp": datetime.utcnow().isoformat(),
         "ffmpeg": shutil.which("ffmpeg") is not None,
-        "bot_token": bool(BOT_TOKEN)
+        "bot_token": bool(_resolve_bot_token())
     }
 
 
@@ -258,9 +282,9 @@ async def download_video(req: DownloadRequest):
             mp3_path = actual_path.rsplit(".", 1)[0] + ".mp3"
             if os.path.exists(mp3_path):
                 actual_path = mp3_path
-            sent = await _send_audio_to_telegram(req.chat_id, actual_path, caption, title)
+            sent = await _send_audio_to_telegram(req.chat_id, actual_path, caption, title, bot_token=req.bot_token)
         else:
-            sent = await _send_video_to_telegram(req.chat_id, actual_path, caption)
+            sent = await _send_video_to_telegram(req.chat_id, actual_path, caption, bot_token=req.bot_token)
 
         if sent:
             logger.info(f"Task {task_id} muvaffaqiyatli yakunlandi")
@@ -270,7 +294,7 @@ async def download_video(req: DownloadRequest):
 
     except Exception as e:
         logger.error(f"Download xatosi (task={task_id}): {e}")
-        await _send_message_to_telegram(req.chat_id, f"❌ Videoni yuklab bo'lmadi: {str(e)[:200]}")
+        await _send_message_to_telegram(req.chat_id, f"❌ Videoni yuklab bo'lmadi: {str(e)[:200]}", bot_token=req.bot_token)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     finally:
@@ -306,7 +330,7 @@ async def uniqualize_video(req: UniqualizeRequest):
 
         actual_raw = _find_downloaded_file(raw_path)
         if not actual_raw:
-            await _send_message_to_telegram(req.chat_id, "❌ Videoni yuklab bo'lmadi.")
+            await _send_message_to_telegram(req.chat_id, "❌ Videoni yuklab bo'lmadi.", bot_token=req.bot_token)
             return JSONResponse({"ok": False, "error": "Download failed"}, status_code=500)
 
         ffmpeg_exe = _get_ffmpeg_binary()
@@ -326,7 +350,7 @@ async def uniqualize_video(req: UniqualizeRequest):
         await proc.communicate()
 
         if not os.path.exists(clean_path):
-            await _send_message_to_telegram(req.chat_id, "❌ Videoni qayta ishlashda xatolik yuz berdi.")
+            await _send_message_to_telegram(req.chat_id, "❌ Videoni qayta ishlashda xatolik yuz berdi.", bot_token=req.bot_token)
             return JSONResponse({"ok": False, "error": "FFmpeg processing failed"}, status_code=500)
 
         title = info.get("title", "Unikal Video") if isinstance(info, dict) else "Unikal Video"
@@ -339,7 +363,7 @@ async def uniqualize_video(req: UniqualizeRequest):
             f"• Barcha metadatalar olib tashlandi"
         )
 
-        sent = await _send_video_to_telegram(req.chat_id, clean_path, caption)
+        sent = await _send_video_to_telegram(req.chat_id, clean_path, caption, bot_token=req.bot_token)
 
         if sent:
             return {"ok": True, "task_id": task_id, "title": title}
@@ -348,7 +372,7 @@ async def uniqualize_video(req: UniqualizeRequest):
 
     except Exception as e:
         logger.error(f"Unikalizatsiya xatosi (task={task_id}): {e}")
-        await _send_message_to_telegram(req.chat_id, f"❌ Unikalizatsiya jarayonida xatolik: {str(e)[:200]}")
+        await _send_message_to_telegram(req.chat_id, f"❌ Unikalizatsiya jarayonida xatolik: {str(e)[:200]}", bot_token=req.bot_token)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     finally:
@@ -385,7 +409,7 @@ async def clip_shorts(req: ClipRequest):
 
         actual_raw = _find_downloaded_file(raw_path)
         if not actual_raw:
-            await _send_message_to_telegram(req.chat_id, "❌ Videoni yuklab bo'lmadi.")
+            await _send_message_to_telegram(req.chat_id, "❌ Videoni yuklab bo'lmadi.", bot_token=req.bot_token)
             return JSONResponse({"ok": False, "error": "Download failed"}, status_code=500)
 
         s1_start = max(5, int(duration * 0.15))
@@ -432,7 +456,7 @@ async def clip_shorts(req: ClipRequest):
                     f"📝 {seg['hook']}\n"
                     f"⏱ {seg_dur} soniya"
                 )
-                sent = await _send_video_to_telegram(req.chat_id, seg_path, caption)
+                sent = await _send_video_to_telegram(req.chat_id, seg_path, caption, bot_token=req.bot_token)
                 if sent:
                     sent_count += 1
                 try: os.remove(seg_path)
@@ -442,16 +466,18 @@ async def clip_shorts(req: ClipRequest):
             await _send_message_to_telegram(
                 req.chat_id,
                 f"✅ <b>{sent_count}/3 ta Shorts muvaffaqiyatli tayyorlandi!</b>\n"
-                f"🎬 Asl video: {title[:60]}"
+                f"🎬 Asl video: {title[:60]}",
+                bot_token=req.bot_token
             )
             return {"ok": True, "task_id": task_id, "clips_sent": sent_count}
         else:
-            await _send_message_to_telegram(req.chat_id, "❌ Shorts tayyorlashda xatolik yuz berdi.")
+            await _send_message_to_telegram(req.chat_id, "❌ Shorts tayyorlashda xatolik yuz berdi.", bot_token=req.bot_token)
             return JSONResponse({"ok": False, "error": "No clips generated"}, status_code=500)
 
     except Exception as e:
         logger.error(f"Clipper xatosi (task={task_id}): {e}")
-        await _send_message_to_telegram(req.chat_id, f"❌ Shorts kesishda xatolik: {str(e)[:200]}")
+        await _send_message_to_telegram(req.chat_id, f"❌ Shorts kesishda xatolik: {str(e)[:200]}", bot_token=req.bot_token)
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     finally:

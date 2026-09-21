@@ -61,7 +61,7 @@ def load_super_features(bot: Client):
         
         await callback_query.message.edit_text("⏳ Yuklab olinmoqda... Iltimos kuting.")
         
-        from config import WORKER_API_URL
+        from config import WORKER_API_URL, BOT_TOKEN
         fmt = action.replace("down_", "")
         
         if WORKER_API_URL:
@@ -76,7 +76,8 @@ def load_super_features(bot: Client):
                         "chat_id": callback_query.message.chat.id,
                         "format": fmt,
                         "cookies_text": cookies_text,
-                        "proxy": user_dl_proxy
+                        "proxy": user_dl_proxy,
+                        "bot_token": BOT_TOKEN
                     })
                 if resp.status_code == 200:
                     await callback_query.message.delete()

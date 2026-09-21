@@ -4497,7 +4497,7 @@ def create_ytbot():
                     return
             
             # Worker serverga yuborish (yt-dlp + ffmpeg shu yerda bajariladi)
-            from config import WORKER_API_URL
+            from config import WORKER_API_URL, BOT_TOKEN
             if not WORKER_API_URL:
                 await wait_msg.edit_text("❌ Worker server sozlanmagan. Admin bilan bog'laning.")
                 return
@@ -4516,7 +4516,8 @@ def create_ytbot():
                     "chat_id": message.chat.id,
                     "format": "720",
                     "caption": f"🎬 <b>Video</b>{promo}",
-                    "cookies_text": cookies_text
+                    "cookies_text": cookies_text,
+                    "bot_token": BOT_TOKEN
                 })
             
             if resp.status_code == 200:
@@ -10164,7 +10165,7 @@ def create_ytbot():
                 record_user_purchase(user_id, "Video Unikalizatsiya & Content ID", price_uzs, {"url": target_url})
                 
                 try:
-                    from config import WORKER_API_URL
+                    from config import WORKER_API_URL, BOT_TOKEN
                     if not WORKER_API_URL:
                         await wait_msg.edit_text(f"{e('ERROR')} Worker server sozlanmagan. Admin bilan bog'laning.")
                         return
@@ -10180,7 +10181,8 @@ def create_ytbot():
                         resp = await http.post(f"{WORKER_API_URL}/uniqualize", json={
                             "url": target_url,
                             "chat_id": message.chat.id,
-                            "cookies_text": cookies_text
+                            "cookies_text": cookies_text,
+                            "bot_token": BOT_TOKEN
                         })
                     
                     if resp.status_code == 200:
@@ -10216,7 +10218,7 @@ def create_ytbot():
                 record_user_purchase(user_id, "Smart Shorts Clipper (3 ta Shorts)", price_uzs, {"url": target_url})
                 
                 try:
-                    from config import WORKER_API_URL
+                    from config import WORKER_API_URL, BOT_TOKEN
                     if not WORKER_API_URL:
                         await wait_msg.edit_text(f"{e('ERROR')} Worker server sozlanmagan. Admin bilan bog'laning.")
                         return
@@ -10232,7 +10234,8 @@ def create_ytbot():
                         resp = await http.post(f"{WORKER_API_URL}/clip", json={
                             "url": target_url,
                             "chat_id": message.chat.id,
-                            "cookies_text": cookies_text
+                            "cookies_text": cookies_text,
+                            "bot_token": BOT_TOKEN
                         })
                     
                     if resp.status_code == 200:
