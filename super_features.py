@@ -50,6 +50,10 @@ def load_super_features(bot: Client):
     # Callback for downloads
     @bot.on_callback_query(filters.regex(r"^down_"))
     async def download_callback(client, callback_query: CallbackQuery):
+        try:
+            await callback_query.answer()
+        except Exception:
+            pass
         data = callback_query.data.split("|", maxsplit=1)
         action = data[0]
         short_id = data[1]

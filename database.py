@@ -36,15 +36,78 @@ def clean_database_url(url: str) -> str:
     return clean
 
 
+from psycopg2.pool import ThreadedConnectionPool
+
+_DB_POOL = None
+
+class _PooledConnWrapper:
+    """Connection pool dan olingan ulanishni xavfsiz boshqarish wrapper'i"""
+    def __init__(self, pool, conn):
+        self._pool = pool
+        self._conn = conn
+        self._closed = False
+
+    def close(self):
+        if not self._closed and self._pool is not None and self._conn is not None:
+            self._closed = True
+            try:
+                self._conn.rollback()
+            except Exception:
+                pass
+            try:
+                self._pool.putconn(self._conn)
+            except Exception:
+                pass
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+def _get_pool():
+    global _DB_POOL
+    if _DB_POOL is None or getattr(_DB_POOL, "closed", True):
+        from config import DATABASE_URL
+        if not DATABASE_URL:
+            return None
+        url = clean_database_url(DATABASE_URL)
+        try:
+            _DB_POOL = ThreadedConnectionPool(minconn=2, maxconn=20, dsn=url, cursor_factory=RealDictCursor)
+        except Exception as e:
+            print(f"DATABASE POOL INIT ERROR: {e}")
+            _DB_POOL = None
+    return _DB_POOL
+
+
 def get_db(retries: int = 3):
-    """PostgreSQL ulanishini qaytaradi (avtomatik qayta urinish bilan)"""
+    """Doimiy ulanishlar zaxirasidan (Pool) o'ta tezkor (1-2ms) ulanish qaytaradi"""
+    pool = _get_pool()
+    if pool:
+        for _ in range(retries):
+            try:
+                conn = pool.getconn()
+                if conn.closed:
+                    try:
+                        pool.putconn(conn, close=True)
+                    except Exception:
+                        pass
+                    continue
+                conn.autocommit = False
+                return _PooledConnWrapper(pool, conn)
+            except Exception:
+                pass
+
+    # Fallback agar pool bo'sh yoki xato bersa
     from config import DATABASE_URL
     if not DATABASE_URL:
         print("DATABASE_URL topilmadi! Render PostgreSQL ni ulang.")
         return None
         
     url = clean_database_url(DATABASE_URL)
-    
     for attempt in range(1, retries + 1):
         try:
             conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
@@ -52,8 +115,7 @@ def get_db(retries: int = 3):
             return conn
         except Exception as e:
             if attempt < retries:
-                import time
-                time.sleep(1.5)
+                time.sleep(1.0)
             else:
                 print(f"DATABASE ERROR (attempt {attempt}/{retries}): {e}")
                 return None
@@ -1043,6 +1105,7 @@ def set_config(key, value):
             (key, value, value)
         )
         conn.commit()
+        _set_cached(f"cfg_{key}", value, 600)
         return True
     except Exception as e:
         conn.rollback()
@@ -1052,13 +1115,18 @@ def set_config(key, value):
         conn.close()
 
 def get_config(key):
+    cached = _get_cached(f"cfg_{key}")
+    if cached is not None:
+        return cached
     conn = get_db()
     if not conn: return None
     try:
         cur = conn.cursor()
         cur.execute("SELECT value FROM bot_config WHERE key = %s", (key,))
         row = cur.fetchone()
-        return row["value"] if row else None
+        val = row["value"] if row else None
+        _set_cached(f"cfg_{key}", val, 300)
+        return val
     finally:
         conn.close()
 
@@ -1184,6 +1252,7 @@ def add_bot_admin(tg_user_id, username=None):
             (tg_user_id, username, username)
         )
         conn.commit()
+        _invalidate_cached(f"admin_{tg_user_id}")
         return True
     except Exception as e:
         conn.rollback()
@@ -1194,12 +1263,17 @@ def add_bot_admin(tg_user_id, username=None):
 
 
 def is_bot_admin(tg_user_id):
+    cached = _get_cached(f"admin_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
         cur.execute("SELECT id FROM bot_admins WHERE tg_user_id = %s", (tg_user_id,))
-        return cur.fetchone() is not None
+        res = cur.fetchone() is not None
+        _set_cached(f"admin_{tg_user_id}", res, 300)
+        return res
     finally:
         conn.close()
 
@@ -3024,6 +3098,8 @@ def save_telegram_phone(tg_user_id: int, phone_number: str) -> bool:
                 is_telegram_verified = TRUE
         """, (tg_user_id, clean_phone))
         conn.commit()
+        _set_cached(f"phone_{tg_user_id}", clean_phone, 600)
+        _invalidate_cached(f"tier_{tg_user_id}")
         return True
     except Exception as e:
         conn.rollback()
@@ -3033,15 +3109,22 @@ def save_telegram_phone(tg_user_id: int, phone_number: str) -> bool:
         conn.close()
 
 def get_telegram_phone(tg_user_id: int) -> str:
-    """Foydalanuvchining tasdiqlangan Telegram telefon raqamini olish"""
+    """Foydalanuvchining tasdiqlangan Telegram telefon raqamini olish (kesh bilan)"""
+    cached = _get_cached(f"phone_{tg_user_id}")
+    if cached is not None:
+        return str(cached)
     conn = get_db()
     if not conn: return ""
     try:
         cur = conn.cursor()
         cur.execute("SELECT phone_number FROM user_phones WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
-        if not row: return ""
-        return row["phone_number"] if isinstance(row, dict) else row[0]
+        if not row:
+            _set_cached(f"phone_{tg_user_id}", "", 180)
+            return ""
+        val = row["phone_number"] if isinstance(row, dict) else row[0]
+        _set_cached(f"phone_{tg_user_id}", val, 600)
+        return val
     except Exception as e:
         print(f"get_telegram_phone error: {e}")
         return ""
@@ -5510,7 +5593,12 @@ def claim_gift_case_voucher(code: str, claimed_by: int) -> dict:
 # ==================== 2.4 ADMIN FOYDALANUVCHILAR & HAMYON BOSHQARUVI ====================
 
 def record_user_activity(tg_user_id: int, username: str = None, first_name: str = None, last_name: str = None):
-    """Har qanday foydalanuvchi murojaatida uni bot_users jadvaliga saqlash va faolligini yangilash"""
+    """Har qanday foydalanuvchi murojaatida uni bot_users jadvaliga saqlash va faolligini yangilash (5 daqiqalik kesh bilan)"""
+    cache_key = f"act_{tg_user_id}"
+    if _get_cached(cache_key):
+        return
+    _set_cached(cache_key, True, 300)
+
     conn = get_db()
     if not conn: return
     try:
@@ -5863,7 +5951,11 @@ def is_user_vip(tg_user_id: int) -> bool:
         conn.close()
 
 def get_user_vip_info(tg_user_id: int) -> dict:
-    """Foydalanuvchi VIP obunasi haqida to'liq ma'lumot"""
+    """Foydalanuvchi VIP obunasi haqida to'liq ma'lumot (kesh bilan)"""
+    cached = _get_cached(f"vip_info_{tg_user_id}")
+    if cached is not None:
+        return cached
+
     conn = get_db()
     if not conn: return {"is_vip": False}
     try:
@@ -5871,12 +5963,15 @@ def get_user_vip_info(tg_user_id: int) -> dict:
         cur.execute("SELECT * FROM user_vip_subscriptions WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
         if not row:
-            return {"is_vip": False, "tg_user_id": tg_user_id}
+            res = {"is_vip": False, "tg_user_id": tg_user_id}
+            _set_cached(f"vip_info_{tg_user_id}", res, 300)
+            return res
         d = dict(row)
         import datetime
         exp = d.get("vip_expires_at")
         if exp and datetime.datetime.now() > exp:
             d["is_vip"] = False
+        _set_cached(f"vip_info_{tg_user_id}", d, 300)
         return d
     except Exception as e:
         print(f"get_user_vip_info error: {e}")
@@ -5914,6 +6009,8 @@ def activate_user_vip(tg_user_id: int, days: int = 30, plan_type: str = "vip_69k
         """, (tg_user_id, new_exp, plan_type))
         conn.commit()
         _set_cached(f"vip_{tg_user_id}", True, 300)
+        _invalidate_cached(f"vip_info_{tg_user_id}")
+        _invalidate_cached(f"tier_{tg_user_id}")
         return True
     except Exception as e:
         conn.rollback()
@@ -5924,12 +6021,16 @@ def activate_user_vip(tg_user_id: int, days: int = 30, plan_type: str = "vip_69k
 
 def get_user_verification_tier(tg_user_id: int) -> dict:
     """
-    Foydalanuvchining verifikatsiya va tarif darajasini aniqlash:
+    Foydalanuvchining verifikatsiya va tarif darajasini aniqlash (kesh bilan):
     - tier 1: "unverified" (telefon yoki kanal a'zoligi yo'q)
     - tier 2: "half_verified" (telefon raqam tasdiqlangan + kanalga a'zo)
     - tier 3: "full_verified" (3D face biometrik tasdiqlangan)
     - tier 4: "vip" (69,000 UZS lik VIP faol)
     """
+    cached = _get_cached(f"tier_{tg_user_id}")
+    if cached is not None:
+        return cached
+
     has_phone = bool(get_telegram_phone(tg_user_id))
     is_face = is_user_kyc_verified(tg_user_id)
     vip_active = is_user_vip(tg_user_id)
@@ -5951,7 +6052,7 @@ def get_user_verification_tier(tg_user_id: int) -> dict:
         tier_level = 1
         tier_title = "Tasdiqlanmagan"
 
-    return {
+    res = {
         "tier_level": tier_level,
         "tier_code": tier_code,
         "tier_title": tier_title,
@@ -5959,6 +6060,8 @@ def get_user_verification_tier(tg_user_id: int) -> dict:
         "is_face_verified": is_face,
         "is_vip": vip_active
     }
+    _set_cached(f"tier_{tg_user_id}", res, 180)
+    return res
 
 
 # ==================== CHANNEL CONTESTS & GIVEAWAYS ====================

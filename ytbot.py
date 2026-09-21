@@ -1959,14 +1959,16 @@ def create_ytbot():
         user_id = message.from_user.id
         is_admin = check_is_admin(message.from_user)
         try:
+            import asyncio
             from database import record_user_activity
             u = message.from_user
-            record_user_activity(
+            asyncio.create_task(asyncio.to_thread(
+                record_user_activity,
                 tg_user_id=user_id,
                 username=getattr(u, "username", None),
                 first_name=getattr(u, "first_name", None),
                 last_name=getattr(u, "last_name", None)
-            )
+            ))
         except Exception:
             pass
 
@@ -2072,7 +2074,9 @@ def create_ytbot():
 
         # 1. Majburiy kanal obunasini tekshirish (@CreatorFlow_Store)
         target_ch = STORE_CHANNEL or get_config("force_sub_channel") or "@CreatorFlow_Store"
-        if target_ch and not is_admin:
+        from database import _get_cached, _set_cached
+        is_sub_cached = _get_cached(f"sub_{user_id}")
+        if target_ch and not is_admin and not is_sub_cached:
             try:
                 member = await client.get_chat_member(target_ch, user_id)
                 if not member or getattr(member, "status", None) in ("left", "kicked"):
@@ -2090,8 +2094,27 @@ def create_ytbot():
                     )
                     await message.reply_text(forcesub_text, reply_markup=kb)
                     return
+                else:
+                    _set_cached(f"sub_{user_id}", True, 180)
             except Exception as _fe:
-                print(f"forcesub start check error: {_fe}")
+                from pyrogram.errors import UserNotParticipant
+                if isinstance(_fe, UserNotParticipant) or "USER_NOT_PARTICIPANT" in str(_fe):
+                    ch_clean = target_ch.replace("@", "").strip()
+                    ch_url = f"https://t.me/{ch_clean}"
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton("📢 Kanalga a'zo bo'lish", url=ch_url)],
+                        [InlineKeyboardButton("✅ Obunani tekshirish", callback_data="sub_check")]
+                    ])
+                    forcesub_text = (
+                        f"{ce('CHANNEL')} <b>CreatorFlow Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\n"
+                        f"Bot xizmatlaridan to'liq foydalanish, restock yangiliklarini kuzatish va "
+                        f"sovrinli konkurslarda ishtirok etish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n"
+                        f"{ce('WARN')} <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>"
+                    )
+                    await message.reply_text(forcesub_text, reply_markup=kb)
+                    return
+                else:
+                    print(f"forcesub start check error: {_fe}")
 
         # 2. Telefon raqam ulashish (Kirish verifikatsiyasi)
         ph = get_telegram_phone(user_id)
@@ -2534,10 +2557,13 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^menu_tariffs$"))
     async def cb_menu_tariffs(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         user_id = cb.from_user.id
         text, kb = await get_tariffs_menu(user_id)
         await cb.message.edit_text(text, reply_markup=kb)
-        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^vip_buy_69k$"))
     async def cb_vip_buy_69k(client, cb: CallbackQuery):
@@ -4390,11 +4416,13 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^sub_check$"))
     async def sub_check_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        from database import _set_cached
         lang = get_user_language(user_id)
         target_ch = STORE_CHANNEL or get_config("force_sub_channel") or "@CreatorFlow_Store"
         try:
             member = await client.get_chat_member(target_ch, user_id)
             if member and getattr(member, "status", None) not in ("left", "kicked"):
+                _set_cached(f"sub_{user_id}", True, 300)
                 ph = get_telegram_phone(user_id)
                 if not ph:
                     reply_kb = ReplyKeyboardMarkup(
@@ -4407,12 +4435,12 @@ def create_ytbot():
                         f"{ce('SHIELD')} Endi botdan to'liq foydalanish uchun telefon raqamingizni tasdiqlang.\n"
                         f"Pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasini bosing:"
                     )
-                    await callback_query.message.reply_text(txt, reply_markup=reply_kb)
                     await callback_query.answer("Kanal a'zoligi tasdiqlandi! Telefon raqamingizni ulashing.")
+                    await callback_query.message.reply_text(txt, reply_markup=reply_kb)
                     return
                 else:
-                    await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
                     await callback_query.answer("A'zolik tasdiqlandi!")
+                    await callback_query.message.edit_text(t("sub_success", lang), reply_markup=main_menu_kb(user_id))
                     return
         except Exception as e:
             print(f"sub check error: {e}")
@@ -5921,20 +5949,24 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^(back_main|main_menu)$"))
     async def cb_back_main(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
         name = (cb.from_user.first_name or "Foydalanuvchi") if cb.from_user else "Foydalanuvchi"
         await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
-        await cb.answer()
     
     @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)|btn_balance)$"))
     async def cb_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
-        has_phone = bool(get_telegram_phone(user_id))
-        is_face = is_user_kyc_verified(user_id)
-        if not check_is_admin(cb.from_user) and not has_phone and not is_face:
-            await cb.answer("⚠️ Botdan foydalanish uchun avval telefon raqamingizni tasdiqlang! /start ni bosing.", show_alert=True)
-            return
+        if not check_is_admin(cb.from_user):
+            has_phone = bool(get_telegram_phone(user_id))
+            is_face = is_user_kyc_verified(user_id)
+            if not has_phone and not is_face:
+                await cb.answer("⚠️ Botdan foydalanish uchun avval telefon raqamingizni tasdiqlang! /start ni bosing.", show_alert=True)
+                return
 
         try:
             await cb.answer()

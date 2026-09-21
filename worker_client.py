@@ -47,7 +47,8 @@ async def dispatch_task(
                 "bot_token": token_to_use
             }
             logger.info(f"HTTP Worker ga yuborilmoqda: {endpoint}")
-            async with httpx.AsyncClient(timeout=180) as client:
+            http_timeout = httpx.Timeout(connect=1.5, read=180.0, write=15.0, pool=5.0)
+            async with httpx.AsyncClient(timeout=http_timeout) as client:
                 resp = await client.post(endpoint, json=payload)
                 if resp.status_code == 200:
                     return {"ok": True, "provider": "http"}

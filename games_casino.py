@@ -1277,6 +1277,10 @@ def register_casino_handlers(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_games$"))
     async def cb_menu_games(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         user_id = cb.from_user.id
         CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bal = db.get_user_balance(user_id)
@@ -1292,7 +1296,6 @@ def register_casino_handlers(bot: Client):
             f"• {ce('KAMI_PLANE')} <b>Kamikaze</b> — Samolyotli pog'onalar parvozi"
         )
         await cb.message.edit_text(text, reply_markup=games_main_menu_kb())
-        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^spin_wheel$"))
     async def cb_spin_wheel(client, cb: CallbackQuery):
@@ -2058,6 +2061,10 @@ def register_casino_handlers(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^crash_exit_main$"))
     async def cb_crash_exit_main(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         try:
             from ytbot import main_menu_kb, get_user_language, t
@@ -2067,7 +2074,6 @@ def register_casino_handlers(bot: Client):
             await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
         except Exception:
             await cb.message.edit_text(f"{ce('HOME')} <b>Bosh Menyu</b>", reply_markup=games_main_menu_kb())
-        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^casinospy_target_(all|\d+)$"))
     async def cb_casinospy_target(client, cb: CallbackQuery):
