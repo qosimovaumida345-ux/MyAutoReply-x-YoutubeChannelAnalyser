@@ -44,15 +44,15 @@ def _get_ffmpeg():
 
 def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_preset=None, skip_cookies=False):
     format_map = {
-        "mp3":  "bestaudio/best",
-        "360":  "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]/best",
-        "480":  "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480]/best",
-        "720":  "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]/best",
-        "1080": "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]/best",
-        "1440": "bestvideo[height<=1440]+bestaudio/best[height<=1440]/best",
-        "4k":   "bestvideo[height<=2160]+bestaudio/best[height<=2160]/best",
-        "8k":   "bestvideo[height<=4320]+bestaudio/best[height<=4320]/best",
-        "best": "bestvideo+bestaudio/best",
+        "mp3":  "ba/b",
+        "360":  "bv*[height<=360]+ba/b[height<=360]/b",
+        "480":  "bv*[height<=480]+ba/b[height<=480]/b",
+        "720":  "bv*[height<=720]+ba/b[height<=720]/b",
+        "1080": "bv*[height<=1080]+ba/b[height<=1080]/b",
+        "1440": "bv*[height<=1440]+ba/b[height<=1440]/b",
+        "4k":   "bv*[height<=2160]+ba/b[height<=2160]/b",
+        "8k":   "bv*[height<=4320]+ba/b[height<=4320]/b",
+        "best": "bv*+ba/b/best",
     }
 
     ydl_opts = {
@@ -133,40 +133,40 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
 def _extract_with_fallback(url, out_path, fmt, proxy, task_id):
     import yt_dlp
 
-    # 1-urinish: Mavjud cookie bilan web/mweb/android
+    # 1-urinish: Format bo'yicha yuklash (cookies bilan)
     try:
-        logger.info("1-urinish: Cookies + Web client...")
+        logger.info(f"1-urinish: Format {fmt}...")
         opts1 = _build_ydl_opts(out_path, fmt, proxy, task_id)
         with yt_dlp.YoutubeDL(opts1) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e1:
-        logger.warning(f"1-urinishda xatolik ({e1}). Agar cookie muddati o'tgan bo'lsa, cookielarsiz Android clientiga o'tilmoqda...")
+        logger.warning(f"1-urinishda xatolik ({e1}), moslashuvchan 'bv*+ba/b/best' formatiga o'tilmoqda...")
 
-    # 2-urinish: Android client (COOKIELARSIZ!) — YouTube bot cheklovini aylanib o'tadi
+    # 2-urinish: Moslashuvchan bv*+ba/b/best (cookies saqlanadi!)
     try:
-        logger.info("2-urinish: Android client (cookielarsiz bypass)...")
-        opts2 = _build_ydl_opts(out_path, fmt, proxy, task_id, client_preset=["android"], skip_cookies=True)
-        # Android formati moslashuvchan bo'lishi kerak
-        opts2["format"] = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+        logger.info("2-urinish: bv*+ba/b/best formati...")
+        opts2 = _build_ydl_opts(out_path, "best", proxy, task_id)
+        opts2["format"] = "bv*+ba/b/best"
         with yt_dlp.YoutubeDL(opts2) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e2:
-        logger.warning(f"2-urinishda xatolik ({e2}), Mweb va iOS clientlariga o'tilmoqda...")
+        logger.warning(f"2-urinishda xatolik ({e2}), muqobil [tv, mweb, web] clientlarga o'tilmoqda...")
 
-    # 3-urinish: Mweb va iOS clientlar (cookielarsiz)
+    # 3-urinish: TV va Mweb clientlar (cookies bilan)
     try:
-        logger.info("3-urinish: Mweb/iOS clientlar (cookielarsiz)...")
-        opts3 = _build_ydl_opts(out_path, fmt, proxy, task_id, client_preset=["mweb", "ios"], skip_cookies=True)
-        opts3["format"] = "bestvideo+bestaudio/best"
+        logger.info("3-urinish: TV va Mweb clientlar...")
+        opts3 = _build_ydl_opts(out_path, "best", proxy, task_id, client_preset=["tv", "mweb", "web"])
+        opts3["format"] = "best"
         with yt_dlp.YoutubeDL(opts3) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e3:
-        logger.warning(f"3-urinishda xatolik ({e3}), standart yt-dlp parametrlariga o'tilmoqda...")
+        logger.warning(f"3-urinishda xatolik ({e3}), standart yt-dlp sozlamalariga o'tilmoqda...")
 
-    # 4-urinish: Standart yt-dlp sozlamalari (cookielarsiz)
-    logger.info("4-urinish: Standart yt-dlp sozlamalari (cookielarsiz)...")
-    opts4 = _build_ydl_opts(out_path, fmt, proxy, task_id, skip_cookies=True)
+    # 4-urinish: Standart yt-dlp sozlamalari
+    logger.info("4-urinish: Standart yt-dlp sozlamalari...")
+    opts4 = _build_ydl_opts(out_path, "best", proxy, task_id)
     opts4.pop("extractor_args", None)
+    opts4["format"] = "best"
     with yt_dlp.YoutubeDL(opts4) as ydl:
         return ydl.extract_info(url, download=True)
 
