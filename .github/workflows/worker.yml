@@ -29,6 +29,10 @@ on:
         description: 'Telegram Bot Token'
         required: false
         default: ''
+      cookies_text:
+        description: 'YouTube Cookies content'
+        required: false
+        default: ''
 
 jobs:
   process-task:
@@ -69,6 +73,7 @@ jobs:
           FORMAT: ${{ github.event.inputs.format }}
           CAPTION: ${{ github.event.inputs.caption }}
           PROXY: ${{ github.event.inputs.proxy }}
-          BOT_TOKEN: ${{ github.event.inputs.bot_token }}
+          BOT_TOKEN: ${{ github.event.inputs.bot_token || secrets.BOT_TOKEN }}
+          COOKIES_TEXT: ${{ github.event.inputs.cookies_text || secrets.YOUTUBE_COOKIE || secrets.YOUTUBE_COOKIES || secrets.COOKIES || secrets.COOKIE }}
         run: |
           python action_worker.py

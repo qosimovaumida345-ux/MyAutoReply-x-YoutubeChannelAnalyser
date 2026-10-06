@@ -4654,7 +4654,15 @@ def create_ytbot():
             
             # Bazaga saqlash
             if set_user_cookies(message.from_user.id, cookies_text):
-                await message.reply_text("✅ `Cookies muvaffaqiyatli saqlandi! Endi /autopost ishlab ketadi.`", parse_mode=ParseMode.MARKDOWN)
+                try:
+                    with open("cookies.txt", "w", encoding="utf-8") as cf:
+                        cf.write(cookies_text)
+                    os.makedirs("downloads", exist_ok=True)
+                    with open("downloads/cookies.txt", "w", encoding="utf-8") as cf:
+                        cf.write(cookies_text)
+                except Exception:
+                    pass
+                await message.reply_text("✅ `Cookies muvaffaqiyatli saqlandi! Endi /autopost va /dl ishlab ketadi.`", parse_mode=ParseMode.MARKDOWN)
             else:
                 await message.reply_text("❌ `Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
         except Exception as e:

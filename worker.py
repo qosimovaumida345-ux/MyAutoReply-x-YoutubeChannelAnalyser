@@ -125,9 +125,24 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
 
     if cookies_text:
         cookie_path = os.path.join(DOWNLOADS_DIR, f"cookies_{user_id}.txt")
-        with open(cookie_path, "w", encoding="utf-8") as f:
-            f.write(cookies_text)
-        ydl_opts["cookiefile"] = cookie_path
+        try:
+            with open(cookie_path, "w", encoding="utf-8") as f:
+                f.write(cookies_text)
+            ydl_opts["cookiefile"] = cookie_path
+            ydl_opts["extractor_args"] = {
+                "youtube": {
+                    "player_client": ["web", "mweb", "android"],
+                }
+            }
+        except Exception as ce:
+            logger.warning(f"Cookie yozishda xato: {ce}")
+    elif os.path.exists("cookies.txt"):
+        ydl_opts["cookiefile"] = "cookies.txt"
+        ydl_opts["extractor_args"] = {
+            "youtube": {
+                "player_client": ["web", "mweb", "android"],
+            }
+        }
 
     if proxy:
         ydl_opts["proxy"] = proxy

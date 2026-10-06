@@ -67,17 +67,37 @@ async def dispatch_task(
         "Authorization": f"Bearer {gh_token}",
         "Accept": "application/vnd.github.v3+json"
     }
+    # Cookies matnini tayyorlash (agar uzatilmagan bo'lsa bazadan tekshirish)
+    active_cookies = cookies_text
+    if not active_cookies:
+        try:
+            from database import get_user_cookies
+            active_cookies = get_user_cookies(chat_id) or get_user_cookies(None)
+        except Exception:
+            pass
+    if not active_cookies:
+        active_cookies = (
+            os.getenv("COOKIES_TEXT", "").strip()
+            or os.getenv("YOUTUBE_COOKIE", "").strip()
+            or os.getenv("YOUTUBE_COOKIES", "").strip()
+        )
+
+    inputs = {
+        "task_type": task_type,
+        "url": url,
+        "chat_id": str(chat_id),
+        "format": format,
+        "caption": caption or "",
+        "proxy": proxy or "",
+        "bot_token": token_to_use
+    }
+    if active_cookies:
+        # GitHub dispatch input limiti: 65,536 belgi
+        inputs["cookies_text"] = active_cookies[:60000]
+
     payload = {
         "ref": "main",
-        "inputs": {
-            "task_type": task_type,
-            "url": url,
-            "chat_id": str(chat_id),
-            "format": format,
-            "caption": caption or "",
-            "proxy": proxy or "",
-            "bot_token": token_to_use
-        }
+        "inputs": inputs
     }
 
     try:

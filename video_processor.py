@@ -160,7 +160,7 @@ def generate_srt(input_mp4, srt_path):
         print(f"[CAPTIONS] Gemini orqali ovoz tahlil qilinmoqda...")
         
         audio_file = genai.upload_file(input_mp4)
-        models_to_try = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-3.5-flash']
+        models_to_try = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-flash-lite-latest']
         result = None
         for m_name in models_to_try:
             try:

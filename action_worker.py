@@ -26,6 +26,13 @@ FORMAT = os.environ.get("FORMAT", "720").strip()
 CAPTION = os.environ.get("CAPTION", "").strip()
 PROXY = os.environ.get("PROXY", "").strip() or None
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
+COOKIES_TEXT = (
+    os.environ.get("COOKIES_TEXT", "").strip()
+    or os.environ.get("YOUTUBE_COOKIE", "").strip()
+    or os.environ.get("YOUTUBE_COOKIES", "").strip()
+    or os.environ.get("COOKIE", "").strip()
+    or os.environ.get("COOKIES", "").strip()
+)
 
 
 def _get_ffmpeg():
@@ -35,7 +42,7 @@ def _get_ffmpeg():
     return "ffmpeg"
 
 
-def _build_ydl_opts(out_path, fmt="720", proxy=None):
+def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_preset=None):
     format_map = {
         "mp3":  "bestaudio/best",
         "360":  "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]/best",
@@ -54,12 +61,8 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None):
         "merge_output_format": "mp4",
         "quiet": False,
         "no_warnings": False,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["ios", "android", "mweb", "web"],
-                "player_skip": ["webpage"],
-            }
-        },
+        "nocheckcertificate": True,
+        "geo_bypass": True,
         "retries": 10,
         "fragment_retries": 10,
         "skip_unavailable_fragments": True,
@@ -76,7 +79,74 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None):
     if proxy:
         ydl_opts["proxy"] = proxy
 
+    # Cookies sozlash
+    if COOKIES_TEXT:
+        cookie_data = COOKIES_TEXT
+        # Agar base64 bilan shifrlangan bo'lsa
+        if not cookie_data.startswith("#") and len(cookie_data) > 50:
+            import base64
+            try:
+                decoded = base64.b64decode(cookie_data).decode("utf-8")
+                if "youtube.com" in decoded or "# Netscape" in decoded:
+                    cookie_data = decoded
+            except Exception:
+                pass
+        # Agar literal \n bo'lsa
+        if "\\n" in cookie_data and "\n" not in cookie_data:
+            cookie_data = cookie_data.replace("\\n", "\n")
+
+        cookie_path = os.path.join(DOWNLOADS_DIR, f"cookies_{task_id}.txt")
+        try:
+            with open(cookie_path, "w", encoding="utf-8") as f:
+                f.write(cookie_data)
+            ydl_opts["cookiefile"] = cookie_path
+            logger.info(f"🍪 Cookie muvaffaqiyatli saqlandi va ulandi ({len(cookie_data)} bayt)")
+        except Exception as ce_err:
+            logger.warning(f"Cookie faylni yozishda xato: {ce_err}")
+    elif os.path.exists("cookies.txt"):
+        ydl_opts["cookiefile"] = "cookies.txt"
+        logger.info("🍪 Local cookies.txt fayli ulandi")
+
+    has_cookies = bool(ydl_opts.get("cookiefile"))
+    if client_preset:
+        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset}}
+    elif has_cookies:
+        # Cookies mavjud bo'lganda web, mweb va android clientlaridan foydalanish
+        ydl_opts["extractor_args"] = {
+            "youtube": {
+                "player_client": ["web", "mweb", "android"],
+            }
+        }
+    else:
+        # Cookies bo'lmaganda ios va android clientlari bot cheklovidan osonroq o'tadi
+        ydl_opts["extractor_args"] = {
+            "youtube": {
+                "player_client": ["ios", "android", "mweb", "web"],
+                "player_skip": ["webpage"],
+            }
+        }
+
     return ydl_opts
+
+
+def _extract_with_fallback(url, out_path, fmt, proxy, task_id):
+    import yt_dlp
+    opts = _build_ydl_opts(out_path, fmt, proxy, task_id)
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e1:
+        logger.warning(f"1-urinishda xatolik ({e1}), muqobil [tv, android] clientlar bilan qayta urinilmoqda...")
+        opts_fb1 = _build_ydl_opts(out_path, fmt, proxy, task_id, client_preset=["tv", "android", "mweb"])
+        try:
+            with yt_dlp.YoutubeDL(opts_fb1) as ydl2:
+                return ydl2.extract_info(url, download=True)
+        except Exception as e2:
+            logger.warning(f"2-urinishda xatolik ({e2}), standart yt-dlp sozlamalari bilan qayta urinilmoqda...")
+            opts_fb2 = dict(opts)
+            opts_fb2.pop("extractor_args", None)
+            with yt_dlp.YoutubeDL(opts_fb2) as ydl3:
+                return ydl3.extract_info(url, download=True)
 
 
 def _find_downloaded_file(expected_path):
@@ -156,13 +226,7 @@ async def handle_download():
     out_path = os.path.join(DOWNLOADS_DIR, f"dl_{task_id}.mp4")
 
     logger.info(f"Downloading: url={TARGET_URL}, fmt={FORMAT}")
-    ydl_opts = _build_ydl_opts(out_path, FORMAT, PROXY)
-
-    def _dl():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(TARGET_URL, download=True)
-
-    info = await asyncio.to_thread(_dl)
+    info = await asyncio.to_thread(_extract_with_fallback, TARGET_URL, out_path, FORMAT, PROXY, task_id)
     actual_path = _find_downloaded_file(out_path)
     if not actual_path:
         raise Exception("Fayl yuklab olingandan so'ng topilmadi.")
@@ -187,13 +251,7 @@ async def handle_uniqualize():
     clean_path = os.path.join(DOWNLOADS_DIR, f"clean_{task_id}.mp4")
 
     logger.info(f"Uniqualizing: url={TARGET_URL}")
-    ydl_opts = _build_ydl_opts(raw_path, "720", PROXY)
-
-    def _dl():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(TARGET_URL, download=True)
-
-    info = await asyncio.to_thread(_dl)
+    info = await asyncio.to_thread(_extract_with_fallback, TARGET_URL, raw_path, "720", PROXY, task_id)
     actual_raw = _find_downloaded_file(raw_path)
     if not actual_raw:
         raise Exception("Asosiy video yuklanmadi.")
@@ -236,13 +294,7 @@ async def handle_clip():
     raw_path = os.path.join(DOWNLOADS_DIR, f"clip_raw_{task_id}.mp4")
 
     logger.info(f"Shorts clipping: url={TARGET_URL}")
-    ydl_opts = _build_ydl_opts(raw_path, "720", PROXY)
-
-    def _dl():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(TARGET_URL, download=True)
-
-    info = await asyncio.to_thread(_dl)
+    info = await asyncio.to_thread(_extract_with_fallback, TARGET_URL, raw_path, "720", PROXY, task_id)
     duration = int(info.get("duration", 180)) if isinstance(info, dict) else 180
     title = info.get("title", "Video") if isinstance(info, dict) else "Video"
 
