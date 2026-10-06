@@ -114,7 +114,7 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
         "fragment_retries": 5,
         "skip_unavailable_fragments": True,
         "max_filesize": 50 * 1024 * 1024,
-        "js_runtimes": {"node": {}},
+        "js_runtimes": {"deno": {}, "node": {}},
         "remote_components": {"ejs:github"},
     }
 
@@ -133,7 +133,7 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
             ydl_opts["cookiefile"] = cookie_path
             ydl_opts["extractor_args"] = {
                 "youtube": {
-                    "player_client": ["web", "mweb", "android"],
+                    "player_client": ["web_safari", "web", "mweb"],
                 }
             }
         except Exception as ce:
@@ -142,7 +142,7 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
         ydl_opts["cookiefile"] = "cookies.txt"
         ydl_opts["extractor_args"] = {
             "youtube": {
-                "player_client": ["web", "mweb", "android"],
+                "player_client": ["web_safari", "web", "mweb"],
             }
         }
 
@@ -183,13 +183,13 @@ def _extract_with_fallback(url, out_path, fmt="720", cookies_text=None, proxy=No
         with yt_dlp.YoutubeDL(ydl_opts2) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e2:
-        logger.warning(f"2-urinishda xatolik ({e2}), muqobil [tv, mweb, web] clientlarga o'tilmoqda...")
+        logger.warning(f"2-urinishda xatolik ({e2}), muqobil [ios, web_safari, web] clientlarga o'tilmoqda...")
 
-    # 3-urinish: TV va Mweb clientlar (cookies bilan)
+    # 3-urinish: iOS va Web_safari clientlar (cookies bilan, 'tv' siz)
     try:
         ydl_opts3 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
-        ydl_opts3["extractor_args"] = {"youtube": {"player_client": ["tv", "mweb", "web"]}}
-        ydl_opts3["format"] = "best"
+        ydl_opts3["extractor_args"] = {"youtube": {"player_client": ["ios", "web_safari", "web"]}}
+        ydl_opts3["format"] = "bv*+ba/b/best"
         with yt_dlp.YoutubeDL(ydl_opts3) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e3:
@@ -198,7 +198,7 @@ def _extract_with_fallback(url, out_path, fmt="720", cookies_text=None, proxy=No
     # 4-urinish: Standart yt-dlp sozlamalari
     ydl_opts4 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
     ydl_opts4.pop("extractor_args", None)
-    ydl_opts4["format"] = "best"
+    ydl_opts4["format"] = "bv*+ba/b/best"
     with yt_dlp.YoutubeDL(ydl_opts4) as ydl:
         return ydl.extract_info(url, download=True)
 
