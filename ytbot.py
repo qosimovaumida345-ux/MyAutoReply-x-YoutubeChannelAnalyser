@@ -7838,12 +7838,14 @@ def create_ytbot():
         # 1. Flash Sale hisoblash
         flash_sale = get_active_flash_sale()
         discount_pct = flash_sale.get("discount_percent", 0) if flash_sale else 0
+        retail_usd = float(product.get("retail_price_usd") or 0)
+        usd_str = f" (~${retail_usd:.2f})" if retail_usd > 0 else ""
         if discount_pct > 0:
             price_uzs = int(raw_price_uzs * (100 - discount_pct) / 100)
-            price_display = f"<s>{raw_price_uzs:,} so'm</s> ➔ <b>{price_uzs:,} so'm</b> ({ce('FIRE')} -{discount_pct}%)"
+            price_display = f"<s>{raw_price_uzs:,} so'm</s> ➔ <b>{price_uzs:,} so'm</b>{usd_str} ({ce('FIRE')} -{discount_pct}%)"
         else:
             price_uzs = raw_price_uzs
-            price_display = f"<code>{price_uzs:,} so'm</code>"
+            price_display = f"<code>{price_uzs:,} so'm</code>{usd_str}"
 
         # 2. Real Scarcity Indicator (faqat 0 < stock <= 3 bo'lganda)
         scarcity_banner = ""

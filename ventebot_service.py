@@ -19,6 +19,7 @@ from database import (
     save_ventebot_order,
     update_ventebot_order_status,
 )
+from currency_service import currency_service
 
 logger = logging.getLogger("ventebot_service")
 
@@ -107,89 +108,102 @@ class VenteBotClient:
             "Accept": "application/json",
         }
 
-    def convert_usd_to_uzs(self, price_usd: float) -> int:
+    @staticmethod
+    def calculate_retail_usd(price_usd: float) -> float:
         """
-        Tiered Smart Pricing Formula (Foydalanuvchi talabi):
-        - $0.10 - $0.50 (masalan $0.30) -> 10x ko'paytirish (chakana ~$3.00 -> ~39,000 so'm, min 35,000 so'm)
-        - $0.51 - $1.00 (masalan $1.00) -> 4x (chakana ~$4.00 -> ~51,000 so'm)
-        - $1.01 - $3.00 (masalan $2.00) -> 2.5x (chakana ~$5.00 -> ~64,000 so'm)
-        - $3.01 - $7.00 (masalan $5.00) -> 1.6x (chakana ~$8.00 -> ~103,000 so'm)
-        - $7.01 - $12.00 (masalan $10.00) -> 1.5x (chakana ~$15.00 -> ~193,000 so'm)
-        - $12.01 - $25.00 -> 1.35x
-        - $25.01+ -> 1.25x
-        - Minimal narx: 15,000 so'm.
-        - Yaxlitlash: 1,000 so'mgacha yaxlitlanadi.
+        Dynamic Retail USD narxini hisoblash (Asl narxdan +150% ko'proq).
+        Foydalanuvchi talabi: Asl narxidan 150% ko'proq bo'lsin.
+        Masalan: $0.50 bo'lsa -> $0.50 * (1 + 1.50) = $1.25 (taxminan $1.20 - $1.25).
+        Formula: retail_usd = price_usd * (1.0 + (RESELLER_MARKUP_PERCENT / 100.0))
         """
         if not price_usd or price_usd <= 0:
-            return 15000
-        if price_usd <= 0.50:
-            retail_usd = max(2.5, price_usd * 10.0)
-        elif price_usd <= 1.00:
-            retail_usd = max(3.5, price_usd * 4.0)
-        elif price_usd <= 3.00:
-            retail_usd = max(5.0, price_usd * 2.5)
-        elif price_usd <= 7.00:
-            retail_usd = max(8.0, price_usd * 1.6)
-        elif price_usd <= 12.00:
-            retail_usd = max(12.0, price_usd * 1.5)
-        elif price_usd <= 25.00:
-            retail_usd = price_usd * 1.35
-        else:
-            retail_usd = price_usd * 1.25
-        rate = USD_TO_UZS_RATE or 12850.0
+            return 0.0
+        markup = float(RESELLER_MARKUP_PERCENT if RESELLER_MARKUP_PERCENT is not None else 150.0)
+        retail = price_usd * (1.0 + (markup / 100.0))
+        return round(retail, 2)
+
+    def convert_usd_to_uzs(self, price_usd: float, current_rate: Optional[float] = None) -> int:
+        """
+        Dynamic Smart Pricing Formula (Asl narxidan 150% ko'proq bo'lgan UZS narxi):
+        - Asl narx: price_usd
+        - Sotuv USD narxi: calculate_retail_usd(price_usd)
+        - Real-time USD kursi: currency_service (O'zbekiston Markaziy Banki CBU.uz API)
+        - UZS ga o'tkazish: retail_usd * rate
+        - Yaxlitlash: 1,000 so'mgacha yaxlitlanadi
+        - Minimal narx: 10,000 so'm
+        """
+        if not price_usd or price_usd <= 0:
+            return 10000
+        retail_usd = self.calculate_retail_usd(price_usd)
+        rate = float(current_rate or currency_service.get_cached_usd_rate() or USD_TO_UZS_RATE or 12850.0)
         uzs = int(round(retail_usd * rate, -3))
-        return max(15000, uzs)
+        return max(10000, uzs)
+
 
     @staticmethod
     def categorize_product(p: Dict[str, Any]) -> str:
-        """88 ta tovarning har birini 6 ta qulay toifaga ajratadi"""
+        """92+ ta tovarning har birini 6 ta qulay toifaga ajratadi (nomi bo'yicha birinchi navbatda)"""
         name = (p.get("name") or "").lower()
         desc = (p.get("description") or "").lower()
-        combined = name + " " + desc
 
         if "test product" in name:
             return "test"
 
-        # 1. AI & LLM modellar
-        if any(k in combined for k in [
+        # 1. Kino, Musiqa & Striming (nomida qidirish birinchi navbatda)
+        if any(k in name for k in [
+            "youtube", "spotify", "netflix", "amazon", "prime video", "apple tv", "apple music", "hbo", "peacock", "wink"
+        ]):
+            return "media_streaming"
+
+        # 2. AI & LLM modellar
+        if any(k in name for k in [
             "chatgpt", "chat gpt", "openai", "gpt", "claude", "gemini", "grok", "xai",
             "cursor", "manus", "factory", "lovable", "lovalbe", "replit", "kiro",
-            "codex", "openrouter", "groq", "flux", "midjourney"
+            "codex", "openrouter", "groq", "flux", "midjourney", "google ai", "fin ia"
         ]):
             return "ai"
 
-        # 2. Video, Ovoz & Dizayn
-        if any(k in combined for k in [
+        # 3. Video, Ovoz & Dizayn
+        if any(k in name for k in [
             "capcut", "supercut", "descript", "elevenlabs", "eleven labs", "brain.fm",
             "wispr", "gamma", "figma", "framer", "canva", "adobe", "magic patterns",
             "mobbin", "miro"
         ]):
             return "design_video"
 
-        # 3. Kino, Musiqa & Striming
-        if any(k in combined for k in [
-            "spotify", "netflix", "amazon", "prime video", "hbo", "peacock", "apple tv", "wink"
-        ]):
-            return "media_streaming"
-
-        # 4. Developer & Server vositalari
-        if any(k in combined for k in [
-            "railway", "warp", "n8n", "linear", "jetbrains", "autodesk", "ilovepdf",
-            "wordwall", "quizlet", "quillbot"
+        # 4. Developer, Server & Avtomatlashtirish vositalari
+        if any(k in name for k in [
+            "supabase", "resend", "railway", "warp", "n8n", "linear", "jetbrains", "autodesk",
+            "ilovepdf", "wordwall", "quizlet", "quillbot", "posthog", "jam team", "gumloop", "customer.io"
         ]):
             return "dev_tools"
 
         # 5. VPN, Proxy & Xavfsiz Tarmoq
-        if any(k in combined for k in [
+        if any(k in name for k in [
             "nord", "proton", "hma", "proxy", "vpn", "zoom", "snapchat"
         ]):
             return "vpn_security"
 
         # 6. Ofis, Ta'lim & Dasturlar
-        if any(k in combined for k in [
-            "microsoft", "office", "windows", "gmail", "google drive", "notion",
-            "duolingo", "coursera", "cousera", "trading view", "tradingview", "scribd"
+        if any(k in name for k in [
+            "duolingo", "coursera", "cousera", "notion", "readwise", "granola", "microsoft", "office",
+            "windows", "gmail", "google drive", "trading view", "tradingview", "scribd"
         ]):
+            return "office_edu"
+
+        # Tavsif bo'yicha fallback (agar nomida topilmasa)
+        combined = name + " " + desc
+        if any(k in combined for k in ["chatgpt", "openai", "claude", "gemini", "grok", "cursor", "replit"]):
+            return "ai"
+        if any(k in combined for k in ["capcut", "elevenlabs", "canva", "figma", "gamma"]):
+            return "design_video"
+        if any(k in combined for k in ["spotify", "netflix", "prime video", "apple tv", "apple music"]):
+            return "media_streaming"
+        if any(k in combined for k in ["railway", "n8n", "supabase", "posthog"]):
+            return "dev_tools"
+        if any(k in combined for k in ["nordvpn", "protonvpn", "proxy"]):
+            return "vpn_security"
+        if any(k in combined for k in ["duolingo", "coursera", "notion"]):
             return "office_edu"
 
         return "other"
@@ -264,15 +278,19 @@ class VenteBotClient:
                     if resp.status == 200:
                         raw_data = await resp.json()
                         raw_products = raw_data if isinstance(raw_data, list) else raw_data.get("products", raw_data.get("items", []))
+                        live_rate = await currency_service.get_usd_to_uzs_rate()
                         processed_products = []
                         for p in raw_products:
                             cat = self.categorize_product(p)
                             if cat == "test":
                                 continue  # Vendor test tovarini mijozlarga ko'rsatmaslik
                             p_copy = dict(p)
-                            price_usd = float(p.get("price_usd") or p.get("price") or 0)
+                            cost_usd = float(p.get("price_usd") or p.get("price") or 0)
+                            retail_usd = self.calculate_retail_usd(cost_usd)
                             p_copy["category"] = cat
-                            p_copy["price_uzs"] = self.convert_usd_to_uzs(price_usd)
+                            p_copy["cost_price_usd"] = cost_usd
+                            p_copy["retail_price_usd"] = retail_usd
+                            p_copy["price_uzs"] = self.convert_usd_to_uzs(cost_usd, current_rate=live_rate)
                             processed_products.append(p_copy)
 
                         res = {"success": True, "products": processed_products}
@@ -317,11 +335,16 @@ class VenteBotClient:
                 async with session.post(url, json=payload, headers=self._get_headers(), timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     data = await resp.json()
                     if resp.status == 200 and data.get("success"):
+                        live_rate = await currency_service.get_usd_to_uzs_rate()
                         quote = data.get("quote", {})
                         unit_usd = float(quote.get("unit_price") or 0)
                         total_usd = float(quote.get("total") or 0)
-                        quote["unit_price_uzs"] = self.convert_usd_to_uzs(unit_usd)
-                        quote["total_uzs"] = self.convert_usd_to_uzs(total_usd)
+                        quote["cost_unit_usd"] = unit_usd
+                        quote["cost_total_usd"] = total_usd
+                        quote["retail_unit_usd"] = self.calculate_retail_usd(unit_usd)
+                        quote["retail_total_usd"] = self.calculate_retail_usd(total_usd)
+                        quote["unit_price_uzs"] = self.convert_usd_to_uzs(unit_usd, current_rate=live_rate)
+                        quote["total_uzs"] = self.convert_usd_to_uzs(total_usd, current_rate=live_rate)
                         data["quote"] = quote
                         self.cache.set(cache_key, data, ttl_seconds=300)
                         return data
@@ -379,8 +402,9 @@ class VenteBotClient:
                     "message": "Ushbu xizmat uchun faollashtirish ma'lumoti (Telegram username, ID yoki email) kiritilishi shart",
                 }
 
+            live_rate = await currency_service.get_usd_to_uzs_rate()
             total_usd = round(price_usd * quantity, 2)
-            total_uzs = self.convert_usd_to_uzs(price_usd) * quantity
+            total_uzs = self.convert_usd_to_uzs(price_usd, current_rate=live_rate) * quantity
 
             # 2. Foydalanuvchi balansini tekshirish
             user_bal = get_user_balance(tg_user_id)
