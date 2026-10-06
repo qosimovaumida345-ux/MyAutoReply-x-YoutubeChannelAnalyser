@@ -165,6 +165,47 @@ def _find_downloaded_file(expected_path):
     return None
 
 
+def _extract_with_fallback(url, out_path, fmt="720", cookies_text=None, proxy=None, task_id="worker"):
+    import yt_dlp
+
+    # 1-urinish: Mavjud cookie bilan
+    try:
+        ydl_opts1 = _build_ydl_opts(out_path, fmt, cookies_text, proxy, task_id)
+        with yt_dlp.YoutubeDL(ydl_opts1) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e1:
+        logger.warning(f"1-urinishda xatolik ({e1}), cookielarsiz Android clientiga o'tilmoqda...")
+
+    # 2-urinish: Android client (cookielarsiz bypass)
+    try:
+        ydl_opts2 = _build_ydl_opts(out_path, fmt, None, proxy, task_id)
+        ydl_opts2.pop("cookiefile", None)
+        ydl_opts2["extractor_args"] = {"youtube": {"player_client": ["android"]}}
+        ydl_opts2["format"] = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+        with yt_dlp.YoutubeDL(ydl_opts2) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e2:
+        logger.warning(f"2-urinishda xatolik ({e2}), Mweb va iOS clientlariga o'tilmoqda...")
+
+    # 3-urinish: Mweb va iOS clientlar (cookielarsiz)
+    try:
+        ydl_opts3 = _build_ydl_opts(out_path, fmt, None, proxy, task_id)
+        ydl_opts3.pop("cookiefile", None)
+        ydl_opts3["extractor_args"] = {"youtube": {"player_client": ["mweb", "ios"]}}
+        ydl_opts3["format"] = "bestvideo+bestaudio/best"
+        with yt_dlp.YoutubeDL(ydl_opts3) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e3:
+        logger.warning(f"3-urinishda xatolik ({e3}), standart sozlamalarga o'tilmoqda...")
+
+    # 4-urinish: Standart yt-dlp (cookielarsiz)
+    ydl_opts4 = _build_ydl_opts(out_path, fmt, None, proxy, task_id)
+    ydl_opts4.pop("cookiefile", None)
+    ydl_opts4.pop("extractor_args", None)
+    with yt_dlp.YoutubeDL(ydl_opts4) as ydl:
+        return ydl.extract_info(url, download=True)
+
+
 async def _send_video_to_telegram(chat_id: int, file_path: str, caption: str = "", bot_token: Optional[str] = None):
     """Videoni Telegram Bot API orqali to'g'ridan-to'g'ri yuborish"""
     import httpx
@@ -279,13 +320,7 @@ async def download_video(req: DownloadRequest):
     logger.info(f"Download boshlandi: task={task_id}, url={req.url}, format={req.format}")
 
     try:
-        ydl_opts = _build_ydl_opts(out_path, req.format, req.cookies_text, req.proxy, task_id)
-
-        def _dl():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                return ydl.extract_info(req.url, download=True)
-
-        info = await asyncio.to_thread(_dl)
+        info = await asyncio.to_thread(_extract_with_fallback, req.url, out_path, req.format, req.cookies_text, req.proxy, task_id)
 
         actual_path = _find_downloaded_file(out_path)
         if not actual_path:
@@ -337,13 +372,7 @@ async def uniqualize_video(req: UniqualizeRequest):
     logger.info(f"Unikalizatsiya boshlandi: task={task_id}")
 
     try:
-        ydl_opts = _build_ydl_opts(raw_path, "720", req.cookies_text, None, task_id)
-
-        def _dl():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                return ydl.extract_info(req.url, download=True)
-
-        info = await asyncio.to_thread(_dl)
+        info = await asyncio.to_thread(_extract_with_fallback, req.url, raw_path, "720", req.cookies_text, None, task_id)
 
         actual_raw = _find_downloaded_file(raw_path)
         if not actual_raw:
@@ -414,13 +443,7 @@ async def clip_shorts(req: ClipRequest):
     logger.info(f"Shorts clipper boshlandi: task={task_id}")
 
     try:
-        ydl_opts = _build_ydl_opts(raw_path, "720", req.cookies_text, None, task_id)
-
-        def _dl():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                return ydl.extract_info(req.url, download=True)
-
-        info = await asyncio.to_thread(_dl)
+        info = await asyncio.to_thread(_extract_with_fallback, req.url, raw_path, "720", req.cookies_text, None, task_id)
         duration = int(info.get("duration", 180)) if isinstance(info, dict) else 180
         title = info.get("title", "Video") if isinstance(info, dict) else "Video"
 

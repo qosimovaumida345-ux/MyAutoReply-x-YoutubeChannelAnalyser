@@ -42,7 +42,7 @@ def _get_ffmpeg():
     return "ffmpeg"
 
 
-def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_preset=None):
+def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_preset=None, skip_cookies=False):
     format_map = {
         "mp3":  "bestaudio/best",
         "360":  "bestvideo[height<=360][ext=mp4]+bestaudio[ext=m4a]/best[height<=360]/best",
@@ -81,8 +81,8 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
     if proxy:
         ydl_opts["proxy"] = proxy
 
-    # Cookies sozlash
-    if COOKIES_TEXT:
+    # Cookies sozlash (agar skip_cookies bo'lmasa)
+    if not skip_cookies and COOKIES_TEXT:
         cookie_data = COOKIES_TEXT
         # Agar base64 bilan shifrlangan bo'lsa
         if not cookie_data.startswith("#") and len(cookie_data) > 50:
@@ -105,7 +105,7 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
             logger.info(f"🍪 Cookie muvaffaqiyatli saqlandi va ulandi ({len(cookie_data)} bayt)")
         except Exception as ce_err:
             logger.warning(f"Cookie faylni yozishda xato: {ce_err}")
-    elif os.path.exists("cookies.txt"):
+    elif not skip_cookies and os.path.exists("cookies.txt"):
         ydl_opts["cookiefile"] = "cookies.txt"
         logger.info("🍪 Local cookies.txt fayli ulandi")
 
@@ -120,11 +120,10 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
             }
         }
     else:
-        # Cookies bo'lmaganda ios va android clientlari bot cheklovidan osonroq o'tadi
+        # Cookies bo'lmaganda android va ios clientlari bot cheklovidan osonroq o'tadi
         ydl_opts["extractor_args"] = {
             "youtube": {
-                "player_client": ["ios", "android", "mweb", "web"],
-                "player_skip": ["webpage"],
+                "player_client": ["android", "ios", "mweb"],
             }
         }
 
@@ -133,22 +132,43 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
 
 def _extract_with_fallback(url, out_path, fmt, proxy, task_id):
     import yt_dlp
-    opts = _build_ydl_opts(out_path, fmt, proxy, task_id)
+
+    # 1-urinish: Mavjud cookie bilan web/mweb/android
     try:
-        with yt_dlp.YoutubeDL(opts) as ydl:
+        logger.info("1-urinish: Cookies + Web client...")
+        opts1 = _build_ydl_opts(out_path, fmt, proxy, task_id)
+        with yt_dlp.YoutubeDL(opts1) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e1:
-        logger.warning(f"1-urinishda xatolik ({e1}), muqobil [tv, android] clientlar bilan qayta urinilmoqda...")
-        opts_fb1 = _build_ydl_opts(out_path, fmt, proxy, task_id, client_preset=["tv", "android", "mweb"])
-        try:
-            with yt_dlp.YoutubeDL(opts_fb1) as ydl2:
-                return ydl2.extract_info(url, download=True)
-        except Exception as e2:
-            logger.warning(f"2-urinishda xatolik ({e2}), standart yt-dlp sozlamalari bilan qayta urinilmoqda...")
-            opts_fb2 = dict(opts)
-            opts_fb2.pop("extractor_args", None)
-            with yt_dlp.YoutubeDL(opts_fb2) as ydl3:
-                return ydl3.extract_info(url, download=True)
+        logger.warning(f"1-urinishda xatolik ({e1}). Agar cookie muddati o'tgan bo'lsa, cookielarsiz Android clientiga o'tilmoqda...")
+
+    # 2-urinish: Android client (COOKIELARSIZ!) — YouTube bot cheklovini aylanib o'tadi
+    try:
+        logger.info("2-urinish: Android client (cookielarsiz bypass)...")
+        opts2 = _build_ydl_opts(out_path, fmt, proxy, task_id, client_preset=["android"], skip_cookies=True)
+        # Android formati moslashuvchan bo'lishi kerak
+        opts2["format"] = "bestvideo[height<=720]+bestaudio/best[height<=720]/best"
+        with yt_dlp.YoutubeDL(opts2) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e2:
+        logger.warning(f"2-urinishda xatolik ({e2}), Mweb va iOS clientlariga o'tilmoqda...")
+
+    # 3-urinish: Mweb va iOS clientlar (cookielarsiz)
+    try:
+        logger.info("3-urinish: Mweb/iOS clientlar (cookielarsiz)...")
+        opts3 = _build_ydl_opts(out_path, fmt, proxy, task_id, client_preset=["mweb", "ios"], skip_cookies=True)
+        opts3["format"] = "bestvideo+bestaudio/best"
+        with yt_dlp.YoutubeDL(opts3) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e3:
+        logger.warning(f"3-urinishda xatolik ({e3}), standart yt-dlp parametrlariga o'tilmoqda...")
+
+    # 4-urinish: Standart yt-dlp sozlamalari (cookielarsiz)
+    logger.info("4-urinish: Standart yt-dlp sozlamalari (cookielarsiz)...")
+    opts4 = _build_ydl_opts(out_path, fmt, proxy, task_id, skip_cookies=True)
+    opts4.pop("extractor_args", None)
+    with yt_dlp.YoutubeDL(opts4) as ydl:
+        return ydl.extract_info(url, download=True)
 
 
 def _find_downloaded_file(expected_path):
