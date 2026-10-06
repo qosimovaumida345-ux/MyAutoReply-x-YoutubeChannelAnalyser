@@ -67,6 +67,8 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
         "fragment_retries": 10,
         "skip_unavailable_fragments": True,
         "max_filesize": 50 * 1024 * 1024,
+        "js_runtimes": {"node": {}},
+        "remote_components": {"ejs:github"},
     }
 
     if fmt == "mp3":
