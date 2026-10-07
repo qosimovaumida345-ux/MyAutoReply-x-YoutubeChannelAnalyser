@@ -14,10 +14,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL Client
+      - name: Install PostgreSQL 17 Client
         run: |
+          sudo install -d /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update -qq
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_restore --version
+          sudo update-alternatives --set pg_restore /usr/lib/postgresql/17/bin/pg_restore || true
+          sudo update-alternatives --set psql /usr/lib/postgresql/17/bin/psql || true
           pg_restore --version
 
       - name: Extract Backup
@@ -33,15 +39,15 @@ jobs:
         run: |
           DUMP_DIR=$(find /tmp/pg_dump -name "toc.dat" -exec dirname {} \;)
           echo "Found dump directory: $DUMP_DIR"
-          pg_restore --verbose --no-owner --no-acl --clean --if-exists -d "$DB_URL" "$DUMP_DIR" || true
+          /usr/lib/postgresql/17/bin/pg_restore --verbose --no-owner --no-acl --clean --if-exists -d "$DB_URL" "$DUMP_DIR" || true
 
       - name: Verify Tables and Data
         env:
           DB_URL: ${{ github.event.inputs.database_url }}
         run: |
           echo "--- Public Tables in Database ---"
-          psql "$DB_URL" -c "\dt"
+          /usr/lib/postgresql/17/bin/psql "$DB_URL" -c "\dt"
           echo "--- Row Counts in Key Tables ---"
-          psql "$DB_URL" -c "SELECT 'user_balances' AS table, COUNT(*) AS count FROM user_balances;" || true
-          psql "$DB_URL" -c "SELECT 'user_settings' AS table, COUNT(*) AS count FROM user_settings;" || true
-          psql "$DB_URL" -c "SELECT 'user_phones' AS table, COUNT(*) AS count FROM user_phones;" || true
+          /usr/lib/postgresql/17/bin/psql "$DB_URL" -c "SELECT 'user_balances' AS table, COUNT(*) AS count FROM user_balances;" || true
+          /usr/lib/postgresql/17/bin/psql "$DB_URL" -c "SELECT 'user_settings' AS table, COUNT(*) AS count FROM user_settings;" || true
+          /usr/lib/postgresql/17/bin/psql "$DB_URL" -c "SELECT 'user_phones' AS table, COUNT(*) AS count FROM user_phones;" || true
