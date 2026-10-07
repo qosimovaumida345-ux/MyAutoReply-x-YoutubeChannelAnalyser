@@ -149,6 +149,15 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
     if proxy:
         ydl_opts["proxy"] = proxy
 
+    # PO Token Provider (bgutil HTTP server 127.0.0.1:4416)
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:4416/ping", timeout=0.8) as pot_resp:
+            if pot_resp.status == 200:
+                ydl_opts.setdefault("extractor_args", {}).setdefault("youtubepot-bgutilhttp", {})["base_url"] = "http://127.0.0.1:4416"
+    except Exception:
+        pass
+
     return ydl_opts
 
 

@@ -188,6 +188,15 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
     if has_cookies:
         ydl_opts['cookiefile'] = cookie_path
 
+    # PO Token Provider (bgutil HTTP server 127.0.0.1:4416)
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:4416/ping", timeout=0.8) as pot_resp:
+            if pot_resp.status == 200:
+                ydl_opts.setdefault('extractor_args', {}).setdefault('youtubepot-bgutilhttp', {})['base_url'] = "http://127.0.0.1:4416"
+    except Exception:
+        pass
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([url])

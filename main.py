@@ -2301,6 +2301,13 @@ async def main():
                 except Exception as cp_err:
                     print(f"Kanal avtopilot xatosi: {cp_err}")
 
+                try:
+                    from instagram_cloner import start_instagram_sync_daemon
+                    asyncio.create_task(start_instagram_sync_daemon(bot, interval_seconds=1800))
+                    print("📸 Instagram Auto-Tracker & YouTube Sync Daemon ishga tushirildi.")
+                except Exception as ig_err:
+                    print(f"Instagram Sync Daemon startup xatosi: {ig_err}")
+
 
             async def run_bot():
                 await bot.start()

@@ -40,7 +40,8 @@ from vouchers_engine import (
 )
 from instagram_cloner import (
     add_instagram_target, get_instagram_targets,
-    remove_instagram_target, sync_instagram_account_now
+    remove_instagram_target, sync_instagram_account_now,
+    clean_instagram_target
 )
 from capcut_exchange import (
     get_capcut_menu_text, get_capcut_pro_keyboard,
@@ -616,33 +617,51 @@ def load_mega_features(bot: Client):
     async def ig_cloner_cmd(client, message: Message):
         uid = message.from_user.id
         targets = get_instagram_targets(uid)
-        ch_list = "\n".join([f"• @{t['ig_username']} (Interval: {t.get('check_interval_mins', 60)} daqiqa)" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
+        lines = []
+        for t in targets:
+            u_name = t.get("ig_username", "")
+            total_v = t.get("total_synced_count", 0)
+            is_limit = t.get("daily_limit_hit_date") and str(t.get("daily_limit_hit_date")) == str(datetime.now(timezone.utc).date())
+            limit_badge = "⚠️ Limit to'lgan (ertaga davom etadi)" if is_limit else "✅ Faol"
+            lines.append(f"• <b>@{u_name}</b> | Yuklangan: <code>{total_v} ta</code> | {limit_badge}")
+        ch_list = "\n".join(lines) if lines else "Hozircha kuzatilayotgan profillar yo'q."
 
         text = (
             f"{ce('INSTAGRAM_LOGO')} <b>Instagram Account Auto-Cloner & Reposter</b>\n\n"
-            f"Belgilangan Instagram profiliga yangi Reel yuklanganda, bot uni darhol "
-            f"yuklab oladi, 8-qatlamli unikalizatsiya (anti-copyright) qiladi va "
-            f"ulangan YouTube kanalingizga avtomatik Shorts qilib joylaydi!\n\n"
+            f"Kuzatuvdagi profilning barcha yangi Reels videolari 8-qatlamli anti-copyright "
+            f"unikalizatsiyasi bilan avtomatik YouTube kanalingizga yuklanadi!\n\n"
+            f"🔒 <b>Deduplikatsiya:</b> Bir xil video hech qachon 2 marta yuklanmaydi.\n"
+            f"🚀 <b>Maksimal limit:</b> Har kuni YouTube ruxsat bergan eng yuqori limitgacha avtomatik yuklanadi.\n\n"
             f"{ce('LIST')} <b>Kuzatilayotgan profillaringiz:</b>\n{ch_list}\n\n"
-            f"Yangi profil qo'shish uchun: <code>/igcloner add @username</code>\n"
-            f"O'chirish uchun: <code>/igcloner del @username</code>\n"
-            f"Hozir sinash uchun: <code>/igcloner sync @username</code>"
+            f"➕ Yangi profil qo'shish: <code>/igcloner add @username</code> (yoki havola)\n"
+            f"🗑 O'chirish: <code>/igcloner del @username</code>\n"
+            f"🔄 Hozir sinash: <code>/igcloner sync @username</code>"
         )
         parts = message.command
         if len(parts) >= 3:
             action = parts[1].lower()
-            target_username = parts[2].strip().lstrip("@")
+            raw_target = " ".join(parts[2:])
+            target_username = clean_instagram_target(raw_target)
+            if not target_username:
+                await message.reply_text("❌ Noto'g'ri Instagram profil yoki havola! Masalan: <code>/igcloner add @cristiano</code>")
+                return
             if action == "add":
                 add_instagram_target(uid, target_username)
-                await message.reply_text(f"{ce('CHECK')} <code>@{target_username}</code> muvaffaqiyatli kuzatuvga qo'shildi!")
+                await message.reply_text(
+                    f"{ce('CHECK')} <code>@{target_username}</code> muvaffaqiyatli kuzatuvga qo'shildi!\n\n"
+                    f"🔄 <b>Deduplikatsiya:</b> Faol (dublikat yuklanmaydi)\n"
+                    f"🚀 <b>Avtopilot:</b> Har kuni YouTube kanalingizning kunlik limitigacha avtomatik yuklaydi.\n\n"
+                    f"Hozir sinab ko'rish: <code>/igcloner sync @{target_username}</code>"
+                )
                 return
             elif action == "del":
                 remove_instagram_target(uid, target_username)
                 await message.reply_text(f"{ce('CROSS')} <code>@{target_username}</code> kuzatuvdan olib tashlandi.")
                 return
             elif action == "sync":
-                res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=message.chat.id)
-                await message.reply_text(f"Natija: {res.get('message')}")
+                wait_m = await message.reply_text(f"⏳ <code>@{target_username}</code> tekshirilmoqda va yangi videolar YouTube ga yuklanmoqda...")
+                res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=message.chat.id, force=True)
+                await wait_m.edit_text(f"<b>Natija:</b>\n{res.get('message')}")
                 return
 
         kb = InlineKeyboardMarkup([
@@ -2309,9 +2328,23 @@ def load_mega_features(bot: Client):
             # 7. Instagram profil qo'shish
             elif action == "waiting_ig_profile":
                 USER_STATES.pop(uid, None)
-                clean_ig = text.lstrip("@").strip()
+                clean_ig = clean_instagram_target(text)
+                if not clean_ig:
+                    await message.reply_text(
+                        f"❌ Noto'g'ri Instagram profil yoki havola!\n\n"
+                        f"Iltimos, qayta yuboring (masalan: <code>@cristiano</code> yoki <code>https://instagram.com/cristiano</code>)."
+                    )
+                    message.stop_propagation()
+                    return
+
                 add_instagram_target(uid, clean_ig)
-                await message.reply_text(f"{ce('CHECK')} <code>@{clean_ig}</code> Instagram profili kuzatuvga qo'shildi! Endi yangi videolar avtomat YouTube ga o'tkaziladi.")
+                await message.reply_text(
+                    f"{ce('CHECK')} <code>@{clean_ig}</code> Instagram profili muvaffaqiyatli kuzatuvga qo'shildi!\n\n"
+                    f"🔒 <b>Deduplikatsiya:</b> Faqat yangi videolar yuklanadi (hech qachon ikkita bir xil video qayta yuklanmaydi).\n"
+                    f"🚀 <b>Avtopilot:</b> Har kuni YouTube kanalingizning kunlik maksimal limitigacha avtomatik yuklanadi.\n"
+                    f"✨ <b>8-Qatlamli Unikalizatsiya:</b> Mualliflik huquqi (copyright) buzilmasligi uchun avtomatik ishlov beriladi.\n\n"
+                    f"Hozir tekshirib ko'rish: <code>/igcloner sync @{clean_ig}</code>"
+                )
                 message.stop_propagation()
 
             # 8. AI Video Prompt

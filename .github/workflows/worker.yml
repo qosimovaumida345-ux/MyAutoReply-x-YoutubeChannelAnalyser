@@ -64,10 +64,21 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Start PO Token Provider (Automated YouTube POT Generator)
+        run: |
+          docker run --name pot-provider -d --init -p 127.0.0.1:4416:4416 brainicism/bgutil-ytdlp-pot-provider:latest
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:4416/ping > /dev/null 2>&1 || curl -s http://127.0.0.1:4416/ > /dev/null 2>&1; then
+              echo "PO Token Provider is ready on port 4416!"
+              break
+            fi
+            sleep 1
+          done
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -U yt-dlp yt-dlp-ejs httpx
+          pip install -U yt-dlp yt-dlp-ejs httpx bgutil-ytdlp-pot-provider
 
       - name: Install FFmpeg
         run: |

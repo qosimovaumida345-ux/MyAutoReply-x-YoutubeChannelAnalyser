@@ -4200,6 +4200,112 @@ def update_ig_sync_timestamp(sync_channel_id: int) -> bool:
     finally:
         conn.close()
 
+def is_ig_post_already_uploaded(tg_user_id: int, ig_post_id: str) -> bool:
+    """
+    Qat'iy deduplikatsiya: Ushbu Instagram post ID foydalanuvchining YouTube kanaliga
+    avval yuklanganmi? (Bir xil videoni qayta yuklashning 100% oldini oladi).
+    """
+    conn = get_db()
+    if not conn: return False
+    clean_pid = str(ig_post_id).strip()
+    try:
+        cur = conn.cursor()
+        # 1. ig_synced_posts orqali barcha kanallarida tekshirish
+        cur.execute("""
+            SELECT p.id FROM ig_synced_posts p
+            JOIN ig_sync_channels c ON p.sync_channel_id = c.id
+            WHERE c.tg_user_id = %s AND p.ig_post_id = %s AND p.status = 'synced'
+            LIMIT 1
+        """, (tg_user_id, clean_pid))
+        if cur.fetchone():
+            return True
+        # 2. autopost_history orqali tekshirish
+        cur.execute("""
+            SELECT id FROM autopost_history
+            WHERE tg_user_id = %s AND (source_video_id = %s OR source_video_id = %s) AND status = 'uploaded'
+            LIMIT 1
+        """, (tg_user_id, clean_pid, f"ig_{clean_pid}"))
+        return cur.fetchone() is not None
+    except Exception as e:
+        print(f"is_ig_post_already_uploaded error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def set_ig_sync_daily_limit_hit(sync_channel_id: int) -> bool:
+    """YouTube kunlik limitiga yetilganda bugungi sanani belgilash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE ig_sync_channels SET daily_limit_hit_date = CURRENT_DATE, last_checked_at = NOW() WHERE id = %s", (sync_channel_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"set_ig_sync_daily_limit_hit error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def is_ig_sync_daily_limit_hit_today(sync_channel_id: int) -> bool:
+    """Bugun YouTube upload limiti to'lganmi tekshirish"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT (daily_limit_hit_date = CURRENT_DATE) as is_hit FROM ig_sync_channels WHERE id = %s", (sync_channel_id,))
+        row = cur.fetchone()
+        return bool(row and row.get("is_hit"))
+    except Exception as e:
+        print(f"is_ig_sync_daily_limit_hit_today error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def reset_ig_sync_daily_limit_if_new_day(sync_channel_id: int) -> bool:
+    """Yangi kun kelganda limit holatini avtomatik qayta tiklash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE ig_sync_channels
+            SET daily_limit_hit_date = NULL
+            WHERE id = %s AND daily_limit_hit_date IS NOT NULL AND daily_limit_hit_date < CURRENT_DATE
+        """, (sync_channel_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"reset_ig_sync_daily_limit_if_new_day error: {e}")
+        return False
+    finally:
+        conn.close()
+
+def increment_ig_synced_count(sync_channel_id: int) -> int:
+    """Kanalning jami yuklangan videolar hisoblagichini 1 taga oshirish"""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE ig_sync_channels
+            SET total_synced_count = COALESCE(total_synced_count, 0) + 1,
+                last_checked_at = NOW()
+            WHERE id = %s
+            RETURNING total_synced_count
+        """, (sync_channel_id,))
+        row = cur.fetchone()
+        conn.commit()
+        return row["total_synced_count"] if row else 0
+    except Exception as e:
+        conn.rollback()
+        print(f"increment_ig_synced_count error: {e}")
+        return 0
+    finally:
+        conn.close()
+
 
 # ==================== 2. CAPCUT DESKTOP & PRO TOOLS REFERRAL POOL ====================
 
