@@ -13,6 +13,7 @@ import shutil
 import asyncio
 import logging
 import urllib.request
+import json
 from datetime import datetime, timezone
 
 import yt_dlp
@@ -67,102 +68,144 @@ def remove_instagram_target(tg_user_id: int, ig_username: str) -> bool:
     return db.remove_ig_sync_channel(tg_user_id, clean_username)
 
 
-def scrape_instagram_recent_posts(ig_username: str, max_posts: int = 100) -> list:
+def pk_to_shortcode(pk: int) -> str:
+    """Instagram numeric media PK ni rasmiy base64 shortcode ga o'tkazish"""
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    if not pk or pk <= 0:
+        return ""
+    res = []
+    curr = pk
+    while curr > 0:
+        curr, rem = divmod(curr, 64)
+        res.append(alphabet[rem])
+    return "".join(reversed(res))
+
+
+def scrape_instagram_recent_posts(ig_username: str, max_posts: int = 100, oldest_first: bool = True) -> list:
     """
-    Instagram profilidan barcha mavjud postlar/reellarni login talab qilmasdan scrape qilish.
-    Maksimal limitgacha (default: 100 ta video) ro'yxatni chiqaradi.
+    Instagram profilidan barcha videolarni login talab qilmasdan scrape qilish.
+    - iPhone Safari navigatsiya sarlavhalari orqali SSR Polaris JSON-dan barcha postlarni oladi.
+    - Faqat haqiqiy video (Reels/Video) postlarni ajratib oladi.
+    - Muhim: Foydalanuvchi talabiga ko'ra 'oldest_first=True' qilib, profilda eng birinchi
+      post qilingan (eng qadimgi) videodan boshlab xronologik tartibda qaytaradi.
     """
     clean_username = clean_instagram_target(ig_username)
     if not clean_username:
         return []
 
-    urls_to_try = [
-        f"https://www.instagram.com/{clean_username}/reels/",
-        f"https://www.instagram.com/{clean_username}/"
-    ]
-
-    ydl_opts = {
-        "extract_flat": True,
-        "quiet": True,
-        "no_warnings": True,
-        "playlistend": max_posts,
-        "ignoreerrors": True,
+    profile_url = f"https://www.instagram.com/{clean_username}/"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Fetch-Mode": "navigate",
     }
 
-    found_entries = []
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        for u in urls_to_try:
-            try:
-                res = ydl.extract_info(u, download=False)
-                if res and "entries" in res and res["entries"]:
-                    for item in res["entries"]:
-                        if item:
-                            found_entries.append(item)
-                    if found_entries:
-                        break
-            except Exception as e:
-                logger.debug(f"IG yt-dlp scrape xatosi ({u}): {e}")
-                continue
+    found_posts = []
+    seen_codes = set()
 
-    # Tartiblash va deduplikatsiya
-    results = []
-    seen_ids = set()
+    try:
+        req = urllib.request.Request(profile_url, headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            content = resp.read().decode("utf-8", errors="ignore")
 
-    for entry in found_entries:
-        pid = entry.get("id")
-        if not pid and entry.get("url"):
-            # URL dan post ID / shortcode ni topish
-            m = re.search(r"/(?:reel|p)/([A-Za-z0-9_-]+)", entry.get("url", ""))
-            if m:
-                pid = m.group(1)
+        # 1. Polaris SSR JSON tahlili
+        scripts = re.findall(r'<script[^>]*>(.*?)</script>', content, re.DOTALL)
+        for s in scripts:
+            if "polaris_timeline_connection" in s or "xdt_api__v1__feed__user_timeline" in s:
+                try:
+                    data = json.loads(s)
+                    def find_timeline_edges(obj):
+                        if isinstance(obj, dict):
+                            if "polaris_timeline_connection" in obj and isinstance(obj["polaris_timeline_connection"], dict):
+                                return obj["polaris_timeline_connection"].get("edges", [])
+                            if "edges" in obj and isinstance(obj["edges"], list) and obj["edges"]:
+                                if isinstance(obj["edges"][0], dict) and "node" in obj["edges"][0] and "pk" in obj["edges"][0]["node"]:
+                                    return obj["edges"]
+                            for v in obj.values():
+                                res = find_timeline_edges(v)
+                                if res: return res
+                        elif isinstance(obj, list):
+                            for item in obj:
+                                res = find_timeline_edges(item)
+                                if res: return res
+                        return None
 
-        if not pid or pid in seen_ids:
-            continue
+                    edges = find_timeline_edges(data)
+                    if edges:
+                        for edge in edges:
+                            node = edge.get("node", {}) if isinstance(edge, dict) else {}
+                            pk_val = node.get("pk") or node.get("id")
+                            if not pk_val:
+                                continue
+                            pk_int = int(pk_val) if str(pk_val).isdigit() else 0
+                            typename = str(node.get("__typename", ""))
+                            media_type = node.get("media_type")
+                            is_video = bool(node.get("is_video") or media_type == 2 or "video" in typename.lower())
 
-        seen_ids.add(pid)
-        post_url = entry.get("url")
-        if not post_url or not post_url.startswith("http"):
-            post_url = f"https://www.instagram.com/reel/{pid}/"
+                            # Faqat video postlarni olamiz (rasmlarni chetlab o'tamiz)
+                            if not is_video:
+                                continue
 
-        raw_title = entry.get("title") or f"Viral Reel #{pid}"
-        results.append({
-            "post_id": str(pid),
-            "url": post_url,
-            "title": raw_title
-        })
-        if len(results) >= max_posts:
-            break
+                            code = node.get("code") or node.get("shortcode")
+                            if not code and pk_int > 0:
+                                code = pk_to_shortcode(pk_int)
+                            if not code or code in seen_codes:
+                                continue
 
-    # Fallback: Agar yt_dlp orqali topilmasa, ochiq HTML orqali shortcode larni qidirish
-    if not results:
-        try:
-            req = urllib.request.Request(
-                f"https://www.instagram.com/{clean_username}/reels/",
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-                    "Accept-Language": "en-US,en;q=0.9",
-                }
-            )
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                html_text = resp.read().decode("utf-8", errors="ignore")
-                shortcodes = re.findall(r'/(?:p|reel)/([A-Za-z0-9_-]{10,12})/?', html_text)
-                for sc in shortcodes:
-                    if sc not in seen_ids:
-                        seen_ids.add(sc)
-                        results.append({
-                            "post_id": str(sc),
-                            "url": f"https://www.instagram.com/reel/{sc}/",
-                            "title": f"Reel #{sc}"
-                        })
-                        if len(results) >= max_posts:
-                            break
-        except Exception as fb_err:
-            logger.debug(f"IG fallback scrape error for {clean_username}: {fb_err}")
+                            seen_codes.add(code)
 
-    return results
+                            caption = ""
+                            desc_edges = node.get("edge_media_to_caption", {}).get("edges", [])
+                            if desc_edges and isinstance(desc_edges, list) and isinstance(desc_edges[0], dict):
+                                caption = desc_edges[0].get("node", {}).get("text", "")
+                            elif "caption" in node and isinstance(node["caption"], dict):
+                                caption = node["caption"].get("text", "")
+                            elif "caption" in node and isinstance(node["caption"], str):
+                                caption = node["caption"]
+
+                            timestamp = node.get("taken_at_timestamp") or node.get("taken_at") or 0
+
+                            clean_title = (caption.strip().split("\n")[0][:90].strip()) if caption else f"Reel #{code}"
+
+                            found_posts.append({
+                                "post_id": str(code),
+                                "pk": pk_int,
+                                "url": f"https://www.instagram.com/reel/{code}/",
+                                "title": clean_title,
+                                "caption": caption.strip(),
+                                "timestamp": int(timestamp) if str(timestamp).isdigit() else 0
+                            })
+                except Exception:
+                    pass
+
+        # 2. Zaxira usul: HTML regex orqali shortcode larni qidirish
+        if not found_posts:
+            shortcodes = re.findall(r'/(?:p|reel)/([A-Za-z0-9_-]{10,12})/?', content)
+            for sc in shortcodes:
+                if sc not in seen_codes:
+                    seen_codes.add(sc)
+                    found_posts.append({
+                        "post_id": str(sc),
+                        "pk": 0,
+                        "url": f"https://www.instagram.com/reel/{sc}/",
+                        "title": f"Reel #{sc}",
+                        "caption": "",
+                        "timestamp": 0
+                    })
+    except Exception as e:
+        logger.error(f"Instagram profile scrape xatosi ({clean_username}): {e}")
+
+    # XRONOLOGIK TARTIB:
+    # Eng birinchi joylangan (eng qadimgi) videodan boshlab navbatma-navbat yuklash!
+    if oldest_first and found_posts:
+        # PK va timestamp qancha kichik bo'lsa, video shuncha birinchi qo'yilgan
+        found_posts.sort(key=lambda x: (x.get("timestamp") or 0, x.get("pk") or 0))
+
+    return found_posts[:max_posts]
 
 
-async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir: str = "downloads") -> dict:
+async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir: str = "downloads", preferred_title: str = "") -> dict:
     """
     Instagram Reel-ni yuklab oladi va unga 8-qatlamli unikalizatsiya qo'llaydi:
     1. Video Eq (kontrast +3%, yorug'lik +1%, to'yinganlik +4%)
@@ -249,13 +292,27 @@ async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir:
         try: os.remove(raw_path)
         except Exception: pass
 
-    title = (info.get("title") or info.get("description") or f"Viral Reel #{post_id}").strip()
-    clean_title = title.split("\n")[0][:90].strip() or f"Viral Reel #{post_id}"
+    yt_title = (info.get("title") or "").strip()
+    yt_desc = (info.get("description") or "").strip()
+
+    # Sarlavhani eng mazmunli va mos variantdan tanlash
+    chosen_title = ""
+    if preferred_title and not preferred_title.lower().startswith("video by ") and not preferred_title.lower().startswith("reel #"):
+        chosen_title = preferred_title
+    elif yt_desc and not yt_desc.lower().startswith("video by "):
+        chosen_title = yt_desc
+    elif yt_title and not yt_title.lower().startswith("video by "):
+        chosen_title = yt_title
+    else:
+        chosen_title = preferred_title or yt_title or f"Viral Reel #{post_id}"
+
+    clean_title = chosen_title.split("\n")[0][:90].strip() or f"Viral Reel #{post_id}"
+    full_desc = yt_desc or preferred_title or clean_title
 
     return {
         "file_path": final_file,
         "title": f"{clean_title} #Shorts",
-        "description": f"{title}\n\n#shorts #reels #viral #trending #autopost",
+        "description": f"{full_desc}\n\n#shorts #reels #viral #trending #autopost",
         "post_id": post_id
     }
 
@@ -263,10 +320,11 @@ async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir:
 async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None, chat_id=None, force: bool = False) -> dict:
     """
     Belgilangan Instagram profildan barcha videolarni tekshirib:
-    1. Qat'iy deduplikatsiya: Ilgari biror marta yuklangan videolarni 100% chetlab o'tadi.
-    2. 8-qatlamli unikalizatsiya bilan YouTube kanalga yuklaydi.
-    3. Kunlik maksimal limitgacha (YouTube 'uploadLimitExceeded' yoki quota limit berguncha) uzluksiz yuklaydi.
-    4. Limit to'lganda avtomatik to'xtaydi, foydalanuvchiga xabar beradi va qolganlarini ertangi kunga qoldiradi.
+    1. Qat'iy xronologik tartib: Eng birinchi post qilingan (eng qadimgi) videodan boshlab yuklaydi!
+    2. Qat'iy deduplikatsiya: Ilgari biror marta yuklangan videolarni 100% chetlab o'tadi.
+    3. 8-qatlamli unikalizatsiya bilan YouTube kanalga yuklaydi.
+    4. Kunlik maksimal limitgacha (YouTube 'uploadLimitExceeded' yoki quota limit berguncha) uzluksiz yuklaydi.
+    5. Limit to'lganda avtomatik to'xtaydi, foydalanuvchiga xabar beradi va qolganlarini ertangi kunga qoldiradi.
     """
     clean_username = clean_instagram_target(ig_username)
     targets = get_instagram_targets(tg_user_id)
@@ -302,8 +360,8 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
         except Exception:
             pass
 
-    # 4. Profil postlarini chuqur qidirish (100 tagacha)
-    posts = await asyncio.to_thread(scrape_instagram_recent_posts, clean_username, 100)
+    # 4. Profil postlarini chuqur qidirish (100 tagacha, eng qadimgisi birinchi)
+    posts = await asyncio.to_thread(scrape_instagram_recent_posts, clean_username, 100, True)
     if not posts:
         return {
             "status": "ok",
@@ -311,16 +369,24 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
             "synced": 0
         }
 
-    # 5. Qat'iy deduplikatsiya: Faqat ilgari yuklanmagan postlarni ajratib olish
+    # 5. Qat'iy deduplikatsiya: Faqat ilgari yuklanmagan postlarni ajratib olish (xronologik tartib saqlanadi)
     unseen_posts = []
     for p in posts:
         pid = p["post_id"]
-        # a) Ushbu sync kanalida avval yuklanganmi?
+        pk_str = str(p.get("pk", "")) if p.get("pk") else ""
+
+        # a) Ushbu sync kanalida avval yuklanganmi? (shortcode yoki pk)
         if db.is_ig_post_synced(sync_channel_id, pid):
             continue
+        if pk_str and db.is_ig_post_synced(sync_channel_id, pk_str):
+            continue
+
         # b) Foydalanuvchining YouTube kanaliga avval boshqa yo'l bilan yuklanganmi?
         if db.is_ig_post_already_uploaded(tg_user_id, pid):
             continue
+        if pk_str and db.is_ig_post_already_uploaded(tg_user_id, pk_str):
+            continue
+
         unseen_posts.append(p)
 
     if not unseen_posts:
@@ -334,8 +400,8 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
         try:
             await app.send_message(
                 chat_id,
-                f"🚀 <code>@{clean_username} profilidan {len(unseen_posts)} ta yangi video topildi.</code>\n"
-                f"Kunlik maksimal limitgacha yuklash boshlanmoqda..."
+                f"🚀 <code>@{clean_username} profilidan {len(unseen_posts)} ta video topildi (eng birinchi postidan boshlab tartiblandi).</code>\n"
+                f"Kunlik maksimal YouTube limitigacha yuklash boshlanmoqda..."
             )
         except Exception:
             pass
@@ -347,12 +413,14 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
     for idx, p in enumerate(unseen_posts, 1):
         pid = p["post_id"]
         safe_url = p["url"]
+        pref_title = p.get("title", "")
 
         if app and chat_id:
             try:
                 await app.send_message(
                     chat_id,
-                    f"{ce('DOWNLOAD')} <code>[{idx}/{len(unseen_posts)}] Reel #{pid} yuklanmoqda...</code>\n"
+                    f"{ce('DOWNLOAD')} <code>[{idx}/{len(unseen_posts)}] Reel #{pid} yuklanmoqda... (Tartib: {idx}-video)</code>\n"
+                    f"🎬 <b>Sarlavha:</b> {pref_title[:60]}...\n"
                     f"<i>8-qatlamli unikalizatsiya qo'llanmoqda...</i>"
                 )
             except Exception:
@@ -360,7 +428,7 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
 
         video_file = None
         try:
-            processed = await download_and_8layer_uniqueify(safe_url, pid)
+            processed = await download_and_8layer_uniqueify(safe_url, pid, preferred_title=pref_title)
             video_file = processed["file_path"]
 
             # YouTube ga yuklash
@@ -374,6 +442,9 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
 
             # Bazada muvaffaqiyatli deb qayd etish (hech qachon qayta yuklanmaydi)
             db.record_ig_synced_post(sync_channel_id, pid, safe_url, yt_id, status="synced")
+            if p.get("pk"):
+                # Numeric PK ni ham saqlab qo'yish
+                db.record_ig_synced_post(sync_channel_id, str(p["pk"]), safe_url, yt_id, status="synced")
             db.increment_ig_synced_count(sync_channel_id)
             synced_count += 1
 
@@ -422,10 +493,10 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
 
                 limit_alert = (
                     f"⚠️ <b>YouTube Kunlik Video Yuklash Limiti To'ldi!</b>\n\n"
-                    f"📊 <b>Bugun yuklandi:</b> {synced_count} ta yangi video\n"
+                    f"📊 <b>Bugun yuklandi:</b> {synced_count} ta video (eng birinchi postlardan boshlab)\n"
                     f"YouTube kanalingiz bugungi maksimal video yuklash soni chegarasiga yetdi (<code>uploadLimitExceeded</code>).\n\n"
                     f"🔒 <b>Deduplikatsiya:</b> Barcha yuklangan videolar to'liq eslab qolindi, birorta ham dublikat video yuklanmaydi.\n"
-                    f"⏰ <b>Ertaga avtomatik davom etadi:</b> Ertaga YouTube limiti yangilanishi bilan orqa fondagi avtopilot qolgan videolarni yuklashda davom etadi!"
+                    f"⏰ <b>Ertaga avtomatik davom etadi:</b> Ertaga 00:00 UTC dan keyin avtopilot qolgan videolarni tartib bilan yuklashda davom etadi!"
                 )
                 if app and chat_id:
                     try: await app.send_message(chat_id, limit_alert)
