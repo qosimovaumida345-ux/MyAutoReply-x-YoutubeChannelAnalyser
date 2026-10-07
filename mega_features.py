@@ -41,7 +41,7 @@ from vouchers_engine import (
 from instagram_cloner import (
     add_instagram_target, get_instagram_targets,
     remove_instagram_target, sync_instagram_account_now,
-    clean_instagram_target
+    clean_instagram_target, is_sync_in_progress
 )
 from capcut_exchange import (
     get_capcut_menu_text, get_capcut_pro_keyboard,
@@ -659,9 +659,18 @@ def load_mega_features(bot: Client):
                 await message.reply_text(f"{ce('CROSS')} <code>@{target_username}</code> kuzatuvdan olib tashlandi.")
                 return
             elif action == "sync":
-                wait_m = await message.reply_text(f"⏳ <code>@{target_username}</code> tekshirilmoqda va yangi videolar YouTube ga yuklanmoqda...")
-                res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=message.chat.id, force=True)
-                await wait_m.edit_text(f"<b>Natija:</b>\n{res.get('message')}")
+                if is_sync_in_progress(uid, target_username):
+                    await message.reply_text(
+                        f"⚠️ <code>@{target_username}</code> sinxronizatsiyasi hozir allaqachon orqa fonda davom etmoqda!\n"
+                        f"Iltimos, avvalgi yuklash yakunlanishini kuting."
+                    )
+                    return
+                await message.reply_text(
+                    f"🚀 <b>@{target_username} sinxronizatsiyasi boshlandi!</b>\n\n"
+                    f"Videolar eng birinchi postidan boshlab xronologik tartibda YouTube kanalingizga yuklanmoqda.\n"
+                    f"Har bir video yuklanganda sizga xabar beriladi."
+                )
+                asyncio.create_task(sync_instagram_account_now(uid, target_username, app=client, chat_id=message.chat.id, force=True))
                 return
 
         kb = InlineKeyboardMarkup([
@@ -806,7 +815,9 @@ def load_mega_features(bot: Client):
             return
         await cb.message.reply_text(f"{ce('WAIT')} <b>Tekshiruv boshlanmoqda...</b> Yangi videolar avtomatik yuklanadi.")
         for t in targets:
-            await sync_instagram_account_now(uid, t["ig_username"], app=client, chat_id=cb.message.chat.id)
+            u_ig = t["ig_username"]
+            if not is_sync_in_progress(uid, u_ig):
+                asyncio.create_task(sync_instagram_account_now(uid, u_ig, app=client, chat_id=cb.message.chat.id, force=True))
 
     @bot.on_callback_query(filters.regex(r"^ig_sync_(?!now$)([A-Za-z0-9_.]+)$"))
     async def cb_ig_sync_single(client, cb: CallbackQuery):
@@ -816,9 +827,14 @@ def load_mega_features(bot: Client):
             pass
         target_username = cb.matches[0].group(1)
         uid = cb.from_user.id
-        wait_m = await cb.message.reply_text(f"{ce('WAIT')} <b>@{target_username} tekshirilmoqda...</b>")
-        res = await sync_instagram_account_now(uid, target_username, app=client, chat_id=cb.message.chat.id)
-        await wait_m.edit_text(f"{ce('INSTAGRAM_LOGO')} <b>@{target_username} natijasi:</b>\n{res.get('message', 'Tekshiruv yakunlandi.')}")
+        if is_sync_in_progress(uid, target_username):
+            await cb.message.reply_text(f"⚠️ <code>@{target_username}</code> sinxronizatsiyasi hozir allaqachon orqa fonda davom etmoqda!")
+            return
+        await cb.message.reply_text(
+            f"🚀 <b>@{target_username} sinxronizatsiyasi boshlandi!</b>\n"
+            f"Videolar eng birinchi postidan boshlab fon rejimida YouTube ga yuklanmoqda..."
+        )
+        asyncio.create_task(sync_instagram_account_now(uid, target_username, app=client, chat_id=cb.message.chat.id, force=True))
 
     # =========================================================================
     # 4. CAPCUT PRO — PULLIK SOTISH TIZIMI

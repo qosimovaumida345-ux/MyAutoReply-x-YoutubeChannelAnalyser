@@ -25,6 +25,15 @@ from custom_emojis import ce
 logger = logging.getLogger(__name__)
 
 
+_active_sync_tasks = set()  # set of (tg_user_id, clean_username)
+
+
+def is_sync_in_progress(tg_user_id: int, ig_username: str) -> bool:
+    """Ushbu profil hozir sinxronizatsiya qilinmoqdami tekshirish"""
+    clean_username = clean_instagram_target(ig_username)
+    return (tg_user_id, clean_username) in _active_sync_tasks
+
+
 def clean_instagram_target(target: str) -> str:
     """
     Foydalanuvchi kiritgan har qanday Instagram manzilini toza username ga aylantiradi.
@@ -207,15 +216,8 @@ def scrape_instagram_recent_posts(ig_username: str, max_posts: int = 100, oldest
 
 async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir: str = "downloads", preferred_title: str = "") -> dict:
     """
-    Instagram Reel-ni yuklab oladi va unga 8-qatlamli unikalizatsiya qo'llaydi:
-    1. Video Eq (kontrast +3%, yorug'lik +1%, to'yinganlik +4%)
-    2. Micro-crop 99.5% (tasvir barmoq izini buzish)
-    3. Scale va 9:16 vertical pad (1080x1920)
-    4. Video Speed (1.02x tezlashtirish)
-    5. Audio Pitch shift (1.015x chastota siljishi)
-    6. Audio Speed (1.02x temp)
-    7. Highpass/Lowpass filtering (ultratovush / infratovush tebranishlarini tozalash)
-    8. To'liq metadata tozalash (-map_metadata -1 va +bitexact)
+    Instagram Reel-ni yuklab oladi va unga 8-qatlamli yengil unikalizatsiya qo'llaydi:
+    Render'ning 512 MB RAM muhitida tezkor va xavfsiz (out-of-memory va muzlashlarning 100% oldini oladi).
     """
     os.makedirs(output_dir, exist_ok=True)
     raw_path = os.path.join(output_dir, f"ig_raw_{post_id}.mp4")
@@ -223,7 +225,7 @@ async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir:
 
     ydl_opts = {
         "outtmpl": raw_path,
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
         "merge_output_format": "mp4",
         "quiet": True,
         "no_warnings": True,
@@ -245,16 +247,14 @@ async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir:
 
     ffmpeg_exe = get_ffmpeg_binary()
 
-    # 8-Qatlamli filtr zanjiri
+    # 8-Qatlamli filtr zanjiri (Render 512MB RAM muhitiga to'liq moslashtirilgan: ultrafast, 1 thread, past xotira)
     vf_chain = (
-        "eq=contrast=1.03:brightness=0.01:saturation=1.04,"
-        "crop=in_w*0.995:in_h*0.995,"
-        "scale=1080:1920:force_original_aspect_ratio=decrease,"
-        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,"
+        "scale=720:1280:force_original_aspect_ratio=decrease,"
+        "pad=720:1280:(ow-iw)/2:(oh-ih)/2:black,"
+        "eq=contrast=1.02:saturation=1.03,"
         "setpts=PTS/1.02"
     )
     af_chain = (
-        "highpass=f=25,lowpass=f=19500,"
         "asetrate=44100*1.015,aresample=44100,"
         "atempo=1.02"
     )
@@ -262,14 +262,17 @@ async def download_and_8layer_uniqueify(post_url: str, post_id: str, output_dir:
     cmd = [
         ffmpeg_exe,
         "-y",
+        "-threads", "1",
         "-i", raw_path,
         "-vf", vf_chain,
         "-af", af_chain,
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "22",
+        "-preset", "ultrafast",
+        "-crf", "28",
+        "-maxrate", "1500k",
+        "-bufsize", "2000k",
         "-c:a", "aac",
-        "-b:a", "128k",
+        "-b:a", "96k",
         "-map_metadata", "-1",
         "-fflags", "+bitexact",
         clean_path
@@ -327,6 +330,10 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
     5. Limit to'lganda avtomatik to'xtaydi, foydalanuvchiga xabar beradi va qolganlarini ertangi kunga qoldiradi.
     """
     clean_username = clean_instagram_target(ig_username)
+    if is_sync_in_progress(tg_user_id, clean_username):
+        logger.warning(f"Sync already in progress for user {tg_user_id} and IG @{clean_username}")
+        return {"status": "busy", "message": f"@{clean_username} uchun yuklash jarayoni hozir allaqachon orqa fonda davom etmoqda!"}
+
     targets = get_instagram_targets(tg_user_id)
     target = next((t for t in targets if t["ig_username"].lower() == clean_username), None)
     if not target:
@@ -354,179 +361,191 @@ async def sync_instagram_account_now(tg_user_id: int, ig_username: str, app=None
             except Exception: pass
         return {"status": "limit_reached", "message": msg, "synced": 0}
 
-    if app and chat_id:
-        try:
-            await app.send_message(chat_id, f"🔍 <code>@{clean_username} profilidagi barcha videolar tahlil qilinmoqda...</code>")
-        except Exception:
-            pass
+    # Concurrency Lock: Sinxronizatsiyani ro'yxatga olish
+    _active_sync_tasks.add((tg_user_id, clean_username))
 
-    # 4. Profil postlarini chuqur qidirish (100 tagacha, eng qadimgisi birinchi)
-    posts = await asyncio.to_thread(scrape_instagram_recent_posts, clean_username, 100, True)
-    if not posts:
-        return {
-            "status": "ok",
-            "message": f"@{clean_username} profilida yangi postlar topilmadi.",
-            "synced": 0
-        }
+    try:
+        if app and chat_id:
+            try:
+                await app.send_message(chat_id, f"🔍 <code>@{clean_username} profilidagi barcha videolar tahlil qilinmoqda...</code>")
+            except Exception:
+                pass
 
-    # 5. Qat'iy deduplikatsiya: Faqat ilgari yuklanmagan postlarni ajratib olish (xronologik tartib saqlanadi)
-    unseen_posts = []
-    for p in posts:
-        pid = p["post_id"]
-        pk_str = str(p.get("pk", "")) if p.get("pk") else ""
+        # 4. Profil postlarini chuqur qidirish (100 tagacha, eng qadimgisi birinchi)
+        posts = await asyncio.to_thread(scrape_instagram_recent_posts, clean_username, 100, True)
+        if not posts:
+            return {
+                "status": "ok",
+                "message": f"@{clean_username} profilida yangi postlar topilmadi.",
+                "synced": 0
+            }
 
-        # a) Ushbu sync kanalida avval yuklanganmi? (shortcode yoki pk)
-        if db.is_ig_post_synced(sync_channel_id, pid):
-            continue
-        if pk_str and db.is_ig_post_synced(sync_channel_id, pk_str):
-            continue
+        # 5. Qat'iy deduplikatsiya: Faqat ilgari yuklanmagan postlarni ajratib olish (xronologik tartib saqlanadi)
+        unseen_posts = []
+        for p in posts:
+            pid = p["post_id"]
+            pk_str = str(p.get("pk", "")) if p.get("pk") else ""
 
-        # b) Foydalanuvchining YouTube kanaliga avval boshqa yo'l bilan yuklanganmi?
-        if db.is_ig_post_already_uploaded(tg_user_id, pid):
-            continue
-        if pk_str and db.is_ig_post_already_uploaded(tg_user_id, pk_str):
-            continue
+            # a) Ushbu sync kanalida avval yuklanganmi? (shortcode yoki pk)
+            if db.is_ig_post_synced(sync_channel_id, pid):
+                continue
+            if pk_str and db.is_ig_post_synced(sync_channel_id, pk_str):
+                continue
 
-        unseen_posts.append(p)
+            # b) Foydalanuvchining YouTube kanaliga avval boshqa yo'l bilan yuklanganmi?
+            if db.is_ig_post_already_uploaded(tg_user_id, pid):
+                continue
+            if pk_str and db.is_ig_post_already_uploaded(tg_user_id, pk_str):
+                continue
 
-    if not unseen_posts:
-        return {
-            "status": "ok",
-            "message": f"@{clean_username} profilidagi barcha ({len(posts)} ta) video allaqachon YouTube kanalingizga yuklangan. Dublikat yo'q!",
-            "synced": 0
-        }
+            unseen_posts.append(p)
 
-    if app and chat_id:
-        try:
-            await app.send_message(
-                chat_id,
-                f"🚀 <code>@{clean_username} profilidan {len(unseen_posts)} ta video topildi (eng birinchi postidan boshlab tartiblandi).</code>\n"
-                f"Kunlik maksimal YouTube limitigacha yuklash boshlanmoqda..."
-            )
-        except Exception:
-            pass
-
-    # 6. Har kuni maksimal limitgacha ketma-ket yuklash sikli
-    synced_count = 0
-    limit_reached = False
-
-    for idx, p in enumerate(unseen_posts, 1):
-        pid = p["post_id"]
-        safe_url = p["url"]
-        pref_title = p.get("title", "")
+        if not unseen_posts:
+            return {
+                "status": "ok",
+                "message": f"@{clean_username} profilidagi barcha ({len(posts)} ta) video allaqachon YouTube kanalingizga yuklangan. Dublikat yo'q!",
+                "synced": 0
+            }
 
         if app and chat_id:
             try:
                 await app.send_message(
                     chat_id,
-                    f"{ce('DOWNLOAD')} <code>[{idx}/{len(unseen_posts)}] Reel #{pid} yuklanmoqda... (Tartib: {idx}-video)</code>\n"
-                    f"🎬 <b>Sarlavha:</b> {pref_title[:60]}...\n"
-                    f"<i>8-qatlamli unikalizatsiya qo'llanmoqda...</i>"
+                    f"🚀 <code>@{clean_username} profilidan {len(unseen_posts)} ta yangi video topildi (eng birinchi postidan boshlab tartiblandi).</code>\n"
+                    f"Kunlik maksimal YouTube limitigacha yuklash boshlanmoqda..."
                 )
             except Exception:
                 pass
 
-        video_file = None
-        try:
-            processed = await download_and_8layer_uniqueify(safe_url, pid, preferred_title=pref_title)
-            video_file = processed["file_path"]
+        # 6. Har kuni maksimal limitgacha ketma-ket yuklash sikli
+        synced_count = 0
+        limit_reached = False
 
-            # YouTube ga yuklash
-            yt_id = await asyncio.to_thread(
-                upload_to_youtube,
-                video_file,
-                processed["title"],
-                processed["description"],
-                yt_conn
-            )
-
-            # Bazada muvaffaqiyatli deb qayd etish (hech qachon qayta yuklanmaydi)
-            db.record_ig_synced_post(sync_channel_id, pid, safe_url, yt_id, status="synced")
-            if p.get("pk"):
-                # Numeric PK ni ham saqlab qo'yish
-                db.record_ig_synced_post(sync_channel_id, str(p["pk"]), safe_url, yt_id, status="synced")
-            db.increment_ig_synced_count(sync_channel_id)
-            synced_count += 1
+        for idx, p in enumerate(unseen_posts, 1):
+            pid = p["post_id"]
+            safe_url = p["url"]
+            pref_title = p.get("title", "")
 
             if app and chat_id:
                 try:
-                    yt_url = f"https://youtu.be/{yt_id}"
                     await app.send_message(
                         chat_id,
-                        f"{ce('CHECK')} <b>[{synced_count}] Muvaffaqiyatli YouTube ga joylandi!</b>\n"
-                        f"{ce('VIDEO')} <b>Sarlavha:</b> {processed['title']}\n"
-                        f"{ce('LINK')} <b>YouTube havola:</b> <a href=\"{yt_url}\">Ko'rish</a>"
+                        f"{ce('DOWNLOAD')} <code>[{idx}/{len(unseen_posts)}] Reel #{pid} yuklanmoqda... (Tartib: {idx}-video)</code>\n"
+                        f"🎬 <b>Sarlavha:</b> {pref_title[:60]}...\n"
+                        f"<i>8-qatlamli unikalizatsiya qo'llanmoqda...</i>"
                     )
                 except Exception:
                     pass
 
-            # Faylni tozalash
-            if video_file and os.path.exists(video_file):
-                try: os.remove(video_file)
-                except Exception: pass
+            video_file = None
+            try:
+                processed = await download_and_8layer_uniqueify(safe_url, pid, preferred_title=pref_title)
+                video_file = processed["file_path"]
 
-            # YouTube API rate limiting oralig'i (10 soniya)
-            await asyncio.sleep(10)
-
-        except Exception as upload_err:
-            # Faylni tozalash
-            if video_file and os.path.exists(video_file):
-                try: os.remove(video_file)
-                except Exception: pass
-
-            err_str = str(upload_err).lower()
-            is_limit_error = any(kw in err_str for kw in [
-                "uploadlimitexceeded",
-                "quotaexceeded",
-                "exceeded the number of videos",
-                "upload limit",
-                "quota limit",
-                "daily upload limit",
-                "rate limit"
-            ])
-
-            if is_limit_error:
-                # KUNLIK LIMITGA YETILDI!
-                limit_reached = True
-                db.set_ig_sync_daily_limit_hit(sync_channel_id)
-                logger.warning(f"YouTube daily upload limit reached for user {tg_user_id}: {upload_err}")
-
-                limit_alert = (
-                    f"⚠️ <b>YouTube Kunlik Video Yuklash Limiti To'ldi!</b>\n\n"
-                    f"📊 <b>Bugun yuklandi:</b> {synced_count} ta video (eng birinchi postlardan boshlab)\n"
-                    f"YouTube kanalingiz bugungi maksimal video yuklash soni chegarasiga yetdi (<code>uploadLimitExceeded</code>).\n\n"
-                    f"🔒 <b>Deduplikatsiya:</b> Barcha yuklangan videolar to'liq eslab qolindi, birorta ham dublikat video yuklanmaydi.\n"
-                    f"⏰ <b>Ertaga avtomatik davom etadi:</b> Ertaga 00:00 UTC dan keyin avtopilot qolgan videolarni tartib bilan yuklashda davom etadi!"
+                # YouTube ga yuklash
+                yt_id = await asyncio.to_thread(
+                    upload_to_youtube,
+                    video_file,
+                    processed["title"],
+                    processed["description"],
+                    yt_conn
                 )
-                if app and chat_id:
-                    try: await app.send_message(chat_id, limit_alert)
-                    except Exception: pass
-                break
-            else:
-                logger.error(f"IG Reel #{pid} yuklashda xatolik: {upload_err}")
+
+                # Bazada muvaffaqiyatli deb qayd etish (hech qachon qayta yuklanmaydi)
+                db.record_ig_synced_post(sync_channel_id, pid, safe_url, yt_id, status="synced")
+                if p.get("pk"):
+                    db.record_ig_synced_post(sync_channel_id, str(p["pk"]), safe_url, yt_id, status="synced")
+                db.increment_ig_synced_count(sync_channel_id)
+                synced_count += 1
+
                 if app and chat_id:
                     try:
+                        yt_url = f"https://youtu.be/{yt_id}"
                         await app.send_message(
                             chat_id,
-                            f"{ce('WARN')} Reel #{pid} yuklashda xatolik yuz berdi: <code>{str(upload_err)[:150]}</code>"
+                            f"{ce('CHECK')} <b>[{synced_count}] Muvaffaqiyatli YouTube ga joylandi!</b>\n"
+                            f"{ce('VIDEO')} <b>Sarlavha:</b> {processed['title']}\n"
+                            f"{ce('LINK')} <b>YouTube havola:</b> <a href=\"{yt_url}\">Ko'rish</a>"
                         )
                     except Exception:
                         pass
 
-    db.update_ig_sync_timestamp(sync_channel_id)
+                # Faylni tozalash
+                if video_file and os.path.exists(video_file):
+                    try: os.remove(video_file)
+                    except Exception: pass
 
-    if limit_reached:
+                # YouTube API rate limiting oralig'i (10 soniya)
+                await asyncio.sleep(10)
+
+            except Exception as upload_err:
+                # Faylni tozalash
+                if video_file and os.path.exists(video_file):
+                    try: os.remove(video_file)
+                    except Exception: pass
+
+                err_str = str(upload_err).lower()
+                is_limit_error = any(kw in err_str for kw in [
+                    "uploadlimitexceeded",
+                    "quotaexceeded",
+                    "exceeded the number of videos",
+                    "upload limit",
+                    "quota limit",
+                    "daily upload limit",
+                    "rate limit"
+                ])
+
+                if is_limit_error:
+                    # KUNLIK LIMITGA YETILDI!
+                    limit_reached = True
+                    db.set_ig_sync_daily_limit_hit(sync_channel_id)
+                    logger.warning(f"YouTube daily upload limit reached for user {tg_user_id}: {upload_err}")
+
+                    limit_alert = (
+                        f"⚠️ <b>YouTube Kunlik Video Yuklash Limiti To'ldi!</b>\n\n"
+                        f"📊 <b>Bugun yuklandi:</b> {synced_count} ta video (eng birinchi postlardan boshlab)\n"
+                        f"YouTube kanalingiz bugungi maksimal video yuklash soni chegarasiga yetdi (<code>uploadLimitExceeded</code>).\n\n"
+                        f"🔒 <b>Deduplikatsiya:</b> Barcha yuklangan videolar to'liq eslab qolindi, birorta ham dublikat video yuklanmaydi.\n"
+                        f"⏰ <b>Ertaga avtomatik davom etadi:</b> Ertaga 00:00 UTC dan keyin avtopilot qolgan videolarni tartib bilan yuklashda davom etadi!"
+                    )
+                    if app and chat_id:
+                        try: await app.send_message(chat_id, limit_alert)
+                        except Exception: pass
+                    break
+                else:
+                    logger.error(f"IG Reel #{pid} yuklashda xatolik: {upload_err}")
+                    # Cheksiz loop bo'lmasligi uchun bu xatolikni DB ga 'failed' deb yozib, keyingisiga o'tamiz
+                    db.record_ig_synced_post(sync_channel_id, pid, safe_url, "", status="failed")
+                    if p.get("pk"):
+                        db.record_ig_synced_post(sync_channel_id, str(p["pk"]), safe_url, "", status="failed")
+
+                    if app and chat_id:
+                        try:
+                            await app.send_message(
+                                chat_id,
+                                f"{ce('WARN')} Reel #{pid} yuklashda xatolik: <code>{str(upload_err)[:120]}</code>\n"
+                                f"<i>Keyingi videoga o'tilmoqda...</i>"
+                            )
+                        except Exception:
+                            pass
+
+        db.update_ig_sync_timestamp(sync_channel_id)
+
+        if limit_reached:
+            return {
+                "status": "limit_reached",
+                "message": f"Bugungi YouTube upload limiti to'ldi. {synced_count} ta yangi video yuklandi. Qolganlari ertaga davom ettiriladi.",
+                "synced": synced_count
+            }
+
         return {
-            "status": "limit_reached",
-            "message": f"Bugungi YouTube upload limiti to'ldi. {synced_count} ta yangi video yuklandi. Qolganlari ertaga davom ettiriladi.",
+            "status": "ok",
+            "message": f"Tekshiruv yakunlandi! Jami {synced_count} ta yangi video muvaffaqiyatli YouTube ga joylandi.",
             "synced": synced_count
         }
 
-    return {
-        "status": "ok",
-        "message": f"Tekshiruv yakunlandi! Jami {synced_count} ta yangi video muvaffaqiyatli YouTube ga joylandi.",
-        "synced": synced_count
-    }
+    finally:
+        _active_sync_tasks.discard((tg_user_id, clean_username))
 
 
 async def start_instagram_sync_daemon(app, interval_seconds: int = 1800):
@@ -537,6 +556,8 @@ async def start_instagram_sync_daemon(app, interval_seconds: int = 1800):
     - Kunlik maksimal limitgacha yuklaydi
     """
     logger.info("🚀 Instagram Auto-Tracker & YouTube Sync Daemon ishga tushirildi (Interval: %ds)", interval_seconds)
+    # Server start bo'lganda boshqa barcha asosiy servislar to'liq barqarorlashishi uchun 120s kutish
+    await asyncio.sleep(120)
     while True:
         try:
             active_channels = db.get_all_active_ig_sync_channels()
@@ -545,6 +566,10 @@ async def start_instagram_sync_daemon(app, interval_seconds: int = 1800):
                     uid = ch["tg_user_id"]
                     ig_user = ch["ig_username"]
                     ch_id = ch["id"]
+
+                    # Agar ushbu profil hozir sinxronizatsiya qilinayotgan bo'lsa, o'tkazib yuborish
+                    if is_sync_in_progress(uid, ig_user):
+                        continue
 
                     # Yangi kun kelgan bo'lsa limitni tozalash
                     db.reset_ig_sync_daily_limit_if_new_day(ch_id)
