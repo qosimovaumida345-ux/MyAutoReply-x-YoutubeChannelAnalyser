@@ -753,22 +753,32 @@ FAQAT JSON formatida javob ber:"""
 
 async def run_userbot():
     """Userbotni ishga tushirish"""
-    app = create_userbot()
-    if app is None:
-        print("Userbot ishga tushmadi. SESSION_STRING ni tekshiring.")
-        return
-    
-    print("Auto-Reply Userbot ishga tushmoqda...")
-    await app.start()
-    print("Userbot muvaffaqiyatli ishga tushdi!")
-    print("Buyruqlar: .arhelp yozing istalgan chatda")
-
-    # Userbot clientni store_channel_service ga uzatish — kanal postlari Premium custom emoji bilan yuboriladi
     try:
-        from store_channel_service import set_userbot_client
-        set_userbot_client(app)
-        print("📢 Store Channel: Userbot (Premium) custom emoji mode faollashtirildi!")
-    except Exception as e:
-        print(f"Store channel userbot init xatosi: {e}")
+        app = create_userbot()
+        if app is None:
+            print("⚠️ Userbot ishga tushmadi. SESSION_STRING ni tekshiring.")
+            return
+        
+        print("Auto-Reply Userbot ishga tushmoqda...")
+        try:
+            await app.start()
+        except Exception as auth_err:
+            print(f"[!] Userbot sessiyasida xatolik ({type(auth_err).__name__}): {auth_err}")
+            print("[*] Userbot to'xtatildi, ammo asosiy CreatorFlow Studio Bot va Veb-server xatosiz ishlashda davom etadi.")
+            print("[+] Yangi sessiya yaratish uchun: python session_generator.py")
+            return
 
-    await asyncio.Event().wait()
+        print("[+] Userbot muvaffaqiyatli ishga tushdi!")
+        print("Buyruqlar: .arhelp yozing istalgan chatda")
+
+        # Userbot clientni store_channel_service ga uzatish — kanal postlari Premium custom emoji bilan yuboriladi
+        try:
+            from store_channel_service import set_userbot_client
+            set_userbot_client(app)
+            print("[*] Store Channel: Userbot (Premium) custom emoji mode faollashtirildi!")
+        except Exception as e:
+            print(f"Store channel userbot init xatosi: {e}")
+
+        await asyncio.Event().wait()
+    except Exception as e:
+        print(f"[!] Userbot kutilmagan xatosi: {e}")
