@@ -2407,7 +2407,7 @@ async def main():
                 try:
                     from ytbot import AUTO_EMOJI_MAP
                     from custom_emojis import CUSTOM_EMOJI_POOL
-                    ids = [int(i) for i in CUSTOM_EMOJI_POOL]
+                    ids = [int(str(i).strip()) for i in CUSTOM_EMOJI_POOL if str(i).strip().isdigit()]
                     stickers = await bot.get_custom_emoji_stickers(custom_emoji_ids=ids)
                     for s in stickers:
                         if getattr(s, 'emoji', None):

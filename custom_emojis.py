@@ -812,21 +812,276 @@ BRAND_EMOJIS_MAP = {
     "uzcard": "5445353829304387411"
 }
 
-# Mavjud tizimlar bilan 100% orqaga moslik (Backward Compatibility)
-EMOJI_MAP = {
-    k: (v["id"], v["fallback_icon"]) for k, v in CUSTOM_EMOJI_REGISTRY.items()
+# ==============================================================================
+# 3. KODDAGI QISQA NOMLAR VA ALIASLAR XARITASI (Codebase Aliases Map)
+# ==============================================================================
+ALIASES = {
+    # Tugmalar (Buttons)
+    "HOME": "BTN_HOME",
+    "SERVICES": "BTN_SERVICES",
+    "WALLET": "BTN_WALLET",
+    "GAMES": "BTN_GAMES",
+    "ORDERS": "BTN_ORDERS",
+    "REFERRAL": "BTN_REFERRAL",
+    "LEADERBOARD": "BTN_LEADERBOARD",
+    "SUPPORT": "BTN_SUPPORT",
+    "SETTINGS": "BTN_SETTINGS",
+    "DASHBOARD": "BTN_DASHBOARD",
+    "BACK": "BTN_BACK",
+    "NEXT": "BTN_NEXT",
+    "PREV": "BTN_BACK",
+
+    # To'lov va Moliya
+    "STARS": "PAY_STARS",
+    "STAR": "PAY_STARS",
+    "HUMO": "PAY_HUMO_UZCARD",
+    "UZCARD": "PAY_HUMO_UZCARD",
+    "CARD": "PAY_HUMO_UZCARD",
+    "BANK": "PAY_HUMO_UZCARD",
+    "TON": "PAY_TON_CRYPTO",
+    "CRYPTO": "PAY_TON_CRYPTO",
+    "TONKEEPER": "PAY_TON_CRYPTO",
+    "WALLET_CONNECT": "PAY_TON_CRYPTO",
+    "BLOCKCHAIN": "PAY_TON_CRYPTO",
+    "PROMO": "PAY_PROMOCODE",
+    "PROMOCODE": "PAY_PROMOCODE",
+    "TICKET": "PAY_PROMOCODE",
+    "CASHOUT": "PAY_CASHOUT",
+    "CASH": "PAY_CASHOUT",
+    "CASHBACK": "PAY_CASHOUT",
+    "PLUS": "PAY_CASHOUT",
+    "VIP": "PAY_VIP_CROWN",
+    "CROWN": "PAY_VIP_CROWN",
+    "MONEY": "BTN_WALLET",
+    "BALANCE": "BTN_WALLET",
+
+    # Statuslar va Xabarlar
+    "SUCCESS": "STATUS_SUCCESS",
+    "CHECK": "STATUS_SUCCESS",
+    "VERIFIED": "STATUS_SUCCESS",
+    "DOT_GREEN": "STATUS_SUCCESS",
+    "ERROR": "STATUS_ERROR",
+    "CROSS": "STATUS_ERROR",
+    "CANCEL": "STATUS_ERROR",
+    "DOT_RED": "STATUS_ERROR",
+    "WARN": "STATUS_WARNING",
+    "WARNING": "STATUS_WARNING",
+    "STOP": "STATUS_WARNING",
+    "BAN": "STATUS_WARNING",
+    "FORBIDDEN": "STATUS_WARNING",
+    "NO_ENTRY": "STATUS_WARNING",
+    "BLOCKED": "STATUS_WARNING",
+    "SOLD": "STATUS_WARNING",
+    "LIGHTNING": "STATUS_LIGHTNING",
+    "BOLT": "STATUS_LIGHTNING",
+    "LOADING": "STATUS_LOADING",
+    "WAIT": "STATUS_LOADING",
+    "TIMER": "STATUS_LOADING",
+    "ALARM": "STATUS_LOADING",
+    "REFRESH": "STATUS_LOADING",
+    "RETRY": "STATUS_LOADING",
+    "SECURITY": "STATUS_SECURITY",
+    "SHIELD": "STATUS_SECURITY",
+    "LOCK": "STATUS_SECURITY",
+    "KEY": "STATUS_SECURITY",
+    "PROXY": "STATUS_SECURITY",
+    "ANTIFRAUD_SIREN": "STATUS_SECURITY",
+
+    # Media va Video / Audio
+    "VIDEO_FHD": "MEDIA_VIDEO_FHD",
+    "VIDEO_HD": "MEDIA_VIDEO_HD",
+    "VIDEO": "MEDIA_VIDEO_FHD",
+    "FILM": "MEDIA_VIDEO_FHD",
+    "GALLERY": "MEDIA_VIDEO_FHD",
+    "AUDIO": "MEDIA_AUDIO_MP3",
+    "AUDIO_MP3": "MEDIA_AUDIO_MP3",
+    "SCISSORS": "MEDIA_SCISSORS",
+    "CLIPPER": "MEDIA_SCISSORS",
+    "CLIPPERS": "MEDIA_SCISSORS",
+    "YOUTUBE": "MEDIA_YOUTUBE",
+    "SHORTS": "MEDIA_YOUTUBE",
+    "CHANNEL": "MEDIA_YOUTUBE",
+    "SUBS": "MEDIA_YOUTUBE",
+    "TV": "MEDIA_YOUTUBE",
+    "AUTOPILOT": "MEDIA_AUTOPILOT",
+    "STREAM": "MEDIA_AUTOPILOT",
+    "LIVE": "MEDIA_AUTOPILOT",
+    "BOT": "MEDIA_AUTOPILOT",
+
+    # Sovg'alar va Boxlar
+    "GIFT": "GIFT_CASE_BOX",
+    "BOX": "GIFT_CASE_BOX",
+    "STOCK_BOX": "GIFT_CASE_BOX",
+    "STOCK": "GIFT_CASE_BOX",
+    "MYSTERY_BOX": "GIFT_CASE_BOX",
+    "CAKE": "GIFT_CAKE",
+    "TEDDY": "GIFT_TEDDY",
+    "BOUQUET": "GIFT_BOUQUET",
+    "CHAMPAGNE": "GIFT_CHAMPAGNE",
+    "PARTY": "GIFT_CHAMPAGNE",
+    "DIAMOND_RING": "GIFT_DIAMOND_RING",
+    "MINT": "GIFT_DIAMOND_RING",
+    "TROPHY": "GIFT_TROPHY",
+    "MEDAL_GOLD": "GIFT_TROPHY",
+    "MEDAL_SILVER": "GIFT_TROPHY",
+    "MEDAL_BRONZE": "GIFT_TROPHY",
+    "ROCKET": "GIFT_ROCKET",
+    "CAP": "GIFT_CAP",
+    "PLUSH": "GIFT_PLUSH",
+    "PREMIUM": "GIFT_PREMIUM",
+    "NFT": "GIFT_PREMIUM",
+
+    # O'yinlar va Kazino
+    "COINFLIP": "GAME_COINFLIP",
+    "COIN": "GAME_COINFLIP",
+    "DUEL": "GAME_COINFLIP",
+    "SLOTS": "GAME_SLOTS",
+    "CASINO": "GAME_SLOTS",
+    "MINES_BOMB": "GAME_MINES_BOMB",
+    "BOMB": "GAME_MINES_BOMB",
+    "MINES_GEM": "GAME_MINES_GEM",
+    "CRASH_ROCKET": "GAME_CRASH_ROCKET",
+    "CRASH_PLANE": "GAME_CRASH_ROCKET",
+    "KAMI_PLANE": "GAME_CRASH_ROCKET",
+    "CRASH_BOOM": "GAME_CRASH_BOOM",
+    "MINES_BOOM": "GAME_CRASH_BOOM",
+    "KAMI_CRASH": "GAME_CRASH_BOOM",
+    "KAMI_LANDING": "STATUS_SUCCESS",
+    "APPLE_GOOD": "GAME_APPLE_GOOD",
+    "APPLE_WHOLE": "GAME_APPLE_GOOD",
+    "APPLE_BAD": "GAME_APPLE_BAD",
+    "APPLE_BITTEN": "GAME_APPLE_BAD",
+    "CARD_HEARTS": "GAME_CARD_HEARTS",
+    "CARD_SPADES": "GAME_CARD_SPADES",
+    "CARD_DIAMONDS": "GAME_CARD_DIAMONDS",
+    "CARD_CLUBS": "GAME_CARD_CLUBS",
+    "CARD_BACK": "GAME_CARD_BACK",
+    "CARD_JOKER": "BTN_GAMES",
+    "WHEEL": "GAME_WHEEL_SPIN",
+    "TARGET": "GAME_WHEEL_SPIN",
+
+    # Brendlar
+    "CHATGPT": "BRAND_CHATGPT",
+    "OPENAI": "BRAND_CHATGPT",
+    "GPT": "BRAND_CHATGPT",
+    "AI": "BRAND_CHATGPT",
+    "CLAUDE": "BRAND_CLAUDE",
+    "CLAUDE_CODE": "BRAND_CLAUDE",
+    "BRAIN": "BRAND_CLAUDE",
+    "GEMINI": "BRAND_GEMINI",
+    "OPENROUTER": "BRAND_GEMINI",
+    "CAPCUT": "BRAND_CAPCUT",
+    "CAPCUT_LOGO": "BRAND_CAPCUT",
+    "ELEVENLABS": "BRAND_ELEVENLABS",
+    "FIGMA": "BRAND_FIGMA",
+    "DESIGN": "BRAND_FIGMA",
+    "CANVA": "BRAND_CANVA",
+    "ART": "BRAND_CANVA",
+    "FLUX": "BRAND_CANVA",
+    "SPOTIFY": "BRAND_SPOTIFY",
+    "NETFLIX": "BRAND_NETFLIX",
+    "NORDVPN": "BRAND_NORDVPN",
+    "WINDOWS": "BRAND_WINDOWS",
+    "LAPTOP": "BRAND_WINDOWS",
+    "APPLE": "BRAND_APPLE",
+    "CURSOR": "BRAND_CURSOR",
+    "API": "BRAND_CURSOR",
+    "RENDER": "BRAND_CURSOR",
+    "GROQ": "STATUS_LIGHTNING",
+
+    # Instrumentlar va Yordamchilar
+    "SEARCH": "TOOL_SEARCH",
+    "SCAN": "TOOL_SEARCH",
+    "FIRE": "TOOL_FIRE",
+    "VIEWS": "TOOL_EYE_VIEWS",
+    "LIKE": "TOOL_HEART_LIKE",
+    "HEART": "TOOL_HEART_LIKE",
+    "COMMENTS": "TOOL_COMMENTS",
+    "CALENDAR": "TOOL_CALENDAR",
+    "CHART": "TOOL_GRAPH_UP",
+    "GRAPH_UP": "TOOL_GRAPH_UP",
+    "GROWTH_UP": "TOOL_GRAPH_UP",
+    "GROWTH_DOWN": "STATUS_WARNING",
+    "SPY": "TOOL_SPY_ANALYTICS",
+    "SPY_HAT": "TOOL_SPY_ANALYTICS",
+    "VOICE": "TOOL_MIC_VOICE",
+    "MIC": "TOOL_MIC_VOICE",
+    "QR": "TOOL_QR_CODE",
+    "QR_CODE": "TOOL_QR_CODE",
+    "QR_DEEPLINK": "TOOL_QR_CODE",
+    "DEEPLINK": "TOOL_QR_CODE",
+    "LINK": "TOOL_QR_CODE",
+    "PHONE": "TOOL_QR_CODE",
+    "MOBILE": "TOOL_QR_CODE",
+    "PRICE_TAG": "TOOL_TAG_PRICE",
+    "TAG_PRICE": "TOOL_TAG_PRICE",
+    "TAGS": "TOOL_TAG_PRICE",
+    "PIN": "TOOL_TAG_PRICE",
+    "PIN_LOCATION": "TOOL_TAG_PRICE",
+    "SEO_TAG": "TOOL_TAG_PRICE",
+    "VIP_STAR": "TOOL_VIP_STAR",
+    "SPARKLES": "TOOL_VIP_STAR",
+    "IDEA": "TOOL_VIP_STAR",
+    "CREATORFLOW_LOGO": "TOOL_VIP_STAR",
+    "CART": "BTN_SERVICES",
+    "STORE": "BTN_SERVICES",
+    "MARKETPLACE": "BTN_SERVICES",
+    "USER": "BTN_REFERRAL",
+    "FRIENDS": "BTN_REFERRAL",
+    "MEMO": "BTN_ORDERS",
+    "DOCUMENT": "BTN_ORDERS",
+    "INVOICE": "BTN_ORDERS",
+    "LIST": "BTN_ORDERS",
+    "REPORT": "BTN_SUPPORT",
+    "HELP": "BTN_SUPPORT",
+    "INFO": "BTN_SUPPORT",
+    "BELL": "BTN_SUPPORT",
+    "HANDSHAKE": "BTN_SUPPORT",
+    "ADMIN": "BTN_SETTINGS",
+    "DOWNLOAD": "MEDIA_VIDEO_HD",
+    "INSTA": "MEDIA_VIDEO_HD",
+    "INSTAGRAM_LOGO": "MEDIA_VIDEO_HD",
+    "WEB": "BTN_DASHBOARD",
+    "GLOBE": "BTN_DASHBOARD"
 }
 
+# ==============================================================================
+# 4. ORQAGA MOSLIK (Backward Compatibility Map)
+# ==============================================================================
+EMOJI_MAP = {}
+for k, v in CUSTOM_EMOJI_REGISTRY.items():
+    EMOJI_MAP[k] = (v.get("id", ""), v.get("fallback_icon", "✨"))
+
+for alias, reg_key in ALIASES.items():
+    if reg_key in CUSTOM_EMOJI_REGISTRY:
+        reg_item = CUSTOM_EMOJI_REGISTRY[reg_key]
+        EMOJI_MAP[alias] = (reg_item.get("id", ""), reg_item.get("fallback_icon", "✨"))
+
 CUSTOM_EMOJI_POOL = [
-    v["id"] for v in CUSTOM_EMOJI_REGISTRY.values() if v.get("id")
+    str(v["id"]).strip() for v in CUSTOM_EMOJI_REGISTRY.values()
+    if v.get("id") and str(v.get("id")).strip().isdigit()
 ]
 
 # ==============================================================================
-# 3. YORDAMCHI FUNKSIYALAR
+# 5. YORDAMCHI FUNKSIYALAR
 # ==============================================================================
+def resolve_registry_key(key: str) -> str:
+    """Berilgan kalit yoki aliasdan asosiy registrdagi kalitni aniqlaydi."""
+    k_str = str(key).strip()
+    if k_str in CUSTOM_EMOJI_REGISTRY:
+        return k_str
+    if k_str.upper() in CUSTOM_EMOJI_REGISTRY:
+        return k_str.upper()
+    if k_str in ALIASES:
+        return ALIASES[k_str]
+    if k_str.upper() in ALIASES:
+        return ALIASES[k_str.upper()]
+    return k_str
+
 def get_custom_emoji_info(key: str) -> dict:
     """Emoji haqidagi to'liq metama'lumotlarni qaytaradi."""
-    return CUSTOM_EMOJI_REGISTRY.get(key, {
+    reg_key = resolve_registry_key(key)
+    return CUSTOM_EMOJI_REGISTRY.get(reg_key, {
         "name": key,
         "location": "Noma'lum",
         "purpose": "Noma'lum",
@@ -837,34 +1092,32 @@ def get_custom_emoji_info(key: str) -> dict:
 
 def e(key: str) -> str:
     """Fallback piktogrammani qaytaradi."""
-    if key in CUSTOM_EMOJI_REGISTRY:
-        return CUSTOM_EMOJI_REGISTRY[key]["fallback_icon"]
-    return "✨"
+    info = get_custom_emoji_info(key)
+    return info.get("fallback_icon", "✨")
 
 def custom_emoji(key: str) -> str:
     """
     Telegram xabarlarida chiroyli Custom Emoji chiqishi uchun <emoji id="..."> HTML tegi.
     Agar ID bo'lmasa, fallback icon chiqariladi.
     """
-    if key in CUSTOM_EMOJI_REGISTRY:
-        info = CUSTOM_EMOJI_REGISTRY[key]
-        c_id = info.get("id")
-        fb = info.get("fallback_icon", "✨")
-        if c_id:
-            return f'<emoji id="{c_id}">{fb}</emoji>'
-        return fb
-    return "✨"
+    info = get_custom_emoji_info(key)
+    c_id = info.get("id", "")
+    fb = info.get("fallback_icon", "✨")
+    if c_id and str(c_id).strip().isdigit():
+        return f'<emoji id="{c_id}">{fb}</emoji>'
+    return fb
 
 ce = custom_emoji
 
 def get_button_icon_id(key: str) -> str:
     """InlineKeyboardButton icon_custom_emoji_id parametri uchun ID qaytaradi."""
-    if key in CUSTOM_EMOJI_REGISTRY:
-        return CUSTOM_EMOJI_REGISTRY[key].get("id", "")
-    return ""
+    info = get_custom_emoji_info(key)
+    c_id = info.get("id", "")
+    return str(c_id) if c_id and str(c_id).strip().isdigit() else ""
 
 def get_random_custom_emoji_id() -> int:
     """Reaksiyalar uchun pool'dan ixtiyoriy ID qaytaradi."""
     if CUSTOM_EMOJI_POOL:
         return int(random.choice(CUSTOM_EMOJI_POOL))
     return 5366395940808709418
+

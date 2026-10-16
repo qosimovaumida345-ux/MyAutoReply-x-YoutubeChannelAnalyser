@@ -101,7 +101,9 @@ STARS_PACKAGES = [
 # We'll create a reverse map: fallback_emoji -> custom_emoji_id (with both \ufe0f and non-\ufe0f variants)
 FALLBACK_TO_ID = {}
 for val in EMOJI_MAP.values():
-    c_id = int(val[0])
+    if not val or len(val) < 2 or not val[0] or not str(val[0]).strip().isdigit():
+        continue
+    c_id = int(str(val[0]).strip())
     fb = val[1]
     FALLBACK_TO_ID[fb] = c_id
     if '\ufe0f' in fb:
