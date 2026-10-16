@@ -154,7 +154,7 @@ WEB_APP_URL = os.getenv("WEB_APP_URL", "https://botclient-d1jn.onrender.com").rs
 
 # ==================== VENTEBOT RESELLER API ====================
 VENTEBOT_API_KEY = os.getenv("VENTEBOT_API_KEY", "").strip()
-VENTEBOT_BASE_URL = os.getenv("VENTEBOT_BASE_URL", "https://ventetelegrambotrailway-production.up.railway.app").rstrip("/")
+VENTEBOT_BASE_URL = os.getenv("VENTEBOT_BASE_URL", "https://web-production-1c7b1.up.railway.app").rstrip("/")
 USD_TO_UZS_RATE = int(os.getenv("USD_TO_UZS_RATE", "12850"))
 RESELLER_MARKUP_PERCENT = float(os.getenv("RESELLER_MARKUP_PERCENT", "150.0"))
 
