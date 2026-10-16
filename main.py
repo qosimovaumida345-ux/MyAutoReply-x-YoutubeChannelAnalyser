@@ -657,17 +657,64 @@ async def handle_oauth_callback(request):
 
 
 async def handle_api_bot_user(request):
-    """User stats API (e.g. balance_uzs)"""
+    """Foydalanuvchi profil va balans ma'lumotlari (ism, rasm, balans, sinxronizatsiya)"""
     import json
     tg_user_id = request.query.get("tg_user_id")
     if not tg_user_id:
         return web.Response(text=json.dumps({"error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     try:
-        from database import get_user_balance
-        balance_uzs = get_user_balance(int(tg_user_id))
-        return web.Response(text=json.dumps({"balance_uzs": balance_uzs}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        uid = int(tg_user_id)
+        from database import get_user_full_details, get_user_vip_info
+        from config import OWNER_ID
+        
+        force_sync = request.query.get("refresh", "0") in ("1", "true")
+        details = get_user_full_details(uid, force_sync=force_sync)
+        vip_info = get_user_vip_info(uid)
+        is_owner = (uid == OWNER_ID)
+        
+        resp = {
+            "ok": True,
+            "tg_user_id": uid,
+            "first_name": details.get("first_name") or f"Creator #{uid}",
+            "last_name": details.get("last_name") or "",
+            "username": details.get("username") or "",
+            "photo_file_id": details.get("photo_file_id"),
+            "photo_url": details.get("photo_url"),
+            "balance_uzs": details.get("balance_uzs", 0),
+            "ton_balance": details.get("ton_balance", 0.0),
+            "is_vip": bool(vip_info.get("is_vip")),
+            "is_owner": is_owner
+        }
+        return web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
-        return web.Response(text=json.dumps({"error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+        return web.Response(text=json.dumps({"ok": False, "error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+
+async def handle_api_sync_profile(request):
+    """Telegram profil ma'lumotlarini majburiy qayta sinxronlash (ism, rasm, username)"""
+    import json
+    try:
+        data = {}
+        if request.method == "POST":
+            try: data = await request.json()
+            except: pass
+        tg_user_id = data.get("tg_user_id") or request.query.get("tg_user_id")
+        if not tg_user_id:
+            return web.Response(text=json.dumps({"ok": False, "error": "tg_user_id kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+            
+        uid = int(tg_user_id)
+        user_context = {
+            "first_name": data.get("first_name") or request.query.get("first_name"),
+            "last_name": data.get("last_name") or request.query.get("last_name"),
+            "username": data.get("username") or request.query.get("username"),
+            "photo_url": data.get("photo_url") or request.query.get("photo_url"),
+            "photo_file_id": data.get("photo_file_id") or request.query.get("photo_file_id")
+        }
+        from database import sync_tg_user_profile, get_user_full_details
+        sync_tg_user_profile(uid, user_context=user_context)
+        details = get_user_full_details(uid, force_sync=False, user_context=user_context)
+        return web.Response(text=json.dumps({"ok": True, "profile": details}, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.Response(text=json.dumps({"ok": False, "error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
 async def handle_api_channels(request):
     """Foydalanuvchining barcha ulangan kanallari"""
@@ -716,15 +763,23 @@ async def handle_api_autopost_tasks(request):
     except Exception as e:
         return web.Response(text=json.dumps({"error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
+_video_search_cache = {}  # {cache_key: {"videos": [...], "ts": float}}
+
 async def handle_api_videos(request):
-    """YouTube'dan video qidirish"""
+    """YouTube'dan video qidirish (keshlangan va quota-safe)"""
     import json
-    q = request.query.get("q", "")
+    q = request.query.get("q", "").strip()
     max_results = int(request.query.get("maxResults", "12"))
     video_type = request.query.get("type", "")  # "short" or ""
     
     if not q:
-        return web.Response(text=json.dumps({"error": "q param kerak"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        return web.Response(text=json.dumps({"error": "q param kerak", "videos": []}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        
+    cache_key = f"{q.lower()}_{video_type}_{max_results}"
+    cached = _video_search_cache.get(cache_key)
+    if cached and (_time.time() - cached["ts"]) < 1800:
+        return web.Response(text=json.dumps({"videos": cached["videos"]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        
     try:
         from config import build_youtube_api
         yt = build_youtube_api()
@@ -759,9 +814,16 @@ async def handle_api_videos(request):
                     "duration": v.get("contentDetails", {}).get("duration", ""),
                 })
         
+        _video_search_cache[cache_key] = {"videos": videos, "ts": _time.time()}
         return web.Response(text=json.dumps({"videos": videos}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
-        return web.Response(text=json.dumps({"error": str(e)[:300]}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
+        err_msg = str(e)
+        if "quotaExceeded" in err_msg or "rateLimitExceeded" in err_msg or "403" in err_msg:
+            return web.Response(text=json.dumps({
+                "videos": [],
+                "warning": "YouTube API kunlik kvotasi yetarli emas. Iltimos keyinroq qayta urinib ko'ring."
+            }), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        return web.Response(text=json.dumps({"error": err_msg[:300], "videos": []}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
 async def handle_api_trending(request):
     """Trendagidagi videolar"""
@@ -894,11 +956,11 @@ async def handle_api_health_score(request):
         
         # Tavsiyalar
         tips = []
-        if scores["seo"] < 60: tips.append("🏷 SEO yaxshilang: Har bir videoga 10+ tag qo'shing, sarlavhani 40-65 belgi qiling")
-        if scores["engagement"] < 50: tips.append("💬 Engagement oshiring: CTA (Call to Action) qo'shing va izohchilar bilan muloqot qiling")
-        if scores["consistency"] < 60: tips.append("📅 Muntazam yuklang: Haftada kamida 2-3 ta video yuklashga harakat qiling")
-        if scores["growth"] < 50: tips.append("📈 O'sish: SEO va trending mavzularga ko'proq e'tibor bering")
-        if scores["branding"] < 70: tips.append("🖼 Branding: Professional banner va avatar qo'ying")
+        if scores["seo"] < 60: tips.append("SEO yaxshilang: Har bir videoga 10+ tag qo'shing, sarlavhani 40-65 belgi qiling")
+        if scores["engagement"] < 50: tips.append("Engagement oshiring: CTA (Call to Action) qo'shing va izohchilar bilan muloqot qiling")
+        if scores["consistency"] < 60: tips.append("Muntazam yuklang: Haftada kamida 2-3 ta video yuklashga harakat qiling")
+        if scores["growth"] < 50: tips.append("O'sish: SEO va trending mavzularga ko'proq e'tibor bering")
+        if scores["branding"] < 70: tips.append("Branding: Professional banner va avatar qo'ying")
         
         return web.Response(text=json.dumps({
             "overall": overall,
@@ -1026,7 +1088,7 @@ async def handle_api_video_formats(request):
             {"label": "1440p (2K)", "value": "1440", "available": True},
             {"label": "2160p (4K)", "value": "2160", "available": True},
             {"label": "4320p (8K)", "value": "4320", "available": True},
-            {"label": "🎵 MP3 (Audio)", "value": "mp3", "available": True},
+            {"label": "MP3 (Audio)", "value": "mp3", "available": True},
         ]
         
         return web.json_response({
@@ -1576,19 +1638,77 @@ async def handle_api_stars_cases(request):
     return web.json_response({"ok": True, "cases": list(cases_dict.values())}, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_open_case(request):
-    """Web Dashboard orqali keys ochish simulyatsiyasi va unboxing natijasi"""
+    """Web Dashboard orqali to'langan Stars keysi yutug'ini tekshirish va unboxing natijasi"""
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         tier_id = str(data.get("tier_id", "tier_1")).strip()
-        from games_monetization import open_stars_case
-        res = open_stars_case(user_id, tier_id)
-        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+        from config import OWNER_ID
+        if user_id <= 0:
+            return web.json_response({"ok": False, "error": "Foydalanuvchi ID talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        from database import get_db
+        # 1. Bot orqali to'langan so'nggi 3 daqiqadagi haqiqiy yutuqni tekshirish
+        conn = get_db()
+        recent_gift = None
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT prize_name, prize_stars, case_name, gift_id, status, created_at
+                    FROM pending_gifts
+                    WHERE tg_user_id = %s AND created_at >= NOW() - INTERVAL '3 minutes'
+                    ORDER BY id DESC LIMIT 1
+                """, (user_id,))
+                recent_gift = cur.fetchone()
+            except Exception:
+                pass
+            finally:
+                conn.close()
+
+        if recent_gift:
+            from games_monetization import build_cases_from_gifts
+            cases = build_cases_from_gifts()
+            case = cases.get(tier_id) or cases.get("tier_1")
+            matching_drop = None
+            for d in case.get("drops", []):
+                if d.get("id") == recent_gift.get("gift_id") or d.get("name") == recent_gift.get("prize_name"):
+                    matching_drop = d
+                    break
+            if not matching_drop and case.get("drops"):
+                matching_drop = case["drops"][0]
+
+            return web.json_response({
+                "ok": True,
+                "tier": case["id"],
+                "case_name": recent_gift.get("case_name") or case["name"],
+                "cost_stars": case["price_stars"],
+                "prize_stars": recent_gift.get("prize_stars") or (matching_drop.get("stars") if matching_drop else 25),
+                "prize_name": recent_gift.get("prize_name") or (matching_drop.get("name") if matching_drop else "Telegram Sovg'a"),
+                "rarity": matching_drop.get("rarity", "rare") if matching_drop else "rare",
+                "icon": matching_drop.get("icon", "package") if matching_drop else "package",
+                "file_id": matching_drop.get("file_id", "") if matching_drop else "",
+                "file_type": matching_drop.get("file_type", "webp") if matching_drop else "webp",
+                "gift_id": recent_gift.get("gift_id") or "",
+                "is_nft": matching_drop.get("is_nft", False) if matching_drop else False,
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 2. Agar bot egasi (Owner) bo'lsa
+        if user_id == OWNER_ID:
+            from games_monetization import open_stars_case
+            res = open_stars_case(user_id, tier_id)
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # Aks holda to'lov tasdiqlanmagan xakerlik / bepul spam urinishi
+        return web.json_response({
+            "ok": False,
+            "error": "To'lov tasdiqlanmadi yoki Stars balansi yetarli emas. Iltimos, so'm balansi yoki rasmiy Stars to'lovi orqali oching."
+        }, status=402, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_telegram_file(request):
-    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG) yuklab, frontendga uzatuvchi proxy API"""
+    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG/JPG) yuklab, frontendga uzatuvchi proxy API"""
     file_id = request.match_info.get("file_id", "").strip()
     if not file_id:
         return web.Response(status=400, text="file_id is required")
@@ -1597,6 +1717,7 @@ async def handle_api_telegram_file(request):
         from config import BOT_TOKEN
         import aiohttp
         import os
+        import gzip
         token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
         if not token:
             return web.Response(status=500, text="BOT_TOKEN not configured")
@@ -1604,7 +1725,7 @@ async def handle_api_telegram_file(request):
         async with aiohttp.ClientSession() as session:
             # 1. file_path ni olish
             file_url = f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}"
-            async with session.get(file_url, timeout=5) as r1:
+            async with session.get(file_url, timeout=6) as r1:
                 res1 = await r1.json()
                 if not res1.get("ok"):
                     return web.Response(status=404, text="File not found on Telegram")
@@ -1612,24 +1733,37 @@ async def handle_api_telegram_file(request):
                 
             # 2. Faylning o'zini yuklab uzatish
             download_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
-            async with session.get(download_url, timeout=10) as r2:
+            async with session.get(download_url, timeout=12) as r2:
                 if r2.status != 200:
                     return web.Response(status=502, text="Failed to download from Telegram")
                     
                 content = await r2.read()
-                content_type = r2.headers.get("Content-Type", "application/octet-stream")
                 headers = {
                     "Access-Control-Allow-Origin": "*",
                     "Cache-Control": "public, max-age=86400" # 1 kun keshda saqlash
                 }
                 
-                # TGS fayllar ko'pincha application/x-tgwallpapers o'rniga oddiy keladi, 
-                # shuning uchun extension orqali aniqlaymiz:
+                # Agar TGS (gzipped lottie) bo'lsa decompress qilib toza JSON uzatamiz
                 if file_path.endswith(".tgs"):
-                    content_type = "application/json" # TGS (lottie) zlib/gzip bilan siqilgan JSON
-                    headers["Content-Encoding"] = "gzip"
+                    try:
+                        decompressed = gzip.decompress(content)
+                        return web.Response(
+                            body=decompressed,
+                            content_type="application/json",
+                            headers=headers
+                        )
+                    except Exception:
+                        return web.Response(body=content, content_type="application/json", headers=headers)
                 elif file_path.endswith(".webm"):
                     content_type = "video/webm"
+                elif file_path.endswith(".jpg") or file_path.endswith(".jpeg"):
+                    content_type = "image/jpeg"
+                elif file_path.endswith(".png"):
+                    content_type = "image/png"
+                elif file_path.endswith(".webp"):
+                    content_type = "image/webp"
+                else:
+                    content_type = r2.headers.get("Content-Type", "application/octet-stream")
                     
                 return web.Response(
                     body=content,
@@ -1738,7 +1872,7 @@ async def handle_api_stars_upgrader(request):
         item_stars = int(data.get("item_stars", 15))
         target_stars = int(data.get("target_stars", 50))
         target_name = str(data.get("target_name", "Gift")).strip()
-        target_icon = str(data.get("target_icon", "🎁")).strip()
+        target_icon = str(data.get("target_icon", "package")).strip()
         from games_monetization import execute_upgrade_roll
         res = execute_upgrade_roll(user_id, item_stars, target_stars, target_name, target_icon)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
@@ -1883,6 +2017,8 @@ async def start_web_server(port):
     app.router.add_get("/", handle_health)
     app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/api/bot_user", handle_api_bot_user)
+    app.router.add_get("/api/user/sync-profile", handle_api_sync_profile)
+    app.router.add_post("/api/user/sync-profile", handle_api_sync_profile)
     app.router.add_get("/api/channels", handle_api_channels)
     app.router.add_get("/api/autopost-tasks", handle_api_autopost_tasks)
     app.router.add_get("/api/videos", handle_api_videos)

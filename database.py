@@ -549,12 +549,16 @@ def init_db():
             username TEXT,
             first_name TEXT,
             last_name TEXT,
+            photo_file_id TEXT,
+            photo_url TEXT,
             created_at TIMESTAMP DEFAULT NOW(),
             last_active_at TIMESTAMP DEFAULT NOW(),
             is_banned BOOLEAN DEFAULT FALSE,
             admin_notes TEXT
         )
     """)
+    cur.execute("ALTER TABLE bot_users ADD COLUMN IF NOT EXISTS photo_file_id TEXT;")
+    cur.execute("ALTER TABLE bot_users ADD COLUMN IF NOT EXISTS photo_url TEXT;")
 
     # Mavjud barcha jadvallardan bot_users jadvalini avtomatik to'ldirish (Auto-backfill)
     try:
@@ -5154,19 +5158,19 @@ def get_bot_config(key: str, default: str = None) -> str:
 
 # Admin boshqaradigan barcha xizmatlar ro'yxati
 ADMIN_SERVICES = {
-    "ventebot_store": "🚀 VenteBot Do'koni",
-    "mystery_box": "🎁 Mystery Box",
-    "pvp_battles": "⚔️ PvP Battles",
-    "wheel_spin": "🎰 Wheel Spin",
-    "duel": "🎮 Duel",
-    "lottery": "🎟️ Lotereya",
-    "marketplace": "🛒 Marketplace",
-    "crypto_pay": "💎 CryptoPay",
-    "flux_ai": "🎨 Flux AI",
-    "vip": "👑 VIP",
-    "upgrader": "🔄 Upgrader",
-    "scratch_cards": "🎫 Scratch Cards",
-    "daily_streak": "📅 Daily Streak",
+    "ventebot_store": "VenteBot Do'koni",
+    "mystery_box": "Mystery Box",
+    "pvp_battles": "PvP Battles",
+    "wheel_spin": "Wheel Spin",
+    "duel": "Duel",
+    "lottery": "Lotereya",
+    "marketplace": "Marketplace",
+    "crypto_pay": "CryptoPay",
+    "flux_ai": "Flux AI",
+    "vip": "VIP",
+    "upgrader": "Upgrader",
+    "scratch_cards": "Scratch Cards",
+    "daily_streak": "Daily Streak",
 }
 
 
@@ -5733,38 +5737,95 @@ def record_user_activity(tg_user_id: int, username: str = None, first_name: str 
         conn.close()
 
 
-def sync_tg_user_profile(tg_user_id: int):
-    """Telegram Bot API orqali foydalanuvchining ism va username ini avtomatik yangilash"""
+def sync_tg_user_profile(tg_user_id: int, user_context: dict = None):
+    """Telegram Bot API orqali yoki uzatilgan kontekstdan foydalanuvchining ism, username va profil rasmini avtomatik yangilash"""
     try:
-        import urllib.request, json
-        from config import BOT_TOKEN
-        if not BOT_TOKEN: return None
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChat?chat_id={tg_user_id}"
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if data.get("ok"):
-                res = data.get("result", {})
-                uname = res.get("username")
-                fname = res.get("first_name")
-                lname = res.get("last_name")
-                c = get_db()
-                if c:
-                    cr = c.cursor()
-                    cr.execute("""
-                        INSERT INTO bot_users (tg_user_id, username, first_name, last_name, last_active_at)
-                        VALUES (%s, %s, %s, %s, NOW())
-                        ON CONFLICT (tg_user_id) DO UPDATE
-                        SET username = COALESCE(EXCLUDED.username, bot_users.username),
-                            first_name = COALESCE(EXCLUDED.first_name, bot_users.first_name),
-                            last_name = COALESCE(EXCLUDED.last_name, bot_users.last_name),
-                            last_active_at = NOW()
-                    """, (tg_user_id, uname, fname, lname))
-                    c.commit()
-                    c.close()
-                return {"username": uname, "first_name": fname, "last_name": lname}
-    except Exception:
-        pass
+        uname = None
+        fname = None
+        lname = None
+        photo_file_id = None
+        photo_url = None
+
+        if user_context and isinstance(user_context, dict):
+            uname = user_context.get("username")
+            fname = user_context.get("first_name")
+            lname = user_context.get("last_name")
+            photo_url = user_context.get("photo_url")
+            photo_file_id = user_context.get("photo_file_id")
+
+        # Agar ism yoki rasm to'liq bo'lmasa, Telegram Bot API orqali boyitish
+        if not (uname and fname and (photo_file_id or photo_url)):
+            try:
+                import urllib.request, json
+                from config import BOT_TOKEN
+                if BOT_TOKEN:
+                    headers = {"User-Agent": "Mozilla/5.0"}
+                    # 1. getChat orqali ism, username va rasm file_id
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChat?chat_id={tg_user_id}"
+                    req = urllib.request.Request(url, headers=headers)
+                    try:
+                        with urllib.request.urlopen(req, timeout=3) as resp:
+                            data = json.loads(resp.read().decode("utf-8"))
+                            if data.get("ok"):
+                                res = data.get("result", {})
+                                if not uname and res.get("username"): uname = res.get("username")
+                                if not fname and res.get("first_name"): fname = res.get("first_name")
+                                if not lname and res.get("last_name"): lname = res.get("last_name")
+                                photo_obj = res.get("photo") or {}
+                                if not photo_file_id:
+                                    photo_file_id = photo_obj.get("big_file_id") or photo_obj.get("small_file_id")
+                    except Exception:
+                        pass
+                        
+                    # 2. Agar getChat rasm bermasa, getUserProfilePhotos orqali tekshirish
+                    if not photo_file_id and not photo_url:
+                        try:
+                            url_photos = f"https://api.telegram.org/bot{BOT_TOKEN}/getUserProfilePhotos?user_id={tg_user_id}&limit=1"
+                            req_p = urllib.request.Request(url_photos, headers=headers)
+                            with urllib.request.urlopen(req_p, timeout=3) as resp_p:
+                                p_data = json.loads(resp_p.read().decode("utf-8"))
+                                if p_data.get("ok"):
+                                    p_res = p_data.get("result", {})
+                                    if p_res.get("total_count", 0) > 0 and p_res.get("photos"):
+                                        photo_file_id = p_res["photos"][0][-1].get("file_id")
+                        except Exception:
+                            pass
+            except Exception as e:
+                print(f"[sync_tg_user_profile] api fetch warning: {e}")
+
+        if photo_file_id and not photo_url:
+            photo_url = f"/api/telegram-file/{photo_file_id}"
+            
+        c = get_db()
+        if c:
+            try:
+                cr = c.cursor()
+                cr.execute("""
+                    INSERT INTO bot_users (tg_user_id, username, first_name, last_name, photo_file_id, photo_url, last_active_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (tg_user_id) DO UPDATE
+                    SET username = COALESCE(EXCLUDED.username, bot_users.username),
+                        first_name = COALESCE(EXCLUDED.first_name, bot_users.first_name),
+                        last_name = COALESCE(EXCLUDED.last_name, bot_users.last_name),
+                        photo_file_id = COALESCE(EXCLUDED.photo_file_id, bot_users.photo_file_id),
+                        photo_url = COALESCE(EXCLUDED.photo_url, bot_users.photo_url),
+                        last_active_at = NOW()
+                """, (tg_user_id, uname, fname, lname, photo_file_id, photo_url))
+                c.commit()
+            except Exception as dberr:
+                print(f"[sync_tg_user_profile] db save error: {dberr}")
+                c.rollback()
+            finally:
+                c.close()
+        return {
+            "username": uname,
+            "first_name": fname,
+            "last_name": lname,
+            "photo_file_id": photo_file_id,
+            "photo_url": photo_url
+        }
+    except Exception as e:
+        print(f"[sync_tg_user_profile] error: {e}")
     return None
 
 
@@ -5842,13 +5903,22 @@ def get_all_bot_users(page: int = 1, limit: int = 10, search: str = "") -> dict:
         conn.close()
 
 
-def get_user_full_details(tg_user_id: int) -> dict:
+def get_user_full_details(tg_user_id: int, force_sync: bool = False, user_context: dict = None) -> dict:
     """Bitta foydalanuvchining barcha hamyon, sovg'a va xavfsizlik ma'lumotlari"""
+    # Agar force_sync yoki user_context berilgan bo'lsa, DB o'qishdan oldin sync qilib olamiz
+    if force_sync or user_context:
+        try:
+            sync_tg_user_profile(tg_user_id, user_context=user_context)
+        except Exception as se:
+            print(f"[get_user_full_details] pre-sync notice: {se}")
+
     user_data = {
         "tg_user_id": tg_user_id,
         "username": None,
         "first_name": "Foydalanuvchi",
         "last_name": None,
+        "photo_file_id": None,
+        "photo_url": None,
         "created_at": None,
         "last_active_at": None,
         "is_banned": bool(is_user_antifraud_banned(tg_user_id)),
@@ -5876,14 +5946,17 @@ def get_user_full_details(tg_user_id: int) -> dict:
                 for k, v in dict(u_row).items():
                     if k in user_data and v is not None:
                         user_data[k] = v
-            if not user_data.get("username") or user_data.get("first_name") == "Foydalanuvchi":
+            # Agar ma'lumotlar umuman bo'lmasa, fallback sync
+            if not u_row or (not user_data.get("username") and user_data.get("first_name") == "Foydalanuvchi"):
                 enriched = sync_tg_user_profile(tg_user_id)
                 if enriched:
-                    if enriched.get("username"): user_data["username"] = enriched["username"]
-                    if enriched.get("first_name"): user_data["first_name"] = enriched["first_name"]
-                    if enriched.get("last_name"): user_data["last_name"] = enriched["last_name"]
+                    for ek, ev in enriched.items():
+                        if ev is not None: user_data[ek] = ev
         except Exception:
             conn.rollback()
+
+        if user_data.get("photo_file_id") and not user_data.get("photo_url"):
+            user_data["photo_url"] = f"/api/telegram-file/{user_data['photo_file_id']}"
 
         # Telefon raqami
         try:

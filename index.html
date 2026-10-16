@@ -44,7 +44,7 @@
             --color-accent: #7342E2;
             --color-login-bg: #F2F2EE;
 
-            /* Alwayzz Studio Variables */
+            /* CreatorFlow Studio Variables */
             --bg: #ffffff;
             --text: #0a0a0a;
             --muted: #6b6b6b;
@@ -225,19 +225,19 @@
             .curved-lines-top {
                 display: flex !important;
             }
-            .alwayzz-hero-section {
+            .creatorflow-hero-section {
                 min-height: 760px !important;
                 padding: 120px 24px 96px !important;
             }
-            .alwayzz-hero-bg {
+            .creatorflow-hero-bg {
                 transform: rotate(90deg) scale(1.6);
             }
-            .alwayzz-cta-row {
+            .creatorflow-cta-row {
                 flex-direction: column !important;
                 width: 100% !important;
                 max-width: 320px !important;
             }
-            .alwayzz-cta-row > * {
+            .creatorflow-cta-row > * {
                 width: 100% !important;
                 justify-content: center !important;
             }
@@ -362,13 +362,183 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // ==================== INLINE ICONS ====================
+        
+        // ==================== FIGMA-GRADE SVG VECTOR ICONS ====================
         const SvgLogo = ({ size = 32, color = "#192837" }) => (
             <svg width={size} height={size} viewBox="0 0 256 256" fill="none" style={{ flexShrink: 0 }}>
+                <defs>
+                    <linearGradient id="cfLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#7342E2" />
+                        <stop offset="100%" stopColor="#00F0FF" />
+                    </linearGradient>
+                </defs>
                 <path
                     d="M 64 128 L 64.5 128 L 32 95 L 0 64 L 0 0 L 64 0 L 128 64 L 128 64.5 L 161 32 L 192 0 L 256 0 L 256 64 L 192 128 L 128 128 L 128 192 L 96 223 L 63.5 256 L 0 256 L 0 192 Z M 256 192 L 224 223 L 191.5 256 L 128 256 L 128 192 L 192 128 L 256 128 Z"
-                    fill={color}
+                    fill={color === "#192837" ? "url(#cfLogoGrad)" : color}
                 />
+            </svg>
+        );
+
+        const SvgGift = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polyline points="20 12 20 22 4 22 4 12" />
+                <rect x="2" y="7" width="20" height="5" />
+                <line x1="12" y1="22" x2="12" y2="7" />
+                <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+            </svg>
+        );
+
+        const SvgCrown = ({ size = 18, color = "#ffd700" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+            </svg>
+        );
+
+        const SvgTrophy = ({ size = 18, color = "#ffd700" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                <path d="M4 22h16" />
+                <path d="M10 14.66V17c0 .55-.45 1-1 1H8c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1h8c.55 0 1-.45 1-1v-1c0-.55-.45-1-1-1h-1c-.55 0-1-.45-1-1v-2.34" />
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2z" />
+            </svg>
+        );
+
+        const SvgGem = ({ size = 18, color = "#00f0ff" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M6 3h12l4 6-10 12L2 9z" />
+                <path d="M11 3 8 9l4 12 4-12-3-6" />
+                <path d="M2 9h20" />
+            </svg>
+        );
+
+        const SvgCreditCard = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                <line x1="1" y1="10" x2="23" y2="10" />
+            </svg>
+        );
+
+        const SvgSwords = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+                <line x1="13" y1="19" x2="19" y2="13" />
+                <line x1="16" y1="16" x2="20" y2="20" />
+                <line x1="19" y1="21" x2="21" y2="19" />
+                <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
+                <line x1="5" y1="14" x2="9" y2="18" />
+                <line x1="7" y1="17" x2="4" y2="20" />
+                <line x1="3" y1="19" x2="5" y2="21" />
+            </svg>
+        );
+
+        const SvgRocket = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+                <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
+                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+            </svg>
+        );
+
+        const SvgClapperboard = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M20.2 6 3 11l-.9-2.4c-.4-1.1.2-2.3 1.3-2.6l12.4-4.5c1.1-.4 2.3.2 2.6 1.3l.8 2.2z" />
+                <path d="m6.2 5.3 3.1 4" />
+                <path d="m12.1 3.2 3.1 4" />
+                <rect x="2" y="10" width="20" height="12" rx="2" />
+            </svg>
+        );
+
+        const SvgFilm = SvgClapperboard;
+
+        const SvgSparkles = ({ size = 18, color = "#ffd700" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                <path d="M5 3v4" />
+                <path d="M19 17v4" />
+                <path d="M3 5h4" />
+                <path d="M17 19h4" />
+            </svg>
+        );
+
+        const SvgRefreshCw = ({ size = 18, color = "currentColor", className = "" }) => (
+            <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M3 21v-5h5" />
+            </svg>
+        );
+
+        const SvgCalendar = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+        );
+
+        const SvgTicket = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+                <path d="M13 5v2" />
+                <path d="M13 17v2" />
+                <path d="M13 11v2" />
+            </svg>
+        );
+
+        const SvgTag = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z" />
+                <path d="M7 7h.01" />
+            </svg>
+        );
+
+        const SvgPackage = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="m16.5 9.4-9-5.19M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.29 7 12 12.01 20.71 7" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+        );
+
+        const SvgLogOut = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+        );
+
+        const SvgArrowRight = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+            </svg>
+        );
+
+        const SvgAlertCircle = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+        );
+
+        const SvgCheckCircle = ({ size = 18, color = "#10b981" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+        );
+
+        const SvgEdit3 = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
             </svg>
         );
 
@@ -378,11 +548,24 @@
             </svg>
         );
 
+        const SvgZap = ({ size = 18, color = "#ffd700" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill={color} />
+            </svg>
+        );
+
         const LockIcon = ({ size = 24, color = "#192837" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", position: "relative", top: "-2px", margin: "0 4px" }}>
                 <circle cx="12" cy="16" r="1" fill={color} />
                 <rect x="3" y="10" width="18" height="12" rx="2" />
                 <path d="M7 10V7a5 5 0 0 1 10 0v3" />
+            </svg>
+        );
+
+        const SvgLock = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
         );
 
@@ -504,57 +687,342 @@
             </svg>
         );
 
-        const MediaRenderer = ({ fileId, fileType, icon, size = "80px", style = {} }) => {
-            if (!fileId) {
-                return <div style={{ fontSize: `calc(${size} * 0.9)`, ...style }}>{icon}</div>;
-            }
-            const src = `/api/telegram-file/${fileId}`;
-            const mergedStyle = { width: size, height: size, margin: "0 auto", ...style };
-            
-            if (fileType === "video") {
-                return <video src={src} autoPlay loop muted playsInline style={mergedStyle}></video>;
-            } else if (fileType === "tgs") {
+        // ==================== 3D ANIMATED VECTOR GIFTS ====================
+        const VectorCake = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 16px rgba(244,114,182,0.3))" }}>
+                <defs>
+                    <linearGradient id="cakeGradBase" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#f472b6" />
+                        <stop offset="100%" stopColor="#db2777" />
+                    </linearGradient>
+                    <linearGradient id="cakeGradTop" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#fbcfe8" />
+                        <stop offset="100%" stopColor="#f472b6" />
+                    </linearGradient>
+                    <linearGradient id="candleFlame" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#fef08a" />
+                        <stop offset="100%" stopColor="#ea580c" />
+                    </linearGradient>
+                </defs>
+                {/* Cake Bottom Layer */}
+                <rect x="20" y="65" width="80" height="35" rx="8" fill="url(#cakeGradBase)" />
+                <rect x="20" y="65" width="80" height="12" rx="6" fill="#fdf2f8" />
+                <path d="M20 77 Q 30 85 40 77 Q 50 85 60 77 Q 70 85 80 77 Q 90 85 100 77" stroke="#fbcfe8" strokeWidth="4" fill="none" />
+                {/* Cake Top Layer */}
+                <rect x="32" y="42" width="56" height="26" rx="6" fill="url(#cakeGradTop)" />
+                <rect x="32" y="42" width="56" height="8" rx="4" fill="#ffffff" />
+                {/* Candles */}
+                <rect x="44" y="24" width="6" height="18" rx="2" fill="#38bdf8" />
+                <rect x="68" y="24" width="6" height="18" rx="2" fill="#a855f7" />
+                {/* Flames */}
+                <ellipse cx="47" cy="18" rx="4" ry="7" fill="url(#candleFlame)" />
+                <ellipse cx="71" cy="18" rx="4" ry="7" fill="url(#candleFlame)" />
+            </svg>
+        );
+
+        const VectorStar = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 20px rgba(234,179,8,0.4))" }}>
+                <defs>
+                    <linearGradient id="starFacetL" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#fef08a" />
+                        <stop offset="100%" stopColor="#eab308" />
+                    </linearGradient>
+                    <linearGradient id="starFacetR" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#ca8a04" />
+                        <stop offset="100%" stopColor="#854d0e" />
+                    </linearGradient>
+                </defs>
+                <polygon points="60,10 75,44 112,48 84,72 92,108 60,89 28,108 36,72 8,48 45,44" fill="url(#starFacetL)" />
+                <polygon points="60,10 75,44 60,89" fill="#fef9c3" opacity="0.6" />
+                <polygon points="60,89 92,108 84,72" fill="url(#starFacetR)" opacity="0.8" />
+                <circle cx="60" cy="55" r="4" fill="#ffffff" filter="blur(1px)" />
+            </svg>
+        );
+
+        const VectorTeddy = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 18px rgba(180,83,9,0.35))" }}>
+                <defs>
+                    <linearGradient id="teddyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#d97706" />
+                        <stop offset="100%" stopColor="#92400e" />
+                    </linearGradient>
+                </defs>
+                {/* Ears */}
+                <circle cx="34" cy="36" r="14" fill="url(#teddyGrad)" />
+                <circle cx="34" cy="36" r="7" fill="#fde68a" />
+                <circle cx="86" cy="36" r="14" fill="url(#teddyGrad)" />
+                <circle cx="86" cy="36" r="7" fill="#fde68a" />
+                {/* Body & Paws */}
+                <ellipse cx="60" cy="80" rx="30" ry="26" fill="url(#teddyGrad)" />
+                <ellipse cx="60" cy="82" rx="18" ry="16" fill="#fef3c7" />
+                <circle cx="30" cy="74" r="10" fill="url(#teddyGrad)" />
+                <circle cx="90" cy="74" r="10" fill="url(#teddyGrad)" />
+                {/* Head */}
+                <circle cx="60" cy="50" r="24" fill="url(#teddyGrad)" />
+                <ellipse cx="60" cy="56" rx="12" ry="9" fill="#fef3c7" />
+                {/* Eyes & Nose */}
+                <circle cx="50" cy="46" r="3.5" fill="#1c1917" />
+                <circle cx="70" cy="46" r="3.5" fill="#1c1917" />
+                <ellipse cx="60" cy="53" rx="4.5" ry="3.5" fill="#451a03" />
+                {/* Red bow */}
+                <polygon points="54,68 66,68 60,73" fill="#ef4444" />
+                <polygon points="54,76 66,76 60,71" fill="#ef4444" />
+                <circle cx="60" cy="72" r="3" fill="#b91c1c" />
+            </svg>
+        );
+
+        const VectorBouquet = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 16px rgba(239,68,68,0.3))" }}>
+                {/* Wrap Paper */}
+                <polygon points="40,65 80,65 68,110 52,110" fill="#fde047" stroke="#ca8a04" strokeWidth="2" />
+                <path d="M52 82 Q 60 88 68 82" stroke="#e11d48" strokeWidth="3" fill="none" />
+                {/* Leaves */}
+                <ellipse cx="38" cy="50" rx="12" ry="7" fill="#22c55e" transform="rotate(-30 38 50)" />
+                <ellipse cx="82" cy="50" rx="12" ry="7" fill="#22c55e" transform="rotate(30 82 50)" />
+                {/* Rose Flowers */}
+                <circle cx="60" cy="38" r="16" fill="#ef4444" />
+                <circle cx="60" cy="38" r="10" fill="#dc2626" />
+                <circle cx="60" cy="38" r="5" fill="#f87171" />
+                <circle cx="44" cy="50" r="14" fill="#f43f5e" />
+                <circle cx="44" cy="50" r="8" fill="#e11d48" />
+                <circle cx="76" cy="50" r="14" fill="#fb7185" />
+                <circle cx="76" cy="50" r="8" fill="#f43f5e" />
+            </svg>
+        );
+
+        const VectorChampagne = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 16px rgba(16,185,129,0.3))" }}>
+                {/* Bottle Body */}
+                <path d="M52 46 L52 98 A8 8 0 0 0 68 98 L68 46 Q68 38 64 32 L64 16 L56 16 L56 32 Q52 38 52 46 Z" fill="#065f46" stroke="#047857" strokeWidth="2" />
+                {/* Gold Neck Foil */}
+                <rect x="56" y="16" width="8" height="20" fill="#f59e0b" />
+                <rect x="54" y="12" width="12" height="5" rx="2" fill="#d97706" />
+                {/* Label */}
+                <rect x="51" y="60" width="18" height="24" rx="2" fill="#fef3c7" stroke="#b45309" strokeWidth="1" />
+                <line x1="53" y1="68" x2="67" y2="68" stroke="#b45309" strokeWidth="1.5" />
+                <line x1="55" y1="74" x2="65" y2="74" stroke="#d97706" strokeWidth="1" />
+                {/* Bubbles */}
+                <circle cx="74" cy="24" r="3.5" fill="#fde68a" opacity="0.8" />
+                <circle cx="82" cy="14" r="2.5" fill="#fde68a" opacity="0.7" />
+                <circle cx="78" cy="8" r="4" fill="#fef08a" opacity="0.9" />
+            </svg>
+        );
+
+        const VectorDiamondRing = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 18px rgba(0,240,255,0.4))" }}>
+                {/* Ring Band */}
+                <circle cx="60" cy="72" r="32" stroke="url(#ringSilverGrad)" strokeWidth="9" fill="none" />
+                <defs>
+                    <linearGradient id="ringSilverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#e2e8f0" />
+                        <stop offset="50%" stopColor="#94a3b8" />
+                        <stop offset="100%" stopColor="#f8fafc" />
+                    </linearGradient>
+                </defs>
+                {/* Ring Setting Prongs */}
+                <polygon points="52,44 68,44 64,36 56,36" fill="#cbd5e1" />
+                {/* Brilliant Diamond Gem */}
+                <polygon points="60,14 78,28 70,42 50,42 42,28" fill="#00f0ff" stroke="#38bdf8" strokeWidth="2" />
+                <polygon points="60,14 70,28 60,42 50,28" fill="#e0f2fe" opacity="0.7" />
+                <polygon points="60,14 42,28 50,28" fill="#38bdf8" opacity="0.5" />
+                <polygon points="60,14 78,28 70,28" fill="#7dd3fc" opacity="0.5" />
+            </svg>
+        );
+
+        const VectorTrophy = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 18px rgba(245,158,11,0.4))" }}>
+                {/* Plinth */}
+                <rect x="36" y="96" width="48" height="14" rx="3" fill="#1e293b" />
+                <rect x="46" y="86" width="28" height="10" fill="#f59e0b" />
+                {/* Cup Handles */}
+                <path d="M38 34 Q 20 44 38 62" stroke="#d97706" strokeWidth="6" fill="none" strokeLinecap="round" />
+                <path d="M82 34 Q 100 44 82 62" stroke="#d97706" strokeWidth="6" fill="none" strokeLinecap="round" />
+                {/* Cup Body */}
+                <path d="M36 24 L84 24 L76 68 Q60 84 44 68 Z" fill="#fbbf24" stroke="#d97706" strokeWidth="2" />
+                {/* Star Crest */}
+                <polygon points="60,42 63,48 70,49 65,54 66,61 60,57 54,61 55,54 50,49 57,48" fill="#d97706" />
+            </svg>
+        );
+
+        const VectorRocket = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 20px rgba(239,68,68,0.4))" }}>
+                {/* Propulsion Flame */}
+                <ellipse cx="60" cy="102" rx="10" ry="14" fill="#f97316" />
+                <ellipse cx="60" cy="98" rx="6" ry="9" fill="#fef08a" />
+                {/* Rocket Fins */}
+                <polygon points="36,75 22,96 46,88" fill="#ef4444" />
+                <polygon points="84,75 98,96 74,88" fill="#ef4444" />
+                {/* Rocket Hull */}
+                <path d="M60 12 C 40 40 42 82 48 88 L 72 88 C 78 82 80 40 60 12 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="2" />
+                {/* Porthole */}
+                <circle cx="60" cy="46" r="10" fill="#0284c7" stroke="#e2e8f0" strokeWidth="3" />
+                <circle cx="62" cy="44" r="3" fill="#bae6fd" />
+                <path d="M48 88 L72 88 L68 94 L52 94 Z" fill="#64748b" />
+            </svg>
+        );
+
+        const VectorCap = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 16px rgba(15,23,42,0.4))" }}>
+                {/* Visor / Brim */}
+                <ellipse cx="76" cy="80" rx="36" ry="12" fill="#0f172a" stroke="#334155" strokeWidth="2" />
+                {/* Crown Dome */}
+                <path d="M24 74 C 24 38 68 32 86 64 C 86 76 30 82 24 74 Z" fill="#1e293b" stroke="#334155" strokeWidth="2" />
+                {/* Top Button */}
+                <circle cx="56" cy="38" r="4" fill="#64748b" />
+                {/* Emblem */}
+                <circle cx="48" cy="60" r="7" fill="#7342E2" />
+                <polygon points="48,56 50,59 53,60 51,62 51,65 48,63 45,65 45,62 43,60 46,59" fill="#ffffff" />
+            </svg>
+        );
+
+        const VectorPlush = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 18px rgba(139,92,246,0.35))" }}>
+                {/* Plush Ears */}
+                <ellipse cx="42" cy="26" rx="9" ry="20" fill="#c084fc" transform="rotate(-15 42 26)" />
+                <ellipse cx="42" cy="26" rx="5" ry="13" fill="#f3e8ff" transform="rotate(-15 42 26)" />
+                <ellipse cx="78" cy="26" rx="9" ry="20" fill="#c084fc" transform="rotate(15 78 26)" />
+                <ellipse cx="78" cy="26" rx="5" ry="13" fill="#f3e8ff" transform="rotate(15 78 26)" />
+                {/* Plush Body */}
+                <ellipse cx="60" cy="82" rx="28" ry="24" fill="#a855f7" />
+                <ellipse cx="60" cy="84" rx="16" ry="14" fill="#f5f3ff" />
+                {/* Plush Head */}
+                <circle cx="60" cy="54" r="22" fill="#a855f7" />
+                {/* Big Cute Eyes */}
+                <circle cx="51" cy="52" r="5" fill="#1e1b4b" />
+                <circle cx="53" cy="50" r="2" fill="#ffffff" />
+                <circle cx="69" cy="52" r="5" fill="#1e1b4b" />
+                <circle cx="71" cy="50" r="2" fill="#ffffff" />
+                <ellipse cx="60" cy="59" rx="3" ry="2" fill="#ec4899" />
+            </svg>
+        );
+
+        const VectorCrown = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 20px rgba(234,179,8,0.5))" }}>
+                {/* Velvet Cushion */}
+                <path d="M30 76 C 30 48 90 48 90 76 Z" fill="#991b1b" />
+                {/* Crown Gold Base */}
+                <rect x="22" y="74" width="76" height="16" rx="4" fill="#fbbf24" stroke="#b45309" strokeWidth="2" />
+                {/* Arches & Spikes */}
+                <polygon points="26,74 34,42 46,62 60,34 74,62 86,42 94,74" fill="#f59e0b" stroke="#b45309" strokeWidth="2" />
+                {/* Jewels */}
+                <circle cx="34" cy="40" r="4" fill="#ef4444" />
+                <circle cx="60" cy="32" r="5" fill="#00f0ff" />
+                <circle cx="86" cy="40" r="4" fill="#22c55e" />
+                <circle cx="38" cy="82" r="3.5" fill="#ef4444" />
+                <circle cx="60" cy="82" r="4" fill="#3b82f6" />
+                <circle cx="82" cy="82" r="3.5" fill="#10b981" />
+            </svg>
+        );
+
+        const VectorPremium = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 24px rgba(115,66,226,0.5))" }}>
+                <defs>
+                    <linearGradient id="tgPremGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#8b5cf6" />
+                        <stop offset="50%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#00f0ff" />
+                    </linearGradient>
+                </defs>
+                {/* Multi-point Telegram Star */}
+                <polygon points="60,12 70,36 94,26 88,52 112,60 88,68 94,94 70,84 60,108 50,84 26,94 32,68 8,60 32,52 26,26 50,36" fill="url(#tgPremGrad)" />
+                <polygon points="60,28 66,48 86,52 70,64 74,84 60,72 46,84 50,64 34,52 54,48" fill="#ffffff" opacity="0.35" />
+            </svg>
+        );
+
+        const VectorGiftBox = ({ size = 80, style = {} }) => (
+            <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ ...style, filter: "drop-shadow(0 8px 18px rgba(115,66,226,0.35))" }}>
+                {/* Box Base */}
+                <rect x="24" y="52" width="72" height="52" rx="8" fill="#7342E2" />
+                <rect x="20" y="42" width="80" height="16" rx="5" fill="#8b5cf6" />
+                {/* Golden Ribbons */}
+                <rect x="54" y="52" width="12" height="52" fill="#ffd700" />
+                <rect x="54" y="42" width="12" height="16" fill="#ffd700" />
+                {/* Ribbon Bow */}
+                <path d="M60 42 C 45 28 35 38 56 42 Z" fill="#ffd700" stroke="#ca8a04" strokeWidth="1.5" />
+                <path d="M60 42 C 75 28 85 38 64 42 Z" fill="#ffd700" stroke="#ca8a04" strokeWidth="1.5" />
+                <circle cx="60" cy="42" r="5" fill="#ca8a04" />
+            </svg>
+        );
+
+        // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
+        const TelegramGiftMedia = ({ fileId, fileType, icon, name = "", size = "80px", style = {} }) => {
+            const sz = typeof size === 'number' ? `${size}px` : size;
+            const numSz = parseInt(size) || 80;
+
+            if (fileId) {
+                const src = `/api/telegram-file/${fileId}`;
+                const mergedStyle = { width: sz, height: sz, margin: "0 auto", objectFit: "contain", ...style };
+                if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
+                    return <video src={src} autoPlay loop muted playsInline style={mergedStyle}></video>;
+                } else if (fileType === "tgs") {
+                    return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+                } else if (fileType === "webp" || fileType === "png" || fileType === "jpg" || fileType === "image") {
+                    return <img src={src} style={mergedStyle} alt={name || "Gift"} />;
+                }
                 return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
-            } else if (fileType === "webp") {
-                return <img src={src} style={{ ...mergedStyle, objectFit: "contain" }} alt="Gift" />;
             }
-            // fallback
-            return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+
+            // High-fidelity Semantic Vector Fallbacks (Zero Unicode Emojis)
+            const key = (icon || name || "").toLowerCase();
+            if (key.includes("cake")) return <VectorCake size={numSz} style={style} />;
+            if (key.includes("star") || key.includes("yulduz")) return <VectorStar size={numSz} style={style} />;
+            if (key.includes("teddy") || key.includes("bear") || key.includes("ayiq")) return <VectorTeddy size={numSz} style={style} />;
+            if (key.includes("bouquet") || key.includes("flower") || key.includes("gul")) return <VectorBouquet size={numSz} style={style} />;
+            if (key.includes("champagne") || key.includes("bottle") || key.includes("shampan")) return <VectorChampagne size={numSz} style={style} />;
+            if (key.includes("ring") || key.includes("diamond_ring") || key.includes("uzuk")) return <VectorDiamondRing size={numSz} style={style} />;
+            if (key.includes("trophy") || key.includes("kubok")) return <VectorTrophy size={numSz} style={style} />;
+            if (key.includes("rocket") || key.includes("raketa")) return <VectorRocket size={numSz} style={style} />;
+            if (key.includes("cap") || key.includes("kepka")) return <VectorCap size={numSz} style={style} />;
+            if (key.includes("plush") || key.includes("oyunchoq")) return <VectorPlush size={numSz} style={style} />;
+            if (key.includes("crown") || key.includes("toj")) return <VectorCrown size={numSz} style={style} />;
+            if (key.includes("premium") || key.includes("tg_premium")) return <VectorPremium size={numSz} style={style} />;
+            if (key.includes("gem") || key.includes("diamond")) return <SvgGem size={Math.round(numSz * 0.75)} color="#00f0ff" style={style} />;
+            if (key.includes("swords") || key.includes("battle")) return <SvgSwords size={Math.round(numSz * 0.75)} color="#7342E2" style={style} />;
+            if (key.includes("ticket") || key.includes("scratch")) return <SvgTicket size={Math.round(numSz * 0.75)} color="#7342E2" style={style} />;
+            if (key.includes("calendar") || key.includes("streak")) return <SvgCalendar size={Math.round(numSz * 0.75)} color="#7342E2" style={style} />;
+
+            return <VectorGiftBox size={numSz} style={style} />;
         };
+
+        const MediaRenderer = TelegramGiftMedia;
+
 
         // ==================== MAIN APPLICATION ====================
         function App() {
-            // View state: 'landing' (Hero Section Password Manager) vs 'dashboard' (Alwayzz Studio Mode)
-            const [view, setView] = useState('landing');
+            // View state: 'login' (Dedicated CreatorFlow Login Gateway) vs 'dashboard' (CreatorFlow Studio)
+            const [view, setView] = useState('login');
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'videos' | 'cases' | 'nfts'
             const [drawerOpen, setDrawerOpen] = useState(false);
 
-            // Telegram user context & Login
-            const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "" });
+            // Telegram user context & Reactive Login
+            const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false });
             const [showLoginModal, setShowLoginModal] = useState(false);
             const [loginIdInput, setLoginIdInput] = useState('');
-            const [userStats, setUserStats] = useState({ balance_uzs: 0 });
+            const [userStats, setUserStats] = useState({ balance_uzs: 0, ton_balance: 0, is_vip: false, is_owner: false });
+            const [syncLoading, setSyncLoading] = useState(false);
+            const [syncSuccessToast, setSyncSuccessToast] = useState(false);
+            const [avatarImgError, setAvatarImgError] = useState(false);
 
-            // YouTube Channel Analytics & Video Downloader States
+            // YouTube Channel Analytics & Video Downloader States (Empty query by default — no quota drain)
             const [studioStats, setStudioStats] = useState({ total_videos: 0, total_views: 0, total_subscribers: 0, recent_videos: [] });
             const [channels, setChannels] = useState([]);
             const [feedVideos, setFeedVideos] = useState([]);
-            const [feedQuery, setFeedQuery] = useState('uzbekistan');
+            const [feedQuery, setFeedQuery] = useState('');
             const [feedLoading, setFeedLoading] = useState(false);
             const [selectedFormatsVideo, setSelectedFormatsVideo] = useState(null);
             const [formatsLoading, setFormatsLoading] = useState(false);
             const [downloadingFormat, setDownloadingFormat] = useState(null);
 
             const [starsCases, setStarsCases] = useState([]);
-            const [activeUnboxing, setActiveUnboxing] = useState(null); // case being opened
+            const [activeUnboxing, setActiveUnboxing] = useState(null);
             const [unboxingPrize, setUnboxingPrize] = useState(null);
             const [isRolling, setIsRolling] = useState(false);
             const [oddsModalCase, setOddsModalCase] = useState(null);
             const [userGifts, setUserGifts] = useState([
-                { prize_name: "Delicious Cake", prize_stars: 15, rarity: "common", icon: "🎂", date: "Bugun" },
-                { prize_name: "Bouquet of Flowers", prize_stars: 50, rarity: "rare", icon: "💐", date: "Bugun" },
-                { prize_name: "Black Cap Collectible", prize_stars: 1000, rarity: "legendary", icon: "🧢", is_nft: true, date: "Kecha" }
+                { prize_name: "Delicious Cake", prize_stars: 15, rarity: "common", icon: "cake", date: "Bugun" },
+                { prize_name: "Bouquet of Flowers", prize_stars: 50, rarity: "rare", icon: "bouquet", date: "Bugun" },
+                { prize_name: "Black Cap Collectible", prize_stars: 1000, rarity: "legendary", icon: "cap", is_nft: true, date: "Kecha" }
             ]);
 
             // ==================== 6 MONETIZATION SUITE STATES ====================
@@ -568,8 +1036,8 @@
             const [battleWinner, setBattleWinner] = useState(null);
             
             // Upgrader (Zero-Loss Protected)
-            const [upgraderItem, setUpgraderItem] = useState({ name: "Delicious Cake", stars: 15, icon: "🎂" });
-            const [upgraderTarget, setUpgraderTarget] = useState({ name: "Champagne Bottle", stars: 100, icon: "🍾" });
+            const [upgraderItem, setUpgraderItem] = useState({ name: "Delicious Cake", stars: 15, icon: "cake" });
+            const [upgraderTarget, setUpgraderTarget] = useState({ name: "Champagne Bottle", stars: 100, icon: "champagne" });
             const [upgraderAngle, setUpgraderAngle] = useState(0);
             const [isUpgrading, setIsUpgrading] = useState(false);
             const [upgradeResult, setUpgradeResult] = useState(null);
@@ -579,7 +1047,7 @@
             const [streakClaimedModal, setStreakClaimedModal] = useState(null);
             
             // Scratch Cards
-            const [scratchData, setScratchData] = useState({ won: false, symbols: ["🎬", "🎬", "⚡"], prize: null });
+            const [scratchData, setScratchData] = useState({ won: false, symbols: ["clapper", "clapper", "bolt"], prize: null });
             const [scratchFoilCleared, setScratchFoilCleared] = useState(false);
             const [isScratching, setIsScratching] = useState(false);
             const scratchCanvasRef = useRef(null);
@@ -796,7 +1264,7 @@
                     }
                 })
                 .catch(() => {
-                    setScratchData({ won: false, symbols: ["🎬", "🎬", "⚡"], prize: null });
+                    setScratchData({ won: false, symbols: ["clapper", "clapper", "bolt"], prize: null });
                     setTimeout(drawScratchCanvas, 80);
                 });
             };
@@ -817,7 +1285,7 @@
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 15px Inter, sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('✨ BARMOQ BILAN TIRNAB OCHING ✨', canvas.width / 2, canvas.height / 2 + 5);
+                ctx.fillText('BARMOQ BILAN TIRNAB OCHING', canvas.width / 2, canvas.height / 2 + 5);
             };
 
             const scratchMove = (e) => {
@@ -880,26 +1348,49 @@
                     return;
                 }
                 localStorage.setItem('creatorflow_tg_user_id', num);
-                setTgUser({ id: num, first_name: `Creator #${num}`, username: "" });
+                setTgUser({ id: num, first_name: `Creator #${num}`, username: "", photo_url: null, is_vip: false, is_owner: false });
                 setShowLoginModal(false);
+                setView('dashboard'); // Auto-redirect to dashboard studio
                 loadStudioStats(num);
                 loadChannels(num);
-                loadUserStats(num);
+                loadUserStats(num, true); // force Telegram live sync
             };
 
             const handleLogout = () => {
                 localStorage.removeItem('creatorflow_tg_user_id');
-                setTgUser({ id: 0, first_name: "Guest Creator", username: "" });
+                setTgUser({ id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false });
+                setUserStats({ balance_uzs: 0, ton_balance: 0, is_vip: false, is_owner: false });
+                setView('login');
             };
 
-            const loadUserStats = (uid) => {
+            const loadUserStats = (uid, forceRefresh = false) => {
                 const targetUid = uid || tgUser.id;
                 if (!targetUid) return;
-                fetch(`/api/bot_user?tg_user_id=${targetUid}`)
+                fetch(`/api/bot_user?tg_user_id=${targetUid}${forceRefresh ? '&refresh=1' : ''}`)
                     .then(r => r.json())
                     .then(d => {
-                        if (d && d.balance_uzs !== undefined) {
-                            setUserStats({ balance_uzs: d.balance_uzs });
+                        if (d && (d.ok || d.balance_uzs !== undefined)) {
+                            setUserStats({
+                                balance_uzs: d.balance_uzs || 0,
+                                ton_balance: d.ton_balance || 0,
+                                is_vip: d.is_vip || false,
+                                is_owner: d.is_owner || false
+                            });
+                            setTgUser(prev => ({
+                                ...prev,
+                                id: targetUid,
+                                first_name: d.first_name || prev.first_name || `Creator #${targetUid}`,
+                                last_name: d.last_name || prev.last_name || '',
+                                username: d.username || prev.username || '',
+                                photo_url: d.photo_url || prev.photo_url || null,
+                                photo_file_id: d.photo_file_id || prev.photo_file_id || null,
+                                is_vip: d.is_vip || false,
+                                is_owner: d.is_owner || false
+                            }));
+                            if (forceRefresh) {
+                                setSyncSuccessToast(true);
+                                setTimeout(() => setSyncSuccessToast(false), 2500);
+                            }
                         }
                     })
                     .catch(() => {});
@@ -979,32 +1470,77 @@
             };
 
             useEffect(() => {
-                // Initialize Telegram WebApp or localStorage user
+                setAvatarImgError(false);
+            }, [tgUser.photo_url]);
+
+            useEffect(() => {
+                // Initialize Telegram WebApp, URL params, or localStorage user
                 let uid = 0;
+                let userObj = null;
+
+                // 1. URL search params (?tg_user_id=... or ?user_id=...)
+                try {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const qId = parseInt(urlParams.get('tg_user_id') || urlParams.get('user_id') || '0');
+                    if (qId > 0) {
+                        uid = qId;
+                        localStorage.setItem('creatorflow_tg_user_id', uid);
+                    }
+                } catch(e) {}
+
+                // 2. Telegram WebApp SDK context
                 if (window.Telegram && window.Telegram.WebApp) {
                     const tg = window.Telegram.WebApp;
                     tg.ready();
                     tg.expand();
                     if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                        setTgUser(tg.initDataUnsafe.user);
-                        uid = tg.initDataUnsafe.user.id;
+                        const u = tg.initDataUnsafe.user;
+                        uid = u.id;
+                        userObj = u;
                         localStorage.setItem('creatorflow_tg_user_id', uid);
                     }
                 }
+
+                // 3. Saved localStorage session
                 if (!uid) {
                     const saved = localStorage.getItem('creatorflow_tg_user_id');
                     if (saved && parseInt(saved) > 0) {
                         uid = parseInt(saved);
-                        setTgUser({ id: uid, first_name: `Creator #${uid}`, username: "" });
                     }
                 }
-                if (uid) {
+
+                if (uid > 0) {
+                    setView('dashboard'); // Auto-redirect to dashboard studio
+                    setTgUser(prev => ({
+                        ...prev,
+                        id: uid,
+                        first_name: userObj ? (userObj.first_name || `Creator #${uid}`) : (prev.first_name || `Creator #${uid}`),
+                        last_name: userObj ? (userObj.last_name || '') : prev.last_name,
+                        username: userObj ? (userObj.username || '') : prev.username,
+                        photo_url: userObj ? (userObj.photo_url || null) : prev.photo_url
+                    }));
+                    // Instantly sync fresh profile to backend
+                    if (userObj) {
+                        fetch('/api/user/sync-profile', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                tg_user_id: uid,
+                                first_name: userObj.first_name,
+                                last_name: userObj.last_name,
+                                username: userObj.username,
+                                photo_url: userObj.photo_url
+                            })
+                        }).catch(() => {});
+                    }
                     loadStudioStats(uid);
                     loadChannels(uid);
-                    loadUserStats(uid);
+                    loadUserStats(uid, true);
+                } else {
+                    setView('login');
                 }
 
-                searchVideos("uzbekistan");
+                // Note: searchVideos("uzbekistan") removed to protect YouTube API quota
 
                 // Initial loads for Stars Cases
                 fetch('/api/stars/cases')
@@ -1016,11 +1552,11 @@
                     })
                     .catch(() => {
                         setStarsCases([
-                            { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, icon: "BOX", color: "#cd7f32", badge: "25 Stars", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "STAR", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "STAR", is_nft: false }] },
-                            { id: "tier_2", name: "Silver Creator Case", price_stars: 75, icon: "BOX", color: "#c0c0c0", badge: "75 Stars", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "STAR", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "STAR", is_nft: false }] },
-                            { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, icon: "BOX", color: "#ffd700", badge: "250 Stars", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "STAR", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "STAR", is_nft: false }] },
-                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, icon: "BOX", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "STAR", is_nft: false }, { stars: 1000, name: "Black Cap Collectible", rarity: "legendary", icon: "STAR", is_nft: true }] },
-                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, icon: "BOX", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "STAR", is_nft: false }, { stars: 1500, name: "Plush Collectible", rarity: "rare", icon: "STAR", is_nft: true }, { stars: 5000, name: "Royal Crown Collectible", rarity: "legendary", icon: "STAR", is_nft: true }] },
+                            { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, icon: "package", color: "#cd7f32", badge: "25 Stars", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "cake", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "star", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "teddy", is_nft: false }] },
+                            { id: "tier_2", name: "Silver Creator Case", price_stars: 75, icon: "package", color: "#c0c0c0", badge: "75 Stars", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "bouquet", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "champagne", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "diamond_ring", is_nft: false }] },
+                            { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, icon: "package", color: "#ffd700", badge: "250 Stars", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "champagne", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "diamond_ring", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "trophy", is_nft: false }] },
+                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, icon: "package", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "trophy", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "rocket", is_nft: false }, { stars: 1000, name: "Black Cap Collectible", rarity: "legendary", icon: "cap", is_nft: true }] },
+                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, icon: "package", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "rocket", is_nft: false }, { stars: 1500, name: "Plush Collectible", rarity: "rare", icon: "plush", is_nft: true }, { stars: 5000, name: "Royal Crown Collectible", rarity: "legendary", icon: "crown", is_nft: true }] },
                         ]);
                     });
 
@@ -1168,355 +1704,261 @@
 
             return (
                 <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
-                    {/* View Switcher Top Pill (Fixed Floating Toolbar) */}
-                    <div style={{
-                        position: "fixed",
-                        bottom: "24px",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        zIndex: 9999,
-                        background: "rgba(25, 40, 55, 0.92)",
-                        backdropFilter: "blur(12px)",
-                        padding: "6px 10px",
-                        borderRadius: "999px",
-                        display: "flex",
-                        gap: "6px",
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.3)"
-                    }}>
-                        <button
-                            onClick={() => setView('landing')}
-                            style={{
-                                border: "none",
-                                outline: "none",
-                                background: view === 'landing' ? "#7342E2" : "transparent",
-                                color: "#ffffff",
-                                padding: "8px 18px",
-                                borderRadius: "999px",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                transition: "all 0.2s"
-                            }}
-                        >
-                            🔒 Landing Page Hero
-                        </button>
-                        <button
-                            onClick={() => setView('dashboard')}
-                            style={{
-                                border: "none",
-                                outline: "none",
-                                background: view === 'dashboard' ? "#ffffff" : "transparent",
-                                color: view === 'dashboard' ? "#0a0a0a" : "#ffffff",
-                                padding: "8px 18px",
-                                borderRadius: "999px",
-                                fontSize: "13px",
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                transition: "all 0.2s"
-                            }}
-                        >
-                            ⭐ Alwayzz Studio & Stars Cases
-                        </button>
-                    </div>
-
-                    {/* =========================================================================
-                        PAGE 1: PASSWORD MANAGER STYLE HERO LANDING SECTION
-                        ========================================================================= */}
-                    {view === 'landing' && (
-                        <div style={{ position: "relative", minHeight: "100vh", background: "var(--color-login-bg)", overflow: "hidden" }}>
-                            {/* Looping Full-Viewport Video Background */}
-                            <video
-                                className="video-bg"
-                                autoPlay
-                                muted
-                                loop
-                                playsInline
-                                src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260606_131516_eca35265-ea66-4fbd-8d52-22aae6e1a503.mp4"
-                            />
-
-                            {/* Navbar */}
-                            <nav style={{
-                                position: "relative",
-                                zIndex: 10,
-                                maxWidth: "1280px",
-                                margin: "0 auto",
-                                padding: "20px 24px",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center"
-                            }}>
-                                {/* Left Logo */}
-                                <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
-                                    <SvgLogo size={32} color="#192837" />
-                                    <span style={{ fontFamily: "var(--font-heading)", fontSize: "20px", fontWeight: 700, color: "var(--color-text)", letterSpacing: "-0.02em" }}>
-                                        CreatorFlow
-                                    </span>
-                                </div>
-
-                                {/* Center Links (Desktop) */}
-                                <div style={{ display: "flex", gap: "32px", alignItems: "center" }} className="desktop-links">
-                                    {["Vault", "Plans", "Install", "News", "Help"].map((link, idx) => (
-                                        <a
-                                            key={idx}
-                                            href={`#${link.toLowerCase()}`}
-                                            onClick={(e) => { e.preventDefault(); setView('dashboard'); }}
-                                            style={{
-                                                textDecoration: "none",
-                                                fontSize: "14px",
-                                                fontWeight: 500,
-                                                color: "var(--color-text)",
-                                                transition: "opacity 0.2s",
-                                                opacity: 0.9
-                                            }}
-                                            onMouseEnter={(e) => e.target.style.opacity = "0.7"}
-                                            onMouseLeave={(e) => e.target.style.opacity = "0.9"}
-                                        >
-                                            {link}
-                                        </a>
-                                    ))}
-                                </div>
-
-                                {/* Right Pill Buttons (Desktop) */}
-                                <div style={{ display: "flex", gap: "12px", alignItems: "center" }} className="desktop-buttons">
-                                    <button
-                                        onClick={() => setView('dashboard')}
-                                        style={{
-                                            background: "var(--color-accent)",
-                                            color: "#ffffff",
-                                            fontSize: "14px",
-                                            fontWeight: 600,
-                                            padding: "10px 20px",
-                                            borderRadius: "999px",
-                                            border: "none",
-                                            cursor: "pointer",
-                                            boxShadow: "0 4px 16px rgba(115, 66, 226, 0.25)",
-                                            transition: "all 0.2s"
-                                        }}
-                                        onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
-                                        onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-                                    >
-                                        Start For Free
-                                    </button>
-                                    <button
-                                        onClick={() => setView('dashboard')}
-                                        style={{
-                                            background: "var(--color-login-bg)",
-                                            color: "var(--color-text)",
-                                            fontSize: "14px",
-                                            fontWeight: 600,
-                                            padding: "10px 20px",
-                                            borderRadius: "999px",
-                                            border: "1px solid rgba(25, 40, 55, 0.12)",
-                                            cursor: "pointer",
-                                            transition: "all 0.2s"
-                                        }}
-                                    >
-                                        Sign In
-                                    </button>
-                                </div>
-
-                                {/* Mobile Menu Toggle */}
-                                <div style={{ display: "none" }} className="mobile-toggle">
-                                    <button
-                                        onClick={() => setMobileMenuOpen(true)}
-                                        style={{ background: "transparent", border: "none", cursor: "pointer" }}
-                                    >
-                                        <MenuIcon size={26} color="#192837" />
-                                    </button>
-                                </div>
-                            </nav>
-
-                            {/* Mobile Slide-in Menu Sheet */}
-                            {mobileMenuOpen && (
-                                <>
-                                    <div
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        style={{
-                                            position: "fixed",
-                                            inset: 0,
-                                            zIndex: 9998,
-                                            background: "rgba(25, 40, 55, 0.35)",
-                                            backdropFilter: "blur(4px)",
-                                            transition: "opacity 0.3s ease"
-                                        }}
-                                    />
-                                    <div className="slide-sheet" style={{
-                                        position: "fixed",
-                                        top: 0,
-                                        right: 0,
-                                        width: "min(88vw, 360px)",
-                                        height: "100dvh",
-                                        background: "#CFC8C5",
-                                        zIndex: 9999,
-                                        boxShadow: "-12px 0 48px rgba(25,40,55,0.18)",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        padding: "24px 0"
-                                    }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 24px 20px" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                                <SvgLogo size={28} color="#192837" />
-                                                <span style={{ fontWeight: 700, fontSize: "18px" }}>CreatorFlow</span>
-                                            </div>
-                                            <button
-                                                onClick={() => setMobileMenuOpen(false)}
-                                                style={{
-                                                    width: "40px",
-                                                    height: "40px",
-                                                    borderRadius: "50%",
-                                                    background: "rgba(25,40,55,0.1)",
-                                                    border: "none",
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center"
-                                                }}
-                                            >
-                                                <XIcon size={20} color="#192837" />
-                                            </button>
-                                        </div>
-                                        <div style={{ height: "1px", background: "rgba(25,40,55,0.12)", margin: "0 24px 20px" }} />
-                                        <div style={{ display: "flex", flexDirection: "column", gap: "8px", padding: "0 24px", flex: 1 }}>
-                                            {["Vault", "Plans", "Install", "News", "Help"].map((link, idx) => (
-                                                <a
-                                                    key={idx}
-                                                    href={`#${link.toLowerCase()}`}
-                                                    onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); setView('dashboard'); }}
-                                                    style={{
-                                                        textDecoration: "none",
-                                                        fontSize: "1.1rem",
-                                                        fontWeight: 600,
-                                                        color: "var(--color-text)",
-                                                        padding: "12px 16px",
-                                                        borderRadius: "12px",
-                                                        animation: `stagger-link 0.4s ease ${0.18 + idx * 0.07}s forwards`,
-                                                        opacity: 0,
-                                                        transition: "background 0.2s"
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.background = "rgba(0,0,0,0.1)"}
-                                                    onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                                                >
-                                                    {link}
-                                                </a>
-                                            ))}
-                                        </div>
-                                        <div style={{ padding: "0 24px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                                            <button
-                                                onClick={() => { setMobileMenuOpen(false); setView('dashboard'); }}
-                                                style={{
-                                                    background: "var(--color-accent)",
-                                                    color: "#ffffff",
-                                                    padding: "14px 0",
-                                                    borderRadius: "999px",
-                                                    border: "none",
-                                                    fontWeight: 600,
-                                                    fontSize: "0.95rem",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                Start For Free
-                                            </button>
-                                            <button
-                                                onClick={() => { setMobileMenuOpen(false); setView('dashboard'); }}
-                                                style={{
-                                                    background: "var(--color-login-bg)",
-                                                    color: "var(--color-text)",
-                                                    padding: "14px 0",
-                                                    borderRadius: "999px",
-                                                    border: "1px solid rgba(25,40,55,0.15)",
-                                                    fontWeight: 600,
-                                                    fontSize: "0.95rem",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                Sign In
-                                            </button>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Hero Section Container */}
-                            <div style={{
-                                position: "relative",
-                                zIndex: 10,
-                                maxWidth: "1280px",
-                                margin: "0 auto",
-                                paddingTop: "clamp(40px, 8vw, 72px)",
-                                paddingBottom: "48px",
-                                paddingLeft: "24px",
-                                paddingRight: "24px",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center"
-                            }}>
-                                <div style={{ maxWidth: "660px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                    {/* Heading */}
-                                    <h1 className="hero-anim-0" style={{
-                                        fontFamily: "var(--font-heading)",
-                                        fontSize: "clamp(1.65rem, 5vw, 3rem)",
-                                        lineHeight: 1.05,
-                                        letterSpacing: "-0.01em",
-                                        color: "var(--color-text)",
-                                        marginBottom: "20px"
-                                    }}>
-                                        <span style={{ whiteSpace: "nowrap" }}>
-                                            Lock <ZapIcon size={26} color="#192837" /> Down Your <LockIcon size={26} color="#192837" /> Passwords
-                                        </span>
-                                        <br />
-                                        <span>
-                                            with Ironclad Security <FingerprintIcon size={26} color="#192837" />
-                                        </span>
-                                    </h1>
-
-                                    {/* Subtext */}
-                                    <p className="hero-anim-1" style={{
-                                        fontFamily: "var(--font-body)",
-                                        fontSize: "clamp(0.9rem, 2.5vw, 1.1rem)",
-                                        color: "var(--color-text)",
-                                        opacity: 0.8,
-                                        maxWidth: "560px",
-                                        lineHeight: 1.65,
-                                        margin: "0 auto 36px"
-                                    }}>
-                                        Zero stress, total control. Unbreakable storage, one-tap access, and pro-grade tools for your non-stop world.
-                                    </p>
-
-                                    {/* CTA Button */}
-                                    <button
-                                        className="hero-anim-2"
-                                        onClick={() => setView('dashboard')}
-                                        style={{
-                                            borderRadius: "50px",
-                                            background: "var(--color-accent)",
-                                            color: "#ffffff",
-                                            fontSize: "clamp(0.9rem, 2vw, 1rem)",
-                                            padding: "17px 24px",
-                                            minWidth: "210px",
-                                            boxShadow: "0 4px 24px rgba(115,66,226,0.28)",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            gap: "32px",
-                                            border: "none",
-                                            cursor: "pointer",
-                                            fontWeight: 600,
-                                            transition: "all 0.2s ease"
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.filter = "brightness(1.1)"; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.filter = "brightness(1)"; }}
-                                        onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
-                                    >
-                                        <span>Get It Free</span>
-                                        <ArrowRightCircleIcon size={22} color="#ffffff" />
-                                    </button>
-                                </div>
-                            </div>
+                    {/* Reactive Sync Toast */}
+                    {syncSuccessToast && (
+                        <div style={{
+                            position: "fixed",
+                            top: "84px",
+                            right: "24px",
+                            zIndex: 9999,
+                            background: "#0a0a0a",
+                            color: "#ffffff",
+                            padding: "10px 18px",
+                            borderRadius: "12px",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                            border: "1px solid rgba(255,255,255,0.1)",
+                            animation: "fadeIn 0.3s ease"
+                        }}>
+                            <SvgCheckCircle size={16} color="#10b981" />
+                            <span>Profil & Balans yangilandi!</span>
                         </div>
                     )}
 
                     {/* =========================================================================
-                        PAGE 2: ALWAYZZ STYLE CREATIVE AGENCY HERO & DASHBOARD STUDIO
+                        PAGE 1: DEDICATED CREATORFLOW STUDIO LOGIN GATEWAY
+                        ========================================================================= */}
+                    {view === 'login' && (
+                        <div style={{
+                            position: "relative",
+                            minHeight: "100vh",
+                            background: "#090A0F",
+                            color: "#ffffff",
+                            overflow: "hidden",
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between"
+                        }}>
+                            {/* Ambient Light Gradients */}
+                            <div style={{
+                                position: "absolute",
+                                top: "-10%",
+                                left: "50%",
+                                transform: "translateX(-50%)",
+                                width: "650px",
+                                height: "450px",
+                                background: "radial-gradient(circle, rgba(115, 66, 226, 0.28) 0%, rgba(0, 240, 255, 0.08) 50%, transparent 70%)",
+                                pointerEvents: "none",
+                                filter: "blur(60px)"
+                            }} />
+
+                            {/* Top Navbar */}
+                            <nav style={{
+                                position: "relative",
+                                zIndex: 10,
+                                maxWidth: "1200px",
+                                width: "100%",
+                                margin: "0 auto",
+                                padding: "24px 28px",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center"
+                            }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                    <SvgLogo size={34} color="#ffffff" />
+                                    <span style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.03em", color: "#ffffff" }}>
+                                        CreatorFlow
+                                    </span>
+                                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#00F0FF", background: "rgba(0, 240, 255, 0.12)", border: "1px solid rgba(0, 240, 255, 0.25)", padding: "2px 8px", borderRadius: "999px" }}>
+                                        Studio
+                                    </span>
+                                </div>
+
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 10px #10b981" }} />
+                                    <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>Telegram Bot Online</span>
+                                </div>
+                            </nav>
+
+                            {/* Center Gateway Container */}
+                            <div style={{
+                                position: "relative",
+                                zIndex: 10,
+                                maxWidth: "520px",
+                                width: "100%",
+                                margin: "20px auto 40px",
+                                padding: "0 24px",
+                                textAlign: "center"
+                            }}>
+                                <div style={{
+                                    background: "rgba(255, 255, 255, 0.03)",
+                                    backdropFilter: "blur(24px)",
+                                    WebkitBackdropFilter: "blur(24px)",
+                                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                                    borderRadius: "28px",
+                                    padding: "40px 32px",
+                                    boxShadow: "0 24px 64px rgba(0,0,0,0.6)"
+                                }}>
+                                    {/* Badge */}
+                                    <div style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "6px",
+                                        background: "rgba(115, 66, 226, 0.15)",
+                                        border: "1px solid rgba(115, 66, 226, 0.35)",
+                                        padding: "6px 14px",
+                                        borderRadius: "999px",
+                                        fontSize: "12px",
+                                        fontWeight: 700,
+                                        color: "#c084fc",
+                                        marginBottom: "20px"
+                                    }}>
+                                        <SvgSparkles size={14} color="#00f0ff" />
+                                        <span>CreatorFlow AI & Stars Suite</span>
+                                    </div>
+
+                                    {/* Heading */}
+                                    <h1 style={{
+                                        fontSize: "clamp(24px, 5vw, 32px)",
+                                        fontWeight: 800,
+                                        letterSpacing: "-0.03em",
+                                        lineHeight: 1.15,
+                                        color: "#ffffff",
+                                        marginBottom: "12px"
+                                    }}>
+                                        CreatorFlow Studio
+                                    </h1>
+                                    <p style={{
+                                        fontSize: "14px",
+                                        color: "rgba(255, 255, 255, 0.65)",
+                                        lineHeight: 1.55,
+                                        marginBottom: "28px"
+                                    }}>
+                                        Bot hisobingiz, YouTube kanallaringiz statistikasi va Stars keyslarini boshqarish uchun Telegram ID orqali kiring.
+                                    </p>
+
+                                    {/* Direct ID Login Form */}
+                                    <form onSubmit={handleLogin} style={{ textAlign: "left" }}>
+                                        <div style={{ marginBottom: "18px" }}>
+                                            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)", marginBottom: "8px" }}>
+                                                Telegram User ID
+                                            </label>
+                                            <div style={{ position: "relative" }}>
+                                                <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                                                    <SvgUser size={18} color="#7342E2" />
+                                                </div>
+                                                <input
+                                                    type="number"
+                                                    value={loginIdInput}
+                                                    onChange={(e) => setLoginIdInput(e.target.value)}
+                                                    placeholder="Masalan: 123456789"
+                                                    autoFocus
+                                                    style={{
+                                                        width: "100%",
+                                                        padding: "14px 16px 14px 44px",
+                                                        borderRadius: "14px",
+                                                        border: "1px solid rgba(255, 255, 255, 0.12)",
+                                                        background: "rgba(255, 255, 255, 0.06)",
+                                                        color: "#ffffff",
+                                                        fontSize: "15px",
+                                                        outline: "none",
+                                                        boxSizing: "border-box",
+                                                        transition: "all 0.2s"
+                                                    }}
+                                                    onFocus={(e) => { e.target.style.borderColor = "#7342E2"; e.target.style.background = "rgba(255,255,255,0.09)"; }}
+                                                    onBlur={(e) => { e.target.style.borderColor = "rgba(255,255,255,0.12)"; e.target.style.background = "rgba(255,255,255,0.06)"; }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            style={{
+                                                width: "100%",
+                                                padding: "14px 0",
+                                                borderRadius: "14px",
+                                                background: "linear-gradient(135deg, #7342E2 0%, #5a2eb8 100%)",
+                                                color: "#ffffff",
+                                                border: "none",
+                                                fontWeight: 700,
+                                                fontSize: "15px",
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                gap: "8px",
+                                                boxShadow: "0 6px 20px rgba(115, 66, 226, 0.35)",
+                                                transition: "all 0.2s"
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = "brightness(1.1)"}
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = "brightness(1)"}
+                                            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
+                                            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                        >
+                                            <span>Dashboard-ga Kirish</span>
+                                            <SvgArrowRight size={18} color="#ffffff" />
+                                        </button>
+                                    </form>
+
+                                    <div style={{ marginTop: "18px", fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+                                        Telegram botimizda <span style={{ color: "#00F0FF", fontWeight: 700 }}>/start</span> buyrug'ini yuborib ID raqamingizni bilib olishingiz mumkin.
+                                    </div>
+                                </div>
+
+                                {/* 4 Feature Cards */}
+                                <div style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(2, 1fr)",
+                                    gap: "12px",
+                                    marginTop: "24px"
+                                }}>
+                                    {[
+                                        { title: "Kanal Analitikasi", desc: "Real-vaqt statistikasi", icon: SvgBarChart },
+                                        { title: "Stars Mystery Keyslar", desc: "Telegram Gifts & NFT", icon: SvgGift },
+                                        { title: "Video Yuklab Olish", desc: "1080p & 4K formatlar", icon: SvgDownload },
+                                        { title: "AI Kreativ Studio", desc: "SEO & avtomatizatsiya", icon: SvgSparkles }
+                                    ].map((feat, idx) => (
+                                        <div
+                                            key={idx}
+                                            style={{
+                                                background: "rgba(255, 255, 255, 0.02)",
+                                                border: "1px solid rgba(255, 255, 255, 0.06)",
+                                                borderRadius: "16px",
+                                                padding: "14px",
+                                                textAlign: "left"
+                                            }}
+                                        >
+                                            <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "rgba(115, 66, 226, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
+                                                <feat.icon size={16} color="#00F0FF" />
+                                            </div>
+                                            <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffffff" }}>{feat.title}</div>
+                                            <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", marginTop: "2px" }}>{feat.desc}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <footer style={{
+                                position: "relative",
+                                zIndex: 10,
+                                textAlign: "center",
+                                padding: "20px 24px",
+                                borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                                fontSize: "12px",
+                                color: "rgba(255, 255, 255, 0.4)"
+                            }}>
+                                © {new Date().getFullYear()} CreatorFlow Studio. Barcha huquqlar himoyalangan.
+                            </footer>
+                        </div>
+                    )}
+
+                    {/* =========================================================================
+                        PAGE 2: CREATORFLOW STUDIO DASHBOARD
                         ========================================================================= */}
                     {view === 'dashboard' && (
                         <div style={{ position: "relative", minHeight: "100vh", background: "#ffffff", color: "var(--text)" }}>
@@ -1539,32 +1981,147 @@
                                     justifyContent: "space-between",
                                     alignItems: "center"
                                 }}>
-                                    {/* Left: Alwayzz Logo in Source Serif 4 */}
-                                    <div style={{ display: "flex", alignItems: "baseline", cursor: "pointer" }} onClick={() => setView('landing')}>
-                                        <span className="serif italic" style={{ fontSize: "30px", fontWeight: 600, letterSpacing: "-0.08em", color: "var(--text)" }}>
-                                            Alwayzz
-                                        </span>
-                                        <sup style={{ fontFamily: "Inter, sans-serif", fontSize: "14px", fontWeight: 600, marginLeft: "2px" }}>®</sup>
-                                        <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--muted)", marginLeft: "12px", background: "#f5f5f5", padding: "2px 8px", borderRadius: "999px" }}>
-                                            CreatorFlow Suite
-                                        </span>
+                                    {/* Left: CreatorFlow Studio Brand Logo */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }} onClick={() => setView('dashboard')}>
+                                        <SvgLogo size={32} color="#7342E2" />
+                                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                            <span style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)" }}>
+                                                CreatorFlow
+                                            </span>
+                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#7342E2", background: "rgba(115, 66, 226, 0.08)", padding: "2px 8px", borderRadius: "999px" }}>
+                                                Studio
+                                            </span>
+                                            <span style={{ fontSize: "10px", fontWeight: 700, color: "#10b981", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "1px 6px", borderRadius: "6px" }}>
+                                                AutoReply AI
+                                            </span>
+                                        </div>
                                     </div>
 
-                                    {/* Right: User Auth & Menu */}
-                                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                    {/* Right: User Avatar Photo, Reactive Sync & Actions */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                         {tgUser.id > 0 ? (
-                                            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "6px 14px", borderRadius: "999px" }}>
-                                                <SvgUser size={14} color="#16a34a" />
-                                                <span style={{ fontSize: "13px", fontWeight: 700, color: "#16a34a" }}>ID: {tgUser.id}</span>
-                                                <button onClick={handleLogout} style={{ border: "none", background: "transparent", fontSize: "11px", color: "#dc2626", fontWeight: 700, cursor: "pointer", marginLeft: "4px" }}>Chiqish</button>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                {/* Profile Avatar (Real Photo with SVG Fallback) */}
+                                                <div style={{
+                                                    position: "relative",
+                                                    width: "38px",
+                                                    height: "38px",
+                                                    borderRadius: "50%",
+                                                    overflow: "hidden",
+                                                    background: "#f4f0ff",
+                                                    border: "2px solid #7342E2",
+                                                    flexShrink: 0,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center"
+                                                }}>
+                                                    {tgUser.photo_url && !avatarImgError ? (
+                                                        <img
+                                                            src={tgUser.photo_url}
+                                                            alt={tgUser.first_name}
+                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                            onError={() => setAvatarImgError(true)}
+                                                        />
+                                                    ) : (
+                                                        <SvgUser size={18} color="#7342E2" />
+                                                    )}
+                                                </div>
+
+                                                {/* User Info & So'm Balance */}
+                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.2 }}>
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#18181b" }}>
+                                                            {tgUser.first_name} {tgUser.last_name || ""}
+                                                        </span>
+                                                        {tgUser.is_vip && (
+                                                            <span style={{ background: "linear-gradient(135deg, #ffd700, #ffaa00)", color: "#000", fontSize: "9px", fontWeight: 800, padding: "1px 5px", borderRadius: "4px" }}>
+                                                                VIP
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                                                        <span style={{ fontSize: "12px", fontWeight: 700, color: "#16a34a" }}>
+                                                            {Number(userStats.balance_uzs || 0).toLocaleString()} so'm
+                                                        </span>
+                                                        {tgUser.username && (
+                                                            <span style={{ fontSize: "11px", color: "#71717a" }}>
+                                                                @{tgUser.username}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Reactive Sync Button */}
+                                                <button
+                                                    onClick={() => {
+                                                        if (syncLoading) return;
+                                                        setSyncLoading(true);
+                                                        try {
+                                                            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+                                                                const u = window.Telegram.WebApp.initDataUnsafe.user;
+                                                                fetch('/api/user/sync-profile', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        tg_user_id: u.id,
+                                                                        first_name: u.first_name,
+                                                                        last_name: u.last_name,
+                                                                        username: u.username,
+                                                                        photo_url: u.photo_url
+                                                                    })
+                                                                }).catch(() => {});
+                                                            }
+                                                        } catch(e) {}
+                                                        loadUserStats(tgUser.id, true);
+                                                        loadStudioStats(tgUser.id);
+                                                        setTimeout(() => setSyncLoading(false), 1200);
+                                                    }}
+                                                    title="Profil va balansni sinxronlash"
+                                                    style={{
+                                                        background: "#f4f4f5",
+                                                        border: "1px solid #e4e4e7",
+                                                        borderRadius: "50%",
+                                                        width: "34px",
+                                                        height: "34px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        cursor: syncLoading ? "not-allowed" : "pointer",
+                                                        transition: "all 0.2s"
+                                                    }}
+                                                >
+                                                    <SvgRefreshCw size={14} color="#71717a" className={syncLoading ? "spin" : ""} />
+                                                </button>
+
+                                                {/* Logout */}
+                                                <button
+                                                    onClick={handleLogout}
+                                                    title="Chiqish"
+                                                    style={{
+                                                        background: "#fef2f2",
+                                                        border: "1px solid #fecaca",
+                                                        borderRadius: "999px",
+                                                        padding: "6px 12px",
+                                                        fontSize: "12px",
+                                                        fontWeight: 700,
+                                                        color: "#dc2626",
+                                                        cursor: "pointer",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        gap: "4px"
+                                                    }}
+                                                >
+                                                    <SvgLogOut size={13} color="#dc2626" />
+                                                    <span>Chiqish</span>
+                                                </button>
                                             </div>
                                         ) : (
                                             <button
-                                                onClick={() => setShowLoginModal(true)}
+                                                onClick={() => setView('login')}
                                                 style={{
                                                     background: "linear-gradient(135deg, #7342E2, #5a2eb8)",
                                                     color: "#ffffff",
-                                                    padding: "8px 16px",
+                                                    padding: "8px 18px",
                                                     borderRadius: "999px",
                                                     fontSize: "13px",
                                                     fontWeight: 600,
@@ -1742,7 +2299,7 @@
                                         ))}
                                     </div>
                                     <div style={{ textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
-                                        © {new Date().getFullYear()} Alwayzz Creative Studio. All Rights Reserved.
+                                        © {new Date().getFullYear()} CreatorFlow Studio. All Rights Reserved.
                                     </div>
                                 </div>
                             )}
@@ -2083,7 +2640,7 @@
                             {(activeTab === 'cases' || activeTab === 'nfts') && (
                                 <>
                                     {/* Hero Section */}
-                                    <section className="alwayzz-hero-section" style={{
+                                    <section className="creatorflow-hero-section" style={{
                                         position: "relative",
                                         minHeight: "850px",
                                         padding: "160px 36px 80px",
@@ -2094,7 +2651,7 @@
                                 overflow: "hidden"
                             }}>
                                 {/* Background Image */}
-                                <div className="alwayzz-hero-bg" style={{
+                                <div className="creatorflow-hero-bg" style={{
                                     position: "absolute",
                                     inset: 0,
                                     backgroundImage: `url("https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260626_041422_4a459e05-abce-4150-9fb7-4ededc423cd1.png&w=1280&q=85")`,
@@ -2227,8 +2784,8 @@
                                         color: "var(--text)",
                                         marginBottom: "20px"
                                     }}>
-                                        Premium creative <span className="serif italic" style={{ letterSpacing: "-0.08em" }}>alwayzz</span>
-                                        <sup style={{ fontFamily: "Inter, sans-serif", fontSize: "24px", fontWeight: 600, verticalAlign: "super" }}>®</sup> on demand.
+                                        Premium creative <span className="serif italic" style={{ letterSpacing: "-0.08em" }}>CreatorFlow</span>
+                                        <sup style={{ fontFamily: "Inter, sans-serif", fontSize: "20px", fontWeight: 600, verticalAlign: "super" }}>AI</sup> on demand.
                                     </h1>
 
                                     {/* Subtitle */}
@@ -2240,11 +2797,11 @@
                                         color: "var(--muted)",
                                         margin: "0 auto 36px"
                                     }}>
-                                        A flexible design partnership for founders, brands, and agencies who want top craft delivered on their timeline.
+                                        Kuchli AI vositalar, YouTube tahlillari va Telegram Stars ekotizimi orqali kanalingizni yangi bosqichga olib chiqing.
                                     </p>
 
                                     {/* CTA Row */}
-                                    <div className="alwayzz-cta-row" style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+                                    <div className="creatorflow-cta-row" style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
                                         <button
                                             onClick={() => {
                                                 const el = document.getElementById("stars-cases-section");
@@ -2381,15 +2938,15 @@
                                     <div style={{ overflow: "hidden", whiteSpace: "nowrap", flex: 1, position: "relative" }}>
                                         <div className="ticker-track">
                                             {(recentDrops.length > 0 ? recentDrops.concat(recentDrops) : [
-                                                { user: "@jasur_films", item: "Teddy Bear", stars: 50, icon: "🧸", rarity: "legendary" },
-                                                { user: "@azamat_editor", item: "Champagne Bottle", stars: 100, icon: "🍾", rarity: "rare" },
-                                                { user: "@shoxruh_yt", item: "Space Rocket", stars: 1000, icon: "🚀", rarity: "rare" },
-                                                { user: "@kamila_pro", item: "Delicious Cake", stars: 15, icon: "🎂", rarity: "common" },
-                                                { user: "@islom_vlogs", item: "Diamond Ring", stars: 250, icon: "💍", rarity: "legendary" },
-                                                { user: "@bobur_media", item: "Golden Trophy", stars: 500, icon: "🏆", rarity: "rare" }
+                                                { user: "@jasur_films", item: "Teddy Bear", stars: 50, icon: "teddy", rarity: "legendary" },
+                                                { user: "@azamat_editor", item: "Champagne Bottle", stars: 100, icon: "champagne", rarity: "rare" },
+                                                { user: "@shoxruh_yt", item: "Space Rocket", stars: 1000, icon: "rocket", rarity: "rare" },
+                                                { user: "@kamila_pro", item: "Delicious Cake", stars: 15, icon: "cake", rarity: "common" },
+                                                { user: "@islom_vlogs", item: "Diamond Ring", stars: 250, icon: "diamond_ring", rarity: "legendary" },
+                                                { user: "@bobur_media", item: "Golden Trophy", stars: 500, icon: "trophy", rarity: "rare" }
                                             ].concat([
-                                                { user: "@jasur_films", item: "Teddy Bear", stars: 50, icon: "🧸", rarity: "legendary" },
-                                                { user: "@azamat_editor", item: "Champagne Bottle", stars: 100, icon: "🍾", rarity: "rare" }
+                                                { user: "@jasur_films", item: "Teddy Bear", stars: 50, icon: "teddy", rarity: "legendary" },
+                                                { user: "@azamat_editor", item: "Champagne Bottle", stars: 100, icon: "champagne", rarity: "rare" }
                                             ])).map((d, i) => (
                                                 <div key={i} style={{
                                                     display: "inline-flex",
@@ -2403,10 +2960,10 @@
                                                     color: "#ffffff"
                                                 }}>
                                                     <span style={{ color: "#8e8e93", fontWeight: 500 }}>{d.user}</span>
-                                                    <span style={{ color: "#555", fontSize: "11px" }}>➔</span>
-                                                    <span style={{ fontSize: "16px" }}>{d.icon}</span>
+                                                    <SvgArrowRight size={11} color="#666" />
+                                                    <TelegramGiftMedia icon={d.icon} name={d.item} size="18px" />
                                                     <span style={{ fontWeight: 600, color: "#ffffff" }}>{d.item}</span>
-                                                    {d.stars > 0 && <span style={{ color: "#ffd700", fontWeight: 700, fontSize: "12px" }}>{d.stars} ⭐</span>}
+                                                    {d.stars > 0 && <span style={{ color: "#ffd700", fontWeight: 700, fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "3px" }}>{d.stars} <SvgStar size={12} color="#ffd700" /></span>}
                                                     <span style={{
                                                         fontSize: "10px",
                                                         fontWeight: 800,
@@ -2451,12 +3008,12 @@
                                     margin: "0 auto 44px"
                                 }}>
                                     {[
-                                        { id: 'cases', label: "📦 Mystery Keyslar" },
-                                        { id: 'battles', label: "⚔️ PvP Jang Maydoni" },
-                                        { id: 'upgrader', label: "⚡ Nazoratli Upgrader" },
-                                        { id: 'streak', label: "📅 7-Kunlik Davomat" },
-                                        { id: 'scratch', label: "🎟️ Skretch Chipta" },
-                                        { id: 'redeem', label: "🏪 Creator Do'koni" }
+                                        { id: 'cases', label: "Mystery Keyslar", icon: SvgGift },
+                                        { id: 'battles', label: "PvP Jang Maydoni", icon: SvgSwords },
+                                        { id: 'upgrader', label: "Nazoratli Upgrader", icon: SvgZap },
+                                        { id: 'streak', label: "7-Kunlik Davomat", icon: SvgCalendar },
+                                        { id: 'scratch', label: "Skretch Chipta", icon: SvgTicket },
+                                        { id: 'redeem', label: "Creator Do'koni", icon: SvgPackage }
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
@@ -2464,17 +3021,21 @@
                                             style={{
                                                 padding: "10px 18px",
                                                 borderRadius: "999px",
-                                                fontSize: "14px",
-                                                fontWeight: 600,
+                                                fontSize: "13px",
+                                                fontWeight: 700,
                                                 border: "none",
                                                 cursor: "pointer",
                                                 background: starsSubTab === tab.id ? "#0a0a0a" : "transparent",
                                                 color: starsSubTab === tab.id ? "#ffffff" : "var(--muted)",
                                                 boxShadow: starsSubTab === tab.id ? "0 4px 14px rgba(0,0,0,0.15)" : "none",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "8px",
                                                 transition: "all 0.2s ease"
                                             }}
                                         >
-                                            {tab.label}
+                                            <tab.icon size={15} color={starsSubTab === tab.id ? "#ffffff" : "currentColor"} />
+                                            <span>{tab.label}</span>
                                         </button>
                                     ))}
                                 </div>
@@ -2522,14 +3083,14 @@
                                                         alignItems: "center",
                                                         gap: "4px"
                                                     }}>
-                                                        <span>{c.price_stars} ⭐</span>
+                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>{c.price_stars} <SvgStar size={12} color="#ffd700" /></span>
                                                         <span style={{ color: "rgba(255,255,255,0.4)" }}>|</span>
                                                         <span style={{ color: "#10b981" }}>{(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm</span>
                                                     </div>
 
-                                                    {/* Case Icon */}
-                                                    <div style={{ fontSize: "56px", margin: "16px 0", filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.15))", animation: "floatUpDown 3s ease-in-out infinite", animationDelay: `${idx * 0.3}s` }}>
-                                                        {c.icon}
+                                                    {/* Case Icon (Animated 3D Vector Gift Box) */}
+                                                    <div style={{ margin: "16px 0", animation: "floatUpDown 3s ease-in-out infinite", animationDelay: `${idx * 0.3}s` }}>
+                                                        <TelegramGiftMedia icon={c.icon} name={c.name} size="64px" />
                                                     </div>
 
                                                     <h3 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>
@@ -2543,8 +3104,8 @@
                                                     {/* Possible drops mini preview */}
                                                     <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
                                                         {c.drops && c.drops.map((d, dIdx) => (
-                                                            <span key={dIdx} title={`${d.name} (${d.stars} ⭐)`} style={{ fontSize: "18px", background: "#f8f8f8", padding: "4px 6px", borderRadius: "8px" }}>
-                                                                {d.icon}
+                                                            <span key={dIdx} title={`${d.name} (${d.stars} Stars)`} style={{ background: "#f8f8f8", padding: "4px 6px", borderRadius: "8px", display: "inline-flex", alignItems: "center" }}>
+                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size="20px" />
                                                             </span>
                                                         ))}
                                                     </div>
@@ -2567,7 +3128,7 @@
                                                         onMouseEnter={(e) => { e.currentTarget.style.background = "#000000"; e.currentTarget.style.color = "#ffffff"; }}
                                                         onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.04)"; e.currentTarget.style.color = "var(--muted)"; }}
                                                     >
-                                                        📊 Ehtimollar & Sovg'alar
+                                                        Ehtimollar & Sovg'alar
                                                     </button>
 
                                                     {/* Dual Open Buttons: So'm (UZS) & Stars */}
@@ -2592,7 +3153,7 @@
                                                             onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
                                                             onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                         >
-                                                            💳 Ochish ({(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm)
+                                                            <SvgCreditCard size={14} color="#ffffff" /> <span>Ochish ({(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm)</span>
                                                         </button>
 
                                                         {/* 2. Stars Bilan Ochish */}
@@ -2614,7 +3175,7 @@
                                                             onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
                                                             onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                         >
-                                                            ⭐ Ochish ({c.price_stars} ⭐)
+                                                            <SvgStar size={14} color="#ffd700" /> <span>Ochish ({c.price_stars} Stars)</span>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -2631,7 +3192,7 @@
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
                                                 <div>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                                        <span style={{ fontSize: "20px" }}>⭐</span>
+                                                        <SvgGift size={22} color="#7342E2" />
                                                         <h3 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)" }}>
                                                             Sizning Telegram Profil Sovg'alaringiz (Vitrina)
                                                         </h3>
@@ -2659,18 +3220,18 @@
                                                             boxShadow: g.rarity === 'legendary' ? "0 8px 24px rgba(255,215,0,0.18)" : "0 4px 12px rgba(0,0,0,0.03)"
                                                         }}
                                                     >
-                                                        <div style={{ fontSize: "42px", marginBottom: "8px", filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.15))" }}>
-                                                            {g.icon}
+                                                        <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
+                                                            <TelegramGiftMedia fileId={g.file_id} fileType={g.file_type} icon={g.icon} name={g.prize_name} size="56px" />
                                                         </div>
                                                         <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
                                                             {g.prize_name}
                                                         </div>
                                                         <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700", margin: "4px 0" }}>
-                                                            {g.prize_stars} ⭐ Stars
+                                                            {g.prize_stars} Stars
                                                         </div>
                                                         {g.is_nft && (
                                                             <div style={{ fontSize: "11px", fontWeight: 600, color: "#7342E2", margin: "2px 0 6px" }}>
-                                                                🎁 Telegram Gift
+                                                                Telegram Gift
                                                             </div>
                                                         )}
                                                         <div style={{ display: "flex", justifyContent: "center", gap: "6px", flexWrap: "wrap", marginTop: "6px" }}>
@@ -2719,7 +3280,7 @@
                                         }}>
                                             <div>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                    <span style={{ fontSize: "28px" }}>⚔️</span>
+                                                    <SvgSwords size={28} color="#7342E2" />
                                                     <h3 style={{ fontSize: "24px", fontWeight: 700 }}>2 Kishi Keys Duellari (PvP Battle)</h3>
                                                 </div>
                                                 <p style={{ color: "#9ca3af", fontSize: "14px", marginTop: "8px", maxWidth: "560px" }}>
@@ -2732,19 +3293,19 @@
                                                     onClick={() => handleCreateBattle('tier_1')}
                                                     style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "10px 18px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
-                                                    + Bronze (25 ⭐)
+                                                    + Bronze (25 Stars)
                                                 </button>
                                                 <button
                                                     onClick={() => handleCreateBattle('tier_2')}
                                                     style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "10px 18px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
-                                                    + Silver (75 ⭐)
+                                                    + Silver (75 Stars)
                                                 </button>
                                                 <button
                                                     onClick={() => handleCreateBattle('tier_3')}
                                                     style={{ background: "#7342E2", border: "none", color: "#fff", padding: "10px 20px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(115,66,226,0.4)" }}
                                                 >
-                                                    + Gold Jang (250 ⭐)
+                                                    + Gold Jang (250 Stars)
                                                 </button>
                                             </div>
                                         </div>
@@ -2782,15 +3343,15 @@
                                                             </div>
                                                         </div>
                                                         <div style={{ background: "#0a0a0a", color: "#ffd700", padding: "4px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 700 }}>
-                                                            {b.cost_stars} ⭐
+                                                            {b.cost_stars} Stars
                                                         </div>
                                                     </div>
 
                                                     <div style={{ background: "#f8f8fa", borderRadius: "16px", padding: "14px", display: "flex", alignItems: "center", gap: "12px", marginBottom: "18px" }}>
-                                                        <span style={{ fontSize: "32px" }}>{b.case_icon}</span>
+                                                        <TelegramGiftMedia icon={b.case_icon} name={b.case_name} size="32px" />
                                                         <div style={{ flex: 1 }}>
                                                             <div style={{ fontWeight: 700, fontSize: "14px" }}>{b.case_name}</div>
-                                                            <div style={{ fontSize: "12px", color: "var(--muted)" }}>Umumiy jamg'arma: {b.pot_stars} ⭐ (Komissiya: {b.house_commission} ⭐)</div>
+                                                            <div style={{ fontSize: "12px", color: "var(--muted)" }}>Umumiy jamg'arma: {b.pot_stars} Stars (Komissiya: {b.house_commission} Stars)</div>
                                                         </div>
                                                     </div>
 
@@ -2811,7 +3372,7 @@
                                                         onMouseEnter={(e) => e.currentTarget.style.background = "#7342E2"}
                                                         onMouseLeave={(e) => e.currentTarget.style.background = "#0a0a0a"}
                                                     >
-                                                        ⚔️ Qo'shilish & Jang Qilish ({b.cost_stars} ⭐)
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgSwords size={14} color="#ffffff" /><span>Qo'shilish & Jang Qilish ({b.cost_stars} Stars)</span></span>
                                                     </button>
                                                 </div>
                                             ))}
@@ -2831,7 +3392,7 @@
                                             textAlign: "center"
                                         }}>
                                             <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>
-                                                ⚡ Nazoratli Item Upgrader
+                                                Nazoratli Item Upgrader
                                             </h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "32px" }}>
                                                 Oddiy sovg'angizni tikib, qimmatroq sovg'aga aylantiring! Dumaloq g'ildirakda strelka aylanadi.
@@ -2844,23 +3405,23 @@
                                                     <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px" }}>
                                                         Siz Tikayotgan Sovg'a:
                                                     </div>
-                                                    <div style={{ fontSize: "44px", margin: "6px 0" }}>{upgraderItem.icon}</div>
+                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderItem.icon} name={upgraderItem.name} size="48px" /></div>
                                                     <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderItem.name}</div>
-                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px" }}>{upgraderItem.stars} ⭐ Stars</div>
+                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderItem.stars} Stars</span><SvgStar size={13} color="#ffd700" /></div>
                                                     
                                                     {/* Quick Select Buttons */}
                                                     <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
                                                         {[
-                                                            { name: "Delicious Cake", stars: 15, icon: "🎂" },
-                                                            { name: "Bouquet of Flowers", stars: 50, icon: "💐" },
-                                                            { name: "Champagne Bottle", stars: 100, icon: "🍾" }
+                                                            { name: "Delicious Cake", stars: 15, icon: "cake" },
+                                                            { name: "Bouquet of Flowers", stars: 50, icon: "bouquet" },
+                                                            { name: "Champagne Bottle", stars: 100, icon: "champagne" }
                                                         ].map((it, idx) => (
                                                             <button
                                                                 key={idx}
                                                                 onClick={() => setUpgraderItem(it)}
                                                                 style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderItem.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
                                                             >
-                                                                {it.icon} {it.stars}⭐
+                                                                {it.stars} Stars
                                                             </button>
                                                         ))}
                                                     </div>
@@ -2868,7 +3429,7 @@
 
                                                 {/* Middle: Arrow Multiplier */}
                                                 <div style={{ textAlign: "center" }}>
-                                                    <span style={{ fontSize: "28px", color: "#7342E2" }}>➔</span>
+                                                    <SvgArrowRight size={28} color="#7342E2" />
                                                     <div style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted)", marginTop: "4px" }}>
                                                         {(upgraderTarget.stars / upgraderItem.stars).toFixed(1)}x
                                                     </div>
@@ -2879,24 +3440,24 @@
                                                     <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px" }}>
                                                         Kutilayotgan Sovg'a:
                                                     </div>
-                                                    <div style={{ fontSize: "44px", margin: "6px 0" }}>{upgraderTarget.icon}</div>
+                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderTarget.icon} name={upgraderTarget.name} size="48px" /></div>
                                                     <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderTarget.name}</div>
-                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px" }}>{upgraderTarget.stars} ⭐ Stars</div>
+                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderTarget.stars} Stars</span><SvgStar size={13} color="#ffd700" /></div>
 
                                                     {/* Target Quick Select */}
                                                     <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
                                                         {[
-                                                            { name: "Champagne Bottle", stars: 100, icon: "🍾" },
-                                                            { name: "Diamond Ring", stars: 250, icon: "💍" },
-                                                            { name: "Golden Trophy", stars: 500, icon: "🏆" },
-                                                            { name: "Space Rocket", stars: 1000, icon: "🚀" }
+                                                            { name: "Champagne Bottle", stars: 100, icon: "champagne" },
+                                                            { name: "Diamond Ring", stars: 250, icon: "diamond_ring" },
+                                                            { name: "Golden Trophy", stars: 500, icon: "trophy" },
+                                                            { name: "Space Rocket", stars: 1000, icon: "rocket" }
                                                         ].map((it, idx) => (
                                                             <button
                                                                 key={idx}
                                                                 onClick={() => setUpgraderTarget(it)}
                                                                 style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderTarget.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
                                                             >
-                                                                {it.icon} {it.stars}⭐
+                                                                {it.stars} Stars
                                                             </button>
                                                         ))}
                                                     </div>
@@ -2992,8 +3553,8 @@
                                                                 border: `1px solid ${upgradeResult.won ? 'rgba(0,255,136,0.4)' : 'rgba(255,59,48,0.3)'}`
                                                             }}>
                                                                 {upgradeResult.won
-                                                                    ? `🎉 TABRIKLAYMIZ! Siz ${upgradeResult.target_name} yutib oldingiz!`
-                                                                    : `⚠️ Deyarli yashil sektorga tushgandi! (${upgradeResult.final_angle}° ga to'xtadi). Yana bir bor urinib ko'ring.`}
+                                                                    ? `Tabriklaymiz! Siz ${upgradeResult.target_name} yutib oldingiz!`
+                                                                    : `Deyarli yashil sektorga tushgandi! (${upgradeResult.final_angle}° ga to'xtadi). Yana bir bor urinib ko'ring.`}
                                                             </div>
                                                         )}
                                                     </div>
@@ -3019,7 +3580,7 @@
                                                 onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
                                                 onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                             >
-                                                {isUpgrading ? "⚡ Aylanmoqda..." : "⚡ UPGRADE QILISH (Aylantirish)"}
+                                                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}><SvgZap size={18} color="#0a0a0a" /><span>{isUpgrading ? "Aylanmoqda..." : "UPGRADE QILISH (Aylantirish)"}</span></span>
                                             </button>
                                         </div>
                                     </div>
@@ -3038,7 +3599,7 @@
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "28px" }}>
                                                 <div>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                        <span style={{ fontSize: "28px" }}>📅</span>
+                                                        <SvgCalendar size={28} color="#7342E2" />
                                                         <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)" }}>7-Kunlik Davomat Tizimi</h3>
                                                     </div>
                                                     <p style={{ color: "var(--muted)", fontSize: "14px", marginTop: "4px" }}>
@@ -3046,20 +3607,20 @@
                                                     </p>
                                                 </div>
                                                 <div style={{ background: "#0a0a0a", color: "#ffd700", padding: "8px 20px", borderRadius: "999px", fontSize: "14px", fontWeight: 700 }}>
-                                                    🔥 {streakData ? streakData.streak_days : 0} Kunlik Davomat
+                                                    {streakData ? streakData.streak_days : 0} Kunlik Davomat
                                                 </div>
                                             </div>
 
                                             {/* 7 Days Grid */}
                                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))", gap: "12px", marginBottom: "32px" }}>
                                                 {(streakData ? streakData.rewards : [
-                                                    { day: 1, title: "5 ta AI SEO", icon: "⚡" },
-                                                    { day: 2, title: "10 ta AI Teglar", icon: "🏷️" },
-                                                    { day: 3, title: "1 Kun CapCut", icon: "🎬" },
-                                                    { day: 4, title: "10 ta Skript", icon: "📝" },
-                                                    { day: 5, title: "5 ta Unikal", icon: "✨" },
-                                                    { day: 6, title: "VIP Auditor", icon: "🚀" },
-                                                    { day: 7, title: "1 Oy CapCut VIP", icon: "👑" }
+                                                    { day: 1, title: "5 ta AI SEO", icon: "zap" },
+                                                    { day: 2, title: "10 ta AI Teglar", icon: "tag" },
+                                                    { day: 3, title: "1 Kun CapCut", icon: "film" },
+                                                    { day: 4, title: "10 ta Skript", icon: "edit" },
+                                                    { day: 5, title: "5 ta Unikal", icon: "sparkles" },
+                                                    { day: 6, title: "VIP Auditor", icon: "rocket" },
+                                                    { day: 7, title: "1 Oy CapCut VIP", icon: "crown" }
                                                 ]).map((r, idx) => {
                                                     const currDay = streakData ? streakData.current_day : 1;
                                                     const isClaimed = streakData && idx + 1 < currDay;
@@ -3079,14 +3640,14 @@
                                                             <div style={{ fontSize: "11px", fontWeight: 800, color: isToday ? "#15803d" : "var(--muted)", textTransform: "uppercase" }}>
                                                                 {r.day}-Kun
                                                             </div>
-                                                            <div style={{ fontSize: "36px", margin: "10px 0" }}>{r.icon}</div>
+                                                            <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center", margin: "8px 0" }}><TelegramGiftMedia icon={r.icon} name={r.title} size="36px" /></div>
                                                             <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>
                                                                 {r.title}
                                                             </div>
                                                             <div style={{ marginTop: "10px" }}>
-                                                                {isClaimed && <span style={{ fontSize: "10px", fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.15)", padding: "2px 8px", borderRadius: "999px" }}>OLINGAN ✓</span>}
+                                                                {isClaimed && <span style={{ fontSize: "10px", fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.15)", padding: "2px 8px", borderRadius: "999px" }}>OLINGAN</span>}
                                                                 {isToday && <span style={{ fontSize: "10px", fontWeight: 800, color: "#ffffff", background: "#16a34a", padding: "2px 8px", borderRadius: "999px" }}>BUGUN FAOL</span>}
-                                                                {!isClaimed && !isToday && <span style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af" }}>🔒 Qulfda</span>}
+                                                                {!isClaimed && !isToday && <span style={{ fontSize: "10px", fontWeight: 700, color: "#9ca3af" }}>Qulfda</span>}
                                                             </div>
                                                         </div>
                                                     );
@@ -3110,7 +3671,7 @@
                                                         boxShadow: "0 4px 20px rgba(22,163,74,0.3)"
                                                     }}
                                                 >
-                                                    {streakData && !streakData.can_claim ? "✓ Bugungi Sovg'ani Olgansiz" : "🎁 Bugungi Sovg'ani Olish"}
+                                                    {streakData && !streakData.can_claim ? "Bugungi Sovg'ani Olgansiz" : "Bugungi Sovg'ani Olish"}
                                                 </button>
                                             </div>
                                         </div>
@@ -3127,7 +3688,7 @@
                                             padding: "36px 28px",
                                             boxShadow: "0 8px 32px rgba(0,0,0,0.06)"
                                         }}>
-                                            <span style={{ fontSize: "32px" }}>🎟️</span>
+                                            <SvgTicket size={32} color="#7342E2" />
                                             <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", margin: "8px 0" }}>
                                                 Omadli Skretch Chipta
                                             </h3>
@@ -3164,11 +3725,9 @@
                                                             border: "1px solid rgba(255,255,255,0.3)",
                                                             display: "flex",
                                                             alignItems: "center",
-                                                            justifyContent: "center",
-                                                            fontSize: "36px",
-                                                            filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.3))"
+                                                            justifyContent: "center"
                                                         }}>
-                                                            {sym}
+                                                            <TelegramGiftMedia icon={sym} size="38px" />
                                                         </div>
                                                     ))}
                                                 </div>
@@ -3195,13 +3754,13 @@
                                                     onClick={clearScratchFoil}
                                                     style={{ background: "#f3f4f6", border: "1px solid #ddd", color: "var(--text)", padding: "10px 20px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
-                                                    ✨ To'liq Ochish
+                                                    To'liq Ochish
                                                 </button>
                                                 <button
                                                     onClick={initScratchCard}
                                                     style={{ background: "#7342E2", color: "#ffffff", border: "none", padding: "10px 22px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px rgba(115,66,226,0.35)" }}
                                                 >
-                                                    🔄 Yangi Chipta Olish
+                                                    Yangi Chipta Olish
                                                 </button>
                                             </div>
 
@@ -3217,8 +3776,8 @@
                                                     color: scratchData.won ? "#15803d" : "#854d0e"
                                                 }}>
                                                     {scratchData.won
-                                                        ? `🎉 TABRIKLAYMIZ! Siz ${scratchData.prize ? scratchData.prize.title : "Sovg'a"} yutib oldingiz!`
-                                                        : "⚠️ 2 tasi bir xil tushdi! Deyarli yutgandingiz. Yangi chipta olib yana urinib ko'ring!"}
+                                                        ? `Tabriklaymiz! Siz ${scratchData.prize ? scratchData.prize.title : "Sovg'a"} yutib oldingiz!`
+                                                        : "2 tasi bir xil tushdi! Deyarli yutgandingiz. Yangi chipta olib yana urinib ko'ring!"}
                                                 </div>
                                             )}
                                         </div>
@@ -3230,7 +3789,7 @@
                                     <div className="tab-content-enter">
                                         <div style={{ textAlign: "center", marginBottom: "32px" }}>
                                             <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)" }}>
-                                                🏪 Creator Redeem Store
+                                                Creator Redeem Store
                                             </h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginTop: "4px" }}>
                                                 Yutilgan Stars yoki ochilgan sovg'alarni rasmiy CapCut Pro litsenziya kalitlariga va AI SEO kvotalariga almashtiring.
@@ -3239,10 +3798,10 @@
 
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "24px" }}>
                                             {[
-                                                { id: "capcut_30", title: "CapCut Pro 1 Oylik", desc: "Barcha VIP effektlar, 4K eksport va auto-subtitrlar.", stars: 350, icon: "🎬", tag: "ENG OMMABOP" },
-                                                { id: "capcut_365", title: "CapCut Pro 1 Yillik VIP", desc: "365 kunlik cheksiz rasmiy premium akkaunt.", stars: 2500, icon: "👑", tag: "VIP CHEGIRMA" },
-                                                { id: "ai_seo_50", title: "50 ta Video uchun AI SEO", desc: "YouTube algoritmi uchun sarlavha, tavsif va teglar paketi.", stars: 100, icon: "⚡", tag: "AI SPEED" },
-                                                { id: "video_unikal_10", title: "10 ta Video Unikalizatsiya VIP", desc: "TikTok va Reels uchun videolarni tozalash va unikal qilish.", stars: 150, icon: "🚀", tag: "FULL HD" }
+                                                { id: "capcut_30", title: "CapCut Pro 1 Oylik", desc: "Barcha VIP effektlar, 4K eksport va auto-subtitrlar.", stars: 350, icon: "film", tag: "ENG OMMABOP" },
+                                                { id: "capcut_365", title: "CapCut Pro 1 Yillik VIP", desc: "365 kunlik cheksiz rasmiy premium akkaunt.", stars: 2500, icon: "crown", tag: "VIP CHEGIRMA" },
+                                                { id: "ai_seo_50", title: "50 ta Video uchun AI SEO", desc: "YouTube algoritmi uchun sarlavha, tavsif va teglar paketi.", stars: 100, icon: "zap", tag: "AI SPEED" },
+                                                { id: "video_unikal_10", title: "10 ta Video Unikalizatsiya VIP", desc: "TikTok va Reels uchun videolarni tozalash va unikal qilish.", stars: 150, icon: "rocket", tag: "FULL HD" }
                                             ].map((srv, sIdx) => (
                                                 <div
                                                     key={sIdx}
@@ -3272,13 +3831,13 @@
                                                         {srv.tag}
                                                     </div>
                                                     <div>
-                                                        <div style={{ fontSize: "48px", marginBottom: "14px" }}>{srv.icon}</div>
+                                                        <div style={{ height: "56px", display: "flex", alignItems: "center", marginBottom: "14px" }}><TelegramGiftMedia icon={srv.icon} name={srv.title} size="48px" /></div>
                                                         <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>{srv.title}</h4>
                                                         <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.4, marginBottom: "20px" }}>{srv.desc}</p>
                                                     </div>
                                                     <div>
                                                         <div style={{ fontSize: "16px", fontWeight: 800, color: "#ffd700", marginBottom: "14px" }}>
-                                                            {srv.stars} ⭐ Stars
+                                                            {srv.stars} Stars
                                                         </div>
                                                         <button
                                                             onClick={() => handleRedeem(srv.id)}
@@ -3334,9 +3893,9 @@
                                         }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
                                                 <div style={{ fontSize: "14px", fontWeight: 800, color: "#ffd700", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                                                    ⚔️ JONLI PVP KEYS DUELI
+                                                    JONLI PVP KEYS DUELI
                                                 </div>
-                                                <button onClick={() => setActiveBattle(null)} style={{ background: "transparent", border: "none", color: "#aaa", fontSize: "20px", cursor: "pointer" }}>✕</button>
+                                                <button onClick={() => setActiveBattle(null)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}><XIcon size={20} color="#aaa" /></button>
                                             </div>
 
                                             {/* Duel Arena Split Screen */}
@@ -3351,7 +3910,7 @@
                                                         {isBattleRolling ? activeBattle.case_icon : (activeBattle.host_roll ? activeBattle.host_roll.icon : activeBattle.case_icon)}
                                                     </div>
                                                     <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
-                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle.host_roll ? `${activeBattle.host_roll.prize_name} (${activeBattle.host_roll.prize_stars} ⭐)` : "Tayyor")}
+                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle.host_roll ? `${activeBattle.host_roll.prize_name} (${activeBattle.host_roll.prize_stars} Stars)` : "Tayyor")}
                                                     </div>
                                                 </div>
 
@@ -3372,7 +3931,7 @@
                                                         {isBattleRolling ? activeBattle.case_icon : (activeBattle.guest_roll ? activeBattle.guest_roll.icon : activeBattle.case_icon)}
                                                     </div>
                                                     <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
-                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle.guest_roll ? `${activeBattle.guest_roll.prize_name} (${activeBattle.guest_roll.prize_stars} ⭐)` : "Tayyor")}
+                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle.guest_roll ? `${activeBattle.guest_roll.prize_name} (${activeBattle.guest_roll.prize_stars} Stars)` : "Tayyor")}
                                                     </div>
                                                 </div>
                                             </div>
@@ -3381,10 +3940,10 @@
                                             {!isBattleRolling && battleWinner && (
                                                 <div style={{ background: "linear-gradient(90deg, rgba(255,215,0,0.15), rgba(0,255,136,0.15))", border: "1px solid #ffd700", borderRadius: "20px", padding: "16px", marginBottom: "24px" }}>
                                                     <div style={{ fontSize: "14px", fontWeight: 800, color: "#ffd700", textTransform: "uppercase" }}>
-                                                        👑 JANG G'OLIBI: {battleWinner}!
+                                                        JANG G'OLIBI: {battleWinner}!
                                                     </div>
                                                     <div style={{ fontSize: "13px", color: "#ddd", marginTop: "4px" }}>
-                                                        Jami yutuq fondi: <b>{activeBattle.pot_stars - activeBattle.house_commission} ⭐ Stars</b> (10% kassa komissiyasi yechilgandan so'ng).
+                                                        Jami yutuq fondi: <b>{activeBattle.pot_stars - activeBattle.house_commission} Stars</b> (10% kassa komissiyasi yechilgandan so'ng).
                                                     </div>
                                                 </div>
                                             )}
@@ -3413,7 +3972,7 @@
                                         padding: "20px"
                                     }}>
                                         <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "440px", width: "100%", textAlign: "center", color: "var(--text)" }}>
-                                            <div style={{ fontSize: "56px", marginBottom: "12px" }}>{streakClaimedModal.icon}</div>
+                                            <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}><TelegramGiftMedia icon={streakClaimedModal.icon} name={streakClaimedModal.title} size="56px" /></div>
                                             <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Tabriklaymiz!</h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
                                                 Siz bugungi sovg'ani qo'lga kiritdingiz: <b>{streakClaimedModal.title}</b>
@@ -3466,7 +4025,7 @@
                                                     }}
                                                     style={{ background: "#7342E2", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "999px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
                                                 >
-                                                    📋 Nusxa Olish
+                                                    Nusxa Olish
                                                 </button>
                                                 <button
                                                     onClick={() => setRedeemModal(null)}
@@ -3506,14 +4065,14 @@
                                                     {oddsModalCase.file_id ? (
                                                         <MediaRenderer fileId={oddsModalCase.file_id} fileType={oddsModalCase.file_type} icon={oddsModalCase.icon} size="32px" />
                                                     ) : (
-                                                        <span style={{ fontSize: "32px" }}>{oddsModalCase.icon}</span>
+                                                        <TelegramGiftMedia icon={oddsModalCase.icon} name={oddsModalCase.name} size="36px" />
                                                     )}
                                                     <div>
                                                         <h3 style={{ fontSize: "18px", fontWeight: 700 }}>{oddsModalCase.name}</h3>
-                                                        <span style={{ fontSize: "12px", color: "var(--muted)" }}>Narxi: {oddsModalCase.price_stars} ⭐ Stars</span>
+                                                        <span style={{ fontSize: "12px", color: "var(--muted)" }}>Narxi: {oddsModalCase.price_stars} Stars</span>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => setOddsModalCase(null)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "18px", fontWeight: 700 }}>✕</button>
+                                                <button onClick={() => setOddsModalCase(null)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}><XIcon size={20} color="#71717a" /></button>
                                             </div>
 
                                             <div style={{ background: "#f8f8fa", borderRadius: "16px", padding: "16px", marginBottom: "20px" }}>
@@ -3522,15 +4081,15 @@
                                                 </div>
                                                 <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px" }}>
                                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                        <span>⚪ Oddiy sovg'a (Common):</span>
+                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#9ca3af" }} /><span>Oddiy sovg'a (Common):</span></span>
                                                         <b>70%</b>
                                                     </div>
                                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                        <span>🟣 Noyob sovg'a (Rare):</span>
+                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#a855f7" }} /><span>Noyob sovg'a (Rare):</span></span>
                                                         <b>25%</b>
                                                     </div>
                                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                                        <span>👑 Afsonaviy NFT (Legendary Jackpot):</span>
+                                                        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}><SvgCrown size={14} color="#ffd700" /><span>Afsonaviy NFT (Legendary Jackpot):</span></span>
                                                         <b style={{ color: "#ffd700" }}>5%</b>
                                                     </div>
                                                 </div>
@@ -3548,7 +4107,7 @@
                                                             )}
                                                             <span style={{ fontSize: "13px", fontWeight: 600 }}>{d.name}</span>
                                                         </div>
-                                                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>{d.stars} ⭐</span>
+                                                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>{d.stars} Stars</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -3570,7 +4129,7 @@
                                                         boxShadow: "0 4px 14px rgba(16, 185, 129, 0.28)"
                                                     }}
                                                 >
-                                                    💳 So'm Balansi Bilan Ochish ({(oddsModalCase.price_uzs || oddsModalCase.price_stars * 400).toLocaleString()} so'm)
+                                                    So'm Balansi Bilan Ochish ({(oddsModalCase.price_uzs || oddsModalCase.price_stars * 400).toLocaleString()} so'm)
                                                 </button>
                                                 <button
                                                     onClick={() => { const c = oddsModalCase; setOddsModalCase(null); handleBuyInvoice(c); }}
@@ -3586,7 +4145,7 @@
                                                         fontSize: "14px"
                                                     }}
                                                 >
-                                                    ⭐ Telegram Stars Bilan Ochish ({oddsModalCase.price_stars} ⭐)
+                                                    Telegram Stars Bilan Ochish ({oddsModalCase.price_stars} Stars)
                                                 </button>
                                             </div>
                                         </div>
@@ -3650,11 +4209,7 @@
                                                             const item = activeUnboxing.drops[rIdx % activeUnboxing.drops.length];
                                                             return (
                                                                 <div key={rIdx} style={{ textAlign: "center", flexShrink: 0 }}>
-                                                                    {item.file_id ? (
-                                                                        <MediaRenderer fileId={item.file_id} fileType={item.file_type} icon={item.icon} size="52px" />
-                                                                    ) : (
-                                                                        <div style={{ fontSize: "52px" }}>{item.icon}</div>
-                                                                    )}
+                                                                    <TelegramGiftMedia fileId={item.file_id} fileType={item.file_type} icon={item.icon} name={item.name} size="52px" />
                                                                     <div style={{ fontSize: "12px", color: "#bbb", marginTop: "4px" }}>{item.name}</div>
                                                                 </div>
                                                             );
@@ -3663,20 +4218,12 @@
                                                 ) : (
                                                     <div style={{ animation: "prizePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)", textAlign: "center" }}>
                                                         {unboxingPrize ? (
-                                                            unboxingPrize.file_id ? (
-                                                                <MediaRenderer fileId={unboxingPrize.file_id} fileType={unboxingPrize.file_type} icon={unboxingPrize.icon} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
-                                                            ) : (
-                                                                <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>{unboxingPrize.icon}</div>
-                                                            )
+                                                            <TelegramGiftMedia fileId={unboxingPrize.file_id} fileType={unboxingPrize.file_type} icon={unboxingPrize.icon} name={unboxingPrize.prize_name} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
                                                         ) : (
-                                                            activeUnboxing.drops[0].file_id ? (
-                                                                <MediaRenderer fileId={activeUnboxing.drops[0].file_id} fileType={activeUnboxing.drops[0].file_type} icon={activeUnboxing.drops[0].icon} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
-                                                            ) : (
-                                                                <div style={{ fontSize: "72px", filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }}>{activeUnboxing.drops[0].icon}</div>
-                                                            )
+                                                            <TelegramGiftMedia fileId={activeUnboxing.drops[0]?.file_id} fileType={activeUnboxing.drops[0]?.file_type} icon={activeUnboxing.drops[0]?.icon} name={activeUnboxing.drops[0]?.name} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
                                                         )}
                                                         <div style={{ fontSize: "20px", fontWeight: 800, marginTop: "8px", color: "#ffffff" }}>
-                                                            {unboxingPrize ? unboxingPrize.prize_name : activeUnboxing.drops[0].name}
+                                                            {unboxingPrize ? unboxingPrize.prize_name : (activeUnboxing.drops[0]?.name || "")}
                                                         </div>
                                                         <div style={{ fontSize: "18px", fontWeight: 700, color: "#ffd700", marginTop: "4px" }}>
                                                             {unboxingPrize ? `${unboxingPrize.prize_stars} Stars` : ""}
@@ -3728,7 +4275,7 @@
                                                         }}
                                                     >
                                                         <SvgStar size={16} color="#ffd700" />
-                                                        <span>Yana Ochish ({activeUnboxing.price_stars} ⭐)</span>
+                                                        <span>Yana Ochish ({activeUnboxing.price_stars} Stars)</span>
                                                     </button>
                                                     
                                                     <button
@@ -3780,7 +4327,7 @@
                             {/* Footer */}
                             <footer style={{ borderTop: "1px solid var(--border-soft)", padding: "48px 24px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
                                 <div style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: "4px", marginBottom: "8px" }}>
-                                    <span className="serif italic" style={{ fontSize: "20px", fontWeight: 600, color: "var(--text)" }}>Alwayzz</span>
+                                    <span className="serif italic" style={{ fontSize: "20px", fontWeight: 600, color: "var(--text)" }}>CreatorFlow</span>
                                     <sup style={{ fontWeight: 600 }}>®</sup>
                                     <span style={{ margin: "0 8px" }}>•</span>
                                     <span style={{ color: "var(--text)", fontWeight: 600 }}>CreatorFlow Studio</span>

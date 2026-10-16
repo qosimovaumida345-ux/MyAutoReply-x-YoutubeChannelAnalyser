@@ -149,13 +149,13 @@ def open_mystery_box(tg_user_id: int, cost_uzs: int = 6000) -> dict:
     if roll <= 65:
         # 65%: Yutqazdi
         prize_type = "lose"
-        prize_title = "Afsus, bu safar quti bo'sh chiqdi! 😢"
+        prize_title = "Afsus, bu safar quti bo'sh chiqdi!"
     elif roll <= 85:
         # 20%: Kichik keshbek (1,000 so'm)
         prize_type = "cashback"
         cash_won = 1000
         prize_value = str(cash_won)
-        prize_title = f"🎁 Yupanchiq sovg'a: {cash_won:,} so'm keshbek!"
+        prize_title = f"Yupanchiq sovg'a: {cash_won:,} so'm keshbek!"
         add_user_balance(tg_user_id, cash_won)
     elif roll <= 95:
         # 10%: Groq API
@@ -163,12 +163,12 @@ def open_mystery_box(tg_user_id: int, cost_uzs: int = 6000) -> dict:
         if k_res.get("ok"):
             prize_type = "groq"
             prize_value = k_res.get("api_key", "")
-            prize_title = "⚡ Groq Cloud API Kaliti!"
+            prize_title = "Groq Cloud API Kaliti!"
         else:
             # Agar groq tugagan bo'lsa 2,000 so'm keshbek
             prize_type = "cashback"
             prize_value = "2000"
-            prize_title = "🎁 2,000 so'm keshbek!"
+            prize_title = "2,000 so'm keshbek!"
             add_user_balance(tg_user_id, 2000)
     elif roll <= 98:
         # 3%: OpenRouter API
@@ -176,11 +176,11 @@ def open_mystery_box(tg_user_id: int, cost_uzs: int = 6000) -> dict:
         if k_res.get("ok"):
             prize_type = "openrouter"
             prize_value = k_res.get("api_key", "")
-            prize_title = "🔥 JACKPOT: OpenRouter API Kaliti ($3)!"
+            prize_title = "JACKPOT: OpenRouter API Kaliti ($3)!"
         else:
             prize_type = "cashback"
             prize_value = "5000"
-            prize_title = "🎁 5,000 so'm Katta Keshbek!"
+            prize_title = "5,000 so'm Katta Keshbek!"
             add_user_balance(tg_user_id, 5000)
     else:
         # 2%: Gemini API
@@ -188,11 +188,11 @@ def open_mystery_box(tg_user_id: int, cost_uzs: int = 6000) -> dict:
         if k_res.get("ok"):
             prize_type = "gemini"
             prize_value = k_res.get("api_key", "")
-            prize_title = "✨ SUPER JACKPOT: Google Gemini API Kaliti ($5)!"
+            prize_title = "SUPER JACKPOT: Google Gemini API Kaliti ($5)!"
         else:
             prize_type = "cashback"
             prize_value = "5000"
-            prize_title = "🎁 5,000 so'm Katta Keshbek!"
+            prize_title = "5,000 so'm Katta Keshbek!"
             add_user_balance(tg_user_id, 5000)
             
     # Logga yozish
@@ -359,10 +359,40 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             elif is_animated:
                 file_type = "tgs"
             
-            emoji = sticker.get("emoji") or ("👑" if is_nft else "🎁")
-            name = f"Telegram Sovg'a ({stars} ⭐)"
+            # Semantic vector keys for zero-emoji compliance
+            raw_emoji = str(sticker.get("emoji") or "")
+            if "🎂" in raw_emoji or "cake" in raw_emoji.lower(): vector_icon = "cake"
+            elif "⭐" in raw_emoji or "star" in raw_emoji.lower() or "💚" in raw_emoji: vector_icon = "star"
+            elif "🧸" in raw_emoji or "bear" in raw_emoji.lower(): vector_icon = "teddy"
+            elif "💐" in raw_emoji or "flower" in raw_emoji.lower() or "🌹" in raw_emoji: vector_icon = "bouquet"
+            elif "🍾" in raw_emoji or "bottle" in raw_emoji.lower() or "champagne" in raw_emoji.lower(): vector_icon = "champagne"
+            elif "💍" in raw_emoji or "ring" in raw_emoji.lower() or "diamond" in raw_emoji.lower() or "💎" in raw_emoji: vector_icon = "diamond_ring"
+            elif "🏆" in raw_emoji or "trophy" in raw_emoji.lower(): vector_icon = "trophy"
+            elif "🚀" in raw_emoji or "rocket" in raw_emoji.lower(): vector_icon = "rocket"
+            elif "🧢" in raw_emoji or "cap" in raw_emoji.lower(): vector_icon = "cap"
+            elif "🐸" in raw_emoji or "plush" in raw_emoji.lower(): vector_icon = "plush"
+            elif "👑" in raw_emoji or "crown" in raw_emoji.lower() or is_nft: vector_icon = "crown"
+            elif "🎁" in raw_emoji or "gift" in raw_emoji.lower() or "💝" in raw_emoji: vector_icon = "package"
+            else: vector_icon = "crown" if is_nft else "package"
+
+            icon_names = {
+                "cake": "Delicious Cake",
+                "star": "Green Star",
+                "teddy": "Teddy Bear",
+                "bouquet": "Bouquet of Flowers",
+                "champagne": "Champagne Bottle",
+                "diamond_ring": "Diamond Ring",
+                "trophy": "Golden Trophy",
+                "rocket": "Space Rocket",
+                "cap": "Black Cap Collectible",
+                "plush": "Plush Collectible",
+                "crown": "Royal Crown Collectible",
+                "package": "Special Gift Box"
+            }
+            clean_title = icon_names.get(vector_icon, "Telegram Sovg'a")
+            name = f"{clean_title} ({stars} Stars)"
             if is_nft:
-                name = f"Limited Edition Sovg'a ({stars} ⭐)"
+                name = f"Limited Edition {clean_title} ({stars} Stars)"
                 if total_count and remains is not None:
                     name += f" [{remains}/{total_count}]"
 
@@ -370,7 +400,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
                 "id": gid,
                 "stars": stars,
                 "name": name,
-                "icon": emoji,
+                "icon": vector_icon,
                 "file_id": sticker.get("file_id", ""),
                 "file_type": file_type,
                 "is_nft": is_nft,
@@ -391,38 +421,37 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     else:
         # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
         t1_drops = [
-            {"id": "5183889020478160001", "stars": 15, "name": "Delicious Cake", "icon": "🎂", "is_nft": False},
-            {"id": "5183889020478160002", "stars": 25, "name": "Green Star", "icon": "💚", "is_nft": False},
-            {"id": "5183889020478160003", "stars": 50, "name": "Teddy Bear", "icon": "🧸", "is_nft": False}
+            {"id": "5183889020478160001", "stars": 15, "name": "Delicious Cake", "icon": "cake", "is_nft": False},
+            {"id": "5183889020478160002", "stars": 25, "name": "Green Star", "icon": "star", "is_nft": False},
+            {"id": "5183889020478160003", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "is_nft": False}
         ]
         t2_drops = [
-            {"id": "5183889020478160004", "stars": 50, "name": "Bouquet of Flowers", "icon": "💐", "is_nft": False},
-            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "🍾", "is_nft": False},
-            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "💍", "is_nft": False}
+            {"id": "5183889020478160004", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "is_nft": False},
+            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "is_nft": False},
+            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "is_nft": False}
         ]
         t3_drops = [
-            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "🍾", "is_nft": False},
-            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "💍", "is_nft": False},
-            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "🏆", "is_nft": False}
+            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "is_nft": False},
+            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "is_nft": False},
+            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "is_nft": False}
         ]
         t4_drops = [
-            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "🏆", "is_nft": False},
-            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "🚀", "is_nft": False},
-            {"id": "5183889020478160009", "stars": 1000, "name": "Black Cap Collectible", "icon": "🧢", "is_nft": True}
+            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "is_nft": False},
+            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "is_nft": False},
+            {"id": "5183889020478160009", "stars": 1000, "name": "Black Cap Collectible", "icon": "cap", "is_nft": True}
         ]
         t5_drops = [
-            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "🚀", "is_nft": False},
-            {"id": "5183889020478160010", "stars": 1500, "name": "Plush Collectible", "icon": "🐸", "is_nft": True},
-            {"id": "5183889020478160011", "stars": 5000, "name": "Royal Crown Collectible", "icon": "👑", "is_nft": True}
+            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "is_nft": False},
+            {"id": "5183889020478160010", "stars": 1500, "name": "Plush Collectible", "icon": "plush", "is_nft": True},
+            {"id": "5183889020478160011", "stars": 5000, "name": "Royal Crown Collectible", "icon": "crown", "is_nft": True}
         ]
 
-    # Maxsus Telegram Premium Yutuqlari (Faqat etarlicha depozit/aylanma qilganlarga beriladi)
-    # 3 oylik: 1100 Stars (min talab: 1210 Stars), 6 oylik: 2150 Stars (min talab: 2365 Stars)
+    # Maxsus Telegram Premium Yutuqlari
     t4_drops.append({
         "id": "tg_prem_3m",
         "stars": 1100,
         "name": "Telegram Premium (3 Oylik)",
-        "icon": "⭐",
+        "icon": "telegram_premium",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 3,
@@ -432,7 +461,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "id": "tg_prem_6m",
         "stars": 2150,
         "name": "Telegram Premium (6 Oylik)",
-        "icon": "💎",
+        "icon": "telegram_premium",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 6,
@@ -448,7 +477,6 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             stars = item.get("stars", 100)
             
             # Ehtimollik (weight) arzon sovg'alarga balandroq beriladi
-            # weight = max(1, 1000 / (stars ^ 1.5)) ko'rinishida taqsimlash
             if stars <= 15: weight = 60
             elif stars <= 25: weight = 25
             elif stars <= 50: weight = 10
@@ -463,7 +491,6 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             
             formatted.append({**item, "weight": weight, "rarity": rarity})
             
-        # O'xshash weightlarni bir xil qilib qoldiramiz, ularning jami qatnashadi
         return formatted
 
     cases = {
@@ -473,10 +500,10 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "name": "Bronze Starter Case",
             "price_stars": 25,
             "price_uzs": 10000,
-            "icon": "📦",
-            "badge": "25 ⭐ / 10,000 so'm",
+            "icon": "package",
+            "badge": "25 Stars / 10,000 so'm",
             "color": "#cd7f32",
-            "description": "Telegram serveridagi rasmiy sovg'alar: 25 ⭐ gacha yutuqlar!",
+            "description": "Telegram serveridagi rasmiy sovg'alar: 25 Stars gacha yutuqlar!",
             "drops": format_drops(t1_drops)
         },
         "tier_2": {
@@ -485,10 +512,10 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "name": "Silver Creator Case",
             "price_stars": 75,
             "price_uzs": 30000,
-            "icon": "🎁",
-            "badge": "75 ⭐ / 30,000 so'm",
+            "icon": "gift",
+            "badge": "75 Stars / 30,000 so'm",
             "color": "#c0c0c0",
-            "description": "Telegram server sovg'alari: 50 ⭐ dan 250 ⭐ gacha!",
+            "description": "Telegram server sovg'alari: 50 Stars dan 250 Stars gacha!",
             "drops": format_drops(t2_drops)
         },
         "tier_3": {
@@ -497,10 +524,10 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "name": "Gold Pro Studio Case",
             "price_stars": 250,
             "price_uzs": 100000,
-            "icon": "🏆",
-            "badge": "250 ⭐ / 100,000 so'm",
+            "icon": "trophy",
+            "badge": "250 Stars / 100,000 so'm",
             "color": "#ffd700",
-            "description": "Telegram server sovg'alari: 100 ⭐ dan 500 ⭐ gacha!",
+            "description": "Telegram server sovg'alari: 100 Stars dan 500 Stars gacha!",
             "drops": format_drops(t3_drops)
         },
         "tier_4": {
@@ -509,8 +536,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "name": "Platinum VIP Master Case",
             "price_stars": 750,
             "price_uzs": 300000,
-            "icon": "💎",
-            "badge": "750 ⭐ / 300,000 so'm",
+            "icon": "gem",
+            "badge": "750 Stars / 300,000 so'm",
             "color": "#00f0ff",
             "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
             "drops": format_drops(t4_drops)
@@ -521,8 +548,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "name": "Diamond Galaxy Case",
             "price_stars": 2500,
             "price_uzs": 1000000,
-            "icon": "🪐",
-            "badge": "2,500 ⭐ / 1,000,000 so'm",
+            "icon": "crown",
+            "badge": "2,500 Stars / 1,000,000 so'm",
             "color": "#b026ff",
             "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",
             "drops": format_drops(t5_drops)
@@ -566,9 +593,9 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
 
     # 1. BAD LUCK PROTECTION (Kassa kafolatlangan 15+ Stars foydada qoladi!)
     if bad_luck_streak >= 3:
-        # Masalan: 25 ⭐ keysda max yutuq 10 ⭐ (Kassaga kamida 15 ⭐ foyda qoladi)
-        # 75 ⭐ keysda max yutuq 35 ⭐ (Kassaga kamida 40 ⭐ foyda qoladi)
-        # 250 ⭐ keysda max yutuq 120 ⭐ (Kassaga kamida 130 ⭐ foyda qoladi)
+        # Masalan: 25 Stars keysda max yutuq 10 Stars (Kassaga kamida 15 Stars foyda qoladi)
+        # 75 Stars keysda max yutuq 35 Stars (Kassaga kamida 40 Stars foyda qoladi)
+        # 250 Stars keysda max yutuq 120 Stars (Kassaga kamida 130 Stars foyda qoladi)
         max_allowed_stars = max(10, case["price_stars"] - 15)
         # Premium obuna Super Luck bilan berilmaydi (faqat real depozit bilan olinadi)
         candidates = [d for d in drops if d["stars"] <= max_allowed_stars and not d.get("is_premium")]
@@ -993,37 +1020,38 @@ def spin_wheel(tg_user_id: int, is_free: bool = True) -> dict:
     if roll <= 30:
         prize_uzs = 200
         prize_type = "balance"
-        title = "💰 200 so'm"
+        title = "200 so'm"
         add_user_balance(tg_user_id, prize_uzs)
     elif roll <= 55:
         prize_uzs = 500
         prize_type = "balance"
-        title = "💰 500 so'm"
+        title = "500 so'm"
         add_user_balance(tg_user_id, prize_uzs)
     elif roll <= 75:
         prize_uzs = 1000
         prize_type = "balance"
-        title = "💰 1,000 so'm"
+        title = "1,000 so'm"
         add_user_balance(tg_user_id, prize_uzs)
     elif roll <= 90:
         prize_uzs = 0
         prize_type = "empty"
-        title = "😢 0 so'm (Keyingi safar!)"
+        title = "0 so'm (Keyingi safar omad kulib boqadi)"
+        add_user_balance(tg_user_id, prize_uzs)
     elif roll <= 98:
         prize_uzs = 2500
         prize_type = "balance"
-        title = "🎉 2,500 so'm!"
+        title = "2,500 so'm!"
         add_user_balance(tg_user_id, prize_uzs)
     else:
         k_res = purchase_api_key(tg_user_id, "groq")
         if k_res.get("ok"):
             prize_uzs = 10000
             prize_type = "groq"
-            title = "⚡ Groq Cloud API Kaliti!"
+            title = "Groq Cloud API Kaliti!"
         else:
             prize_uzs = 3000
             prize_type = "balance"
-            title = "💰 3,000 so'm"
+            title = "3,000 so'm"
             add_user_balance(tg_user_id, 3000)
             
     conn = get_db()
@@ -1500,16 +1528,16 @@ def get_recent_drops(limit: int = 15) -> list:
     if len(_RECENT_DROPS_BUFFER) < 10:
         import random
         defaults = [
-            ("Delicious Cake", 15, "🎂", "common", False),
-            ("Green Star", 25, "💚", "rare", False),
-            ("Teddy Bear", 50, "🧸", "legendary", False),
-            ("Bouquet of Flowers", 50, "💐", "common", False),
-            ("Champagne Bottle", 100, "🍾", "rare", False),
-            ("Diamond Ring", 250, "💍", "legendary", False),
-            ("Golden Trophy", 500, "🏆", "common", False),
-            ("Durov's Black Cap NFT", 1000, "🧢", "legendary", True),
-            ("Plush Pepe NFT", 1500, "🐸", "rare", True),
-            ("Royal Crown NFT", 5000, "👑", "legendary", True),
+            ("Delicious Cake", 15, "cake", "common", False),
+            ("Green Star", 25, "star", "rare", False),
+            ("Teddy Bear", 50, "teddy", "legendary", False),
+            ("Bouquet of Flowers", 50, "bouquet", "common", False),
+            ("Champagne Bottle", 100, "champagne", "rare", False),
+            ("Diamond Ring", 250, "diamond_ring", "legendary", False),
+            ("Golden Trophy", 500, "trophy", "common", False),
+            ("Durov's Black Cap NFT", 1000, "cap", "legendary", True),
+            ("Plush Pepe NFT", 1500, "plush", "rare", True),
+            ("Royal Crown NFT", 5000, "crown", "legendary", True),
         ]
         for _ in range(12 - len(_RECENT_DROPS_BUFFER)):
             u = generate_realistic_username()
@@ -1626,7 +1654,7 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
     battle["winner_name"] = winner_name
     battle["status"] = "finished"
     
-    record_drop_event(winner_name, f"PvP G'olib ({battle['case_name']})", battle["pot_stars"] - battle["house_commission"], "⚔️", "legendary", False)
+    record_drop_event(winner_name, f"PvP G'olib ({battle['case_name']})", battle["pot_stars"] - battle["house_commission"], "swords", "legendary", False)
     
     return {"ok": True, "battle": battle}
 
@@ -1699,13 +1727,13 @@ def get_user_streak(user_id: int) -> dict:
             
     # Haqiqiy pul/Stars umuman yo'q - faqat botning $0 tannarxli raqamli xizmatlari
     rewards = [
-        {"day": 1, "title": "5 ta AI YouTube SEO", "icon": "⚡", "type": "seo_pack", "value": 5},
-        {"day": 2, "title": "10 ta AI Video Teglar & Tavsif", "icon": "🏷️", "type": "ai_tags", "value": 10},
-        {"day": 3, "title": "1 Kunlik CapCut Pro", "icon": "🎬", "type": "capcut_trial", "value": 1},
-        {"day": 4, "title": "10 ta AI Video Skript & G'oyalar", "icon": "📝", "type": "ai_script", "value": 10},
-        {"day": 5, "title": "5 ta Video Unikalizatsiya VIP", "icon": "✨", "type": "unikal", "value": 5},
-        {"day": 6, "title": "VIP Video Health Check & Auditor", "icon": "🚀", "type": "audit", "value": 1},
-        {"day": 7, "title": "1 Oylik CapCut Pro VIP", "icon": "👑", "type": "capcut_pro_month", "value": 30}
+        {"day": 1, "title": "5 ta AI YouTube SEO", "icon": "sparkles", "type": "seo_pack", "value": 5},
+        {"day": 2, "title": "10 ta AI Video Teglar & Tavsif", "icon": "tag", "type": "ai_tags", "value": 10},
+        {"day": 3, "title": "1 Kunlik CapCut Pro", "icon": "clapper", "type": "capcut_trial", "value": 1},
+        {"day": 4, "title": "10 ta AI Video Skript & G'oyalar", "icon": "script", "type": "ai_script", "value": 10},
+        {"day": 5, "title": "5 ta Video Unikalizatsiya VIP", "icon": "sparkles", "type": "unikal", "value": 5},
+        {"day": 6, "title": "VIP Video Health Check & Auditor", "icon": "rocket", "type": "audit", "value": 1},
+        {"day": 7, "title": "1 Oylik CapCut Pro VIP", "icon": "crown", "type": "capcut_pro_month", "value": 30}
     ]
     
     curr_day = (u_streak["streak"] % 7) + 1
@@ -1760,7 +1788,7 @@ def play_scratch_card(user_id: int) -> dict:
     roll = random.random()
     if roll < 0.05:
         won = True
-        symbols = ["🎬", "🎬", "🎬"]
+        symbols = ["clapper", "clapper", "clapper"]
         prize = {
             "title": "1 Oylik CapCut Pro Litsenziyasi!",
             "key": generate_capcut_license_key(),
@@ -1768,15 +1796,15 @@ def play_scratch_card(user_id: int) -> dict:
         }
     elif roll < 0.20:
         won = True
-        symbols = ["⚡", "⚡", "⚡"]
+        symbols = ["sparkles", "sparkles", "sparkles"]
         prize = {
             "title": "15 ta AI YouTube SEO & Teglar Paketi!",
             "type": "seo_pack"
         }
     else:
         won = False
-        pair = random.choice(["🎬", "⚡", "💎"])
-        diff = random.choice([s for s in ["🎬", "⚡", "💎", "⭐"] if s != pair])
+        pair = random.choice(["clapper", "sparkles", "gem"])
+        diff = random.choice([s for s in ["clapper", "sparkles", "gem", "star"] if s != pair])
         symbols = [pair, pair, diff]
         random.shuffle(symbols)
         prize = None
@@ -1797,10 +1825,10 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
     import uuid
     
     services = {
-        "capcut_30": {"title": "CapCut Pro 1 Oylik", "stars": 350, "type": "capcut", "icon": "🎬"},
-        "capcut_365": {"title": "CapCut Pro 1 Yillik VIP", "stars": 2500, "type": "capcut", "icon": "👑"},
-        "ai_seo_50": {"title": "50 ta Video uchun AI SEO", "stars": 100, "type": "ai", "icon": "⚡"},
-        "video_unikal_10": {"title": "10 ta Video Unikalizatsiya VIP", "stars": 150, "type": "unikal", "icon": "🚀"}
+        "capcut_30": {"title": "CapCut Pro 1 Oylik", "stars": 350, "type": "capcut", "icon": "clapper"},
+        "capcut_365": {"title": "CapCut Pro 1 Yillik VIP", "stars": 2500, "type": "capcut", "icon": "crown"},
+        "ai_seo_50": {"title": "50 ta Video uchun AI SEO", "stars": 100, "type": "ai", "icon": "sparkles"},
+        "video_unikal_10": {"title": "10 ta Video Unikalizatsiya VIP", "stars": 150, "type": "unikal", "icon": "rocket"}
     }
     
     srv = services.get(service_id)
