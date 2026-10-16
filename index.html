@@ -573,6 +573,14 @@
             </svg>
         );
 
+        const SvgKey = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <circle cx="7.5" cy="15.5" r="5.5" />
+                <path d="m21 2-9.6 9.6" />
+                <path d="m15.5 7.5 3 3L22 7l-3-3" />
+            </svg>
+        );
+
         const FingerprintIcon = ({ size = 24, color = "#192837" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", position: "relative", top: "-2px", marginLeft: "6px" }}>
                 <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4" />
@@ -949,11 +957,11 @@
         );
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
-        const TelegramGiftMedia = ({ fileId, fileType, icon, name = "", size = "80px", style = {} }) => {
+        const TelegramGiftMedia = ({ fileId, fileType, icon, name = "", size = "80px", style = {}, forceVector = false }) => {
             const sz = typeof size === 'number' ? `${size}px` : size;
             const numSz = parseInt(size) || 80;
 
-            if (fileId) {
+            if (fileId && !forceVector && numSz > 26) {
                 const src = `/api/telegram-file/${fileId}`;
                 const mergedStyle = { width: sz, height: sz, margin: "0 auto", objectFit: "contain", ...style };
                 if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
@@ -968,22 +976,29 @@
 
             // High-fidelity Semantic Vector Fallbacks (Zero Unicode Emojis)
             const key = (icon || name || "").toLowerCase();
-            if (key.includes("cake")) return <VectorCake size={numSz} style={style} />;
-            if (key.includes("star") || key.includes("yulduz")) return <VectorStar size={numSz} style={style} />;
-            if (key.includes("teddy") || key.includes("bear") || key.includes("ayiq")) return <VectorTeddy size={numSz} style={style} />;
-            if (key.includes("bouquet") || key.includes("flower") || key.includes("gul")) return <VectorBouquet size={numSz} style={style} />;
-            if (key.includes("champagne") || key.includes("bottle") || key.includes("shampan")) return <VectorChampagne size={numSz} style={style} />;
-            if (key.includes("ring") || key.includes("diamond_ring") || key.includes("uzuk")) return <VectorDiamondRing size={numSz} style={style} />;
-            if (key.includes("trophy") || key.includes("kubok")) return <VectorTrophy size={numSz} style={style} />;
-            if (key.includes("rocket") || key.includes("raketa")) return <VectorRocket size={numSz} style={style} />;
-            if (key.includes("cap") || key.includes("kepka")) return <VectorCap size={numSz} style={style} />;
-            if (key.includes("plush") || key.includes("oyunchoq")) return <VectorPlush size={numSz} style={style} />;
-            if (key.includes("crown") || key.includes("toj")) return <VectorCrown size={numSz} style={style} />;
+            if (key.includes("cake") || key.includes("🎂")) return <VectorCake size={numSz} style={style} />;
+            if (key.includes("star") || key.includes("yulduz") || key.includes("⭐") || key.includes("🌟") || key.includes("💚")) return <VectorStar size={numSz} style={style} />;
+            if (key.includes("teddy") || key.includes("bear") || key.includes("ayiq") || key.includes("🧸")) return <VectorTeddy size={numSz} style={style} />;
+            if (key.includes("bouquet") || key.includes("flower") || key.includes("gul") || key.includes("rose") || key.includes("💐") || key.includes("🌹") || key.includes("🌸") || key.includes("🌷")) return <VectorBouquet size={numSz} style={style} />;
+            if (key.includes("champagne") || key.includes("bottle") || key.includes("shampan") || key.includes("🍾")) return <VectorChampagne size={numSz} style={style} />;
+            if (key.includes("ring") || key.includes("diamond_ring") || key.includes("uzuk") || key.includes("💍")) return <VectorDiamondRing size={numSz} style={style} />;
+            if (key.includes("trophy") || key.includes("kubok") || key.includes("🏆")) return <VectorTrophy size={numSz} style={style} />;
+            if (key.includes("rocket") || key.includes("raketa") || key.includes("🚀")) return <VectorRocket size={numSz} style={style} />;
+            if (key.includes("cap") || key.includes("kepka") || key.includes("🧢")) return <VectorCap size={numSz} style={style} />;
+            if (key.includes("plush") || key.includes("oyunchoq") || key.includes("frog") || key.includes("🐸") || key.includes("👾")) return <VectorPlush size={numSz} style={style} />;
+            if (key.includes("crown") || key.includes("toj") || key.includes("👑")) return <VectorCrown size={numSz} style={style} />;
             if (key.includes("premium") || key.includes("tg_premium")) return <VectorPremium size={numSz} style={style} />;
-            if (key.includes("gem") || key.includes("diamond")) return <SvgGem size={Math.round(numSz * 0.75)} color="#00f0ff" style={style} />;
-            if (key.includes("swords") || key.includes("battle")) return <SvgSwords size={Math.round(numSz * 0.75)} color="#7342E2" style={style} />;
-            if (key.includes("ticket") || key.includes("scratch")) return <SvgTicket size={Math.round(numSz * 0.75)} color="#7342E2" style={style} />;
-            if (key.includes("calendar") || key.includes("streak")) return <SvgCalendar size={Math.round(numSz * 0.75)} color="#7342E2" style={style} />;
+            if (key.includes("gem") || key.includes("diamond") || key.includes("💎")) return <SvgGem size={Math.round(numSz * 0.8)} color="#00f0ff" style={style} />;
+            if (key.includes("clapper") || key.includes("video")) return <SvgClapperboard size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
+            if (key.includes("film") || key.includes("movie")) return <SvgFilm size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
+            if (key.includes("sparkles") || key.includes("sparkle") || key.includes("ai")) return <SvgSparkles size={Math.round(numSz * 0.8)} color="#00f0ff" style={style} />;
+            if (key.includes("zap") || key.includes("bolt") || key.includes("speed")) return <SvgZap size={Math.round(numSz * 0.8)} color="#ffd700" style={style} />;
+            if (key.includes("tag") || key.includes("tags")) return <SvgTag size={Math.round(numSz * 0.8)} color="#10b981" style={style} />;
+            if (key.includes("edit") || key.includes("script")) return <SvgEdit3 size={Math.round(numSz * 0.8)} color="#3b82f6" style={style} />;
+            if (key.includes("swords") || key.includes("battle") || key.includes("duel")) return <SvgSwords size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
+            if (key.includes("ticket") || key.includes("scratch")) return <SvgTicket size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
+            if (key.includes("calendar") || key.includes("streak")) return <SvgCalendar size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
+            if (key.includes("package") || key.includes("box") || key.includes("gift") || key.includes("🎁") || key.includes("💝") || key.includes("💗")) return <VectorGiftBox size={numSz} style={style} />;
 
             return <VectorGiftBox size={numSz} style={style} />;
         };
@@ -3357,11 +3372,39 @@
                                                         {c.description || `${c.price_stars} Starslik super keys!`}
                                                     </p>
 
-                                                    {/* Possible drops mini preview */}
-                                                    <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
+                                                    {/* Possible drops mini preview (Responsive Vector Badges, Zero Emojis, No Horizontal Overflow) */}
+                                                    <div style={{
+                                                        display: "flex",
+                                                        flexWrap: "wrap",
+                                                        justifyContent: "center",
+                                                        alignItems: "center",
+                                                        gap: "6px",
+                                                        width: "100%",
+                                                        maxWidth: "100%",
+                                                        boxSizing: "border-box",
+                                                        marginBottom: "16px",
+                                                        padding: "4px 2px"
+                                                    }}>
                                                         {c.drops && c.drops.map((d, dIdx) => (
-                                                            <span key={dIdx} title={`${d.name} (${d.stars} Stars)`} style={{ background: "#f8f8f8", padding: "4px 6px", borderRadius: "8px", display: "inline-flex", alignItems: "center" }}>
-                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size="20px" />
+                                                            <span
+                                                                key={dIdx}
+                                                                title={`${d.name} (${d.stars} Stars)`}
+                                                                style={{
+                                                                    background: "rgba(0, 0, 0, 0.03)",
+                                                                    border: "1px solid rgba(0, 0, 0, 0.06)",
+                                                                    padding: "3px 6px",
+                                                                    borderRadius: "8px",
+                                                                    display: "inline-flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    transition: "all 0.15s ease",
+                                                                    cursor: "pointer",
+                                                                    boxShadow: "0 1px 2px rgba(0,0,0,0.02)"
+                                                                }}
+                                                                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(115, 66, 226, 0.08)"; e.currentTarget.style.borderColor = "rgba(115, 66, 226, 0.25)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)"; e.currentTarget.style.borderColor = "rgba(0, 0, 0, 0.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
+                                                            >
+                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size={18} forceVector={true} />
                                                             </span>
                                                         ))}
                                                     </div>
@@ -4263,7 +4306,9 @@
                                         padding: "20px"
                                     }}>
                                         <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "460px", width: "100%", textAlign: "center", color: "var(--text)" }}>
-                                            <div style={{ fontSize: "56px", marginBottom: "12px" }}>{redeemModal.service.icon}</div>
+                                            <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
+                                                <TelegramGiftMedia icon={redeemModal.service.icon} name={redeemModal.service.title} size="56px" />
+                                            </div>
                                             <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>{redeemModal.message}</h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
                                                 Xizmatingiz darhol faollashtirildi. Litsenziya kalitini nusxalab oling:
@@ -4356,11 +4401,7 @@
                                                 {oddsModalCase.drops.map((d, i) => (
                                                     <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "12px" }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                            {d.file_id ? (
-                                                                <MediaRenderer fileId={d.file_id} fileType={d.file_type} icon={d.icon} size="24px" />
-                                                            ) : (
-                                                                <span style={{ fontSize: "24px" }}>{d.icon}</span>
-                                                            )}
+                                                            <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size="24px" forceVector={true} />
                                                             <span style={{ fontSize: "13px", fontWeight: 600 }}>{d.name}</span>
                                                         </div>
                                                         <span style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>{d.stars} Stars</span>
@@ -4621,7 +4662,7 @@
                                                 <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0 }}>Telegram ID orqali kirish</h3>
                                             </div>
                                             <button
-                                                onClick={() => setShowLoginModal(false)}
+                                                onClick={() => { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); }}
                                                 style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a" }}
                                             >
                                                 <XIcon size={20} color="#71717a" />
@@ -4636,22 +4677,27 @@
                                                     <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#3f3f46", marginBottom: "6px" }}>
                                                         Telegram User ID
                                                     </label>
-                                                    <input
-                                                        type="number"
-                                                        value={loginIdInput}
-                                                        onChange={(e) => setLoginIdInput(e.target.value)}
-                                                        placeholder="Masalan: 123456789"
-                                                        style={{
-                                                            width: "100%",
-                                                            padding: "12px 16px",
-                                                            borderRadius: "12px",
-                                                            border: "1px solid #d4d4d8",
-                                                            fontSize: "15px",
-                                                            outline: "none",
-                                                            boxSizing: "border-box"
-                                                        }}
-                                                        autoFocus
-                                                    />
+                                                    <div style={{ position: "relative" }}>
+                                                        <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                                                            <SvgUser size={18} color="#7342E2" />
+                                                        </div>
+                                                        <input
+                                                            type="number"
+                                                            value={loginIdInput}
+                                                            onChange={(e) => setLoginIdInput(e.target.value)}
+                                                            placeholder="Masalan: 123456789"
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "12px 16px 12px 42px",
+                                                                borderRadius: "12px",
+                                                                border: "1px solid #d4d4d8",
+                                                                fontSize: "15px",
+                                                                outline: "none",
+                                                                boxSizing: "border-box"
+                                                            }}
+                                                            autoFocus
+                                                        />
+                                                    </div>
                                                 </div>
 
                                                 {authError && (
@@ -4663,7 +4709,7 @@
                                                 <div style={{ display: "flex", gap: "10px" }}>
                                                     <button
                                                         type="button"
-                                                        onClick={() => setShowLoginModal(false)}
+                                                        onClick={() => { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); }}
                                                         style={{
                                                             flex: 1,
                                                             padding: "12px 0",
@@ -4713,26 +4759,31 @@
                                                             ID ni o'zgartirish
                                                         </span>
                                                     </div>
-                                                    <input
-                                                        type="text"
-                                                        maxLength={6}
-                                                        value={otpInput}
-                                                        onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                                                        placeholder="123456"
-                                                        style={{
-                                                            width: "100%",
-                                                            padding: "12px 16px",
-                                                            borderRadius: "12px",
-                                                            border: "1px solid #d4d4d8",
-                                                            fontSize: "20px",
-                                                            letterSpacing: "4px",
-                                                            textAlign: "center",
-                                                            fontWeight: 700,
-                                                            outline: "none",
-                                                            boxSizing: "border-box"
-                                                        }}
-                                                        autoFocus
-                                                    />
+                                                    <div style={{ position: "relative" }}>
+                                                        <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                                                            <SvgKey size={18} color="#7342E2" />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            maxLength={6}
+                                                            value={otpInput}
+                                                            onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                                                            placeholder="123456"
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "12px 16px 12px 42px",
+                                                                borderRadius: "12px",
+                                                                border: "1px solid #d4d4d8",
+                                                                fontSize: "20px",
+                                                                letterSpacing: "4px",
+                                                                textAlign: "center",
+                                                                fontWeight: 700,
+                                                                outline: "none",
+                                                                boxSizing: "border-box"
+                                                            }}
+                                                            autoFocus
+                                                        />
+                                                    </div>
                                                 </div>
 
                                                 {authError && (
@@ -4744,7 +4795,7 @@
                                                 <div style={{ display: "flex", gap: "10px" }}>
                                                     <button
                                                         type="button"
-                                                        onClick={() => setShowLoginModal(false)}
+                                                        onClick={() => { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); }}
                                                         style={{
                                                             flex: 1,
                                                             padding: "12px 0",
