@@ -1,513 +1,462 @@
 """
-Custom Telegram Emoji Manager for AutoReply & AutoPost Bot
-Foydalanuvchi taqdim etgan 39 ta aniq Custom Emoji ID-lari bilan to'liq yangilangan.
+CreatorFlow Studio & AutoReply AI — Telegram Custom Emoji Master Registry
+
+Ushbu modulda bot, web dashboard va barcha tizimlar uchun kerakli Custom Emoji'lar
+har bir narsaning aniq nomi, qayerda ishlatilishi, nima uchunligi va zaxira (fallback) nomi bilan
+tartibli reestrda saqlanadi.
 """
+
 import random
 
-# Foydalanuvchi tomonidan tasdiqlangan 39 ta aniq Custom Emoji ID-lari
-VERIFIED_CUSTOM_EMOJIS = {
-    # 🎮 1. Mini-O'yinlar & Monetizatsiya
-    "MYSTERY_BOX": ("6319002678990998592", "🎁"),
-    "GIFT": ("6319002678990998592", "🎁"),
-    "WHEEL": ("5235989279024373566", "🎯"),
-    "GAMES": ("5235989279024373566", "🎮"),
-    "SLOT": ("5235989279024373566", "🎮"),
-    "CASINO": ("5235989279024373566", "🎮"),
-    "DUEL": ("5960555055043055638", "⚔️"),
-    "COMPARE": ("5960555055043055638", "⚔️"),
-    "COIN": ("5199552030615558774", "🪙"),
-    "CRYPTO": ("5199552030615558774", "🪙"),
-    "LOTTERY": ("5355235390980642171", "🎟️"),
-    "TICKET": ("5355235390980642171", "🎟️"),
-    "CROWN": ("5251422397893989847", "👑"),
-    "VIP": ("5251422397893989847", "👑"),
+# ==============================================================================
+# 1. ASOSIY CUSTOM EMOJI REESTRI (Nom, Qayerdaligi, Nima uchunligi, ID va Fallback)
+# ==============================================================================
+CUSTOM_EMOJI_REGISTRY = {
+    # --------------------------------------------------------------------------
+    # 1. ASOSIY MENYU VA NAVIGATSIYA
+    # --------------------------------------------------------------------------
+    "BTN_HOME": {
+        "name": "Bosh Menyu Uychasi",
+        "location": "Asosiy bot menyusi va barcha bo'limlardan orqaga qaytish",
+        "purpose": "Foydalanuvchini bosh sahifaga qaytarish",
+        "id": "5974098293813152457",
+        "fallback_name": "[Bosh Menyu]",
+        "fallback_icon": "🏠"
+    },
+    "BTN_SERVICES": {
+        "name": "Marketplace / Xizmatlar",
+        "location": "Marketplace, xizmatlar do'koni va mahsulotlar menyusi",
+        "purpose": "Raqamli xizmatlar va obunalar katalogini ochish",
+        "id": "5864068125112144897",
+        "fallback_name": "[Xizmatlar]",
+        "fallback_icon": "💸"
+    },
+    "BTN_WALLET": {
+        "name": "Hamyon va Balans",
+        "location": "Hisobni to'ldirish, balansni tekshirish, pul yechish",
+        "purpose": "Foydalanuvchi hisob-kitob bo'limini ko'rsatish",
+        "id": "5343777479091831702",
+        "fallback_name": "[Balans]",
+        "fallback_icon": "💰"
+    },
+    "BTN_GAMES": {
+        "name": "O'yinlar va Mini-App",
+        "location": "Mini-o'yinlar, Keyslar, Fortune g'ildiragi va kazino",
+        "purpose": "O'yinlar va yutuqli sovrinlar markaziga o'tish",
+        "id": "5235989279024373566",
+        "fallback_name": "[O'yinlar]",
+        "fallback_icon": "🎮"
+    },
+    "BTN_ORDERS": {
+        "name": "Mening Xaridlarim",
+        "location": "Foydalanuvchining faol va bajarilgan buyurtmalari ro'yxati",
+        "purpose": "Xarid qilingan kalitlar va tovarlarni ko'rish",
+        "id": "5444856076954520455",
+        "fallback_name": "[Xaridlarim]",
+        "fallback_icon": "📋"
+    },
+    "BTN_REFERRAL": {
+        "name": "Do'stlar / Referal",
+        "location": "Taklif havolasi, referal daromadlari va do'stlar statistikasi",
+        "purpose": "Do'stlarni taklif qilib bonus olish bo'limi",
+        "id": "6319002678990998592",
+        "fallback_name": "[Referal]",
+        "fallback_icon": "👥"
+    },
+    "BTN_LEADERBOARD": {
+        "name": "Liderlar Jadvali / Reyting",
+        "location": "Eng ko'p xarid qilganlar va sovrindorlar ro'yxati",
+        "purpose": "Foydalanuvchilar o'rtasida reyting va sovrinlar",
+        "id": "5226431245918942763",
+        "fallback_name": "[Liderlar]",
+        "fallback_icon": "🏆"
+    },
+    "BTN_SUPPORT": {
+        "name": "Qo'llab-quvvatlash / Admin",
+        "location": "Texnik yordam, admin bilan jonli chat va savol-javob",
+        "purpose": "Foydalanuvchi muammolarini hal qilish",
+        "id": "5443038326535759644",
+        "fallback_name": "[Yordam]",
+        "fallback_icon": "🎧"
+    },
+    "BTN_SETTINGS": {
+        "name": "Sozlamalar",
+        "location": "Til sozlamalari, bildirishnomalar va profil boshqaruvi",
+        "purpose": "Bot va akkaunt parametrlarini sozlash",
+        "id": "5339081812821957844",
+        "fallback_name": "[Sozlamalar]",
+        "fallback_icon": "⚙️"
+    },
+    "BTN_DASHBOARD": {
+        "name": "Web Dashboard Studio",
+        "location": "WebApp tugmasi orqali CreatorFlow Studio sahifasini ochish",
+        "purpose": "Interaktiv veb studiyaga bir bosishda kirish",
+        "id": "6327577233305112811",
+        "fallback_name": "[Studio]",
+        "fallback_icon": "🌐"
+    },
+    "BTN_BACK": {
+        "name": "Orqaga Qaytish",
+        "location": "Har qanday ichki menyu va sahifalardan orqaga qaytish",
+        "purpose": "Oldingi sahifaga qaytarish",
+        "id": "5352759161945867747",
+        "fallback_name": "[Orqaga]",
+        "fallback_icon": "⬅️"
+    },
+    "BTN_NEXT": {
+        "name": "Keyingi Sahifa",
+        "location": "Mahsulotlar va jadvallar paginatsiyasi",
+        "purpose": "Keyingi mahsulotlar ro'yxatini ko'rish",
+        "id": "5433788045016969178",
+        "fallback_name": "[Keyingi]",
+        "fallback_icon": "➡️"
+    },
 
-    # 🏆 2. Liderlar Jadvali & Reyting
-    "TROPHY": ("5226431245918942763", "🏆"),
-    "LEADERBOARD": ("5226431245918942763", "🏆"),
-    "MEDAL_GOLD": ("5440539497383087970", "🥇"),
-    "MEDAL_SILVER": ("5447203607294265305", "🥈"),
-    "MEDAL_BRONZE": ("5453902265922376865", "🥉"),
+    # --------------------------------------------------------------------------
+    # 2. TO'LOVLAR VA MOLIYA TIZIMLARI
+    # --------------------------------------------------------------------------
+    "PAY_STARS": {
+        "name": "Telegram Stars",
+        "location": "Stars orqali depozit qilish, keys ochish va hisob to'ldirish",
+        "purpose": "Telegram ichki valyutasi bilan to'lov qilish",
+        "id": "5370784581341422520",
+        "fallback_name": "[Stars]",
+        "fallback_icon": "⭐"
+    },
+    "PAY_HUMO_UZCARD": {
+        "name": "Bank Kartasi (Humo / Uzcard)",
+        "location": "O'zbekiston bank kartalari orqali so'mda hisob to'ldirish",
+        "purpose": "Milliy valyutada to'lov qabul qilish",
+        "id": "5445353829304387411",
+        "fallback_name": "[Karta]",
+        "fallback_icon": "💳"
+    },
+    "PAY_TON_CRYPTO": {
+        "name": "TON Blockchain / Kripto",
+        "location": "TON Connect, Tonkeeper va CryptoPay orqali to'lovlar",
+        "purpose": "Kriptovalyuta orqali tezkor to'lov",
+        "id": "5078343973303485905",
+        "fallback_name": "[TON]",
+        "fallback_icon": "💎"
+    },
+    "PAY_PROMOCODE": {
+        "name": "Promokod / Veb-cheklar",
+        "location": "Promokod kiritish va sovg'a vaucherlarini faollashtirish",
+        "purpose": "Bonus va chegirmalarni taqdim etish",
+        "id": "5355235390980642171",
+        "fallback_name": "[Promokod]",
+        "fallback_icon": "🎟️"
+    },
+    "PAY_CASHOUT": {
+        "name": "Mablag' Yechish (Cashout)",
+        "location": "Balansdan foydalanuvchi hamyoniga pul chiqarish",
+        "purpose": "Topilgan daromadlarni yechib olish",
+        "id": "5463046637842608206",
+        "fallback_name": "[Yechish]",
+        "fallback_icon": "💸"
+    },
+    "PAY_VIP_CROWN": {
+        "name": "VIP Oltin Toj",
+        "location": "VIP Premium obuna sotib olish va imtiyozlar bo'limi",
+        "purpose": "VIP foydalanuvchilarni ajratib ko'rsatish",
+        "id": "5251422397893989847",
+        "fallback_name": "[VIP]",
+        "fallback_icon": "👑"
+    },
 
-    # 🚀 3. Virusli O'sish & Video Yuklash
-    "SUBS": ("5258362837411045098", "👥"),
-    "FRIENDS": ("5258362837411045098", "👥"),
-    "ROCKET": ("5465467698022468218", "🚀"),
-    "SHARE": ("5465467698022468218", "🚀"),
-    "UPLOAD": ("5465467698022468218", "🚀"),
-    "DOWNLOAD": ("5255934767844567828", "📥"),
-    "DL": ("5255934767844567828", "📥"),
-    "CHANNEL": ("5431504848992360576", "📢"),
-    "LINK": ("5440410042773824003", "🔗"),
+    # --------------------------------------------------------------------------
+    # 3. STATUSLAR VA BILDIRISHNOMALAR
+    # --------------------------------------------------------------------------
+    "STATUS_SUCCESS": {
+        "name": "Muvaffaqiyatli Tasdiq",
+        "location": "To'lov qabul qilindi, buyurtma tayyor, amal bajarildi xabarlari",
+        "purpose": "Amal muvaffaqiyatli yakunlanganini tasdiqlash",
+        "id": "5366395940808709418",
+        "fallback_name": "[Muvaffaqiyatli]",
+        "fallback_icon": "✅"
+    },
+    "STATUS_ERROR": {
+        "name": "Xatolik / Bekor Qilish",
+        "location": "Noto'g'ri buyruq, mablag' yetishmasligi, rad etish xabarlari",
+        "purpose": "Xatolik haqida xabar berish",
+        "id": "5416076321442777828",
+        "fallback_name": "[Xatolik]",
+        "fallback_icon": "❌"
+    },
+    "STATUS_WARNING": {
+        "name": "Ogohlantirish",
+        "location": "Zaxirada qolmadi, limit tugamoqda, ehtiyot bo'ling xabarlari",
+        "purpose": "Foydalanuvchini ogohlantirish",
+        "id": "5787656288934564517",
+        "fallback_name": "[Ogohlantirish]",
+        "fallback_icon": "⚠️"
+    },
+    "STATUS_LIGHTNING": {
+        "name": "Tezkor / Yashin",
+        "location": "Avtomatik zudlik bilan bajariladigan amallar, bot tezligi",
+        "purpose": "Tezkor avtomatizatsiyani ifodalash",
+        "id": "5456140674028019486",
+        "fallback_name": "[Tezkor]",
+        "fallback_icon": "⚡"
+    },
+    "STATUS_LOADING": {
+        "name": "Yuklanmoqda / Qumsoat",
+        "location": "Video yuklanmoqda, navbatda, qayta ishlanmoqda xabarlari",
+        "purpose": "Jarayon ketayotganini ko'rsatish",
+        "id": "5215579104807497179",
+        "fallback_name": "[Yuklanmoqda]",
+        "fallback_icon": "⏳"
+    },
+    "STATUS_SECURITY": {
+        "name": "Xavfsizlik Qalqoni",
+        "location": "3D Biometrik KYC, Anti-Sybil va xavfsiz to'lov himoyasi",
+        "purpose": "Xavfsizlik va ishonchlilikni bildirish",
+        "id": "5330194932781050507",
+        "fallback_name": "[Himoyalangan]",
+        "fallback_icon": "🛡️"
+    },
 
-    # 💰 4. Balans & To'lovlar (TON & Stars)
-    "TON": ("5463424023734014980", "💎"),
-    "DIAMOND": ("5463424023734014980", "💎"),
-    "SPONSOR": ("5463424023734014980", "💎"),
-    "STAR": ("6215463953925934839", "⭐"),
-    "GLOWING_STAR": ("6215463953925934839", "🌟"),
-    "MONEY": ("5343777479091831702", "💰"),
-    "BALANCE": ("5343777479091831702", "💰"),
-    "CASH": ("5864068125112144897", "💸"),
-    "CASHBACK": ("5864068125112144897", "💸"),
-    "LIST": ("5444856076954520455", "📋"),
-    "INVOICE": ("5444856076954520455", "📋"),
-    "REPORT": ("5444856076954520455", "📋"),
+    # --------------------------------------------------------------------------
+    # 4. YOUTUBE VA VIDEO AVTOMATIZATSIYASI
+    # --------------------------------------------------------------------------
+    "MEDIA_VIDEO_FHD": {
+        "name": "1080p FHD Video",
+        "location": "Videoni eng yuqori sifatda (1080p) yuklab olish tugmasi",
+        "purpose": "Yuqori sifatli video formatini tanlash",
+        "id": "5292273171876034433",
+        "fallback_name": "[1080p]",
+        "fallback_icon": "🎬"
+    },
+    "MEDIA_VIDEO_HD": {
+        "name": "720p HD Video",
+        "location": "Videoni o'rtacha tezkor sifatda (720p) yuklab olish",
+        "purpose": "Standart HD video formatini tanlash",
+        "id": "5292273171876034433",
+        "fallback_name": "[720p]",
+        "fallback_icon": "🎬"
+    },
+    "MEDIA_AUDIO_MP3": {
+        "name": "MP3 Musiqa / Audio",
+        "location": "Videodan faqat musiqani (audio) ajratib olish tugmasi",
+        "purpose": "Audio formatda yuklash",
+        "id": "5422761017132202857",
+        "fallback_name": "[MP3]",
+        "fallback_icon": "🎵"
+    },
+    "MEDIA_SCISSORS": {
+        "name": "Qaychi / Shorts Kesuvchi",
+        "location": "Videolardan virusli YouTube Shorts bo'laklarini qirqib olish",
+        "purpose": "Klip kesish va qirqish asbobi",
+        "id": "5391199480022309848",
+        "fallback_name": "[Qaychi]",
+        "fallback_icon": "✂️"
+    },
+    "MEDIA_YOUTUBE": {
+        "name": "YouTube Studio",
+        "location": "YouTube kanalni ulash, tahlil qilish va post qo'yish",
+        "purpose": "YouTube platformasi bilan ishlash",
+        "id": "5368482410151295168",
+        "fallback_name": "[YouTube]",
+        "fallback_icon": "📺"
+    },
+    "MEDIA_AUTOPILOT": {
+        "name": "Sun'iy Intellekt Avtopilot",
+        "location": "Instagram Reels'dan YouTube Shorts'ga avtomatik klonlash",
+        "purpose": "Avtonom robot faoliyatini ifodalash",
+        "id": "5249493957578078525",
+        "fallback_name": "[Avtopilot]",
+        "fallback_icon": "🤖"
+    },
 
-    # 🏠 5. Navigatsiya & Asosiy Menyu Tugmalari
-    "HOME": ("5974098293813152457", "🏠"),
-    "BACK": ("5352759161945867747", "⬅️"),
-    "FORWARD": ("5433788045016969178", "➡️"),
-    "NEXT": ("5433788045016969178", "➡️"),
-    "GLOBE": ("6017109689748164760", "🌍"),
-    "LANG": ("6017109689748164760", "🌍"),
-    "HELP": ("5452026937172048380", "📖"),
-    "BOOK": ("5452026937172048380", "📖"),
-    "WEB": ("6327577233305112811", "🌐"),
-    "DASHBOARD": ("6327577233305112811", "🌐"),
-    "PROXY": ("6327577233305112811", "🌐"),
-
-    # 🛡️ 6. 3D KYC & Xavfsizlik
-    "SHIELD": ("5330194932781050507", "🛡️"),
-    "KYC": ("5330194932781050507", "🛡️"),
-    "LOCK": ("5330194932781050507", "🔒"),
-    "PHONE": ("5994838819734557119", "📱"),
-    "MOBILE": ("5994838819734557119", "📱"),
-    "USER": ("6032693626394382504", "👤"),
-
-    # 🤖 7. AI & Marketplace Xizmatlari
-    "KEY": ("5287480366330816274", "🔑"),
-    "API": ("5287480366330816274", "🔑"),
-    "FLUX": ("5350354474181343974", "🎨"),
-    "ART": ("5350354474181343974", "🎨"),
-    "CLIPPER": ("5391199480022309848", "✂️"),
-    "SCISSORS": ("5391199480022309848", "✂️"),
-    "QR_DEEPLINK": ("5422814644093868925", "📲"),
-    "DEEPLINK": ("5422814644093868925", "📲"),
-    "VIDEO": ("5292273171876034433", "🎬"),
-    "CART": ("5444856076954520455", "📋"),
-    "MARKETPLACE": ("5864068125112144897", "💸"),
-    "CLAUDE": ("5899837428797020489", "🤖"),
-    "CLAUDE_CODE": ("5899837428797020489", "💻"),
-    "CODEX": ("5275974642866105381", "🧠"),
-    "AIDER": ("5275974642866105381", "⚡"),
-    "TERMINAL": ("5276503688347688082", "💻"),
-    "CODE": ("5276503688347688082", "💻"),
-    "LAPTOP": ("5276503688347688082", "💻"),
-    "APPLE": ("5273820321630166034", "🍏"),
-    "LINUX": ("5276084903266527186", "🐧"),
-    "AI": ("5249493957578078525", "🤖"),
-    "DESIGN": ("5350354474181343974", "🎨"),
-
-    # ⚡ 8. Tizim Xabarlari (Statuslar)
-    "SUCCESS": ("5366395940808709418", "✅"),
-    "CHECK": ("5366395940808709418", "✅"),
-    "VERIFIED": ("5366395940808709418", "✅"),
-    "ERROR": ("5416076321442777828", "❌"),
-    "CROSS": ("5416076321442777828", "❌"),
-    "WAIT": ("5215579104807497179", "⏳"),
-    "HOURGLASS": ("5215579104807497179", "⏳"),
-    "WARN": ("5787656288934564517", "⚠️"),
-    "WARNING": ("5787656288934564517", "⚠️"),
-    "FIRE": ("5256047523620995497", "🔥"),
-    "TREND": ("5256047523620995497", "🔥"),
-
-    # 🟡 9. Golden VIP Custom Emojis
-    "GOLD_CAPCUT_PRO": ("5285497929686069998", "👑"),
-    "GOLD_INSTAGRAM": ("6001420655252213986", "📸"),
-    "GOLD_REELS": ("5312147767966054472", "🎬"),
-    "GOLD_WALLET_CHECK": ("5420112302210817795", "🧾"),
-    "GOLD_CHECK_CLAIM": ("5960914406366779993", "🪙"),
-    "GOLD_ANTIFRAUD_LOCK": ("5465443379917629504", "🔒"),
-    "GOLD_AI_CINEMA": ("5249493957578078525", "🤖"),
-    "GOLD_VOICE_MIC": ("5766912713586381607", "🎙️"),
-    "GOLD_SPY_BADGE": ("6107110845399962129", "🕵️"),
-    "GOLD_SEO_TAG": ("5406711411541823609", "🏷️"),
-    "GOLD_CASHOUT_BAG": ("5463046637842608206", "💰"),
-    "GOLD_DEEPLINK_QR": ("5224378350335707737", "📲"),
-
-    # Golden VIP Numbered Aliases (1-12)
-    "GOLDEN_1": ("5285497929686069998", "👑"),
-    "GOLDEN_2": ("6001420655252213986", "📸"),
-    "GOLDEN_3": ("5312147767966054472", "🎬"),
-    "GOLDEN_4": ("5420112302210817795", "🧾"),
-    "GOLDEN_5": ("5960914406366779993", "🪙"),
-    "GOLDEN_6": ("5465443379917629504", "🔒"),
-    "GOLDEN_7": ("5249493957578078525", "🤖"),
-    "GOLDEN_8": ("5766912713586381607", "🎙️"),
-    "GOLDEN_9": ("6107110845399962129", "🕵️"),
-    "GOLDEN_10": ("5406711411541823609", "🏷️"),
-    "GOLDEN_11": ("5463046637842608206", "💰"),
-    "GOLDEN_12": ("5224378350335707737", "📲"),
-
-    # ⚪ 10. Oddiy / Standart Custom Emojis
-    "CAPCUT_LOGO": ("5978895591894161700", "🎬"),
-    "INSTAGRAM_LOGO": ("4990082283701535678", "📸"),
-    "REELS_LOGO": ("5825658700735451589", "🎬"),
-    "WALLET_CHECK": ("5265197972919964944", "🧾"),
-    "CHECK_CLAIM": ("5980930633298350051", "💵"),
-    "ANTIFRAUD_SIREN": ("5463358164705489689", "🚨"),
-    "AI_VIDEO_CAM": ("5235837920081887219", "🎥"),
-    "VOICE_SPEAKER": ("5895215520000513680", "🔊"),
-    "SPY_HAT": ("5339247212012528642", "🕵️"),
-    "SEO_TAG": ("5298877105000439431", "🏷️"),
-    "CASHOUT_ATM": ("4967738760021148319", "💳"),
-    "DEEPLINK_QR": ("5264938002844513934", "📲"),
-
-    # Oddiy Numbered Aliases (1-12)
-    "ODDIY_1": ("5978895591894161700", "🎬"),
-    "ODDIY_2": ("4990082283701535678", "📸"),
-    "ODDIY_3": ("5825658700735451589", "🎬"),
-    "ODDIY_4": ("5265197972919964944", "🧾"),
-    "ODDIY_5": ("5980930633298350051", "💵"),
-    "ODDIY_6": ("5463358164705489689", "🚨"),
-    "ODDIY_7": ("5235837920081887219", "🎥"),
-    "ODDIY_8": ("5895215520000513680", "🔊"),
-    "ODDIY_9": ("5339247212012528642", "🕵️"),
-    "ODDIY_10": ("5298877105000439431", "🏷️"),
-    "ODDIY_11": ("4967738760021148319", "💳"),
-    "ODDIY_12": ("5264938002844513934", "📲"),
-
-    # 🌐 11. 3D NFT & Web3 Emojis (Foydalanuvchi tasdiqlagan haqiqiy ID lar)
-    "NFT": ("5393107154171358177", "🖼️"),
-    "THREE_D": ("6311885432850223174", "🧊"),
-    "THREE_D_LETTER": ("6158773946146623968", "🧊"),
-    "POLYGON": ("5465585861162717580", "🟣"),
-    "BLOCKCHAIN": ("5298719183347932250", "⛓️"),
-    "IPFS": ("4985708576770097801", "📡"),
-    "WALLET_CONNECT": ("5265197972919964944", "🔗"),
-    "WALLET_CONNECT_2": ("5375365992891312468", "🔗"),
-    "TONKEEPER": ("5424905554432631390", "💎"),
-    "MINT": ("5461047575379466857", "🪙"),
-    "GALLERY": ("5354795165422738539", "🏛️"),
-    "PRICE_TAG": ("6039495948353146588", "🏷️"),
-    "SOLD": ("4997089922276918243", "🎊"),
-    "RENDER": ("5350427505805238170", "⏳"),
-
-    # 🎮 12. Mini-Games & Utility Custom Emojis (Foydalanuvchi tasdiqlagan haqiqiy ID lar)
-    # 1. Apple of Fortune
-    "APPLE_WHOLE": ("5296234029371112372", "🍏"),
-    "APPLE_GOOD": ("5296234029371112372", "🍏"),
-    "APPLE_BITTEN": ("5213260402288252956", "🍎"),
-    "APPLE_BAD": ("5213260402288252956", "🍎"),
-
-    # 2. Mines (Saper)
-    "MINES_GEM": ("5427168083074628963", "💎"),
-    "MINES_BOMB": ("6001197209578639333", "💣"),
-    "MINES_BOOM": ("5276032951342088188", "💥"),
-
-    # 3. Live Crash / Aviator
-    "CRASH_PLANE": ("6041751141190997532", "🚀"),
-    "AVIATOR_PLANE": ("6041751141190997532", "🚀"),
-    "CRASH_BOOM": ("5269252056975162907", "💥"),
-
-    # 4. 21 (Blackjack)
-    "CARD_JOKER": ("6098189609915647579", "🃏"),
-    "BJ_CARD": ("6098189609915647579", "🃏"),
-    "CARD_BACK": ("5251575616557301944", "🂠"),
-    "BJ_CARD_BACK": ("5251575616557301944", "🂠"),
-    "CARD_SPADES": ("5789919783944195454", "♠️"),
-    "CARD_HEARTS": ("5314281653747598298", "♥️"),
-    "CARD_DIAMONDS": ("5422712222008759444", "♦️"),
-    "CARD_CLUBS": ("5312118111216873222", "♣️"),
-
-    # 5. Kamikaze
-    "KAMI_PLANE": ("5269632578192688093", "🛩️"),
-    "KAMI_LANDING": ("5190626448624341800", "🛬"),
-    "KAMI_CRASH": ("5217980618591197313", "💥"),
-
-    # 🏢 6. Kompaniyalar, Brendlar & Xizmatlar (Foydalanuvchi taqdim etgan 65 ta Custom Emoji ID)
-    "CHATGPT": ("6149863405130879277", "🤖"),
-    "OPENAI": ("6149863405130879277", "🤖"),
-    "GPT": ("6149863405130879277", "🤖"),
-    "CLAUDE": ("5899837428797020489", "🧠"),
-    "ANTHROPIC": ("5899837428797020489", "🧠"),
-    "GEMINI": ("5262838511161076891", "🔷"),
-    "CREATORFLOW_LOGO": ("5902340522852227618", "⚡"),
-    "BOT_LOGO": ("5902340522852227618", "⚡"),
-    "LOGO": ("5902340522852227618", "⚡"),
-    "OUR_LOGO": ("5902340522852227618", "⚡"),
-    "GROK": ("5456140674028019486", "⚡"),
-    "XAI": ("5456140674028019486", "⚡"),
-    "CURSOR": ("5276503688347688082", "💻"),
-    "MANUS": ("5276163574182487908", "🤖"),
-    "FACTORY": ("5273768704713203009", "🏭"),
-    "LOVABLE": ("5273718780013355467", "❤️"),
-    "REPLIT": ("5276084903266527186", "💻"),
-    "KIRO": ("5273907062789678843", "🗝️"),
-    "CODEX": ("5275974642866105381", "📜"),
-    "OPENROUTER": ("5276345770990151994", "🧭"),
-    "GROQ": ("5276320868769768572", "⚡"),
-    "FLUX": ("5276316062701362621", "🎨"),
-    "CAPCUT": ("5978895591894161700", "🎬"),
-    "SUPERCUT": ("5273748664395801973", "✂️"),
-    "DESCRIPT": ("5276059777707845132", "🎙️"),
-    "ELEVENLABS": ("5276358956539751308", "🔊"),
-    "BRAINFM": ("5273886459831558017", "🧠"),
-    "WISPR": ("5276231207032496660", "🗣️"),
-    "GAMMA": ("5274272186549446418", "📉"),
-    "FIGMA": ("5275973813937423325", "🎨"),
-    "FRAMER": ("5276446101426185855", "📐"),
-    "CANVA": ("5274132119075989107", "🎨"),
-    "ADOBE": ("5274065448298652943", "🅰️"),
-    "MAGICPATTERNS": ("5273751499074223574", "✨"),
-    "MOBBIN": ("5276076180187950283", "📱"),
-    "MIRO": ("5276483446166825007", "🟡"),
-    "RAILWAY": ("5276184108421127349", "🚂"),
-    "WARP": ("5276423277969974068", "💻"),
-    "N8N": ("5273752023060225345", "🔀"),
-    "LINEAR": ("5274033171619423345", "📐"),
-    "JETBRAINS": ("5276195245271331718", "💡"),
-    "AUTODESK": ("5274004592907038917", "📐"),
-    "ILOVEPDF": ("5276141158748169536", "📑"),
-    "WORDWALL": ("5276208482360533530", "🧱"),
-    "QUIZLET": ("5273950802736619874", "🃏"),
-    "QUILLBOT": ("5276328758624692139", "🪶"),
-    "SPOTIFY": ("5274194232893024229", "🎵"),
-    "NETFLIX": ("5276399801678735778", "🍿"),
-    "AMAZON": ("5276271888962726228", "📦"),
-    "PRIMEVIDEO": ("5276271888962726228", "🎬"),
-    "HBOMAX": ("5274199356789006172", "📺"),
-    "PEACOCK": ("5276371588038563833", "🦚"),
-    "APPLETV": ("5273820321630166034", "🍏"),
-    "WINK": ("5276490335294368523", "😉"),
-    "NORDVPN": ("5273747423150253161", "🛡️"),
-    "PROTONVPN": ("5273929435274322900", "🛡️"),
-    "HMA": ("5275995997443500362", "🫏"),
-    "RAINBOW": ("5274210562358683068", "🌈"),
-    "ZOOM": ("5276294742483707196", "📹"),
-    "SNAPCHAT": ("5276259493687109219", "👻"),
-    "MICROSOFT": ("5273715253845206372", "🪟"),
-    "OFFICE": ("5273715253845206372", "🪟"),
-    "WINDOWS": ("5276035412358374909", "🪟"),
-    "GMAIL": ("5273814673748171854", "📧"),
-    "GOOGLEDRIVE": ("5273814673748171854", "📁"),
-    "NOTION": ("5274127927187907969", "📓"),
-    "DUOLINGO": ("5276013701298690959", "🦉"),
-    "COURSERA": ("5276430257291831252", "🎓"),
-    "TRADINGVIEW": ("5275983151196317807", "📈"),
-    "SCRIBD": ("5276279375090720678", "📚"),
-    "STOCK_BOX": ("5255860701133552970", "📦"),
-    "OUT_OF_STOCK": ("4997089922276918243", "⚠️"),
-    "STORE": ("5864068125112144897", "💸"),
-    "SHOP": ("5864068125112144897", "💸"),
-    "MARKET": ("5864068125112144897", "💸"),
-    "SERVICES": ("5864068125112144897", "💸"),
-    "STAR": ("5370784581341422520", "⭐"),
-    "STARS": ("5370784581341422520", "⭐"),
-    "TON": ("5078343973303485905", "💎"),
-    "HUMO": ("5445353829304387411", "💳"),
-    "UZCARD": ("5445353829304387411", "💳"),
+    # --------------------------------------------------------------------------
+    # 5. TELEGRAM STARS KEYS SOVRINLARI (DROPS & GIFTS)
+    # --------------------------------------------------------------------------
+    "GIFT_CASE_BOX": {
+        "name": "Sovg'a Qutisi (Keys)",
+        "location": "Stars Keyslar do'koni va keysni ochish interfeysi",
+        "purpose": "Sovrinli qutini ifodalash",
+        "id": "6319002678990998592",
+        "fallback_name": "[Keys]",
+        "fallback_icon": "🎁"
+    },
+    "GIFT_STAR": {
+        "name": "Yulduz Sovg'asi",
+        "location": "Yulduz sovrini, Stars yutug'i",
+        "purpose": "Yulduzli yutuqni ko'rsatish",
+        "id": "6215463953925934839",
+        "fallback_name": "[Yulduz]",
+        "fallback_icon": "⭐"
+    },
+    "GIFT_CAKE": {
+        "name": "Tug'ilgan Kun Torti",
+        "location": "Telegram Cake sovg'asi drop elementi",
+        "purpose": "Sovg'a yutug'ini bildirish",
+        "id": "5440539497383087970",
+        "fallback_name": "[Tort]",
+        "fallback_icon": "🎂"
+    },
+    "GIFT_TEDDY": {
+        "name": "Yumshoq Ayiqcha",
+        "location": "Telegram Teddy Bear sovg'asi drop elementi",
+        "purpose": "Sovg'a yutug'ini bildirish",
+        "id": "5258362837411045098",
+        "fallback_name": "[Ayiqcha]",
+        "fallback_icon": "🧸"
+    },
+    "GIFT_BOUQUET": {
+        "name": "Gul Dastasi",
+        "location": "Telegram Bouquet sovg'asi drop elementi",
+        "purpose": "Sovg'a yutug'ini bildirish",
+        "id": "5350354474181343974",
+        "fallback_name": "[Guldasta]",
+        "fallback_icon": "💐"
+    },
+    "GIFT_CHAMPAGNE": {
+        "name": "Bayram Shampani",
+        "location": "Telegram Champagne sovg'asi drop elementi",
+        "purpose": "Sovg'a yutug'ini bildirish",
+        "id": "5453902265922376865",
+        "fallback_name": "[Shampan]",
+        "fallback_icon": "🍾"
+    },
+    "GIFT_DIAMOND_RING": {
+        "name": "Olmos Uzuk",
+        "location": "Telegram Ring sovg'asi drop elementi",
+        "purpose": "Qimmatbaho sovg'a yutug'ini bildirish",
+        "id": "5427168083074628963",
+        "fallback_name": "[Uzuk]",
+        "fallback_icon": "💍"
+    },
+    "GIFT_TROPHY": {
+        "name": "G'oliblik Kubogi",
+        "location": "Telegram Trophy sovg'asi drop elementi",
+        "purpose": "Katta sovrin yutug'ini bildirish",
+        "id": "5226431245918942763",
+        "fallback_name": "[Kubok]",
+        "fallback_icon": "🏆"
+    },
+    "GIFT_ROCKET": {
+        "name": "Tezkor Raketa",
+        "location": "Telegram Rocket sovg'asi drop elementi",
+        "purpose": "Super yutuqni bildirish",
+        "id": "5465467698022468218",
+        "fallback_name": "[Raketa]",
+        "fallback_icon": "🚀"
+    },
+    "GIFT_CAP": {
+        "name": "Zamonaviy Kepka",
+        "location": "Telegram Cap sovg'asi drop elementi",
+        "purpose": "Sovg'a yutug'ini bildirish",
+        "id": "5276503688347688082",
+        "fallback_name": "[Kepka]",
+        "fallback_icon": "🧢"
+    },
+    "GIFT_PLUSH": {
+        "name": "Plushie O'yinchoq",
+        "location": "Telegram Plushie sovg'asi drop elementi",
+        "purpose": "Sovg'a yutug'ini bildirish",
+        "id": "5258362837411045098",
+        "fallback_name": "[O'yinchoq]",
+        "fallback_icon": "🐸"
+    },
+    "GIFT_CROWN": {
+        "name": "Podshoh Toji (NFT)",
+        "location": "Telegram Crown sovg'asi va eksklyuziv NFT",
+        "purpose": "Nodir NFT yutug'ini bildirish",
+        "id": "5251422397893989847",
+        "fallback_name": "[Toj]",
+        "fallback_icon": "👑"
+    },
+    "GIFT_PREMIUM": {
+        "name": "Telegram Premium",
+        "location": "Telegram Premium obunasi sovg'asi",
+        "purpose": "Premium obunasi yutug'ini bildirish",
+        "id": "6215463953925934839",
+        "fallback_name": "[Premium]",
+        "fallback_icon": "🌟"
+    }
 }
 
-# Brend nomi / kalit so'z bo'yicha Custom Emoji ID lari xaritasi (Tugmalar va qidiruv uchun)
+# ==============================================================================
+# 2. XIZMATLAR VA KOMPANIYALAR BRENDLARI XARITASI (Marketplace Services)
+# ==============================================================================
 BRAND_EMOJIS_MAP = {
-    # 0. Bot & Kompaniya Logotipi
     "creatorflow": "5902340522852227618",
     "our_logo": "5902340522852227618",
     "logo": "5902340522852227618",
     "bot_logo": "5902340522852227618",
-    # 1. AI & LLM Modellar
     "chatgpt": "6149863405130879277",
-    "chat gpt": "6149863405130879277",
     "openai": "6149863405130879277",
     "gpt": "6149863405130879277",
     "claude": "5899837428797020489",
-    "anthropic": "5899837428797020489",
     "gemini": "5262838511161076891",
-    "grok": "5456140674028019486",
-    "xai": "5456140674028019486",
-    "cursor": "5276503688347688082",
-    "manus": "5276163574182487908",
-    "factory": "5273768704713203009",
-    "lovable": "5273718780013355467",
-    "lovalbe": "5273718780013355467",
-    "replit": "5276084903266527186",
-    "kiro": "5273907062789678843",
-    "codex": "5275974642866105381",
-    "openrouter": "5276345770990151994",
-    "groq": "5276320868769768572",
-    "flux": "5276316062701362621",
-
-    # 2. Video, Audio & Dizayn Studiyalari
     "capcut": "5978895591894161700",
-    "supercut": "5273748664395801973",
-    "descript": "5276059777707845132",
     "elevenlabs": "5276358956539751308",
-    "eleven": "5276358956539751308",
-    "brain.fm": "5273886459831558017",
-    "brain": "5273886459831558017",
-    "wispr": "5276231207032496660",
-    "gamma": "5274272186549446418",
     "figma": "5275973813937423325",
-    "framer": "5276446101426185855",
     "canva": "5274132119075989107",
-    "adobe": "5274065448298652943",
-    "magic patterns": "5273751499074223574",
-    "mobbin": "5276076180187950283",
-    "miro": "5276483446166825007",
-
-    # 3. Dasturlash, Server & Developer Vositalari
-    "railway": "5276184108421127349",
-    "warp": "5276423277969974068",
-    "n8n": "5273752023060225345",
-    "linear": "5274033171619423345",
-    "jetbrains": "5276195245271331718",
-    "autodesk": "5274004592907038917",
-    "ilovepdf": "5276141158748169536",
-    "wordwall": "5276208482360533530",
-    "quizlet": "5273950802736619874",
-    "quillbot": "5276328758624692139",
-
-    # 4. Kino, Musiqa & Striming
     "spotify": "5274194232893024229",
     "netflix": "5276399801678735778",
-    "amazon": "5276271888962726228",
-    "prime video": "5276271888962726228",
-    "hbo": "5274199356789006172",
-    "peacock": "5276371588038563833",
-    "apple tv": "5273820321630166034",
-    "wink": "5276490335294368523",
-
-    # 5. VPN, Tarmoq & Aloqa
-    "nord vpn": "5273747423150253161",
     "nordvpn": "5273747423150253161",
-    "proton vpn": "5273929435274322900",
-    "protonvpn": "5273929435274322900",
-    "hma": "5275995997443500362",
-    "proxy": "6327577233305112811",
-    "zoom": "5276294742483707196",
-    "snapchat": "5276259493687109219",
-
-    # 6. Ta'lim, Ish & Ofis
-    "microsoft": "5273715253845206372",
-    "office": "5273715253845206372",
-    "windows": "5276035412358374909",
-    "gmail": "5273814673748171854",
-    "google drive": "5273814673748171854",
-    "notion": "5274127927187907969",
-    "duolingo": "5276013701298690959",
-    "coursera": "5276430257291831252",
-    "cousera": "5276430257291831252",
-    "trading view": "5275983151196317807",
-    "tradingview": "5275983151196317807",
-    "scribd": "5276279375090720678",
-
-    # 7. Bot Status & To'lovlar
-    "stock_box": "5255860701133552970",
-    "out_of_stock": "4997089922276918243",
     "stars": "5370784581341422520",
     "ton": "5078343973303485905",
     "humo": "5445353829304387411",
-    "uzcard": "5445353829304387411",
+    "uzcard": "5445353829304387411"
 }
 
-
-# Qo'shimcha yordamchi emojilar (qolgan maxsus funksiyalar uchun)
-ADDITIONAL_EMOJIS = {
-    "REFRESH": ("5244758760429213978", "🔄"),
-    "CHART": ("5244837092042750681", "📊"),
-    "ADMIN": ("5339081812821957844", "⚙️"),
-    "SEARCH": ("5431420628978641216", "🔍"),
-    "SCAN": ("5431420628978641216", "🔍"),
-    "PARTY": ("5208541126583136130", "🎉"),
-    "VOICE": ("5453929508899931025", "🎙️"),
-    "BOT": ("6147670072706995009", "🤖"),
-    "PIN": ("5397782960512444700", "📌"),
-    "BRAIN": ("5449800082528434250", "🧠"),
-    "IDEA": ("5969828271687208494", "💡"),
-    "LIVE": ("6280793816702126346", "🎥"),
-    "SHORTS": ("4999366254943798100", "🩳"),
-    "AUDIO": ("5422761017132202857", "🎵"),
-    "GROWTH_UP": ("5294118392905623955", "📈"),
-    "GROWTH_DOWN": ("5246762912428603768", "📉"),
-    "VIEWS": ("5228822494730797152", "👁️"),
-    "LIKE": ("5465465194056525619", "👍"),
-    "COMMENTS": ("5443038326535759644", "💬"),
-    "STOP": ("5280879383848955867", "🛑"),
-    "TAGS": ("5375090182976452383", "🏷️"),
-    "PICTURE": ("5424722292473091683", "🖼️"),
-    "LIGHTNING": ("5456140674028019486", "⚡"),
-    "GROQ": ("5902340522852227618", "⚡"),
-    "TV": ("5368482410151295168", "📺"),
-    "MEMO": ("5368841503776991791", "📝"),
-    "TARGET": ("5310278924616356636", "🎯"),
-    "BELL": ("5458603043203327669", "🔔"),
-    "STREAM": ("5348354033033696551", "📡"),
-    "ANTENNA": ("5260280853841321805", "📡"),
-    "CALENDAR": ("5260726538302660868", "📅"),
-    "OPENROUTER": ("5276345770990151994", "🧭"),
-    "GEMINI": ("5951817721468424817", "✨"),
-    "CARD": ("5343777479091831702", "💳"),
-    "INSTA": ("5319160079465857105", "📸"),
-    "PLUS": ("5258318620722733379", "➕"),
-    "MINUS": ("5258169263235013408", "➖"),
-    "FOLDER": ("5257965174979042426", "📂"),
-    "INFO": ("5258152182150077732", "ℹ️"),
-    "BOX": ("5323289282499064033", "📦"),
-    "STOCK": ("5323289282499064033", "📦"),
-    "TIMER": ("6084396322444544568", "⏱️"),
-    "SCALE": ("5400250414929041085", "⚖️"),
-    "FINGER_DOWN": ("5301038027601098171", "👇"),
-    "DOWN": ("5301038027601098171", "👇"),
-    "TRASH": ("5445267414562389170", "🗑️"),
-    "DELETE": ("5445267414562389170", "🗑️"),
-    "DOT_GREEN": ("5866213409736888171", "🟢"),
-    "DOT_RED": ("5213285132709929474", "🔴"),
-    "DOT_WHITE": ("5319238892115733906", "⚪"),
-    "PENCIL": ("5395444784611480792", "✏️"),
-    "EDIT": ("5395444784611480792", "✏️"),
-    "RECEIPT": ("5444856076954520455", "📋"),
-    "BAN": ("5280879383848955867", "🛑"),
-    "FORBIDDEN": ("5280879383848955867", "🛑"),
-    "NO_ENTRY": ("5280879383848955867", "🛑"),
-    "BLOCKED": ("5280879383848955867", "🛑"),
-    "CANCEL": ("5416076321442777828", "❌"),
-    "PIN_LOCATION": ("5397782960512444700", "📌"),
-    "DOCUMENT": ("5444856076954520455", "📋"),
-    "WALLET_PURSE": ("5343777479091831702", "💳"),
-    "BANK": ("5343777479091831702", "💳"),
-    "RETRY": ("5244758760429213978", "🔄"),
-    "FILM": ("5292273171876034433", "🎬"),
-    "ALARM": ("6084396322444544568", "⏱️"),
-    "HEART": ("5465262274031659421", "❤️"),
-    "ENGAGE": ("5465262274031659421", "❤️"),
-    "COUNTER": ("5841521509608198453", "🔢"),
-    "QTY": ("5841521509608198453", "🔢"),
-    "QUANTITY": ("5841521509608198453", "🔢"),
-    "EAGLE": ("5235989068570977490", "🦅"),
-    "HANDSHAKE": ("5456371000239212004", "🤝"),
-    "SPONSOR_DEAL": ("5456371000239212004", "🤝"),
-    "HOOK": ("6282571293212545434", "🎣"),
-    "CLICKBAIT": ("6282571293212545434", "🎣"),
-    "CALCULATOR": ("6323218545874306931", "🧮"),
-    "CALC": ("6323218545874306931", "🧮"),
-    "PREV": ("5352759161945867747", "◀️"),
-    "WALLET": ("5343777479091831702", "💳"),
+# Mavjud tizimlar bilan 100% orqaga moslik (Backward Compatibility)
+EMOJI_MAP = {
+    k: (v["id"], v["fallback_icon"]) for k, v in CUSTOM_EMOJI_REGISTRY.items()
 }
 
-# EMOJI_MAP: VERIFIED Custom Emojilar to'liq ustunlik qiladi
-EMOJI_MAP = {**ADDITIONAL_EMOJIS, **VERIFIED_CUSTOM_EMOJIS}
+CUSTOM_EMOJI_POOL = [
+    v["id"] for v in CUSTOM_EMOJI_REGISTRY.values() if v.get("id")
+]
 
-# Tasdiqlangan ID lar pooli
-CUSTOM_EMOJI_POOL = [v[0] for v in VERIFIED_CUSTOM_EMOJIS.values()]
+# ==============================================================================
+# 3. YORDAMCHI FUNKSIYALAR
+# ==============================================================================
+def get_custom_emoji_info(key: str) -> dict:
+    """Emoji haqidagi to'liq metama'lumotlarni qaytaradi."""
+    return CUSTOM_EMOJI_REGISTRY.get(key, {
+        "name": key,
+        "location": "Noma'lum",
+        "purpose": "Noma'lum",
+        "id": "",
+        "fallback_name": f"[{key}]",
+        "fallback_icon": "✨"
+    })
 
 def e(key: str) -> str:
-    """Returns fallback emoji string, e.g. ✅. The monkey-patch will auto-convert to custom emoji."""
-    if key in EMOJI_MAP:
-        return EMOJI_MAP[key][1]
+    """Fallback piktogrammani qaytaradi."""
+    if key in CUSTOM_EMOJI_REGISTRY:
+        return CUSTOM_EMOJI_REGISTRY[key]["fallback_icon"]
     return "✨"
 
 def custom_emoji(key: str) -> str:
-    """Returns Telegram HTML tag <emoji id="...">fallback</emoji> for exact custom emoji rendering."""
-    if key in EMOJI_MAP:
-        c_id, fallback = EMOJI_MAP[key]
-        return f'<emoji id="{c_id}">{fallback}</emoji>'
+    """
+    Telegram xabarlarida chiroyli Custom Emoji chiqishi uchun <emoji id="..."> HTML tegi.
+    Agar ID bo'lmasa, fallback icon chiqariladi.
+    """
+    if key in CUSTOM_EMOJI_REGISTRY:
+        info = CUSTOM_EMOJI_REGISTRY[key]
+        c_id = info.get("id")
+        fb = info.get("fallback_icon", "✨")
+        if c_id:
+            return f'<emoji id="{c_id}">{fb}</emoji>'
+        return fb
     return "✨"
 
 ce = custom_emoji
 
+def get_button_icon_id(key: str) -> str:
+    """InlineKeyboardButton icon_custom_emoji_id parametri uchun ID qaytaradi."""
+    if key in CUSTOM_EMOJI_REGISTRY:
+        return CUSTOM_EMOJI_REGISTRY[key].get("id", "")
+    return ""
+
 def get_random_custom_emoji_id() -> int:
-    """Returns a random custom emoji ID from the pool as int for Pyrogram reactions"""
-    return int(random.choice(CUSTOM_EMOJI_POOL))
+    """Reaksiyalar uchun pool'dan ixtiyoriy ID qaytaradi."""
+    if CUSTOM_EMOJI_POOL:
+        return int(random.choice(CUSTOM_EMOJI_POOL))
+    return 5366395940808709418
 
