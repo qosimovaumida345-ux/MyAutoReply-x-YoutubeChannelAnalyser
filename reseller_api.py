@@ -486,14 +486,14 @@ async def handle_api_docs_html(request):
 <body>
 <div class="container">
     <div class="hero">
-        <div class="badge">🚀 REST API v1</div>
+        <div class="badge" style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"></path></svg> REST API v1</div>
         <h1>Developer & Reseller API</h1>
         <p class="subtitle">O'z Telegram botingiz yoki saytingiz orqali bizning mahsulotlarimizni (AI kalitlar, Proxylar, YouTube buyurtmalar) avtomatik sotib oling va ishlating.</p>
     </div>
 
     <!-- Autentifikatsiya -->
     <div class="card">
-        <h2>🔑 Autentifikatsiya (API Kalit)</h2>
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7342E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg> Autentifikatsiya (API Kalit)</h2>
         <p>Barcha so'rovlar Telegram botingizda berilgan shaxsiy API kalit bilan yuborilishi shart. Har bir so'rovda quyidagi HTTP Header ni kiriting:</p>
         <pre><code>Authorization: Bearer art_live_sizning_shaxsiy_api_kalitingiz</code></pre>
         <p style="margin-top: 8px; font-size: 0.9rem; color: var(--text-muted);">yoki <code>X-API-Key: art_live_...</code> sarlavhasi orqali.</p>
@@ -601,7 +601,7 @@ async def handle_api_docs_html(request):
 
     <!-- Python Kod Namunasi -->
     <div class="card">
-        <h2>🐍 Python orqali ulash kodi (Reseller Bot namunasi)</h2>
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> Python orqali ulash kodi (Reseller Bot namunasi)</h2>
         <p>Quyidagi tayyor kodni o'z loyihangizga qo'shib, to'liq ishlatishingiz mumkin:</p>
         <pre><code>import requests
 
@@ -757,7 +757,7 @@ async def handle_dashboard_webapp(request):
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo-title">⚡ Developer Hub</div>
+        <div class="logo-title" style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Developer Hub</div>
         <div class="badge">PRO PANEL</div>
     </div>
 
@@ -766,23 +766,23 @@ async def handle_dashboard_webapp(request):
         <div class="bal-label">Asosiy Balansingiz</div>
         <div class="bal-value" id="balVal">Yuklanmoqda...</div>
         <div class="topup-grid">
-            <button class="btn-topup btn-ton" onclick="openTonTopup()">💎 TON To'lov</button>
-            <button class="btn-topup btn-stars" onclick="openStarsTopup()">⭐ Stars To'lov</button>
+            <button class="btn-topup btn-ton" onclick="openTonTopup()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9z"></path><path d="M11 3 8 9l4 13 4-13-3-6"></path><path d="M2 9h20"></path></svg> TON To'lov</button>
+            <button class="btn-topup btn-stars" onclick="openStarsTopup()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> Stars To'lov</button>
         </div>
     </div>
 
     <!-- API Key -->
-    <div class="section-title">🔑 Shaxsiy API Kalit</div>
+    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7342E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg> Shaxsiy API Kalit</div>
     <div class="card">
         <div class="key-box">
             <span id="apiKeyText">art_live_••••••••••••••••</span>
-            <span style="cursor: pointer;" onclick="copyKey()">📋</span>
+            <span style="cursor: pointer; display: inline-flex; align-items: center;" onclick="copyKey()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span>
         </div>
         <button class="btn-action" onclick="copyKey()">Nusxalash (Copy Key)</button>
     </div>
 
     <!-- Statistika -->
-    <div class="section-title">📊 Reseller Statistikasi</div>
+    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Reseller Statistikasi</div>
     <div class="stats-grid">
         <div class="stat-item">
             <div class="stat-num" id="reqCount">0 ta</div>

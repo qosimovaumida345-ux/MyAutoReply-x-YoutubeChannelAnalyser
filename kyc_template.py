@@ -438,15 +438,23 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛡️ 3D Biometrik Identifikatsiya</h1>
+            <h1 style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7342E2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                3D Biometrik Identifikatsiya
+            </h1>
             <p>Anti-Sybil & botlardan himoya tizimi. Faqat haqiqiy foydalanuvchilar tasdiqlanadi.</p>
         </div>
 
         <!-- Verified View (if user already passed KYC) -->
         <div class="card verified-card" id="verifiedCard" style="display: none;">
-            <div class="shield-icon">🛡️</div>
+            <div class="shield-icon" style="display: flex; align-items: center; justify-content: center;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+            </div>
             <h2 class="verified-title">Shaxsingiz Tasdiqlangan</h2>
-            <div class="verified-badge">✅ REAL FOYDALANUVCHI</div>
+            <div class="verified-badge" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                REAL FOYDALANUVCHI
+            </div>
             <p class="verified-desc">
                 Sizning 3D yuz biometrikangiz muvaffaqiyatli saqlangan. Akkauntingiz botlar va dublikatlardan to'liq himoyalangan.
             </p>
@@ -475,10 +483,16 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             </div>
 
             <button type="button" class="btn btn-primary" onclick="closeWebApp()">
-                🏠 Telegram Botga Qaytish
+                <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Telegram Botga Qaytish
+                </span>
             </button>
             <button type="button" class="btn btn-secondary" onclick="showScanForm()">
-                🔄 Qayta Skanerlash (Yangilash)
+                <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                    Qayta Skanerlash (Yangilash)
+                </span>
             </button>
         </div>
 
@@ -492,7 +506,10 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             </div>
 
             <button type="button" id="startScanBtn" class="btn btn-primary" onclick="initiateCamera()">
-                📷 3D Yuz Skanerini Boshlash
+                <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    3D Yuz Skanerini Boshlash
+                </span>
             </button>
         </div>
 
@@ -514,7 +531,10 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             </div>
 
             <button type="button" id="submitBtn" class="btn btn-success" style="display: none;" onclick="submitVerification()">
-                ✅ Tasdiqlash va Saqlash
+                <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Tasdiqlash va Saqlash
+                </span>
             </button>
         </div>
 
@@ -560,7 +580,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                         const lockBadge = document.createElement('div');
                         lockBadge.id = 'phoneLockBadge';
                         lockBadge.style.cssText = 'font-size: 11px; color: #10b981; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px;';
-                        lockBadge.innerHTML = "🔒 Telegram orqali tasdiqlangan (O'zgartirib bo'lmaydi)";
+                        lockBadge.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'></rect><path d='M7 11V7a5 5 0 0 1 10 0v4'></path></svg> Telegram orqali tasdiqlangan (O'zgartirib bo'lmaydi)";
                         group.appendChild(lockBadge);
                     }}
                 }}
@@ -706,7 +726,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 isFaceVisible = false;
                 laser.className = "laser searching";
                 guidance.className = "guidance-text warning";
-                guidance.innerText = "⚠️ Yuz aniqlanmadi! Yuzingizni kameraga qarating";
+                guidance.innerText = "Yuz aniqlanmadi! Yuzingizni kameraga qarating";
 
                 // Draw searching HUD reticle
                 drawSearchingHUD(ctx, width, height);
@@ -756,7 +776,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }} else if (currentStage === 2) {{
                 // Stage 2: Turn Left
                 guidance.className = "guidance-text";
-                guidance.innerText = "2/3: Yuzingizni sekin chapga buring ⬅️";
+                guidance.innerText = "2/3: Yuzingizni sekin chapga buring";
 
                 // In mirrored selfie camera, turning head left moves nose left
                 if (lastHeadYaw < -0.07) {{
@@ -769,7 +789,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }} else if (currentStage === 3) {{
                 // Stage 3: Turn Right
                 guidance.className = "guidance-text";
-                guidance.innerText = "3/3: Yuzingizni sekin o'ngga buring ➡️";
+                guidance.innerText = "3/3: Yuzingizni sekin o'ngga buring";
 
                 if (lastHeadYaw > 0.07) {{
                     livenessProgress = Math.min(100, livenessProgress + 1.6);
@@ -781,7 +801,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }} else if (currentStage === 4) {{
                 // Complete
                 guidance.className = "guidance-text success";
-                guidance.innerText = "✅ 3D Yuz to'liq skanerlandi va tasdiqlandi!";
+                guidance.innerText = "3D Yuz to'liq skanerlandi va tasdiqlandi!";
                 progress.style.width = "100%";
                 progress.style.background = "linear-gradient(90deg, #10b981, #00f2fe)";
                 document.getElementById('submitBtn').style.display = 'flex';
@@ -970,7 +990,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                         isFaceVisible = false;
                         laser.className = "laser searching";
                         guidance.className = "guidance-text warning";
-                        guidance.innerText = avgBrightness < 18 ? "⚠️ Kamera qorong'i yoki yopilgan!" : "⚠️ Yuz aniqlanmadi! Kameraga to'g'ri qarang";
+                        guidance.innerText = avgBrightness < 18 ? "Kamera qorong'i yoki yopilgan!" : "Yuz aniqlanmadi! Kameraga to'g'ri qarang";
                         drawSearchingHUD(ctx, canvas.width, canvas.height);
                     }} else {{
                         // Real face detected from video pixels
@@ -1020,7 +1040,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         async function submitVerification() {{
             const submitBtn = document.getElementById('submitBtn');
             submitBtn.disabled = true;
-            submitBtn.innerText = "⏳ Tekshirilmoqda...";
+            submitBtn.innerText = "Tekshirilmoqda...";
 
             const phone = document.getElementById('phoneInput').value.trim();
 
@@ -1048,7 +1068,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
                 const result = await response.json();
                 if (response.ok && result.ok) {{
-                    showAlert("🎉 " + result.message, "success");
+                    showAlert(result.message, "success");
                     if (videoStream) {{
                         videoStream.getTracks().forEach(t => t.stop());
                     }}
@@ -1064,7 +1084,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                         }});
                     }}, 1500);
                 }} else {{
-                    showAlert("❌ " + (result.message || "Xatolik yuz berdi!"), "danger");
+                    showAlert(result.message || "Xatolik yuz berdi!", "danger");
                     submitBtn.disabled = false;
                     submitBtn.innerText = "Qayta urinish";
                 }}

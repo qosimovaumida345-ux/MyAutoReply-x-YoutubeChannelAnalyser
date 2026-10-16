@@ -976,31 +976,32 @@
 
             // High-fidelity Semantic Vector Fallbacks (Zero Unicode Emojis)
             const key = (icon || name || "").toLowerCase();
-            if (key.includes("cake") || key.includes("🎂")) return <VectorCake size={numSz} style={style} />;
-            if (key.includes("star") || key.includes("yulduz") || key.includes("⭐") || key.includes("🌟") || key.includes("💚")) return <VectorStar size={numSz} style={style} />;
-            if (key.includes("teddy") || key.includes("bear") || key.includes("ayiq") || key.includes("🧸")) return <VectorTeddy size={numSz} style={style} />;
-            if (key.includes("bouquet") || key.includes("flower") || key.includes("gul") || key.includes("rose") || key.includes("💐") || key.includes("🌹") || key.includes("🌸") || key.includes("🌷")) return <VectorBouquet size={numSz} style={style} />;
-            if (key.includes("champagne") || key.includes("bottle") || key.includes("shampan") || key.includes("🍾")) return <VectorChampagne size={numSz} style={style} />;
-            if (key.includes("ring") || key.includes("diamond_ring") || key.includes("uzuk") || key.includes("💍")) return <VectorDiamondRing size={numSz} style={style} />;
-            if (key.includes("trophy") || key.includes("kubok") || key.includes("🏆")) return <VectorTrophy size={numSz} style={style} />;
-            if (key.includes("rocket") || key.includes("raketa") || key.includes("🚀")) return <VectorRocket size={numSz} style={style} />;
-            if (key.includes("cap") || key.includes("kepka") || key.includes("🧢")) return <VectorCap size={numSz} style={style} />;
-            if (key.includes("plush") || key.includes("oyunchoq") || key.includes("frog") || key.includes("🐸") || key.includes("👾")) return <VectorPlush size={numSz} style={style} />;
-            if (key.includes("crown") || key.includes("toj") || key.includes("👑")) return <VectorCrown size={numSz} style={style} />;
-            if (key.includes("premium") || key.includes("tg_premium")) return <VectorPremium size={numSz} style={style} />;
-            if (key.includes("gem") || key.includes("diamond") || key.includes("💎")) return <SvgGem size={Math.round(numSz * 0.8)} color="#00f0ff" style={style} />;
-            if (key.includes("clapper") || key.includes("video")) return <SvgClapperboard size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
-            if (key.includes("film") || key.includes("movie")) return <SvgFilm size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
-            if (key.includes("sparkles") || key.includes("sparkle") || key.includes("ai")) return <SvgSparkles size={Math.round(numSz * 0.8)} color="#00f0ff" style={style} />;
-            if (key.includes("zap") || key.includes("bolt") || key.includes("speed")) return <SvgZap size={Math.round(numSz * 0.8)} color="#ffd700" style={style} />;
-            if (key.includes("tag") || key.includes("tags")) return <SvgTag size={Math.round(numSz * 0.8)} color="#10b981" style={style} />;
-            if (key.includes("edit") || key.includes("script")) return <SvgEdit3 size={Math.round(numSz * 0.8)} color="#3b82f6" style={style} />;
-            if (key.includes("swords") || key.includes("battle") || key.includes("duel")) return <SvgSwords size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
-            if (key.includes("ticket") || key.includes("scratch")) return <SvgTicket size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
-            if (key.includes("calendar") || key.includes("streak")) return <SvgCalendar size={Math.round(numSz * 0.8)} color="#7342E2" style={style} />;
-            if (key.includes("package") || key.includes("box") || key.includes("gift") || key.includes("🎁") || key.includes("💝") || key.includes("💗")) return <VectorGiftBox size={numSz} style={style} />;
+            const vStyle = numSz <= 28 ? { filter: "none", ...style } : style;
+            if (key.includes("cake") || key.includes("🎂")) return <VectorCake size={numSz} style={vStyle} />;
+            if (key.includes("star") || key.includes("yulduz") || key.includes("⭐") || key.includes("🌟") || key.includes("💚")) return <VectorStar size={numSz} style={vStyle} />;
+            if (key.includes("teddy") || key.includes("bear") || key.includes("ayiq") || key.includes("🧸")) return <VectorTeddy size={numSz} style={vStyle} />;
+            if (key.includes("bouquet") || key.includes("flower") || key.includes("gul") || key.includes("rose") || key.includes("💐") || key.includes("🌹") || key.includes("🌸") || key.includes("🌷")) return <VectorBouquet size={numSz} style={vStyle} />;
+            if (key.includes("champagne") || key.includes("bottle") || key.includes("shampan") || key.includes("🍾")) return <VectorChampagne size={numSz} style={vStyle} />;
+            if (key.includes("ring") || key.includes("diamond_ring") || key.includes("uzuk") || key.includes("💍")) return <VectorDiamondRing size={numSz} style={vStyle} />;
+            if (key.includes("trophy") || key.includes("kubok") || key.includes("🏆")) return <VectorTrophy size={numSz} style={vStyle} />;
+            if (key.includes("rocket") || key.includes("raketa") || key.includes("🚀")) return <VectorRocket size={numSz} style={vStyle} />;
+            if (key.includes("cap") || key.includes("kepka") || key.includes("🧢")) return <VectorCap size={numSz} style={vStyle} />;
+            if (key.includes("plush") || key.includes("oyunchoq") || key.includes("frog") || key.includes("🐸") || key.includes("👾")) return <VectorPlush size={numSz} style={vStyle} />;
+            if (key.includes("crown") || key.includes("toj") || key.includes("👑")) return <VectorCrown size={numSz} style={vStyle} />;
+            if (key.includes("premium") || key.includes("tg_premium")) return <VectorPremium size={numSz} style={vStyle} />;
+            if (key.includes("gem") || key.includes("diamond") || key.includes("💎")) return <SvgGem size={Math.round(numSz * 0.8)} color="#00f0ff" style={vStyle} />;
+            if (key.includes("clapper") || key.includes("video")) return <SvgClapperboard size={Math.round(numSz * 0.8)} color="#7342E2" style={vStyle} />;
+            if (key.includes("film") || key.includes("movie")) return <SvgFilm size={Math.round(numSz * 0.8)} color="#7342E2" style={vStyle} />;
+            if (key.includes("sparkles") || key.includes("sparkle") || key.includes("ai")) return <SvgSparkles size={Math.round(numSz * 0.8)} color="#00f0ff" style={vStyle} />;
+            if (key.includes("zap") || key.includes("bolt") || key.includes("speed")) return <SvgZap size={Math.round(numSz * 0.8)} color="#ffd700" style={vStyle} />;
+            if (key.includes("tag") || key.includes("tags")) return <SvgTag size={Math.round(numSz * 0.8)} color="#10b981" style={vStyle} />;
+            if (key.includes("edit") || key.includes("script")) return <SvgEdit3 size={Math.round(numSz * 0.8)} color="#3b82f6" style={vStyle} />;
+            if (key.includes("swords") || key.includes("battle") || key.includes("duel")) return <SvgSwords size={Math.round(numSz * 0.8)} color="#7342E2" style={vStyle} />;
+            if (key.includes("ticket") || key.includes("scratch")) return <SvgTicket size={Math.round(numSz * 0.8)} color="#7342E2" style={vStyle} />;
+            if (key.includes("calendar") || key.includes("streak")) return <SvgCalendar size={Math.round(numSz * 0.8)} color="#7342E2" style={vStyle} />;
+            if (key.includes("package") || key.includes("box") || key.includes("gift") || key.includes("🎁") || key.includes("💝") || key.includes("💗")) return <VectorGiftBox size={numSz} style={vStyle} />;
 
-            return <VectorGiftBox size={numSz} style={style} />;
+            return <VectorGiftBox size={numSz} style={vStyle} />;
         };
 
         const MediaRenderer = TelegramGiftMedia;
@@ -4205,8 +4206,14 @@
                                                         {activeBattle.host_name.charAt(1).toUpperCase() || "H"}
                                                     </div>
                                                     <div style={{ fontWeight: 700, fontSize: "14px" }}>{activeBattle.host_name}</div>
-                                                    <div style={{ fontSize: "48px", margin: "16px 0" }} className={isBattleRolling ? "duel-box-shake" : ""}>
-                                                        {isBattleRolling ? activeBattle.case_icon : (activeBattle.host_roll ? activeBattle.host_roll.icon : activeBattle.case_icon)}
+                                                    <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", margin: "16px 0" }} className={isBattleRolling ? "duel-box-shake" : ""}>
+                                                        <TelegramGiftMedia
+                                                            icon={isBattleRolling ? activeBattle.case_icon : (activeBattle.host_roll ? activeBattle.host_roll.icon : activeBattle.case_icon)}
+                                                            name={activeBattle.host_roll ? activeBattle.host_roll.prize_name : activeBattle.case_name}
+                                                            fileId={activeBattle.host_roll?.file_id}
+                                                            fileType={activeBattle.host_roll?.file_type}
+                                                            size="64px"
+                                                        />
                                                     </div>
                                                     <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
                                                         {isBattleRolling ? "Ochilyapti..." : (activeBattle.host_roll ? `${activeBattle.host_roll.prize_name} (${activeBattle.host_roll.prize_stars} Stars)` : "Tayyor")}
@@ -4226,8 +4233,14 @@
                                                         {activeBattle.guest_name ? activeBattle.guest_name.charAt(1).toUpperCase() : "G"}
                                                     </div>
                                                     <div style={{ fontWeight: 700, fontSize: "14px" }}>{activeBattle.guest_name || "Raqib"}</div>
-                                                    <div style={{ fontSize: "48px", margin: "16px 0" }} className={isBattleRolling ? "duel-box-shake" : ""}>
-                                                        {isBattleRolling ? activeBattle.case_icon : (activeBattle.guest_roll ? activeBattle.guest_roll.icon : activeBattle.case_icon)}
+                                                    <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", margin: "16px 0" }} className={isBattleRolling ? "duel-box-shake" : ""}>
+                                                        <TelegramGiftMedia
+                                                            icon={isBattleRolling ? activeBattle.case_icon : (activeBattle.guest_roll ? activeBattle.guest_roll.icon : activeBattle.case_icon)}
+                                                            name={activeBattle.guest_roll ? activeBattle.guest_roll.prize_name : activeBattle.case_name}
+                                                            fileId={activeBattle.guest_roll?.file_id}
+                                                            fileType={activeBattle.guest_roll?.file_type}
+                                                            size="64px"
+                                                        />
                                                     </div>
                                                     <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
                                                         {isBattleRolling ? "Ochilyapti..." : (activeBattle.guest_roll ? `${activeBattle.guest_roll.prize_name} (${activeBattle.guest_roll.prize_stars} Stars)` : "Tayyor")}
@@ -4363,7 +4376,9 @@
                                         }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                                                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                    {oddsModalCase.file_id ? (
+                                                    {oddsModalCase.image_url ? (
+                                                        <img src={oddsModalCase.image_url} alt={oddsModalCase.name} style={{ width: "40px", height: "40px", objectFit: "contain" }} />
+                                                    ) : oddsModalCase.file_id ? (
                                                         <MediaRenderer fileId={oddsModalCase.file_id} fileType={oddsModalCase.file_type} icon={oddsModalCase.icon} size="32px" />
                                                     ) : (
                                                         <TelegramGiftMedia icon={oddsModalCase.icon} name={oddsModalCase.name} size="36px" />
@@ -4398,7 +4413,7 @@
 
                                             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
                                                 <div style={{ fontSize: "13px", fontWeight: 700 }}>Mumkin bo'lgan sovg'alar:</div>
-                                                {oddsModalCase.drops.map((d, i) => (
+                                                {oddsModalCase.drops && oddsModalCase.drops.map((d, i) => (
                                                     <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "12px" }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                                             <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size="24px" forceVector={true} />
@@ -4502,15 +4517,18 @@
                                                         alignItems: "center",
                                                         animation: "unboxingReel 0.2s linear infinite"
                                                     }}>
-                                                        {[...Array(8)].map((_, rIdx) => {
-                                                            const item = activeUnboxing.drops[rIdx % activeUnboxing.drops.length];
-                                                            return (
-                                                                <div key={rIdx} style={{ textAlign: "center", flexShrink: 0 }}>
-                                                                    <TelegramGiftMedia fileId={item.file_id} fileType={item.file_type} icon={item.icon} name={item.name} size="52px" />
-                                                                    <div style={{ fontSize: "12px", color: "#bbb", marginTop: "4px" }}>{item.name}</div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                                        {(() => {
+                                                            const dropsList = (activeUnboxing && activeUnboxing.drops && activeUnboxing.drops.length > 0) ? activeUnboxing.drops : [{ name: "Telegram Gift", stars: 25, icon: "package" }];
+                                                            return [...Array(8)].map((_, rIdx) => {
+                                                                const item = dropsList[rIdx % dropsList.length];
+                                                                return (
+                                                                    <div key={rIdx} style={{ textAlign: "center", flexShrink: 0 }}>
+                                                                        <TelegramGiftMedia fileId={item.file_id} fileType={item.file_type} icon={item.icon} name={item.name} size="52px" />
+                                                                        <div style={{ fontSize: "12px", color: "#bbb", marginTop: "4px" }}>{item.name}</div>
+                                                                    </div>
+                                                                );
+                                                            });
+                                                        })()}
                                                     </div>
                                                 ) : (
                                                     <div style={{ animation: "prizePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)", textAlign: "center" }}>
@@ -4634,17 +4652,20 @@
 
                             {/* Telegram User ID Login Modal */}
                             {showLoginModal && (
-                                <div style={{
-                                    position: "fixed",
-                                    inset: 0,
-                                    zIndex: 1000,
-                                    background: "rgba(0, 0, 0, 0.65)",
-                                    backdropFilter: "blur(6px)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "20px"
-                                }}>
+                                <div
+                                    onClick={(e) => { if (e.target === e.currentTarget) { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); } }}
+                                    style={{
+                                        position: "fixed",
+                                        inset: 0,
+                                        zIndex: 1000,
+                                        background: "rgba(0, 0, 0, 0.65)",
+                                        backdropFilter: "blur(6px)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        padding: "20px"
+                                    }}
+                                >
                                     <div style={{
                                         background: "#ffffff",
                                         borderRadius: "24px",

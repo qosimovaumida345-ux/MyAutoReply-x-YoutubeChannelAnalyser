@@ -353,30 +353,48 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
                 </div>
 
                 <button class="btn btn-primary" onclick="saveToBot(true)">
-                    <span>✅ Hamyonni Botga Saqlash</span>
+                    <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        Hamyonni Botga Saqlash
+                    </span>
                 </button>
 
                 <button class="btn btn-danger" onclick="disconnectWallet()">
-                    <span>❌ Hamyonni Uzish</span>
+                    <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        Hamyonni Uzish
+                    </span>
                 </button>
             </div>
         </div>
 
         <div class="features">
             <div class="feat-item">
-                <div class="feat-title">💸 Tezkor Cashout</div>
+                <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    Tezkor Cashout
+                </div>
                 <div class="feat-desc">Pul yechishda manzilni qo'lda kiritish shart emas.</div>
             </div>
             <div class="feat-item">
-                <div class="feat-title">🔒 100% Xavfsiz</div>
+                <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    100% Xavfsiz
+                </div>
                 <div class="feat-desc">Maxfiy kalitlar (seed phrase) hech qachon chiqmaydi.</div>
             </div>
             <div class="feat-item">
-                <div class="feat-title">🖼️ 3D NFT Lazy Mint</div>
+                <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    3D NFT Lazy Mint
+                </div>
                 <div class="feat-desc">NFT laringiz bevosita o'zingizga tegishli bo'ladi.</div>
             </div>
             <div class="feat-item">
-                <div class="feat-title">⚡ Avtomatik</div>
+                <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    Avtomatik
+                </div>
                 <div class="feat-desc">Referal va YouTube daromadlarini to'g'ridan-to'g'ri qabul qiling.</div>
             </div>
         </div>
@@ -475,7 +493,7 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
                 }});
                 const data = await res.json();
                 if (data.ok) {{
-                    showToast(manual ? "✅ Hamyon botga saqlandi!" : "💎 Hamyon ulandi va saqlandi!");
+                    showToast(manual ? "Hamyon botga saqlandi!" : "Hamyon muvaffaqiyatli ulandi va saqlandi!");
                     if (tg) {{
                         try {{
                             tg.sendData(JSON.stringify({{
@@ -521,7 +539,7 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
         function copyAddress() {{
             if (!currentConnectedAddress) return;
             navigator.clipboard.writeText(currentConnectedAddress).then(() => {{
-                showToast("Manzil nusxalandi! 📋");
+                showToast("Manzil nusxalandi!");
             }}).catch(() => {{
                 showToast("Nusxalab bo'lmadi", true);
             }});
