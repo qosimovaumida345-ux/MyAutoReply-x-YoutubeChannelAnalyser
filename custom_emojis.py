@@ -834,10 +834,12 @@ ALIASES = {
     # To'lov va Moliya
     "STARS": "PAY_STARS",
     "STAR": "PAY_STARS",
+    "YULDUZ": "PAY_STARS",
     "HUMO": "PAY_HUMO_UZCARD",
     "UZCARD": "PAY_HUMO_UZCARD",
     "CARD": "PAY_HUMO_UZCARD",
     "BANK": "PAY_HUMO_UZCARD",
+    "KARTA": "PAY_HUMO_UZCARD",
     "TON": "PAY_TON_CRYPTO",
     "CRYPTO": "PAY_TON_CRYPTO",
     "TONKEEPER": "PAY_TON_CRYPTO",
@@ -846,14 +848,25 @@ ALIASES = {
     "PROMO": "PAY_PROMOCODE",
     "PROMOCODE": "PAY_PROMOCODE",
     "TICKET": "PAY_PROMOCODE",
+    "VOUCHER": "PAY_PROMOCODE",
+    "CHEK": "PAY_PROMOCODE",
+    "CHECK": "PAY_PROMOCODE",
     "CASHOUT": "PAY_CASHOUT",
     "CASH": "PAY_CASHOUT",
     "CASHBACK": "PAY_CASHOUT",
     "PLUS": "PAY_CASHOUT",
+    "YECHISH": "PAY_CASHOUT",
+    "WITHDRAW": "PAY_CASHOUT",
+    "WITHDRAWAL": "PAY_CASHOUT",
     "VIP": "PAY_VIP_CROWN",
     "CROWN": "PAY_VIP_CROWN",
+    "VIP_CROWN": "PAY_VIP_CROWN",
+    "TOJ": "PAY_VIP_CROWN",
     "MONEY": "BTN_WALLET",
     "BALANCE": "BTN_WALLET",
+    "BALANS": "BTN_WALLET",
+    "WALLET": "BTN_WALLET",
+    "HAMYON": "BTN_WALLET",
 
     # Statuslar va Xabarlar
     "SUCCESS": "STATUS_SUCCESS",
@@ -982,10 +995,12 @@ ALIASES = {
     "NETFLIX": "BRAND_NETFLIX",
     "NORDVPN": "BRAND_NORDVPN",
     "WINDOWS": "BRAND_WINDOWS",
-    "LAPTOP": "BRAND_WINDOWS",
     "APPLE": "BRAND_APPLE",
     "CURSOR": "BRAND_CURSOR",
     "API": "BRAND_CURSOR",
+    "DEVELOPER": "BRAND_CURSOR",
+    "DEV": "BRAND_CURSOR",
+    "CODE": "BRAND_CURSOR",
     "RENDER": "BRAND_CURSOR",
     "GROQ": "STATUS_LIGHTNING",
 
@@ -1038,7 +1053,12 @@ ALIASES = {
     "BELL": "BTN_SUPPORT",
     "HANDSHAKE": "BTN_SUPPORT",
     "ADMIN": "BTN_SETTINGS",
-    "DOWNLOAD": "MEDIA_VIDEO_HD",
+    "DOWNLOAD": "MEDIA_VIDEO_FHD",
+    "DOWNLOADER": "MEDIA_VIDEO_FHD",
+    "YUKLASH": "MEDIA_VIDEO_FHD",
+    "VIDEO": "MEDIA_VIDEO_FHD",
+    "VIDEO_FHD": "MEDIA_VIDEO_FHD",
+    "VIDEO_HD": "MEDIA_VIDEO_HD",
     "INSTA": "MEDIA_VIDEO_HD",
     "INSTAGRAM_LOGO": "MEDIA_VIDEO_HD",
     "WEB": "BTN_DASHBOARD",
@@ -1061,6 +1081,9 @@ CUSTOM_EMOJI_POOL = [
     str(v["id"]).strip() for v in CUSTOM_EMOJI_REGISTRY.values()
     if v.get("id") and str(v.get("id")).strip().isdigit()
 ]
+
+# Backward compatibility alias
+VERIFIED_CUSTOM_EMOJIS = CUSTOM_EMOJI_REGISTRY
 
 # ==============================================================================
 # 5. YORDAMCHI FUNKSIYALAR

@@ -559,8 +559,8 @@ async def run_streamer_queue(port=3000, bot_client=None):
                     _streamer_state["task_id"] = None
                     _streamer_state["proc"] = None
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(1 if _streamer_state["task_id"] is None else 2)
 
         except Exception as e:
             print(f"❌ [{worker_id}] Streamer loop xatosi: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(3)

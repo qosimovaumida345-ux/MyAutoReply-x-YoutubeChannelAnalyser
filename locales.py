@@ -38,13 +38,13 @@ TRANSLATIONS = {
             "👤 <b>Foydalanuvchi:</b> <b>{name}</b>\n"
             "⚡ <b>Tizim holati:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "<emoji id=\"5465467698022468218\">🚀</emoji> <b>Asosiy Imkoniyatlar & Xizmatlar:</b>\n"
+            "<emoji id=\"5312211050014202213\">🚀</emoji> <b>Asosiy Imkoniyatlar & Xizmatlar:</b>\n"
             "• 💬 <b>AI AutoReply:</b> Izohlarga avtomatik aqlli javoblar\n"
-            "• <emoji id=\"5244837092042750681\">📊</emoji> <b>Analitika:</b> Kanal tahlili, trendlar va o'sish\n"
-            "• <emoji id=\"6327577233305112811\">🌐</emoji> <b>Web Dashboard:</b> Boshqaruv paneli (Telegram WebApp)\n"
+            "• <emoji id=\"5258194577772274087\">📊</emoji> <b>Analitika:</b> Kanal tahlili, trendlar va o'sish\n"
+            "• <emoji id=\"5336852359723100852\">🌐</emoji> <b>Web Dashboard:</b> Boshqaruv paneli (Telegram WebApp)\n"
             "• 🎁 <b>Creator Perks:</b> Mini-o'yinlar, bonuslar va sovg'alar\n"
             "• 📥 <b>Yuklovchi:</b> Shorts & Reels yuklab olish\n"
-            "• <emoji id=\"5287480366330816274\">🔑</emoji> <b>API & Studio:</b> Developer integratsiya\n"
+            "• <emoji id=\"6273793612715138423\">🔑</emoji> <b>API & Studio:</b> Developer integratsiya\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Kerakli bo'limni tanlang:</i>"
         ),
@@ -54,13 +54,13 @@ TRANSLATIONS = {
             "👤 <b>Пользователь:</b> <b>{name}</b>\n"
             "⚡ <b>Статус системы:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "<emoji id=\"5465467698022468218\">🚀</emoji> <b>Основные возможности и услуги:</b>\n"
+            "<emoji id=\"5312211050014202213\">🚀</emoji> <b>Основные возможности и услуги:</b>\n"
             "• 💬 <b>AI AutoReply:</b> Умные авто-ответы на комментарии\n"
-            "• <emoji id=\"5244837092042750681\">📊</emoji> <b>Аналитика:</b> Анализ каналов, тренды и рост\n"
-            "• <emoji id=\"6327577233305112811\">🌐</emoji> <b>Web Dashboard:</b> Панель управления (Telegram WebApp)\n"
+            "• <emoji id=\"5258194577772274087\">📊</emoji> <b>Аналитика:</b> Анализ каналов, тренды и рост\n"
+            "• <emoji id=\"5336852359723100852\">🌐</emoji> <b>Web Dashboard:</b> Панель управления (Telegram WebApp)\n"
             "• 🎁 <b>Creator Perks:</b> Мини-игры, бонусы и призы\n"
             "• 📥 <b>Загрузчик:</b> Скачивание Shorts и Reels\n"
-            "• <emoji id=\"5287480366330816274\">🔑</emoji> <b>API & Studio:</b> Интеграция для разработчиков\n"
+            "• <emoji id=\"6273793612715138423\">🔑</emoji> <b>API & Studio:</b> Интеграция для разработчиков\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Выберите нужный раздел:</i>"
         ),
@@ -70,13 +70,13 @@ TRANSLATIONS = {
             "👤 <b>User:</b> <b>{name}</b>\n"
             "⚡ <b>System Status:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "<emoji id=\"5465467698022468218\">🚀</emoji> <b>Core Features & Services:</b>\n"
+            "<emoji id=\"5312211050014202213\">🚀</emoji> <b>Core Features & Services:</b>\n"
             "• 💬 <b>AI AutoReply:</b> Smart contextual comment replies\n"
-            "• <emoji id=\"5244837092042750681\">📊</emoji> <b>Analytics:</b> Channel insights, trends & growth\n"
-            "• <emoji id=\"6327577233305112811\">🌐</emoji> <b>Web Dashboard:</b> Telegram WebApp control panel\n"
+            "• <emoji id=\"5258194577772274087\">📊</emoji> <b>Analytics:</b> Channel insights, trends & growth\n"
+            "• <emoji id=\"5336852359723100852\">🌐</emoji> <b>Web Dashboard:</b> Telegram WebApp control panel\n"
             "• 🎁 <b>Creator Perks:</b> Daily perks, spins & rewards\n"
             "• 📥 <b>Downloader:</b> High-speed Shorts & Reels\n"
-            "• <emoji id=\"5287480366330816274\">🔑</emoji> <b>API & Studio:</b> Developer integrations\n"
+            "• <emoji id=\"6273793612715138423\">🔑</emoji> <b>API & Studio:</b> Developer integrations\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Select an option below:</i>"
         ),
@@ -86,13 +86,13 @@ TRANSLATIONS = {
             "👤 <b>Usuario:</b> <b>{name}</b>\n"
             "⚡ <b>Estado del sistema:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "<emoji id=\"5465467698022468218\">🚀</emoji> <b>Funciones principales y servicios:</b>\n"
+            "<emoji id=\"5312211050014202213\">🚀</emoji> <b>Funciones principales y servicios:</b>\n"
             "• 💬 <b>AI AutoReply:</b> Respuestas inteligentes a comentarios\n"
-            "• <emoji id=\"5244837092042750681\">📊</emoji> <b>Analítica:</b> Estadísticas de canal y crecimiento\n"
-            "• <emoji id=\"6327577233305112811\">🌐</emoji> <b>Web Dashboard:</b> Panel de control en Telegram WebApp\n"
+            "• <emoji id=\"5258194577772274087\">📊</emoji> <b>Analítica:</b> Estadísticas de canal y crecimiento\n"
+            "• <emoji id=\"5336852359723100852\">🌐</emoji> <b>Web Dashboard:</b> Panel de control en Telegram WebApp\n"
             "• 🎁 <b>Creator Perks:</b> Premios diarios y recompensas\n"
             "• 📥 <b>Descargador:</b> Descarga rápida de Shorts y Reels\n"
-            "• <emoji id=\"5287480366330816274\">🔑</emoji> <b>API & Studio:</b> Integración para desarrolladores\n"
+            "• <emoji id=\"6273793612715138423\">🔑</emoji> <b>API & Studio:</b> Integración para desarrolladores\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Selecciona una opción abajo:</i>"
         ),
@@ -102,13 +102,13 @@ TRANSLATIONS = {
             "👤 <b>Kullanıcı:</b> <b>{name}</b>\n"
             "⚡ <b>Sistem Durumu:</b> <code>Online 🟢</code>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
-            "<emoji id=\"5465467698022468218\">🚀</emoji> <b>Temel Özellikler ve Hizmetler:</b>\n"
+            "<emoji id=\"5312211050014202213\">🚀</emoji> <b>Temel Özellikler ve Hizmetler:</b>\n"
             "• 💬 <b>AI AutoReply:</b> Yorumlara yapay zeka ile akıllı yanıtlar\n"
-            "• <emoji id=\"5244837092042750681\">📊</emoji> <b>Analitik:</b> Kanal analizi, büyüme ve viral trendler\n"
-            "• <emoji id=\"6327577233305112811\">🌐</emoji> <b>Web Dashboard:</b> Telegram WebApp kontrol paneli\n"
+            "• <emoji id=\"5258194577772274087\">📊</emoji> <b>Analitik:</b> Kanal analizi, büyüme ve viral trendler\n"
+            "• <emoji id=\"5336852359723100852\">🌐</emoji> <b>Web Dashboard:</b> Telegram WebApp kontrol paneli\n"
             "• 🎁 <b>Creator Perks:</b> Günlük ödüller ve hediyeler\n"
             "• 📥 <b>İndirici:</b> Hızlı Shorts ve Reels indirme\n"
-            "• <emoji id=\"5287480366330816274\">🔑</emoji> <b>API & Studio:</b> Geliştirici entegrasyonu\n"
+            "• <emoji id=\"6273793612715138423\">🔑</emoji> <b>API & Studio:</b> Geliştirici entegrasyonu\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👇 <i>Aşağıdan bir seçenek belirleyin:</i>"
         )
@@ -432,43 +432,43 @@ TRANSLATIONS = {
     # ==================== BALANCE ====================
     "balance_text": {
         "uz": (
-            '<emoji id="5343777479091831702">💰</emoji> <b>Sizning Balansingiz:</b> <code>{balance:,} so\'m</code>\n\n'
+            '<emoji id="5265197972919964944">💰</emoji> <b>Sizning Balansingiz:</b> <code>{balance:,} so\'m</code>\n\n'
             "To'lov turlari:\n"
-            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
-            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
-            '• <emoji id="6319002678990998592">🎁</emoji> <b>Sovg\'a Vaucherlari (/redeem)</b>\n\n'
+            '• <emoji id="5077829135573714360">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="5370784581341422520">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6187973994273050060">🎁</emoji> <b>Sovg\'a Vaucherlari (/redeem)</b>\n\n'
             "<i>Balansni to'ldirish uchun kerakli to'lov usulini tanlang:</i>"
         ),
         "ru": (
-            '<emoji id="5343777479091831702">💰</emoji> <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n'
+            '<emoji id="5265197972919964944">💰</emoji> <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n'
             "Способы пополнения:\n"
-            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
-            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
-            '• <emoji id="6319002678990998592">🎁</emoji> <b>Подарочные Ваучеры (/redeem)</b>\n\n'
+            '• <emoji id="5077829135573714360">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="5370784581341422520">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6187973994273050060">🎁</emoji> <b>Подарочные Ваучеры (/redeem)</b>\n\n'
             "<i>Выберите удобный способ оплаты для пополнения:</i>"
         ),
         "en": (
-            '<emoji id="5343777479091831702">💰</emoji> <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n'
+            '<emoji id="5265197972919964944">💰</emoji> <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n'
             "Payment methods:\n"
-            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
-            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
-            '• <emoji id="6319002678990998592">🎁</emoji> <b>Gift Vouchers (/redeem)</b>\n\n'
+            '• <emoji id="5077829135573714360">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="5370784581341422520">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6187973994273050060">🎁</emoji> <b>Gift Vouchers (/redeem)</b>\n\n'
             "<i>Choose your preferred payment method below:</i>"
         ),
         "es": (
-            '<emoji id="5343777479091831702">💰</emoji> <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n'
+            '<emoji id="5265197972919964944">💰</emoji> <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n'
             "Métodos de pago:\n"
-            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
-            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
-            '• <emoji id="6319002678990998592">🎁</emoji> <b>Vales de Regalo (/redeem)</b>\n\n'
+            '• <emoji id="5077829135573714360">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="5370784581341422520">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6187973994273050060">🎁</emoji> <b>Vales de Regalo (/redeem)</b>\n\n'
             "<i>Elige tu método de pago preferido a continuación:</i>"
         ),
         "tr": (
-            '<emoji id="5343777479091831702">💰</emoji> <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n'
+            '<emoji id="5265197972919964944">💰</emoji> <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n'
             "Ödeme Yöntemleri:\n"
-            '• <emoji id="5463424023734014980">💎</emoji> <b>TON (The Open Network)</b>\n'
-            '• <emoji id="6215463953925934839">⭐</emoji> <b>Telegram Stars</b>\n'
-            '• <emoji id="6319002678990998592">🎁</emoji> <b>Hediye Kuponları (/redeem)</b>\n\n'
+            '• <emoji id="5077829135573714360">💎</emoji> <b>TON (The Open Network)</b>\n'
+            '• <emoji id="5370784581341422520">⭐</emoji> <b>Telegram Stars</b>\n'
+            '• <emoji id="6187973994273050060">🎁</emoji> <b>Hediye Kuponları (/redeem)</b>\n\n'
             "<i>Bakiyenizi yüklemek için aşağıdaki yöntemlerden birini seçin:</i>"
         )
     },

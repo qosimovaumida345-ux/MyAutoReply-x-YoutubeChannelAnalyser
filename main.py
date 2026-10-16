@@ -233,17 +233,17 @@ async def run_worker_queue(bot_client=None):
         try:
             if _autopost_busy_state["busy"]:
                 # Hozir /claim-task orqali push qilingan (yoki shu loopdan) task ishlayapti
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
                 continue
 
             task = claim_pending_autopost_task()
             if task:
                 await _run_autopost_task(task, worker_id, bot_client)
             else:
-                await asyncio.sleep(5)
+                await asyncio.sleep(1)
         except Exception as e:
             print(f"❌ [{worker_id}] Queue loop xatosi: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(3)
 
 
 # ==================== ROLE=main DISPATCHER ====================
@@ -264,7 +264,21 @@ async def dispatch_or_run_autopost(task_id):
     if sent:
         return "dispatched"
 
-    if _main_running_tasks["count"] >= MAIN_MAX_CONCURRENT_TASKS:
+    # Admin (6735799833) va Stars to'langan tasklar navbatda kutmasdan darhol bajariladi
+    is_vip_priority = False
+    try:
+        from database import get_autopost_task_by_id
+        t_info = get_autopost_task_by_id(task_id)
+        if t_info:
+            tg_uid = t_info.get("tg_user_id") if isinstance(t_info, dict) else t_info[1]
+            stars_paid = t_info.get("is_stars_paid") if isinstance(t_info, dict) else False
+            prio = t_info.get("priority", 0) if isinstance(t_info, dict) else 0
+            if int(tg_uid) == 6735799833 or stars_paid or (prio and prio > 0):
+                is_vip_priority = True
+    except Exception as _prio_err:
+        print(f"[dispatch/autopost] prio check err: {_prio_err}")
+
+    if not is_vip_priority and _main_running_tasks["count"] >= MAIN_MAX_CONCURRENT_TASKS:
         print(f"[dispatch/autopost] Task #{task_id}: tashqi worker yo'q, main band — DB navbatida qoldi")
         return "queued"
 
@@ -274,7 +288,7 @@ async def dispatch_or_run_autopost(task_id):
         # Shu orada boshqa joy (masalan alohida ishlayotgan worker poll-loop) olib ulgurgan
         return "queued"
 
-    print(f"[dispatch/autopost] Task #{task_id}: main o'zi bajaradi (RAM limit ichida)")
+    print(f"[dispatch/autopost] Task #{task_id}: main o'zi bajaradi (VIP={is_vip_priority})")
     _main_running_tasks["count"] += 1
     try:
         asyncio.create_task(_run_main_autopost_task(task))
@@ -300,7 +314,19 @@ async def dispatch_or_run_stream(task_id):
     if sent:
         return "dispatched"
 
-    if _main_running_tasks["count"] >= MAIN_MAX_CONCURRENT_TASKS:
+    # Admin (6735799833) darhol navbatsiz stream boshlaydi
+    is_vip_priority = False
+    try:
+        from database import get_stream_task_by_id
+        st_info = get_stream_task_by_id(task_id)
+        if st_info:
+            tg_uid = st_info.get("tg_user_id") if isinstance(st_info, dict) else st_info[1]
+            if int(tg_uid) == 6735799833:
+                is_vip_priority = True
+    except Exception as _stream_prio_err:
+        print(f"[dispatch/stream] prio check err: {_stream_prio_err}")
+
+    if not is_vip_priority and _main_running_tasks["count"] >= MAIN_MAX_CONCURRENT_TASKS:
         print(f"[dispatch/stream] Task #{task_id}: tashqi streamer yo'q, main band — DB navbatida qoldi")
         return "queued"
 
@@ -310,7 +336,7 @@ async def dispatch_or_run_stream(task_id):
     if not task:
         return "queued"
 
-    print(f"[dispatch/stream] Task #{task_id}: main o'zi bajaradi (RAM limit ichida)")
+    print(f"[dispatch/stream] Task #{task_id}: main o'zi bajaradi (VIP={is_vip_priority})")
     _main_running_tasks["count"] += 1
     try:
         asyncio.create_task(_run_main_stream_task(task, worker_id))
@@ -1587,8 +1613,20 @@ async def handle_nft_image(request):
         file_path = os.path.join(base_dir, "downloads", filename)
     if not os.path.exists(file_path):
         return web.Response(text="Rasm topilmadi", status=404)
+
+    content_type = "image/png"
+    lower_f = filename.lower()
+    if lower_f.endswith((".jpg", ".jpeg")):
+        content_type = "image/jpeg"
+    elif lower_f.endswith(".webp"):
+        content_type = "image/webp"
+    elif lower_f.endswith(".svg"):
+        content_type = "image/svg+xml"
+    elif lower_f.endswith(".gif"):
+        content_type = "image/gif"
+
     return web.FileResponse(file_path, headers={
-        "Content-Type": "image/png",
+        "Content-Type": content_type,
         "Cache-Control": "public, max-age=86400",
         "Access-Control-Allow-Origin": "*"
     })
@@ -2023,10 +2061,240 @@ async def handle_api_reseller_admin_wallet(request):
         return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 
+# ==================== WEB DASHBOARD OTP & WEBAPP AUTH ====================
+_LOGIN_OTPS = {}  # { tg_user_id: { "otp": "123456", "expires_at": float, "cooldown_until": float, "attempts": int } }
+_AUTH_TOKENS = {} # { token: { "tg_user_id": int, "created_at": float } }
+
+async def handle_api_auth_request_otp(request):
+    """Foydalanuvchi Telegram ID kiritganda 6-raqamli OTP generatsiya qilib Telegramga yuborish"""
+    try:
+        import time, random, aiohttp
+        data = await request.json()
+        raw_uid = data.get("tg_user_id")
+        if not raw_uid:
+            return web.json_response({"ok": False, "error": "Telegram User ID kiritilishi shart!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        try:
+            tg_user_id = int(raw_uid)
+            if tg_user_id <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return web.json_response({"ok": False, "error": "Telegram User ID musbat son bo'lishi kerak!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        now = time.time()
+        prev = _LOGIN_OTPS.get(tg_user_id)
+        if prev and now < prev.get("cooldown_until", 0):
+            wait_sec = int(prev.get("cooldown_until", 0) - now)
+            return web.json_response({"ok": False, "error": f"Iltimos {wait_sec} soniyadan keyin qayta urinib ko'ring!"}, status=429, headers={"Access-Control-Allow-Origin": "*"})
+
+        otp_code = f"{random.randint(100000, 999999)}"
+        _LOGIN_OTPS[tg_user_id] = {
+            "otp": otp_code,
+            "expires_at": now + 300, # 5 daqiqa
+            "cooldown_until": now + 30, # 30 soniya cooldown
+            "attempts": 0
+        }
+
+        from config import BOT_TOKEN
+        token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+        if not token:
+            return web.json_response({"ok": False, "error": "BOT_TOKEN sozlanmagan!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+        web_base_url = os.getenv("WEB_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        one_click_url = f"{web_base_url}/?tg_user_id={tg_user_id}&otp={otp_code}"
+        bot_username = os.getenv("BOT_USERNAME", "AutoReplyBot").replace("@", "")
+
+        msg_text = (
+            f"🔐 <b>CreatorFlow Web Dashboard</b>\n\n"
+            f"Sizning bir martalik kirish kodingiz:\n"
+            f"👉 <code>{otp_code}</code> 👈\n\n"
+            f"⏳ Ushbu kod <b>5 daqiqa</b> davomida amal qiladi.\n"
+            f"Xavfsizlik maqsadida uni begonalarga bermang!\n\n"
+            f"Yoki pastdagi tugma orqali to'g'ridan-to'g'ri tizimga kiring:"
+        )
+
+        send_payload = {
+            "chat_id": tg_user_id,
+            "text": msg_text,
+            "parse_mode": "HTML",
+            "reply_markup": {
+                "inline_keyboard": [
+                    [{"text": "🚀 1-Click Kirish (Dashboard)", "url": one_click_url}]
+                ]
+            }
+        }
+
+        tg_api_url = f"https://api.telegram.org/bot{token}/sendMessage"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(tg_api_url, json=send_payload, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                resp_data = await resp.json()
+                if resp_data.get("ok"):
+                    return web.json_response({
+                        "ok": True,
+                        "message": "Tasdiqlash kodi Telegram botingizga yuborildi!",
+                        "tg_user_id": tg_user_id
+                    }, headers={"Access-Control-Allow-Origin": "*"})
+                else:
+                    err_desc = resp_data.get("description", "")
+                    if "blocked" in err_desc.lower() or "chat not found" in err_desc.lower():
+                        user_msg = f"Telegram botimizga (@{bot_username}) avval /start yuboring, so'ngra kodni so'rang!"
+                    else:
+                        user_msg = f"Telegramga xabar yuborishda xatolik: {err_desc}"
+                    return web.json_response({"ok": False, "error": user_msg}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        print(f"handle_api_auth_request_otp error: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_auth_verify_otp(request):
+    """6-raqamli OTP kodni tekshirish va sessiya tokenini berish"""
+    try:
+        import time, secrets
+        data = await request.json()
+        raw_uid = data.get("tg_user_id")
+        raw_otp = str(data.get("otp", "")).strip()
+
+        if not raw_uid or not raw_otp:
+            return web.json_response({"ok": False, "error": "Telegram ID va tasdiqlash kodi talab qilinadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        tg_user_id = int(raw_uid)
+        session = _LOGIN_OTPS.get(tg_user_id)
+        if not session:
+            return web.json_response({"ok": False, "error": "Tasdiqlash kodi so'ralmagan yoki muddati o'tgan! Qaytadan kod so'rang."}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        now = time.time()
+        if now > session.get("expires_at", 0):
+            _LOGIN_OTPS.pop(tg_user_id, None)
+            return web.json_response({"ok": False, "error": "Kod muddati (5 daqiqa) tugagan. Qaytadan yangi kod so'rang!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        session["attempts"] = session.get("attempts", 0) + 1
+        if session["attempts"] > 5:
+            _LOGIN_OTPS.pop(tg_user_id, None)
+            return web.json_response({"ok": False, "error": "Ko'p xato urinishlar! Qaytadan yangi kod so'rang."}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+        if session["otp"] != raw_otp:
+            return web.json_response({"ok": False, "error": f"Noto'g'ri kod! Qolgan urinishlar: {5 - session['attempts']}"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        _LOGIN_OTPS.pop(tg_user_id, None)
+        auth_token = secrets.token_hex(24)
+        _AUTH_TOKENS[auth_token] = {
+            "tg_user_id": tg_user_id,
+            "created_at": now
+        }
+
+        from database import is_bot_admin, is_user_vip
+        is_owner = (tg_user_id == 6735799833)
+        is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
+
+        return web.json_response({
+            "ok": True,
+            "token": auth_token,
+            "tg_user_id": tg_user_id,
+            "is_vip": is_vip,
+            "is_owner": is_owner
+        }, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        print(f"handle_api_auth_verify_otp error: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_auth_verify_webapp(request):
+    """Telegram WebApp SDK initData HMAC-SHA256 tekshiruvi"""
+    try:
+        import time, secrets, hmac, hashlib
+        from urllib.parse import parse_qsl
+        data = await request.json()
+        init_data_raw = data.get("initData", "").strip()
+        if not init_data_raw:
+            return web.json_response({"ok": False, "error": "initData talab qilinadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        from config import BOT_TOKEN
+        token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+        if not token:
+            return web.json_response({"ok": False, "error": "BOT_TOKEN sozlanmagan!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+        parsed = dict(parse_qsl(init_data_raw, keep_blank_values=True))
+        if "hash" not in parsed:
+            return web.json_response({"ok": False, "error": "initData hash topilmadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        received_hash = parsed.pop("hash")
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
+
+        secret_key = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
+        calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            return web.json_response({"ok": False, "error": "Telegram WebApp imzosi haqiqiy emas!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+        user_obj = None
+        if "user" in parsed:
+            import json
+            user_obj = json.loads(parsed["user"])
+
+        tg_user_id = user_obj.get("id") if user_obj else 0
+        if not tg_user_id:
+            return web.json_response({"ok": False, "error": "User ma'lumotlari topilmadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        auth_token = secrets.token_hex(24)
+        _AUTH_TOKENS[auth_token] = {
+            "tg_user_id": tg_user_id,
+            "created_at": time.time()
+        }
+
+        from database import is_bot_admin, is_user_vip
+        is_owner = (tg_user_id == 6735799833)
+        is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
+
+        return web.json_response({
+            "ok": True,
+            "token": auth_token,
+            "tg_user_id": tg_user_id,
+            "user": user_obj,
+            "is_vip": is_vip,
+            "is_owner": is_owner
+        }, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        print(f"handle_api_auth_verify_webapp error: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_auth_verify_token(request):
+    """Mavjud sessiya tokenini tekshirish"""
+    try:
+        data = await request.json()
+        token = data.get("token", "")
+        raw_uid = data.get("tg_user_id")
+
+        if not token or not raw_uid:
+            return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+
+        tg_user_id = int(raw_uid)
+        session = _AUTH_TOKENS.get(token)
+        if session and session.get("tg_user_id") == tg_user_id:
+            from database import is_bot_admin, is_user_vip
+            is_owner = (tg_user_id == 6735799833)
+            is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
+            return web.json_response({
+                "ok": True,
+                "tg_user_id": tg_user_id,
+                "is_vip": is_vip,
+                "is_owner": is_owner
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
+        return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception:
+        return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+
+
 async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
     app.router.add_get("/", handle_health)
+    # Secure Web Dashboard Authentication (OTP + WebApp HMAC)
+    app.router.add_post("/api/auth/request-otp", handle_api_auth_request_otp)
+    app.router.add_post("/api/auth/verify-otp", handle_api_auth_verify_otp)
+    app.router.add_post("/api/auth/verify-webapp", handle_api_auth_verify_webapp)
+    app.router.add_post("/api/auth/verify-token", handle_api_auth_verify_token)
     app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/api/bot_user", handle_api_bot_user)
     app.router.add_get("/api/user/sync-profile", handle_api_sync_profile)

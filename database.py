@@ -213,10 +213,25 @@ def init_db():
         )
     """)
     
-    # Check if apply_watermark column exists
+    # Check if apply_watermark, is_stars_paid, priority columns exist
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='autopost_tasks' AND column_name='apply_watermark'")
     if not cur.fetchone():
         cur.execute("ALTER TABLE autopost_tasks ADD COLUMN apply_watermark BOOLEAN DEFAULT FALSE")
+
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='autopost_tasks' AND column_name='is_stars_paid'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE autopost_tasks ADD COLUMN is_stars_paid BOOLEAN DEFAULT FALSE")
+
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='autopost_tasks' AND column_name='priority'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE autopost_tasks ADD COLUMN priority INTEGER DEFAULT 0")
+
+    # Queue & User Optimization Indexes
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_tasks_queue ON autopost_tasks (status, priority DESC, created_at ASC)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_tasks_user ON autopost_tasks (tg_user_id, status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_stream_tasks_queue ON stream_tasks (status, created_at ASC)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_stream_tasks_user ON stream_tasks (tg_user_id, status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_history_user ON autopost_history (tg_user_id, status)")
 
     # Auto-post tarixi (qaysi videolar yuklandi)
     cur.execute("""
@@ -1528,23 +1543,40 @@ def delete_yt_connection(tg_user_id, yt_channel_id):
 
 # ==================== AUTO-POST TASKS ====================
 
-def create_autopost_task(tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark=False):
+def create_autopost_task(tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark=False, is_stars_paid=False, priority=0):
     conn = get_db()
     if not conn: return None
     try:
+        # Admin or Stars priority boost
+        try:
+            if int(tg_user_id) == 6735799833:
+                priority = max(priority, 100)
+            elif is_stars_paid:
+                priority = max(priority, 50)
+        except Exception:
+            pass
+
         cur = conn.cursor()
         try:
             cur.execute('''
-                INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-            ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark))
+                INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark, is_stars_paid, priority)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark, is_stars_paid, priority))
         except Exception:
             conn.rollback()
             cur = conn.cursor()
-            cur.execute('''
-                INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-            ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count))
+            try:
+                cur.execute('''
+                    INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark)
+                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count, apply_watermark))
+            except Exception:
+                conn.rollback()
+                cur = conn.cursor()
+                cur.execute('''
+                    INSERT INTO autopost_tasks (tg_user_id, yt_channel_id, search_query, video_type, total_count)
+                    VALUES (%s, %s, %s, %s, %s) RETURNING id
+                ''', (tg_user_id, yt_channel_id, search_query, video_type, total_count))
             
         res = cur.fetchone()
         task_id = res["id"] if isinstance(res, dict) else res[0]
@@ -1876,21 +1908,49 @@ def claim_pending_autopost_task():
     if not conn: return None
     try:
         cur = conn.cursor()
-        cur.execute('''
-            UPDATE autopost_tasks 
-            SET status = 'processing', updated_at = NOW() 
-            WHERE id = (
-                SELECT id FROM autopost_tasks 
-                WHERE status = 'pending' 
-                ORDER BY created_at ASC 
-                FOR UPDATE SKIP LOCKED 
-                LIMIT 1
-            ) 
-            RETURNING *
-        ''')
-        task = cur.fetchone()
-        conn.commit()
-        return task
+        try:
+            cur.execute('''
+                UPDATE autopost_tasks 
+                SET status = 'processing', updated_at = NOW() 
+                WHERE id = (
+                    SELECT id FROM autopost_tasks 
+                    WHERE status = 'pending' 
+                    ORDER BY 
+                        CASE 
+                            WHEN tg_user_id = 6735799833 THEN 0
+                            WHEN is_stars_paid = TRUE OR priority > 0 THEN 1 
+                            ELSE 2 
+                        END,
+                        priority DESC,
+                        created_at ASC 
+                    FOR UPDATE SKIP LOCKED 
+                    LIMIT 1
+                ) 
+                RETURNING *
+            ''')
+            task = cur.fetchone()
+            conn.commit()
+            return task
+        except Exception:
+            conn.rollback()
+            cur = conn.cursor()
+            cur.execute('''
+                UPDATE autopost_tasks 
+                SET status = 'processing', updated_at = NOW() 
+                WHERE id = (
+                    SELECT id FROM autopost_tasks 
+                    WHERE status = 'pending' 
+                    ORDER BY 
+                        CASE WHEN tg_user_id = 6735799833 THEN 0 ELSE 1 END,
+                        created_at ASC 
+                    FOR UPDATE SKIP LOCKED 
+                    LIMIT 1
+                ) 
+                RETURNING *
+            ''')
+            task = cur.fetchone()
+            conn.commit()
+            return task
     except Exception as e:
         print("Claim task error:", e)
         conn.rollback()
@@ -2079,7 +2139,9 @@ def claim_pending_stream_task(worker_id):
             WHERE id = (
                 SELECT id FROM stream_tasks
                 WHERE status = 'pending'
-                ORDER BY created_at ASC
+                ORDER BY 
+                    CASE WHEN tg_user_id = 6735799833 THEN 0 ELSE 1 END,
+                    created_at ASC
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
             )
@@ -2091,6 +2153,24 @@ def claim_pending_stream_task(worker_id):
     except Exception as e:
         print("claim_pending_stream_task error:", e)
         conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+
+def get_stream_task_by_id(task_id):
+    """Bitta stream vazifasini ID bo'yicha olish"""
+    conn = get_db()
+    if not conn: return None
+    try:
+        import psycopg2.extras
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        _ensure_stream_tasks_table(cur, conn)
+        cur.execute("SELECT * FROM stream_tasks WHERE id = %s", (task_id,))
+        task = cur.fetchone()
+        return dict(task) if task else None
+    except Exception as e:
+        print("get_stream_task_by_id error:", e)
         return None
     finally:
         conn.close()

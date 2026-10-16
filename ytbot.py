@@ -99,12 +99,61 @@ STARS_PACKAGES = [
 ]
 
 # We'll create a reverse map: fallback_emoji -> custom_emoji_id (with both \ufe0f and non-\ufe0f variants)
+PRIMARY_FALLBACK_TO_ID = {
+    # 1. Pul / Hamyon / Balans -> BTN_WALLET (5265197972919964944) - QAT'IY ravishda Hamyon, Crown emas!
+    "💰": int(CUSTOM_EMOJI_REGISTRY.get("BTN_WALLET", {}).get("id", "5265197972919964944")),
+    # 2. VIP Oltin Toj -> PAY_VIP_CROWN (5274225173837394638)
+    "👑": int(CUSTOM_EMOJI_REGISTRY.get("PAY_VIP_CROWN", {}).get("id", "5274225173837394638")),
+    # 3. Telegram Stars -> PAY_STARS (5370784581341422520)
+    "⭐": int(CUSTOM_EMOJI_REGISTRY.get("PAY_STARS", {}).get("id", "5370784581341422520")),
+    # 4. Bank Kartasi (Humo / Uzcard) -> PAY_HUMO_UZCARD (5445353829304387411)
+    "💳": int(CUSTOM_EMOJI_REGISTRY.get("PAY_HUMO_UZCARD", {}).get("id", "5445353829304387411")),
+    # 5. TON Blockchain / Kripto -> PAY_TON_CRYPTO (5077829135573714360)
+    "💎": int(CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")),
+    # 6. Promokod / Vaucher -> PAY_PROMOCODE (6187973994273050060)
+    "🎟️": int(CUSTOM_EMOJI_REGISTRY.get("PAY_PROMOCODE", {}).get("id", "6187973994273050060")),
+    # 7. Cashout / Pul yechish -> PAY_CASHOUT (5472250091332993630)
+    "💸": int(CUSTOM_EMOJI_REGISTRY.get("PAY_CASHOUT", {}).get("id", "5472250091332993630")),
+    # 8. Muvaffaqiyatli -> STATUS_SUCCESS (5350722806281676158)
+    "✅": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_SUCCESS", {}).get("id", "5350722806281676158")),
+    # 9. Xatolik -> STATUS_ERROR (5391352243419108983)
+    "❌": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_ERROR", {}).get("id", "5391352243419108983")),
+    # 10. Ogohlantirish -> STATUS_WARNING (5395358455768837479)
+    "⚠️": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_WARNING", {}).get("id", "5395358455768837479")),
+    # 11. Tezkor / Yashin -> STATUS_LIGHTNING (5258203794772085854)
+    "⚡": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_LIGHTNING", {}).get("id", "5258203794772085854")),
+    # 12. Yuklanmoqda -> STATUS_LOADING (6113844439292054570)
+    "⏳": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_LOADING", {}).get("id", "6113844439292054570")),
+    # 13. Xavfsizlik Qalqoni -> STATUS_SECURITY (5348129380474306311)
+    "🛡️": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5348129380474306311")),
+    # 14. 1080p Video -> MEDIA_VIDEO_FHD (5082592692391641768)
+    "🎬": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_VIDEO_FHD", {}).get("id", "5082592692391641768")),
+    # 15. Qaychi / Clipper -> MEDIA_SCISSORS (5422781517011111694)
+    "✂️": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_SCISSORS", {}).get("id", "5422781517011111694")),
+    # 16. YouTube -> MEDIA_YOUTUBE (4999366254943798100)
+    "📺": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_YOUTUBE", {}).get("id", "4999366254943798100")),
+    # 17. Avtopilot / Bot -> MEDIA_AUTOPILOT (5258093637450866522)
+    "🤖": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_AUTOPILOT", {}).get("id", "5258093637450866522")),
+    # 18. Developer API / Cursor -> BRAND_CURSOR (6273793612715138423)
+    "💻": int(CUSTOM_EMOJI_REGISTRY.get("BRAND_CURSOR", {}).get("id", "6273793612715138423")),
+    # 19. QR Kod -> TOOL_QR_CODE (5440410042773824003)
+    "📲": int(CUSTOM_EMOJI_REGISTRY.get("TOOL_QR_CODE", {}).get("id", "5440410042773824003")),
+}
+
 FALLBACK_TO_ID = {}
 for val in EMOJI_MAP.values():
     if not val or len(val) < 2 or not val[0] or not str(val[0]).strip().isdigit():
         continue
     c_id = int(str(val[0]).strip())
     fb = val[1]
+    FALLBACK_TO_ID[fb] = c_id
+    if '\ufe0f' in fb:
+        FALLBACK_TO_ID[fb.replace('\ufe0f', '')] = c_id
+    else:
+        FALLBACK_TO_ID[fb + '\ufe0f'] = c_id
+
+# Overwrite with primary guaranteed mapping
+for fb, c_id in PRIMARY_FALLBACK_TO_ID.items():
     FALLBACK_TO_ID[fb] = c_id
     if '\ufe0f' in fb:
         FALLBACK_TO_ID[fb.replace('\ufe0f', '')] = c_id
@@ -205,41 +254,17 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     cb_lower = (cb or "").lower()
     text_lower = (raw_text or "").lower()
 
-    # 1. Web Dashboard
-    if ((web_url and not any(k in web_url for k in ["kyc", "tonconnect", "ton"])) or "web dashboard" in text_lower or "dashboard" in text_lower or cb_lower in ("dashboard", "web_dashboard")):
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_DASHBOARD", {}).get("id", "5336852359723100852")
-
-    # 2. 3D KYC
+    # 1. Web Dashboard & WebApp URL lar
     if (web_url and ("kyc" in web_url)) or "kyc" in text_lower:
         return CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5348129380474306311")
+    if (web_url and ("tonconnect" in web_url or "ton" in web_url)) or any(k in cb_lower for k in ["pay_crypto", "pay_ton", "crypto_pkg"]) or any(k in text_lower for k in ["ton (", "ton hamyon", "the open network", "cryptopay", "ton blockchain"]):
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")
+    if (web_url and not any(k in web_url for k in ["kyc", "tonconnect", "ton"])) or "web dashboard" in text_lower or "dashboard" in text_lower or cb_lower in ("dashboard", "web_dashboard"):
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_DASHBOARD", {}).get("id", "5336852359723100852")
 
-    # 3. Bosh Menyu
+    # 2. Bosh Menyu & Navigatsiya
     if any(k in cb_lower for k in ["back_main", "main_menu"]) or any(k in text_lower for k in ["bosh menyu", "glavnoye menyu", "main menu"]):
         return CUSTOM_EMOJI_REGISTRY.get("BTN_HOME", {}).get("id", "5438499684270238914")
-
-    # 4. Services / Marketplace
-    if any(k in cb_lower for k in ["menu_marketplace", "marketplace"]) or any(k in text_lower for k in ["marketplace", "xizmatlar / marketplace", "services / marketplace", "barcha bo'limlar"]):
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_SERVICES", {}).get("id", "5202075822118166834")
-
-    # 5. Developer API
-    if any(k in cb_lower for k in ["help_api", "api_keys", "developer_api"]) or any(k in text_lower for k in ["developer api", "api & studio", "dasturchi api"]):
-        return CUSTOM_EMOJI_REGISTRY.get("BRAND_CURSOR", {}).get("id", "6273793612715138423")
-
-    # 6. Mening xaridlarim
-    if any(k in cb_lower for k in ["vb_my_orders", "my_orders"]) or "mening xaridlarim" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_ORDERS", {}).get("id", "5436261671301564151")
-
-    # 7. To'lov Tizimlari (HUMO/Uzcard, Stars, TON)
-    if any(k in cb_lower for k in ["humo", "uzcard"]) or any(k in text_lower for k in ["humo", "uzcard"]):
-        return CUSTOM_EMOJI_REGISTRY.get("PAY_HUMO_UZCARD", {}).get("id", "5445353829304387411")
-    if any(k in cb_lower for k in ["stars_pkg", "star_buy", "pay_stars"]) or any(k in text_lower for k in ["telegram stars", "stars"]):
-        return CUSTOM_EMOJI_REGISTRY.get("PAY_STARS", {}).get("id", "5370784581341422520")
-    if any(k in cb_lower for k in ["pay_crypto", "pay_ton", "crypto_pkg"]) or any(k in text_lower for k in ["ton (", "ton hamyon", "the open network", "cryptopay", "ton blockchain"]):
-        return CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")
-    if web_url and ("tonconnect" in web_url or "ton" in web_url):
-        return CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")
-
-    # 8. Pagination tugmalari (Oldingi / Keyingi)
     if "vb_page_" in cb_lower:
         if "oldingi" in text_lower or "prev" in text_lower or "back" in text_lower or "◀" in text_lower or "⬅" in text_lower:
             return CUSTOM_EMOJI_REGISTRY.get("BTN_BACK", {}).get("id", "5416113713428057601")
@@ -248,80 +273,96 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
         return None
     if cb_lower == "vb_noop":
         return None
-
-    # 9. Asosiy Menyu Tugmalari:
-    if any(k in cb_lower for k in ["menu_wallet", "pay_"]) or "balans" in text_lower or "wallet" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("PAY_VIP_CROWN", {}).get("id", "5274225173837394638") if is_vip else CUSTOM_EMOJI_REGISTRY.get("BTN_WALLET", {}).get("id", "5265197972919964944")
-    if any(k in cb_lower for k in ["menu_games", "game_"]) or "o'yinlar" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_GAMES", {}).get("id", "5213430392798851273")
-    if any(k in cb_lower for k in ["menu_support_desk", "supp_"]) or "support" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_SUPPORT", {}).get("id", "5307746710682869587")
-    if any(k in cb_lower for k in ["menu_referral"]) or "referal" in text_lower or "do'stlarni" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_REFERRAL", {}).get("id", "5944970130554359187")
-    if any(k in cb_lower for k in ["menu_leaderboard"]) or "liderlar" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_LEADERBOARD", {}).get("id", "5307608734858484532")
-    if any(k in cb_lower for k in ["menu_channel"]) or "kanal" in text_lower:
-        return "5431504848992360576"
-    if any(k in cb_lower for k in ["menu_analytics"]) or "analitika" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("TOOL_GRAPH_UP", {}).get("id", "5258194577772274087")
-    if any(k in cb_lower for k in ["menu_lang"]) or "til" in text_lower or "language" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_SETTINGS", {}).get("id", "4967490064234840998")
-    if any(k in cb_lower for k in ["menu_help"]) or "help" in text_lower or "yordam" in text_lower:
-        return CUSTOM_EMOJI_REGISTRY.get("BTN_SUPPORT", {}).get("id", "5307746710682869587")
     if any(k in cb_lower for k in ["back_", "orqaga"]) and not any(k in cb_lower for k in ["back_main"]):
         return CUSTOM_EMOJI_REGISTRY.get("BTN_BACK", {}).get("id", "5416113713428057601")
 
-    # 10. Golden VIP vs Oddiy Funksiyalar
+    # 3. Pul, To'lovlar va Balans (MUTLAQO ANIQ MAPPING)
+    # VIP / Crown (Tariflar & VIP)
+    if any(k in cb_lower for k in ["menu_tariffs", "vip_buy", "vip_info", "buy_vip"]) or any(k in text_lower for k in ["tariflar & vip", "vip premium", "oltin toj", "vip ("]):
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_VIP_CROWN", {}).get("id", "5274225173837394638")
+    # Humo / Uzcard
+    if any(k in cb_lower for k in ["humo", "uzcard"]) or any(k in text_lower for k in ["humo", "uzcard"]):
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_HUMO_UZCARD", {}).get("id", "5445353829304387411")
+    # Stars
+    if any(k in cb_lower for k in ["stars_pkg", "star_buy", "pay_stars"]) or any(k in text_lower for k in ["telegram stars", "stars"]):
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_STARS", {}).get("id", "5370784581341422520")
+    # Cashout / Pul Yechish
+    if any(k in cb_lower for k in ["menu_cashout", "co_method", "cashout"]) or any(k in text_lower for k in ["balansni yechish", "cashout", "yechish", "mablag' yechish"]):
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_CASHOUT", {}).get("id", "5472250091332993630")
+    # Promokod / Chek / Vaucher
+    if any(k in cb_lower for k in ["menu_vouchers", "claim_chk", "help_create_check", "enter_promo_code", "chk_claim", "redeem_check"]) or any(k in text_lower for k in ["voucher", "chek", "promokod"]):
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_PROMOCODE", {}).get("id", "6187973994273050060")
+    # Balans / Hamyon (QAT'IY ravishda BTN_WALLET - hech qachon CROWN chiqmasin!)
+    if any(k in cb_lower for k in ["menu_wallet", "pay_history", "my_wallet"]) or any(k in text_lower for k in ["balans", "hamyon", "wallet"]):
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_WALLET", {}).get("id", "5265197972919964944")
+
+    # 4. Developer API & Downloader (Foydalanuvchi talabi bo'yicha aniq mapping)
+    if any(k in cb_lower for k in ["help_api", "api_keys", "developer_api", "menu_api"]) or any(k in text_lower for k in ["developer api", "api & studio", "dasturchi api", "api"]):
+        return CUSTOM_EMOJI_REGISTRY.get("BRAND_CURSOR", {}).get("id", "6273793612715138423")
+    if any(k in cb_lower for k in ["download", "yuklash", "dl_video", "format_"]) or any(k in text_lower for k in ["video yuklash", "yuklab olish", "download", "1080p", "720p"]):
+        return CUSTOM_EMOJI_REGISTRY.get("MEDIA_VIDEO_FHD", {}).get("id", "5082592692391641768")
+    if any(k in cb_lower for k in ["clipper", "qaychi", "scissors", "shorts_cut"]) or any(k in text_lower for k in ["clipper", "qaychi", "shorts kesish"]):
+        return CUSTOM_EMOJI_REGISTRY.get("MEDIA_SCISSORS", {}).get("id", "5422781517011111694")
+    if any(k in cb_lower for k in ["menu_channel", "channel_"]) or any(k in text_lower for k in ["kanal & video", "youtube kanal", "kanal"]):
+        return CUSTOM_EMOJI_REGISTRY.get("MEDIA_YOUTUBE", {}).get("id", "4999366254943798100")
+    if any(k in cb_lower for k in ["menu_ig_cloner", "ig_", "autopilot", "menu_reels", "dl_reels"]) or any(k in text_lower for k in ["avtopilot", "kloner", "reels"]):
+        return CUSTOM_EMOJI_REGISTRY.get("MEDIA_AUTOPILOT", {}).get("id", "5258093637450866522")
     if any(k in cb_lower for k in ["menu_capcut", "capcut"]) or "capcut" in text_lower:
-        return "5285497929686069998" if is_vip else "5978895591894161700"
-    if any(k in cb_lower for k in ["menu_ig_cloner", "ig_"]) or "instagram" in text_lower or "kloner" in text_lower:
-        return "6001420655252213986" if is_vip else "4990082283701535678"
-    if any(k in cb_lower for k in ["menu_reels", "dl_reels"]) or "reels" in text_lower:
-        return "5312147767966054472" if is_vip else "5825658700735451589"
-    if any(k in cb_lower for k in ["menu_vouchers", "claim_chk", "help_create_check"]) or "voucher" in text_lower or "chek" in text_lower:
-        return "5420112302210817795" if is_vip else "5265197972919964944"
-    if any(k in cb_lower for k in ["chk_claim", "redeem_check"]):
-        return "5960914406366779993" if is_vip else "5980930633298350051"
-    if any(k in cb_lower for k in ["antifraud", "security_lock"]):
-        return "5465443379917629504" if is_vip else "5463358164705489689"
-    if any(k in cb_lower for k in ["menu_ai_video", "aivid_"]) or "ai video" in text_lower:
-        return "5249493957578078525" if is_vip else "5235837920081887219"
-    if any(k in cb_lower for k in ["voice_", "tts_"]):
-        return "5766912713586381607" if is_vip else "5895215520000513680"
-    if any(k in cb_lower for k in ["menu_spy", "spy_"]) or "spy" in text_lower or "raqobatchi" in text_lower:
-        return "6107110845399962129" if is_vip else "5339247212012528642"
-    if any(k in cb_lower for k in ["seo_tags", "tagsgen"]):
-        return "5406711411541823609" if is_vip else "5298877105000439431"
-    if any(k in cb_lower for k in ["menu_cashout", "co_method", "cashout"]) or "cashout" in text_lower or "yechish" in text_lower:
-        return "5463046637842608206" if is_vip else "4967738760021148319"
+        return CUSTOM_EMOJI_REGISTRY.get("BRAND_CAPCUT", {}).get("id", "5978895591894161700")
     if any(k in cb_lower for k in ["menu_deeplink", "deeplink"]) or "deeplink" in text_lower:
-        return "5224378350335707737" if is_vip else "5264938002844513934"
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_QR_CODE", {}).get("id", "5440410042773824003")
+
+    # 5. Bo'limlar & Xizmatlar
+    if any(k in cb_lower for k in ["menu_marketplace", "marketplace"]) or any(k in text_lower for k in ["marketplace", "xizmatlar / marketplace", "services / marketplace", "barcha bo'limlar"]):
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SERVICES", {}).get("id", "5202075822118166834")
+    if any(k in cb_lower for k in ["vb_my_orders", "my_orders"]) or "mening xaridlarim" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_ORDERS", {}).get("id", "5436261671301564151")
+    if any(k in cb_lower for k in ["menu_games", "game_"]) or "o'yinlar" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_GAMES", {}).get("id", "5213430392798851273")
+    if any(k in cb_lower for k in ["menu_support_desk", "supp_"]) or any(k in text_lower for k in ["support", "yordam", "help"]):
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SUPPORT", {}).get("id", "5307746710682869587")
+    if any(k in cb_lower for k in ["menu_referral"]) or any(k in text_lower for k in ["referal", "do'stlarni taklif"]):
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_REFERRAL", {}).get("id", "5944970130554359187")
+    if any(k in cb_lower for k in ["menu_leaderboard"]) or "liderlar" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_LEADERBOARD", {}).get("id", "5307608734858484532")
+    if any(k in cb_lower for k in ["menu_analytics"]) or "analitika" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_GRAPH_UP", {}).get("id", "5258194577772274087")
+    if any(k in cb_lower for k in ["menu_lang"]) or any(k in text_lower for k in ["til", "language"]):
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SETTINGS", {}).get("id", "4967490064234840998")
     if any(k in cb_lower for k in ["menu_nft", "nft_"]) or "nft" in text_lower:
-        return "5393107154171358177"
+        return CUSTOM_EMOJI_REGISTRY.get("GIFT_PREMIUM", {}).get("id", "5983591923883972553")
+    if any(k in cb_lower for k in ["antifraud", "security_lock"]):
+        return CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5348129380474306311")
+    if any(k in cb_lower for k in ["menu_spy", "spy_"]) or any(k in text_lower for k in ["spy", "raqobatchi"]):
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_SPY_ANALYTICS", {}).get("id", "5818800823374713651")
+    if any(k in cb_lower for k in ["seo_tags", "tagsgen"]):
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_TAG_PRICE", {}).get("id", "5298877105000439431")
+    if any(k in cb_lower for k in ["voice_", "tts_"]):
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_MIC_VOICE", {}).get("id", "5429413328768224565")
 
-    # 11. Telegram Stars Mystery Cases
-    if "buy_stars_case_tier_1" in cb_lower: return "5323289282499064033"
-    if "buy_stars_case_tier_2" in cb_lower: return "6319002678990998592"
-    if "buy_stars_case_tier_3" in cb_lower: return "5226431245918942763"
-    if "buy_stars_case_tier_4" in cb_lower: return "5463424023734014980"
-    if "buy_stars_case_tier_5" in cb_lower: return "5465467698022468218"
+    # 6. Telegram Stars Mystery Cases
+    if "buy_stars_case_tier_1" in cb_lower: return CUSTOM_EMOJI_REGISTRY.get("GIFT_CASE_BOX", {}).get("id", "5280615440928758599")
+    if "buy_stars_case_tier_2" in cb_lower: return CUSTOM_EMOJI_REGISTRY.get("GIFT_STAR", {}).get("id", "5954135079662916434")
+    if "buy_stars_case_tier_3" in cb_lower: return CUSTOM_EMOJI_REGISTRY.get("GIFT_TROPHY", {}).get("id", "5226431245918942763")
+    if "buy_stars_case_tier_4" in cb_lower: return CUSTOM_EMOJI_REGISTRY.get("GIFT_DIAMOND_RING", {}).get("id", "5355255362578573990")
+    if "buy_stars_case_tier_5" in cb_lower: return CUSTOM_EMOJI_REGISTRY.get("GIFT_CROWN", {}).get("id", "5217822164362739968")
 
-    # 12. Reseller Tovar Ro'yxati (vb_item_) va Brand Match
+    # 7. Reseller Tovar Ro'yxati (vb_item_) va Brand Match
     if "vb_item_" in cb_lower or "vb_cat_" in cb_lower:
         if any(k in text_lower for k in ["zaxirada yo'q", "out of stock", "tugagan", "mavjud emas", "sold out"]) or text_lower.startswith("⚠️"):
-            return "4997089922276918243"
+            return CUSTOM_EMOJI_REGISTRY.get("STATUS_WARNING", {}).get("id", "5395358455768837479")
         for brand, emoji_id in BRAND_EMOJIS_MAP.items():
             if re.search(r'\b' + re.escape(brand) + r'\b', text_lower):
                 return emoji_id
-        return "5255860701133552970"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SERVICES", {}).get("id", "5202075822118166834")
 
-    # 13. Proxy
+    # 8. Proxy
     if any(k in cb_lower for k in ["mkt_view_proxy", "mkt_buy_proxy"]) or "proxy" in text_lower:
-        return "6327577233305112811"
+        return CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5348129380474306311")
 
-    # 14. Qolgan tovarlar va brendlar (Word boundary orqali aniq match)
+    # 9. Qolgan tovarlar va brendlar (Word boundary orqali aniq match)
     if any(k in text_lower for k in ["zaxirada yo'q", "out of stock", "tugagan", "mavjud emas", "sold out"]) or text_lower.startswith("⚠️"):
-        return "4997089922276918243"
+        return CUSTOM_EMOJI_REGISTRY.get("STATUS_WARNING", {}).get("id", "5395358455768837479")
     for brand, emoji_id in BRAND_EMOJIS_MAP.items():
         if re.search(r'\b' + re.escape(brand) + r'\b', text_lower) or re.search(r'\b' + re.escape(brand) + r'\b', cb_lower):
             return emoji_id
@@ -5996,7 +6037,7 @@ def create_ytbot():
             from support_desk import get_support_menu_keyboard
             kb = get_support_menu_keyboard(lang)
             text = (
-                f'<emoji id="5339081812821957844">🤝</emoji> <b>Yordam & Qo\'llab-quvvatlash Markazi</b>\n\n'
+                f'{ce("BTN_SUPPORT")} <b>Yordam & Qo\'llab-quvvatlash Markazi</b>\n\n'
                 f"Kerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:"
             )
             await cb.message.edit_text(text, reply_markup=kb)
@@ -7793,7 +7834,7 @@ def create_ytbot():
                 b = InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")
                 b.style = "success"
             else:
-                tag = f'<emoji id="4997089922276918243">⚠️</emoji> '
+                tag = f"{ce('STATUS_WARNING')} "
                 btn_txt = f"{name} | {price_uzs:,} so'm (Zaxirada yo'q)"
                 b = InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")
                 b.style = "danger"

@@ -129,10 +129,10 @@ AI_SYSTEM_PROMPT = os.getenv("AI_SYSTEM_PROMPT",
     "Mening o'rnimga kelgan xabarga qisqa, do'stona va o'zbek tilida javob yoz. "
     "Xuddi odam yozgandek tabiiy bo'lsin. Emoji ham ishlat.")
 
-# ==================== OWNER SETTINGS ====================
-OWNER_ID = int(os.getenv("OWNER_ID", "0"))
-
-# ==================== ADMIN (Username orqali) ====================
+# ==================== OWNER & ADMIN SETTINGS ====================
+OWNER_ID = int(os.getenv("OWNER_ID", "6735799833"))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "6735799833"))
+ADMIN_IDS = [6735799833] + ([OWNER_ID] if OWNER_ID and OWNER_ID != 6735799833 else [])
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "aiko_64").lstrip("@")  # Asosiy admin username
 
 
