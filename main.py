@@ -31,12 +31,22 @@ ytbot_instance = None
 async def gemini_price_watcher(bot):
     """Gemini 18 oylik narxini tekshirish — $0.50 dan kam bo'lsa adminga xabar yuborish"""
     from config import OWNER_ID
+    from database import get_bot_config, set_bot_config
+
+    # Read persistent last alerted price from database so restarts don't trigger repeated alerts
     last_alerted_price = None
+    try:
+        saved_price = get_bot_config("gemini_price_watcher_last_price")
+        if saved_price:
+            last_alerted_price = float(saved_price)
+    except Exception as e:
+        last_alerted_price = None
+
     THRESHOLD = 0.50
     CHECK_INTERVAL = 900  # 15 daqiqa
     PRODUCT_ID = 16
 
-    print(f"📊 Gemini Price Watcher ishga tushdi (Product ID: {PRODUCT_ID}, Chegara: ${THRESHOLD})")
+    print(f"📊 Gemini Price Watcher ishga tushdi (Product ID: {PRODUCT_ID}, Chegara: ${THRESHOLD}, Oldingi xabar: ${last_alerted_price})")
     await asyncio.sleep(60)  # Startup uchun kutish
 
     while True:
@@ -68,12 +78,14 @@ async def gemini_price_watcher(bot):
                             )
                             await bot.send_message(OWNER_ID, alert_text)
                             last_alerted_price = price_usd
+                            set_bot_config("gemini_price_watcher_last_price", str(price_usd))
                             print(f"[PriceWatcher] ⚡ Admin ga ogohlantirish yuborildi: ${price_usd}")
                         except Exception as send_err:
                             print(f"[PriceWatcher] Admin ga xabar yuborishda xato: {send_err}")
                 else:
                     if last_alerted_price is not None and price_usd >= THRESHOLD:
                         last_alerted_price = None
+                        set_bot_config("gemini_price_watcher_last_price", "")
 
         except Exception as e:
             print(f"[PriceWatcher] Tekshirishda xato: {e}")

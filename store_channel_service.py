@@ -469,19 +469,35 @@ async def run_channel_autopilot(client: Client):
     logger.info("Kanal avtopilot xizmati ishga tushirildi (@CreatorFlow_Store)...")
     await asyncio.sleep(60)  # Bot to'liq yuklanishini kutish
 
+    import time
+    from database import get_bot_config, set_bot_config
+
     promo_counter = 0
-    loop_ticks = 0
+    MIN_PROMO_INTERVAL_SECONDS = 8 * 3600  # Kamida 8 soat oraliq bilan post tashlanadi
+
     while True:
         try:
             # 1. Tashlab ketilgan savatlarni tekshirish (har 5 daqiqada)
             await check_and_notify_abandoned_carts(client)
 
-            # 2. Reklama postini har 8 soatda (96 ta 5-daqiqalik sikl = 8 soat) yuborish
-            if loop_ticks % 96 == 0:
-                await send_channel_promo(client, promo_index=promo_counter)
-                promo_counter += 1
+            # 2. Reklama postini faqat oxirgi postdan kamida 8 soat o'tgan bo'lsa yuborish (server restartlarida qayta-qayta tashlamaslik)
+            last_promo_str = get_bot_config("store_channel_last_promo_time")
+            try:
+                last_promo_time = float(last_promo_str) if last_promo_str else 0.0
+            except Exception:
+                last_promo_time = 0.0
 
-            loop_ticks += 1
+            now = time.time()
+            if (now - last_promo_time) >= MIN_PROMO_INTERVAL_SECONDS:
+                logger.info("8 soatlik oraliq to'ldi: kanalga rejalashtirilgan promo yuborilmoqda...")
+                sent = await send_channel_promo(client, promo_index=promo_counter)
+                if sent:
+                    promo_counter += 1
+                    set_bot_config("store_channel_last_promo_time", str(now))
+            else:
+                remaining_min = int((MIN_PROMO_INTERVAL_SECONDS - (now - last_promo_time)) / 60)
+                logger.debug(f"Kanalga keyingi promo uchun {remaining_min} daqiqa kutish kerak.")
+
             await asyncio.sleep(300) # 5 daqiqa
         except asyncio.CancelledError:
             logger.info("Kanal avtopilot to'xtatildi.")

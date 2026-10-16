@@ -75,7 +75,7 @@ from games_monetization import (
     order_whitelabel_bot, get_user_whitelabel_bots
 )
 from autopost import autopost_worker, get_auth_url, upload_to_youtube
-from custom_emojis import EMOJI_MAP, e, ce, BRAND_EMOJIS_MAP
+from custom_emojis import EMOJI_MAP, e, ce, BRAND_EMOJIS_MAP, CUSTOM_EMOJI_REGISTRY, get_button_icon_id
 from crypto_pay import create_crypto_pay_invoice, CRYPTO_PACKAGES
 from instagram_processor import download_instagram_reel, is_instagram_url, get_ffmpeg_binary
 from mass_engagement import _do_like, _do_comment, _do_subscribe, generate_gemini_comment, extract_video_id
@@ -203,71 +203,71 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     cb_lower = (cb or "").lower()
     text_lower = (raw_text or "").lower()
 
-    # 1. Web Dashboard (Chrome icon 6327577233305112811)
+    # 1. Web Dashboard
     if ((web_url and not any(k in web_url for k in ["kyc", "tonconnect", "ton"])) or "web dashboard" in text_lower or "dashboard" in text_lower or cb_lower in ("dashboard", "web_dashboard")):
-        return "6327577233305112811"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_DASHBOARD", {}).get("id", "5336852359723100852")
 
-    # 2. 3D KYC (Shield icon 5330194932781050507)
+    # 2. 3D KYC
     if (web_url and ("kyc" in web_url)) or "kyc" in text_lower:
-        return "5330194932781050507"
+        return CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5348129380474306311")
 
-    # 3. Bosh Menyu (Home 🏠 5974098293813152457 - NOT Chrome!)
+    # 3. Bosh Menyu
     if any(k in cb_lower for k in ["back_main", "main_menu"]) or any(k in text_lower for k in ["bosh menyu", "glavnoye menyu", "main menu"]):
-        return "5974098293813152457"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_HOME", {}).get("id", "5438499684270238914")
 
-    # 4. Services / Marketplace (Flying Money 💸 5864068125112144897)
+    # 4. Services / Marketplace
     if any(k in cb_lower for k in ["menu_marketplace", "marketplace"]) or any(k in text_lower for k in ["marketplace", "xizmatlar / marketplace", "services / marketplace", "barcha bo'limlar"]):
-        return "5864068125112144897"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SERVICES", {}).get("id", "5202075822118166834")
 
-    # 5. Developer API (Blue API Badge 5287480366330816274)
+    # 5. Developer API
     if any(k in cb_lower for k in ["help_api", "api_keys", "developer_api"]) or any(k in text_lower for k in ["developer api", "api & studio", "dasturchi api"]):
-        return "5287480366330816274"
+        return CUSTOM_EMOJI_REGISTRY.get("BRAND_CURSOR", {}).get("id", "6273793612715138423")
 
-    # 6. Mening xaridlarim (Orders / List 5444856076954520455)
+    # 6. Mening xaridlarim
     if any(k in cb_lower for k in ["vb_my_orders", "my_orders"]) or "mening xaridlarim" in text_lower:
-        return "5444856076954520455"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_ORDERS", {}).get("id", "5436261671301564151")
 
     # 7. To'lov Tizimlari (HUMO/Uzcard, Stars, TON)
     if any(k in cb_lower for k in ["humo", "uzcard"]) or any(k in text_lower for k in ["humo", "uzcard"]):
-        return "5445353829304387411"
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_HUMO_UZCARD", {}).get("id", "5445353829304387411")
     if any(k in cb_lower for k in ["stars_pkg", "star_buy", "pay_stars"]) or any(k in text_lower for k in ["telegram stars", "stars"]):
-        return "5370784581341422520"
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_STARS", {}).get("id", "5370784581341422520")
     if any(k in cb_lower for k in ["pay_crypto", "pay_ton", "crypto_pkg"]) or any(k in text_lower for k in ["ton (", "ton hamyon", "the open network", "cryptopay", "ton blockchain"]):
-        return "5078343973303485905"
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")
     if web_url and ("tonconnect" in web_url or "ton" in web_url):
-        return "5078343973303485905"
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")
 
     # 8. Pagination tugmalari (Oldingi / Keyingi)
     if "vb_page_" in cb_lower:
         if "oldingi" in text_lower or "prev" in text_lower or "back" in text_lower or "◀" in text_lower or "⬅" in text_lower:
-            return "5352759161945867747"
+            return CUSTOM_EMOJI_REGISTRY.get("BTN_BACK", {}).get("id", "5416113713428057601")
         if "keyingi" in text_lower or "next" in text_lower or "forward" in text_lower or "▶" in text_lower or "➡" in text_lower:
-            return "5433788045016969178"
+            return CUSTOM_EMOJI_REGISTRY.get("BTN_NEXT", {}).get("id", "5415758949129404605")
         return None
     if cb_lower == "vb_noop":
         return None
 
     # 9. Asosiy Menyu Tugmalari:
     if any(k in cb_lower for k in ["menu_wallet", "pay_"]) or "balans" in text_lower or "wallet" in text_lower:
-        return "5463046637842608206" if is_vip else "5343777479091831702"
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_VIP_CROWN", {}).get("id", "5274225173837394638") if is_vip else CUSTOM_EMOJI_REGISTRY.get("BTN_WALLET", {}).get("id", "5265197972919964944")
     if any(k in cb_lower for k in ["menu_games", "game_"]) or "o'yinlar" in text_lower:
-        return "5235989279024373566"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_GAMES", {}).get("id", "5213430392798851273")
     if any(k in cb_lower for k in ["menu_support_desk", "supp_"]) or "support" in text_lower:
-        return "5443038326535759644"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SUPPORT", {}).get("id", "5307746710682869587")
     if any(k in cb_lower for k in ["menu_referral"]) or "referal" in text_lower or "do'stlarni" in text_lower:
-        return "6319002678990998592"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_REFERRAL", {}).get("id", "5944970130554359187")
     if any(k in cb_lower for k in ["menu_leaderboard"]) or "liderlar" in text_lower:
-        return "5226431245918942763"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_LEADERBOARD", {}).get("id", "5307608734858484532")
     if any(k in cb_lower for k in ["menu_channel"]) or "kanal" in text_lower:
         return "5431504848992360576"
     if any(k in cb_lower for k in ["menu_analytics"]) or "analitika" in text_lower:
-        return "5244837092042750681"
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_GRAPH_UP", {}).get("id", "5258194577772274087")
     if any(k in cb_lower for k in ["menu_lang"]) or "til" in text_lower or "language" in text_lower:
-        return "6017109689748164760"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SETTINGS", {}).get("id", "4967490064234840998")
     if any(k in cb_lower for k in ["menu_help"]) or "help" in text_lower or "yordam" in text_lower:
-        return "5452026937172048380"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SUPPORT", {}).get("id", "5307746710682869587")
     if any(k in cb_lower for k in ["back_", "orqaga"]) and not any(k in cb_lower for k in ["back_main"]):
-        return "5352759161945867747"
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_BACK", {}).get("id", "5416113713428057601")
 
     # 10. Golden VIP vs Oddiy Funksiyalar
     if any(k in cb_lower for k in ["menu_capcut", "capcut"]) or "capcut" in text_lower:
