@@ -282,27 +282,28 @@
             align-items: stretch;
             gap: 24px;
             margin: 0 auto 48px;
-            max-width: 1400px;
+            max-width: 1140px;
             width: 100%;
             box-sizing: border-box;
         }
         .cases-vitrina-grid .case-card {
-            flex: 1 1 280px;
-            max-width: 340px;
-            min-width: 270px;
+            flex: 0 1 340px;
+            max-width: 360px;
+            min-width: 290px;
             box-sizing: border-box;
         }
-        @media (max-width: 1200px) {
+        @media (max-width: 992px) {
             .cases-vitrina-grid {
                 gap: 20px;
+                max-width: 760px;
             }
             .cases-vitrina-grid .case-card {
-                flex: 1 1 260px;
+                flex: 0 1 330px;
                 max-width: 360px;
-                min-width: 250px;
+                min-width: 280px;
             }
         }
-        @media (max-width: 768px) {
+        @media (max-width: 640px) {
             .cases-vitrina-grid {
                 gap: 16px !important;
             }
@@ -1052,6 +1053,7 @@
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
         const TelegramGiftMedia = ({ fileId, fileType, imageUrl, videoUrl, icon, name = "", size = "80px", style = {}, forceVector = false }) => {
+            const [hasError, setHasError] = React.useState(false);
             const sz = typeof size === 'number' ? `${size}px` : size;
             const numSz = parseInt(size) || 80;
             const mergedStyle = { 
@@ -1061,11 +1063,12 @@
                 objectFit: "contain", 
                 display: "block",
                 pointerEvents: "none",
+                contain: "paint layout",
                 ...style 
             };
 
             // 1. Direct Video URL (e.g. TG_PREMIUM.mp4 or custom WebM)
-            if (videoUrl && !forceVector) {
+            if (videoUrl && !forceVector && !hasError) {
                 return (
                     <video 
                         src={videoUrl} 
@@ -1075,12 +1078,13 @@
                         playsInline 
                         preload="metadata" 
                         style={mergedStyle} 
+                        onError={() => setHasError(true)}
                     />
                 );
             }
 
             // 2. Direct Image URL (e.g. TG_PREMIUM.webp)
-            if (imageUrl && !forceVector) {
+            if (imageUrl && !forceVector && !hasError) {
                 return (
                     <img 
                         src={imageUrl} 
@@ -1088,12 +1092,13 @@
                         loading="lazy" 
                         decoding="async" 
                         style={mergedStyle} 
+                        onError={() => setHasError(true)}
                     />
                 );
             }
 
             // 3. Telegram API Live Proxy (/api/telegram-file/{file_id})
-            if (fileId && !forceVector) {
+            if (fileId && !forceVector && !hasError) {
                 const src = `/api/telegram-file/${fileId}`;
 
                 // WebM video
@@ -1107,6 +1112,7 @@
                             playsInline 
                             preload="metadata" 
                             style={mergedStyle} 
+                            onError={() => setHasError(true)}
                         />
                     );
                 }
@@ -1115,6 +1121,12 @@
                 if (fileType === "tgs") {
                     return (
                         <lottie-player 
+                            ref={el => {
+                                if (el && !el._errBound) {
+                                    el._errBound = true;
+                                    el.addEventListener('error', () => setHasError(true));
+                                }
+                            }}
                             src={src} 
                             background="transparent" 
                             speed="1" 
@@ -1135,6 +1147,7 @@
                             alt={name || "Gift"} 
                             loading="lazy" 
                             decoding="async" 
+                            onError={() => setHasError(true)}
                         />
                     );
                 }
@@ -1142,6 +1155,12 @@
                 // Fallback for any other Telegram file type: try lottie or video
                 return (
                     <lottie-player 
+                        ref={el => {
+                            if (el && !el._errBound) {
+                                el._errBound = true;
+                                el.addEventListener('error', () => setHasError(true));
+                            }
+                        }}
                         src={src} 
                         background="transparent" 
                         speed="1" 
@@ -1882,11 +1901,11 @@
                     })
                     .catch(() => {
                         setStarsCases([
-                            { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, price_uzs: 10000, image_url: "/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v2", icon: "package", color: "#cd7f32", badge: "25 Stars", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "cake", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "star", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "teddy", is_nft: false }] },
-                            { id: "tier_2", name: "Silver Creator Case", price_stars: 75, price_uzs: 30000, image_url: "/api/nft/image/case_silver_3d.webp?v=20261017_3d_v2", icon: "package", color: "#c0c0c0", badge: "75 Stars", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "bouquet", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "champagne", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "diamond_ring", is_nft: false }] },
-                            { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, price_uzs: 100000, image_url: "/api/nft/image/case_gold_3d.webp?v=20261017_3d_v2", icon: "package", color: "#ffd700", badge: "250 Stars", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "champagne", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "diamond_ring", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "trophy", is_nft: false }] },
-                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, price_uzs: 300000, image_url: "/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v2", icon: "package", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "trophy", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "rocket", is_nft: false }, { stars: 1000, name: "Black Cap Collectible", rarity: "legendary", icon: "cap", is_nft: true }] },
-                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, price_uzs: 1000000, image_url: "/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v2", icon: "package", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "rocket", is_nft: false }, { stars: 1500, name: "Plush Collectible", rarity: "rare", icon: "plush", is_nft: true }, { stars: 5000, name: "Royal Crown Collectible", rarity: "legendary", icon: "crown", is_nft: true }] },
+                            { id: "tier_1", name: "Bronze Starter Case", price_stars: 25, price_uzs: 10000, image_url: "/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v3", icon: "package", color: "#cd7f32", badge: "25 Stars", drops: [{ stars: 15, name: "Delicious Cake", rarity: "common", icon: "cake", file_id: "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E", file_type: "tgs", is_nft: false }, { stars: 25, name: "Green Star", rarity: "rare", icon: "star", file_id: "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", file_type: "tgs", is_nft: false }, { stars: 50, name: "Teddy Bear", rarity: "legendary", icon: "teddy", file_id: "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ", file_type: "tgs", is_nft: false }] },
+                            { id: "tier_2", name: "Silver Creator Case", price_stars: 75, price_uzs: 30000, image_url: "/api/nft/image/case_silver_3d.webp?v=20261017_3d_v3", icon: "package", color: "#c0c0c0", badge: "75 Stars", drops: [{ stars: 50, name: "Bouquet of Flowers", rarity: "common", icon: "bouquet", file_id: "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E", file_type: "tgs", is_nft: false }, { stars: 100, name: "Champagne Bottle", rarity: "rare", icon: "champagne", file_id: "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", file_type: "tgs", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "legendary", icon: "diamond_ring", file_id: "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", file_type: "tgs", is_nft: false }] },
+                            { id: "tier_3", name: "Gold Pro Studio Case", price_stars: 250, price_uzs: 100000, image_url: "/api/nft/image/case_gold_3d.webp?v=20261017_3d_v3", icon: "package", color: "#ffd700", badge: "250 Stars", drops: [{ stars: 100, name: "Champagne Bottle", rarity: "common", icon: "champagne", file_id: "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", file_type: "tgs", is_nft: false }, { stars: 250, name: "Diamond Ring", rarity: "rare", icon: "diamond_ring", file_id: "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", file_type: "tgs", is_nft: false }, { stars: 500, name: "Golden Trophy", rarity: "legendary", icon: "trophy", file_id: "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", file_type: "tgs", is_nft: false }] },
+                            { id: "tier_4", name: "Platinum VIP Master Case", price_stars: 750, price_uzs: 300000, image_url: "/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v3", icon: "package", color: "#00f0ff", badge: "750 Stars", drops: [{ stars: 500, name: "Golden Trophy", rarity: "common", icon: "trophy", file_id: "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", file_type: "tgs", is_nft: false }, { stars: 1000, name: "Space Rocket", rarity: "rare", icon: "rocket", file_id: "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", file_type: "tgs", is_nft: false }, { stars: 1100, name: "Telegram Premium (3 Oylik)", rarity: "legendary", icon: "telegram_premium", is_nft: false, is_premium: true, image_url: "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v3", video_url: "/api/nft/video/TG_PREMIUM.mp4" }] },
+                            { id: "tier_5", name: "Diamond Galaxy Case", price_stars: 2500, price_uzs: 1000000, image_url: "/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v3", icon: "package", color: "#b026ff", badge: "2,500 Stars", drops: [{ stars: 1000, name: "Space Rocket", rarity: "common", icon: "rocket", file_id: "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", file_type: "tgs", is_nft: false }, { stars: 1500, name: "Plush Collectible", rarity: "rare", icon: "plush", file_id: "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", file_type: "tgs", is_nft: true }, { stars: 2150, name: "Telegram Premium (6 Oylik)", rarity: "legendary", icon: "telegram_premium", is_nft: false, is_premium: true, image_url: "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v3", video_url: "/api/nft/video/TG_PREMIUM.mp4" }] },
                         ]);
                     });
 
@@ -2532,7 +2551,10 @@
                                                         <div className="yt-pill-details" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                                                                 <SvgYoutube size={12} color="#ef4444" />
-                                                                <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                                <span 
+                                                                    title={studioStats.channel_title || channels[0]?.channel_title || "YouTube Kanal"}
+                                                                    style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", maxWidth: "240px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                                                                >
                                                                     {studioStats.channel_title || channels[0]?.channel_title || "YouTube Kanal"}
                                                                 </span>
                                                             </div>
@@ -2572,7 +2594,10 @@
                                                 {/* User Info & So'm Balance */}
                                                 <div className="user-balance-details" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.2 }}>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#18181b" }}>
+                                                        <span 
+                                                            title={`${tgUser.first_name} ${tgUser.last_name || ""}`}
+                                                            style={{ fontSize: "13px", fontWeight: 700, color: "#18181b", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                                                        >
                                                             {tgUser.first_name} {tgUser.last_name || ""}
                                                         </span>
                                                         {tgUser.is_vip && (
@@ -3837,6 +3862,7 @@
                                                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0, 0, 0, 0.2)"; e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)"; }}
                                                             onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
                                                             onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                                        >
                                                             <SvgEye size={13} color="currentColor" /> <span>Demo Aylantirish (Bepul)</span>
                                                         </button>
                                                     </div>
@@ -3883,7 +3909,7 @@
                                                         }}
                                                     >
                                                         <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
-                                                            <TelegramGiftMedia fileId={g.file_id} fileType={g.file_type} icon={g.icon} name={g.prize_name} size="56px" />
+                                                            <TelegramGiftMedia fileId={g.file_id} fileType={g.file_type} imageUrl={g.image_url} videoUrl={g.video_url} icon={g.icon} name={g.prize_name} size="56px" />
                                                         </div>
                                                         <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
                                                             {g.prize_name}

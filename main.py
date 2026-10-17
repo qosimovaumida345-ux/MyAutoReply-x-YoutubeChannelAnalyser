@@ -420,7 +420,15 @@ async def handle_health(request):
     if os.path.exists("index.html"):
         with open("index.html", "r", encoding="utf-8") as f:
             html = f.read()
-        return web.Response(text=html, content_type="text/html")
+        return web.Response(
+            text=html,
+            content_type="text/html",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return web.Response(text="Bot is running!", content_type="text/html")
 
 
@@ -1726,7 +1734,13 @@ async def handle_api_stars_cases(request):
     from config import BOT_TOKEN
     server_gifts = await fetch_telegram_server_gifts(BOT_TOKEN)
     cases_dict = build_cases_from_gifts(server_gifts)
-    return web.json_response({"ok": True, "cases": list(cases_dict.values())}, headers={"Access-Control-Allow-Origin": "*"})
+    return web.json_response(
+        {"ok": True, "cases": list(cases_dict.values())},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "no-cache, no-store, must-revalidate"
+        }
+    )
 
 async def handle_api_stars_open_case(request):
     """Web Dashboard orqali to'langan Stars keysi yutug'ini tekshirish va unboxing natijasi"""

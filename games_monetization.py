@@ -421,29 +421,29 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     else:
         # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
         t1_drops = [
-            {"id": "5183889020478160001", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160002", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160003", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "", "file_type": "webp", "is_nft": False}
+            {"id": "5170144170496491616", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E", "file_type": "tgs", "is_nft": False},
+            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ", "file_type": "tgs", "is_nft": False}
         ]
         t2_drops = [
-            {"id": "5183889020478160004", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "", "file_type": "webp", "is_nft": False}
+            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E", "file_type": "tgs", "is_nft": False},
+            {"id": "6028601630662853006", "stars": 50, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False}
         ]
         t3_drops = [
-            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "file_id": "", "file_type": "webp", "is_nft": False}
+            {"id": "6028601630662853006", "stars": 50, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": False}
         ]
         t4_drops = [
-            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160009", "stars": 1000, "name": "Black Cap Collectible", "icon": "cap", "file_id": "", "file_type": "webp", "is_nft": True}
+            {"id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170564780938756245", "stars": 50, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170521118301225164", "stars": 100, "name": "Black Cap Collectible", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True}
         ]
         t5_drops = [
-            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "file_id": "", "file_type": "webp", "is_nft": False},
-            {"id": "5183889020478160010", "stars": 1500, "name": "Plush Collectible", "icon": "plush", "file_id": "", "file_type": "webp", "is_nft": True},
-            {"id": "5183889020478160011", "stars": 5000, "name": "Royal Crown Collectible", "icon": "crown", "file_id": "", "file_type": "webp", "is_nft": True}
+            {"id": "5170564780938756245", "stars": 50, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 100, "name": "Plush Collectible", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170521118301225164", "stars": 100, "name": "Royal Crown Collectible", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True}
         ]
 
     # Maxsus Telegram Premium Yutuqlari
@@ -454,7 +454,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "icon": "telegram_premium",
         "file_id": "",
         "file_type": "video",
-        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v2",
+        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v3",
         "video_url": "/api/nft/video/TG_PREMIUM.mp4",
         "is_nft": False,
         "is_premium": True,
@@ -468,7 +468,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "icon": "telegram_premium",
         "file_id": "",
         "file_type": "video",
-        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v2",
+        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v3",
         "video_url": "/api/nft/video/TG_PREMIUM.mp4",
         "is_nft": False,
         "is_premium": True,
@@ -517,7 +517,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 25,
             "price_uzs": 10000,
             "icon": "package",
-            "image_url": "/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v2",
+            "image_url": "/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v3",
             "badge": "25 Stars / 10,000 so'm",
             "color": "#cd7f32",
             "description": "Telegram serveridagi rasmiy sovg'alar: 25 Stars gacha yutuqlar!",
@@ -530,7 +530,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 75,
             "price_uzs": 30000,
             "icon": "gift",
-            "image_url": "/api/nft/image/case_silver_3d.webp?v=20261017_3d_v2",
+            "image_url": "/api/nft/image/case_silver_3d.webp?v=20261017_3d_v3",
             "badge": "75 Stars / 30,000 so'm",
             "color": "#c0c0c0",
             "description": "Telegram server sovg'alari: 50 Stars dan 250 Stars gacha!",
@@ -543,7 +543,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 250,
             "price_uzs": 100000,
             "icon": "trophy",
-            "image_url": "/api/nft/image/case_gold_3d.webp?v=20261017_3d_v2",
+            "image_url": "/api/nft/image/case_gold_3d.webp?v=20261017_3d_v3",
             "badge": "250 Stars / 100,000 so'm",
             "color": "#ffd700",
             "description": "Telegram server sovg'alari: 100 Stars dan 500 Stars gacha!",
@@ -556,7 +556,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 750,
             "price_uzs": 300000,
             "icon": "gem",
-            "image_url": "/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v2",
+            "image_url": "/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v3",
             "badge": "750 Stars / 300,000 so'm",
             "color": "#00f0ff",
             "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
@@ -569,7 +569,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 2500,
             "price_uzs": 1000000,
             "icon": "crown",
-            "image_url": "/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v2",
+            "image_url": "/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v3",
             "badge": "2,500 Stars / 1,000,000 so'm",
             "color": "#b026ff",
             "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",
