@@ -274,6 +274,62 @@
             border-radius: 999px;
         }
 
+        /* Dynamic, symmetrical cases vitrina grid */
+        .cases-vitrina-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 20px;
+            margin-bottom: 48px;
+        }
+        @media (max-width: 1200px) {
+            .cases-vitrina-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 768px) {
+            .cases-vitrina-grid {
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+                gap: 16px !important;
+            }
+            #stars-cases-section {
+                padding: 36px 14px 48px !important;
+            }
+            .header-inner {
+                padding: 10px 14px !important;
+                gap: 8px !important;
+            }
+            .header-brand-sub {
+                display: none !important;
+            }
+            .yt-pill-details {
+                display: none !important;
+            }
+            .user-balance-details {
+                display: none !important;
+            }
+            .sub-nav-tabs {
+                border-radius: 16px !important;
+                padding: 6px !important;
+                justify-content: flex-start !important;
+                overflow-x: auto !important;
+                flex-wrap: nowrap !important;
+                -webkit-overflow-scrolling: touch !important;
+                margin-bottom: 24px !important;
+            }
+            .sub-nav-tabs button {
+                white-space: nowrap !important;
+                flex-shrink: 0 !important;
+                padding: 8px 14px !important;
+                font-size: 12px !important;
+            }
+        }
+        @media (max-width: 480px) {
+            .cases-vitrina-grid {
+                grid-template-columns: 1fr !important;
+                gap: 14px !important;
+            }
+        }
+
         /* ==================== MONETIZATION SUITE STYLES ==================== */
         @keyframes tickerSlide {
             0% { transform: translateX(0); }
@@ -968,17 +1024,25 @@
             const sz = typeof size === 'number' ? `${size}px` : size;
             const numSz = parseInt(size) || 80;
 
-            if (fileId && !forceVector && numSz >= 20) {
+            if (fileId && !forceVector) {
                 const src = `/api/telegram-file/${fileId}`;
                 const mergedStyle = { width: sz, height: sz, margin: "0 auto", objectFit: "contain", ...style };
-                if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
-                    return <video src={src} autoPlay loop muted playsInline style={mergedStyle}></video>;
-                } else if (fileType === "tgs") {
-                    return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
-                } else if (fileType === "webp" || fileType === "png" || fileType === "jpg" || fileType === "image") {
-                    return <img src={src} style={mergedStyle} alt={name || "Gift"} />;
+
+                // Static image formats are lightweight and have zero canvas animation overhead
+                if (fileType === "webp" || fileType === "png" || fileType === "jpg" || fileType === "image") {
+                    return <img src={src} style={mergedStyle} alt={name || "Gift"} loading="lazy" decoding="async" />;
                 }
-                return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+
+                // Active video / canvas Lottie player should ONLY mount in modal or focused view (size >= 48px)
+                // Mounting 30 concurrent Lottie/video loops in mini card drops exhausts tab RAM to 1GB!
+                if (numSz >= 48) {
+                    if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
+                        return <video src={src} autoPlay loop muted playsInline style={mergedStyle}></video>;
+                    } else if (fileType === "tgs") {
+                        return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+                    }
+                    return <lottie-player src={src} background="transparent" speed="1" style={mergedStyle} loop autoplay></lottie-player>;
+                }
             }
 
             // High-fidelity Semantic Vector Fallbacks (Zero Unicode Emojis)
@@ -1097,12 +1161,25 @@
             // Creator Store Redeem
             const [redeemModal, setRedeemModal] = useState(null);
 
-            // Web Audio sound generator for authentic unboxing experience
+            // Shared AudioContext Singleton (Prevents leaking audio threads and memory)
+            const audioCtxRef = useRef(null);
+            const getSharedAudioContext = () => {
+                try {
+                    if (!audioCtxRef.current) {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        if (AudioCtx) audioCtxRef.current = new AudioCtx();
+                    }
+                    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+                        audioCtxRef.current.resume();
+                    }
+                    return audioCtxRef.current;
+                } catch(e) { return null; }
+            };
+
             const playTickSound = () => {
                 try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (!AudioCtx) return;
-                    const ctx = new AudioCtx();
+                    const ctx = getSharedAudioContext();
+                    if (!ctx) return;
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
                     osc.type = "sine";
@@ -1119,9 +1196,8 @@
 
             const playWinFanfare = () => {
                 try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (!AudioCtx) return;
-                    const ctx = new AudioCtx();
+                    const ctx = getSharedAudioContext();
+                    if (!ctx) return;
                     [523.25, 659.25, 783.99, 1046.50].forEach((f, i) => {
                         const osc = ctx.createOscillator();
                         const gain = ctx.createGain();
@@ -1712,6 +1788,7 @@
                 initScratchCard();
 
                 const timer = setInterval(() => {
+                    if (document.hidden) return;
                     fetchRecentDrops();
                     fetchBattles();
                 }, 14000);
@@ -2273,25 +2350,25 @@
                                 backdropFilter: "blur(10px)",
                                 borderBottom: "1px solid var(--border-soft)"
                             }}>
-                                <div style={{
+                                <div className="header-inner" style={{
                                     maxWidth: "1200px",
                                     margin: "0 auto",
-                                    padding: "19px 36px",
+                                    padding: "16px 28px",
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center"
                                 }}>
                                     {/* Left: CreatorFlow Studio Brand Logo */}
-                                    <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }} onClick={() => setView('dashboard')}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", flexShrink: 0 }} onClick={() => setView('dashboard')}>
                                         <SvgLogo size={32} color="#7342E2" />
                                         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                                             <span style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.03em", color: "var(--text)" }}>
                                                 CreatorFlow
                                             </span>
-                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#7342E2", background: "rgba(115, 66, 226, 0.08)", padding: "2px 8px", borderRadius: "999px" }}>
+                                            <span className="header-brand-sub" style={{ fontSize: "11px", fontWeight: 700, color: "#7342E2", background: "rgba(115, 66, 226, 0.08)", padding: "2px 8px", borderRadius: "999px" }}>
                                                 Studio
                                             </span>
-                                            <span style={{ fontSize: "10px", fontWeight: 700, color: "#10b981", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "1px 6px", borderRadius: "6px" }}>
+                                            <span className="header-brand-sub" style={{ fontSize: "10px", fontWeight: 700, color: "#10b981", background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", padding: "1px 6px", borderRadius: "6px" }}>
                                                 AutoReply AI
                                             </span>
                                         </div>
@@ -2344,7 +2421,7 @@
                                                                 <SvgYoutube size={16} color="#ef4444" />
                                                             )}
                                                         </div>
-                                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                                                        <div className="yt-pill-details" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                                                                 <SvgYoutube size={12} color="#ef4444" />
                                                                 <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2385,7 +2462,7 @@
                                                 </div>
 
                                                 {/* User Info & So'm Balance */}
-                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.2 }}>
+                                                <div className="user-balance-details" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.2 }}>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                                                         <span style={{ fontSize: "13px", fontWeight: 700, color: "#18181b" }}>
                                                             {tgUser.first_name} {tgUser.last_name || ""}
@@ -3382,7 +3459,7 @@
                                 </div>
 
                                 {/* Sub-Navigation Tabs */}
-                                <div style={{
+                                <div className="sub-nav-tabs" style={{
                                     display: "flex",
                                     justifyContent: "center",
                                     flexWrap: "wrap",
@@ -3431,12 +3508,7 @@
                                 {starsSubTab === 'cases' && (
                                     <div className="tab-content-enter">
                                         {/* 5 Cases Grid */}
-                                        <div style={{
-                                            display: "grid",
-                                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                                            gap: "24px",
-                                            marginBottom: "48px"
-                                        }}>
+                                        <div className="cases-vitrina-grid">
                                             {starsCases.map((c, idx) => (
                                                 <div
                                                     key={idx}
@@ -3544,7 +3616,7 @@
                                                                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(115, 66, 226, 0.08)"; e.currentTarget.style.borderColor = "rgba(115, 66, 226, 0.25)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                                                                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)"; e.currentTarget.style.borderColor = "rgba(0, 0, 0, 0.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
                                                             >
-                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size={28} />
+                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size={28} forceVector={true} />
                                                             </span>
                                                         ))}
                                                     </div>
