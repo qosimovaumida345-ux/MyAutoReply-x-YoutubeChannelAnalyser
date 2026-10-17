@@ -1988,6 +1988,18 @@ async def handle_api_stars_pvp_join(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_stars_pvp_cancel(request):
+    """PvP keys jangini bekor qilish va hostga mablag'ni qaytarish"""
+    try:
+        data = await request.json()
+        battle_id = str(data.get("battle_id", "")).strip()
+        host_id = int(data.get("user_id", 0))
+        from database import cancel_db_case_battle
+        res = cancel_db_case_battle(battle_id, host_id)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
 async def handle_api_stars_upgrader(request):
     """Nazoratli Upgrader aylanishi"""
     try:
@@ -2381,12 +2393,21 @@ async def handle_api_auth_verify_token(request):
         raw_uid = data.get("tg_user_id")
         fingerprint = str(data.get("fingerprint", "")).strip()
 
-        if not token or not raw_uid:
+        if (not token or not raw_uid) and fingerprint:
+            from database import get_web_session_by_fingerprint
+            db_session = get_web_session_by_fingerprint(fingerprint)
+            if db_session:
+                token = db_session.get("session_token")
+                tg_user_id = db_session.get("tg_user_id")
+                session = {
+                    "tg_user_id": tg_user_id,
+                    "created_at": time.time()
+                }
+                _AUTH_TOKENS[token] = session
+
+        if not token or not tg_user_id:
             return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
 
-        tg_user_id = int(raw_uid)
-        session = _AUTH_TOKENS.get(token)
-        
         # Server restartida xotira tozalansa, PostgreSQL bazadagi web_sessions jadvalidan tekshiramiz
         if not session or session.get("tg_user_id") != tg_user_id:
             from database import get_web_session
@@ -2406,6 +2427,7 @@ async def handle_api_auth_verify_token(request):
             is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
             return web.json_response({
                 "ok": True,
+                "token": token,
                 "tg_user_id": tg_user_id,
                 "is_vip": is_vip,
                 "is_owner": is_owner
@@ -2470,6 +2492,7 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/pvp-battles", handle_api_stars_pvp_battles)
     app.router.add_post("/api/stars/pvp-battle/create", handle_api_stars_pvp_create)
     app.router.add_post("/api/stars/pvp-battle/join", handle_api_stars_pvp_join)
+    app.router.add_post("/api/stars/pvp-battle/cancel", handle_api_stars_pvp_cancel)
     app.router.add_post("/api/stars/upgrader", handle_api_stars_upgrader)
     app.router.add_get("/api/stars/daily-streak", handle_api_stars_daily_streak)
     app.router.add_post("/api/stars/daily-streak/claim", handle_api_stars_daily_claim)

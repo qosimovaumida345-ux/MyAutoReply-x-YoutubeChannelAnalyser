@@ -1617,6 +1617,11 @@ def create_case_battle(host_id: int, host_name: str, tier_id: str) -> dict:
         "payout_uzs": payout_uzs
     }
     _PVP_BATTLES[battle_id] = battle
+    try:
+        from database import save_db_case_battle
+        save_db_case_battle(battle)
+    except Exception as e:
+        print(f"save_db_case_battle warning: {e}")
     return {"ok": True, "battle": battle}
 
 def get_open_case_battles() -> list:
@@ -1724,6 +1729,11 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
         battle["winner_new_balance"] = winner_new_bal
     
     record_drop_event(winner_name, f"PvP G'olib ({battle['case_name']})", battle["pot_stars"] - battle["house_commission"], "swords", "legendary", False)
+    try:
+        from database import save_db_case_battle
+        save_db_case_battle(battle)
+    except Exception as e:
+        print(f"save_db_case_battle warning: {e}")
     
     return {"ok": True, "battle": battle}
 

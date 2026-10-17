@@ -1123,6 +1123,36 @@ def init_db():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_user_daily_streaks_user ON user_daily_streaks(tg_user_id)")
 
+    # 9. PvP Case Battles (Server restartida saqlanuvchi doimiy baza)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pvp_case_battles (
+            battle_id VARCHAR(64) PRIMARY KEY,
+            tier_id VARCHAR(32) NOT NULL,
+            case_name VARCHAR(128),
+            case_icon VARCHAR(64),
+            cost_stars INT DEFAULT 0,
+            cost_uzs BIGINT DEFAULT 0,
+            host_id BIGINT NOT NULL,
+            host_name VARCHAR(128),
+            guest_id BIGINT,
+            guest_name VARCHAR(128),
+            status VARCHAR(32) DEFAULT 'waiting',
+            host_roll JSONB,
+            guest_roll JSONB,
+            winner_id BIGINT,
+            winner_name VARCHAR(128),
+            pot_stars INT DEFAULT 0,
+            house_commission INT DEFAULT 0,
+            pot_uzs BIGINT DEFAULT 0,
+            commission_uzs BIGINT DEFAULT 0,
+            payout_uzs BIGINT DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_case_battles_status ON pvp_case_battles(status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_case_battles_host ON pvp_case_battles(host_id)")
+
     conn.commit()
     cur.close()
     conn.close()
@@ -7006,6 +7036,208 @@ def update_db_user_streak(user_id: int, streak_count: int, claim_date: str) -> b
         conn.rollback()
         print(f"update_db_user_streak error: {e}")
         return False
+    finally:
+        conn.close()
+
+
+def get_web_session_by_fingerprint(fingerprint: str) -> dict:
+    """Fingerprint bo'yicha eng so'nggi aktiv 7 kunlik web sessiyani topish"""
+    if not fingerprint or len(fingerprint) < 8:
+        return None
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT session_token, tg_user_id, fingerprint, created_at, expires_at
+            FROM web_sessions
+            WHERE fingerprint = %s AND expires_at > NOW()
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (fingerprint,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        return dict(row)
+    except Exception as e:
+        print(f"get_web_session_by_fingerprint error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+# ==================== PVP CASE BATTLES PERSISTENCE ====================
+
+def save_db_case_battle(battle: dict) -> bool:
+    """PvP Keys jangini bazada saqlash"""
+    if not battle or not battle.get("id"):
+        return False
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        import json
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO pvp_case_battles (
+                battle_id, tier_id, case_name, case_icon, cost_stars, cost_uzs,
+                host_id, host_name, guest_id, guest_name, status,
+                host_roll, guest_roll, winner_id, winner_name,
+                pot_stars, house_commission, pot_uzs, commission_uzs, payout_uzs,
+                created_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                NOW(), NOW()
+            )
+            ON CONFLICT (battle_id) DO UPDATE
+            SET guest_id = EXCLUDED.guest_id,
+                guest_name = EXCLUDED.guest_name,
+                status = EXCLUDED.status,
+                host_roll = EXCLUDED.host_roll,
+                guest_roll = EXCLUDED.guest_roll,
+                winner_id = EXCLUDED.winner_id,
+                winner_name = EXCLUDED.winner_name,
+                updated_at = NOW()
+        """, (
+            battle["id"], battle.get("tier_id", "tier_1"), battle.get("case_name", ""),
+            battle.get("case_icon", "package"), int(battle.get("cost_stars", 0)), int(battle.get("cost_uzs", 0)),
+            int(battle["host_id"]), battle.get("host_name", ""),
+            int(battle["guest_id"]) if battle.get("guest_id") else None, battle.get("guest_name"),
+            battle.get("status", "waiting"),
+            json.dumps(battle.get("host_roll")) if battle.get("host_roll") else None,
+            json.dumps(battle.get("guest_roll")) if battle.get("guest_roll") else None,
+            int(battle["winner_id"]) if battle.get("winner_id") else None, battle.get("winner_name"),
+            int(battle.get("pot_stars", 0)), int(battle.get("house_commission", 0)),
+            int(battle.get("pot_uzs", 0)), int(battle.get("commission_uzs", 0)), int(battle.get("payout_uzs", 0))
+        ))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"save_db_case_battle error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_db_case_battle(battle_id: str) -> dict:
+    """Baza orqali PvP jangni olish"""
+    if not battle_id:
+        return None
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        import json
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT battle_id as id, tier_id, case_name, case_icon, cost_stars, cost_uzs,
+                   host_id, host_name, guest_id, guest_name, status,
+                   host_roll, guest_roll, winner_id, winner_name,
+                   pot_stars, house_commission, pot_uzs, commission_uzs, payout_uzs
+            FROM pvp_case_battles
+            WHERE battle_id = %s
+            LIMIT 1
+        """, (battle_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        b = dict(row)
+        for roll_key in ("host_roll", "guest_roll"):
+            if isinstance(b.get(roll_key), str):
+                try:
+                    b[roll_key] = json.loads(b[roll_key])
+                except Exception:
+                    pass
+        return b
+    except Exception as e:
+        print(f"get_db_case_battle error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_db_open_case_battles(limit: int = 20) -> list:
+    """Bazadagi ochiq (waiting) PvP janglarni olish"""
+    conn = get_db()
+    if not conn:
+        return []
+    try:
+        import json
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT battle_id as id, tier_id, case_name, case_icon, cost_stars, cost_uzs,
+                   host_id, host_name, guest_id, guest_name, status,
+                   host_roll, guest_roll, winner_id, winner_name,
+                   pot_stars, house_commission, pot_uzs, commission_uzs, payout_uzs
+            FROM pvp_case_battles
+            WHERE status = 'waiting' AND created_at > NOW() - INTERVAL '24 hours'
+            ORDER BY created_at DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall()
+        res = []
+        for r in rows:
+            b = dict(r)
+            for roll_key in ("host_roll", "guest_roll"):
+                if isinstance(b.get(roll_key), str):
+                    try:
+                        b[roll_key] = json.loads(b[roll_key])
+                    except Exception:
+                        pass
+            res.append(b)
+        return res
+    except Exception as e:
+        print(f"get_db_open_case_battles error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def cancel_db_case_battle(battle_id: str, host_id: int) -> dict:
+    """PvP jangni bekor qilish va hostga garov mablag'ini to'liq qaytarish"""
+    if not battle_id or not host_id:
+        return {"ok": False, "error": "Noto'g'ri parametrlar"}
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza xatosi"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT battle_id, host_id, cost_uzs, status
+            FROM pvp_case_battles
+            WHERE battle_id = %s
+            FOR UPDATE
+        """, (battle_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"ok": False, "error": "Bunday PvP jang topilmadi"}
+        b = dict(row)
+        if int(b["host_id"]) != int(host_id):
+            return {"ok": False, "error": "Faqat jang yaratuvchisi uni bekor qila oladi"}
+        if b["status"] != "waiting":
+            return {"ok": False, "error": "Jang allaqachon boshlangan yoki yakunlangan"}
+
+        cost_uzs = int(b.get("cost_uzs") or 0)
+        cur.execute("UPDATE pvp_case_battles SET status = 'cancelled', updated_at = NOW() WHERE battle_id = %s", (battle_id,))
+        conn.commit()
+
+        # Mablag'ni hostga qaytarish
+        new_bal = add_user_balance(int(host_id), cost_uzs)
+        return {
+            "ok": True,
+            "refund_uzs": cost_uzs,
+            "new_balance": new_bal,
+            "message": f"PvP jang bekor qilindi. {cost_uzs:,} so'm balansingizga qaytarildi."
+        }
+    except Exception as e:
+        conn.rollback()
+        print(f"cancel_db_case_battle error: {e}")
+        return {"ok": False, "error": str(e)}
     finally:
         conn.close()
 
