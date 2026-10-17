@@ -2281,6 +2281,14 @@ async def handle_api_auth_verify_otp(request):
             "created_at": now
         }
 
+        # PostgreSQL da 7 kunlik doimiy sessiya saqlash (Server restartida logout bo'lmaydi)
+        try:
+            from database import save_web_session
+            fingerprint = str(data.get("fingerprint", "")).strip()
+            save_web_session(auth_token, tg_user_id, fingerprint)
+        except Exception as e_sess:
+            print(f"[WebSession] Saqlashda xato: {e_sess}")
+
         from database import is_bot_admin, is_user_vip
         is_owner = (tg_user_id == 6735799833)
         is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
@@ -2340,6 +2348,14 @@ async def handle_api_auth_verify_webapp(request):
             "created_at": time.time()
         }
 
+        # PostgreSQL da 7 kunlik doimiy sessiya saqlash
+        try:
+            from database import save_web_session
+            fingerprint = str(data.get("fingerprint", "")).strip()
+            save_web_session(auth_token, tg_user_id, fingerprint)
+        except Exception as e_sess:
+            print(f"[WebSession WebApp] Saqlashda xato: {e_sess}")
+
         from database import is_bot_admin, is_user_vip
         is_owner = (tg_user_id == 6735799833)
         is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
@@ -2358,17 +2374,32 @@ async def handle_api_auth_verify_webapp(request):
 
 
 async def handle_api_auth_verify_token(request):
-    """Mavjud sessiya tokenini tekshirish"""
+    """Mavjud sessiya tokenini tekshirish (PostgreSQL 7-kunlik persistent auth)"""
     try:
         data = await request.json()
         token = data.get("token", "")
         raw_uid = data.get("tg_user_id")
+        fingerprint = str(data.get("fingerprint", "")).strip()
 
         if not token or not raw_uid:
             return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
 
         tg_user_id = int(raw_uid)
         session = _AUTH_TOKENS.get(token)
+        
+        # Server restartida xotira tozalansa, PostgreSQL bazadagi web_sessions jadvalidan tekshiramiz
+        if not session or session.get("tg_user_id") != tg_user_id:
+            from database import get_web_session
+            db_session = get_web_session(token, fingerprint)
+            if db_session and db_session.get("tg_user_id") == tg_user_id:
+                session = {
+                    "tg_user_id": tg_user_id,
+                    "created_at": time.time()
+                }
+                _AUTH_TOKENS[token] = session
+            else:
+                session = None
+
         if session and session.get("tg_user_id") == tg_user_id:
             from database import is_bot_admin, is_user_vip
             is_owner = (tg_user_id == 6735799833)
@@ -2381,8 +2412,23 @@ async def handle_api_auth_verify_token(request):
             }, headers={"Access-Control-Allow-Origin": "*"})
 
         return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
-    except Exception:
+    except Exception as e:
+        print(f"handle_api_auth_verify_token error: {e}")
         return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_auth_logout(request):
+    """Web sessiyani bazadan ham, xotiradan ham o'chirish"""
+    try:
+        data = await request.json()
+        token = data.get("token", "")
+        if token:
+            _AUTH_TOKENS.pop(token, None)
+            from database import delete_web_session
+            delete_web_session(token)
+        return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception:
+        return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def start_web_server(port):
@@ -2394,6 +2440,7 @@ async def start_web_server(port):
     app.router.add_post("/api/auth/verify-otp", handle_api_auth_verify_otp)
     app.router.add_post("/api/auth/verify-webapp", handle_api_auth_verify_webapp)
     app.router.add_post("/api/auth/verify-token", handle_api_auth_verify_token)
+    app.router.add_post("/api/auth/logout", handle_api_auth_logout)
     app.router.add_get("/api/stats", handle_api_stats)
     app.router.add_get("/api/bot_user", handle_api_bot_user)
     app.router.add_get("/api/user/sync-profile", handle_api_sync_profile)

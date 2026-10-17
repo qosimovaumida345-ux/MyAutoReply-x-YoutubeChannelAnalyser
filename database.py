@@ -1099,6 +1099,30 @@ def init_db():
         )
     """)
 
+    # 7. Web Sessions (7-kunlik persistent auth & browser fingerprint)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS web_sessions (
+            session_token VARCHAR(64) PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            fingerprint VARCHAR(128),
+            created_at TIMESTAMP DEFAULT NOW(),
+            expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '7 days')
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(session_token)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_web_sessions_user ON web_sessions(tg_user_id)")
+
+    # 8. 7-Kunlik Daily Streak (Server restartida saqlanuvchi doimiy baza)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_daily_streaks (
+            tg_user_id BIGINT PRIMARY KEY,
+            streak_count INT DEFAULT 0,
+            last_claimed_date DATE,
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_user_daily_streaks_user ON user_daily_streaks(tg_user_id)")
+
     conn.commit()
     cur.close()
     conn.close()
@@ -3892,6 +3916,7 @@ def record_user_purchase(tg_user_id: int, item_type: str, item_name: str, price_
 
         new_bal = curr_bal - price_uzs
         cur.execute("UPDATE user_balances SET balance_uzs = %s, updated_at = NOW() WHERE tg_user_id = %s", (new_bal, tg_user_id))
+        _set_cached(f"bal_{tg_user_id}", new_bal, 30)
 
         cur.execute("""
             INSERT INTO user_purchases (tg_user_id, item_type, item_name, price_uzs, payload, created_at)
@@ -6841,6 +6866,149 @@ def record_ai_coding_agent_purchase(tg_user_id: int, price_uzs: int = 15000) -> 
         price_uzs=price_uzs,
         payload="model:nvidia/nemotron-3-ultra-550b-a55b:free"
     )
+
+
+# ==================== WEB SESSIONS & BROWSER FINGERPRINT PERSISTENCE ====================
+
+def save_web_session(session_token: str, tg_user_id: int, fingerprint: str = None) -> bool:
+    """7 kunlik web sessiyani PostgreSQL bazada saqlash"""
+    if not session_token or not tg_user_id:
+        return False
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO web_sessions (session_token, tg_user_id, fingerprint, created_at, expires_at)
+            VALUES (%s, %s, %s, NOW(), NOW() + INTERVAL '7 days')
+            ON CONFLICT (session_token) DO UPDATE
+            SET tg_user_id = EXCLUDED.tg_user_id,
+                fingerprint = COALESCE(NULLIF(EXCLUDED.fingerprint, ''), web_sessions.fingerprint),
+                expires_at = NOW() + INTERVAL '7 days'
+        """, (session_token, tg_user_id, fingerprint or ""))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"save_web_session error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_web_session(session_token: str, fingerprint: str = None) -> dict:
+    """7 kunlik sessiyani tekshirish va ma'lumotlarini olish (Render restartida sessiya yo'qolmaydi)"""
+    if not session_token:
+        return None
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT session_token, tg_user_id, fingerprint, created_at, expires_at
+            FROM web_sessions
+            WHERE session_token = %s AND expires_at > NOW()
+            LIMIT 1
+        """, (session_token,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        res = dict(row)
+        # Agar mijoz fingerprint yuborgan bo'lsa va bazada bo'sh bo'lsa, bog'lash
+        if fingerprint and not res.get("fingerprint"):
+            try:
+                cur.execute("UPDATE web_sessions SET fingerprint = %s WHERE session_token = %s", (fingerprint, session_token))
+                conn.commit()
+                res["fingerprint"] = fingerprint
+            except Exception:
+                pass
+        return res
+    except Exception as e:
+        print(f"get_web_session error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def delete_web_session(session_token: str) -> bool:
+    """Web sessiyani bazadan o'chirish (Logout)"""
+    if not session_token:
+        return False
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM web_sessions WHERE session_token = %s", (session_token,))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"delete_web_session error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+# ==================== 7-KUNLIK DAILY STREAK PERSISTENCE ====================
+
+def get_db_user_streak(user_id: int) -> dict:
+    """Foydalanuvchining bazadagi kunlik streak ma'lumotlarini olish"""
+    if not user_id:
+        return {"streak_count": 0, "last_claimed_date": None}
+    conn = get_db()
+    if not conn:
+        return {"streak_count": 0, "last_claimed_date": None}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT streak_count, to_char(last_claimed_date, 'YYYY-MM-DD') as last_date
+            FROM user_daily_streaks
+            WHERE tg_user_id = %s
+            LIMIT 1
+        """, (user_id,))
+        row = cur.fetchone()
+        if row:
+            return {
+                "streak_count": int(row.get("streak_count") or 0),
+                "last_claimed_date": row.get("last_date")
+            }
+        return {"streak_count": 0, "last_claimed_date": None}
+    except Exception as e:
+        print(f"get_db_user_streak error: {e}")
+        return {"streak_count": 0, "last_claimed_date": None}
+    finally:
+        conn.close()
+
+
+def update_db_user_streak(user_id: int, streak_count: int, claim_date: str) -> bool:
+    """Foydalanuvchi kunlik streakini PostgreSQL bazada yangilash"""
+    if not user_id:
+        return False
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO user_daily_streaks (tg_user_id, streak_count, last_claimed_date, updated_at)
+            VALUES (%s, %s, %s::date, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET streak_count = EXCLUDED.streak_count,
+                last_claimed_date = EXCLUDED.last_claimed_date,
+                updated_at = NOW()
+        """, (user_id, streak_count, claim_date))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"update_db_user_streak error: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 
 

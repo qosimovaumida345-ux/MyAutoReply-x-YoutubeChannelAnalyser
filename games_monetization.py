@@ -1572,17 +1572,35 @@ _PVP_BATTLES = {}
 
 def create_case_battle(host_id: int, host_name: str, tier_id: str) -> dict:
     import uuid
+    from database import deduct_user_balance, get_user_balance
     cases = build_cases_from_gifts()
     case = cases.get(tier_id) or cases.get("tier_1")
     cost_stars = case["price_stars"]
+    cost_uzs = cost_stars * 400
+
+    # Haqiqiy foydalanuvchi hisobidan garov mablag'ini yechish
+    if host_id > 1000:
+        if not deduct_user_balance(host_id, cost_uzs):
+            curr_bal = get_user_balance(host_id)
+            return {
+                "ok": False,
+                "error": f"Balansingiz yetarli emas! PvP keys jangi ochish uchun {cost_uzs:,} so'm kerak. Sizning balansingiz: {curr_bal:,} so'm."
+            }
     
     battle_id = "battle_" + uuid.uuid4().hex[:8]
+    pot_stars = cost_stars * 2
+    commission_stars = int(pot_stars * 0.10)
+    pot_uzs = cost_uzs * 2
+    commission_uzs = int(pot_uzs * 0.10)
+    payout_uzs = pot_uzs - commission_uzs
+
     battle = {
         "id": battle_id,
         "tier_id": case["id"],
         "case_name": case["name"],
         "case_icon": case["icon"],
         "cost_stars": cost_stars,
+        "cost_uzs": cost_uzs,
         "host_id": host_id,
         "host_name": host_name or generate_realistic_username(),
         "guest_id": None,
@@ -1592,8 +1610,11 @@ def create_case_battle(host_id: int, host_name: str, tier_id: str) -> dict:
         "guest_roll": None,
         "winner_id": None,
         "winner_name": None,
-        "pot_stars": cost_stars * 2,
-        "house_commission": int(cost_stars * 2 * 0.10)
+        "pot_stars": pot_stars,
+        "house_commission": commission_stars,
+        "pot_uzs": pot_uzs,
+        "commission_uzs": commission_uzs,
+        "payout_uzs": payout_uzs
     }
     _PVP_BATTLES[battle_id] = battle
     return {"ok": True, "battle": battle}
@@ -1613,12 +1634,18 @@ def get_open_case_battles() -> list:
             b_id = "battle_" + uuid.uuid4().hex[:8]
             h_name = generate_realistic_username()
             cost_stars = c["price_stars"]
+            cost_uzs = cost_stars * 400
+            pot_stars = cost_stars * 2
+            comm_stars = int(pot_stars * 0.10)
+            pot_uzs = cost_uzs * 2
+            comm_uzs = int(pot_uzs * 0.10)
             b = {
                 "id": b_id,
                 "tier_id": c["id"],
                 "case_name": c["name"],
                 "case_icon": c["icon"],
                 "cost_stars": cost_stars,
+                "cost_uzs": cost_uzs,
                 "host_id": random.randint(100000000, 999999999),
                 "host_name": h_name,
                 "guest_id": None,
@@ -1628,14 +1655,18 @@ def get_open_case_battles() -> list:
                 "guest_roll": None,
                 "winner_id": None,
                 "winner_name": None,
-                "pot_stars": cost_stars * 2,
-                "house_commission": int(cost_stars * 2 * 0.10)
+                "pot_stars": pot_stars,
+                "house_commission": comm_stars,
+                "pot_uzs": pot_uzs,
+                "commission_uzs": comm_uzs,
+                "payout_uzs": pot_uzs - comm_uzs
             }
             _PVP_BATTLES[b_id] = b
             waiting.append(b)
     return waiting
 
 def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> dict:
+    from database import deduct_user_balance, add_user_balance, get_user_balance
     battle = _PVP_BATTLES.get(battle_id)
     if not battle:
         return {"ok": False, "error": "Bunday PvP jang topilmadi yoki tugatilgan!"}
@@ -1643,6 +1674,17 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
         return {"ok": False, "error": "Ushbu jangga allaqachon boshqa o'yinchi qo'shilgan!"}
     if battle["host_id"] == guest_id:
         return {"ok": False, "error": "O'z jangingizga o'zingiz qo'shila olmaysiz!"}
+
+    cost_uzs = battle.get("cost_uzs") or (battle.get("cost_stars", 0) * 400)
+    
+    # Mehmon o'yinchi hisobidan garov mablag'ini yechish
+    if guest_id > 1000:
+        if not deduct_user_balance(guest_id, cost_uzs):
+            curr_bal = get_user_balance(guest_id)
+            return {
+                "ok": False,
+                "error": f"Balansingiz yetarli emas! PvP jangga qo'shilish uchun {cost_uzs:,} so'm kerak. Sizning balansingiz: {curr_bal:,} so'm."
+            }
 
     battle["guest_id"] = guest_id
     battle["guest_name"] = guest_name or f"User_{guest_id}"
@@ -1674,6 +1716,12 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
     battle["winner_id"] = winner_id
     battle["winner_name"] = winner_name
     battle["status"] = "finished"
+
+    # G'olibga bankni (10% komissiya ushlab qolinib) to'lab berish
+    payout_uzs = battle.get("payout_uzs", int(cost_uzs * 2 * 0.90))
+    if winner_id > 1000:
+        winner_new_bal = add_user_balance(winner_id, payout_uzs)
+        battle["winner_new_balance"] = winner_new_bal
     
     record_drop_event(winner_name, f"PvP G'olib ({battle['case_name']})", battle["pot_stars"] - battle["house_commission"], "swords", "legendary", False)
     
@@ -1683,6 +1731,7 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
 # ==================== 10. CONTROLLED UPGRADER ====================
 def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, target_name: str, target_icon: str) -> dict:
     from config import OWNER_ID
+    from database import deduct_user_balance, add_user_balance, get_user_balance
     import random
     
     is_admin = False
@@ -1694,15 +1743,23 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
         
     item_stars = max(1, int(item_stars))
     target_stars = max(item_stars + 1, int(target_stars))
+    stake_uzs = item_stars * 400
     
+    # Foydalanuvchining hisobidan stavka (so'm) yechib olinadi
+    if user_id > 1000:
+        if not deduct_user_balance(user_id, stake_uzs):
+            curr_bal = get_user_balance(user_id)
+            return {
+                "ok": False,
+                "error": f"Balansingiz yetarli emas! Upgrade qilish uchun {stake_uzs:,} so'm kerak. Balansingiz: {curr_bal:,} so'm."
+            }
+
     if is_admin:
         won = True
         calc_odds = 0.95
         green_slice_deg = 180
         final_angle = random.randint(10, 160)
     else:
-        # QAT'IY ZERO-LOSS XAVFSIZLIK: Oddiy foydalanuvchilarga yashil sektorga tushish bloklangan!
-        # Faqat admin/owner yashilga tusha oladi.
         nominal_odds = item_stars / target_stars
         calc_odds = min(0.35, max(0.08, nominal_odds * 0.5))
         won = False
@@ -1710,8 +1767,15 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
         # Yashil sektordan bir necha gradus nariga tushadi (dramatik near-miss effekti)
         final_angle = random.randint(green_slice_deg + 6, min(355, green_slice_deg + 45))
 
+    new_balance = None
     if won:
+        reward_uzs = target_stars * 400
+        if user_id > 1000:
+            new_balance = add_user_balance(user_id, reward_uzs)
         record_drop_event(f"user_{str(user_id)[-4:]}", f"Upgrade: {target_name}", target_stars, target_icon, "legendary", True)
+    else:
+        if user_id > 1000:
+            new_balance = get_user_balance(user_id)
 
     return {
         "ok": True,
@@ -1720,33 +1784,39 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
         "final_angle": final_angle,
         "green_slice_deg": green_slice_deg,
         "item_stars": item_stars,
+        "stake_uzs": stake_uzs,
         "target_stars": target_stars,
         "target_name": target_name,
         "target_icon": target_icon,
+        "new_balance": new_balance,
         "is_admin": is_admin
     }
 
 
-# ==================== 11. DAILY STREAK (FAQAT RAQAMLI BOT XIZMATLARI) ====================
-_USER_STREAKS = {}
+# ==================== 11. DAILY STREAK (POSTGRESQL BAZA SAQLANUVCHI) ====================
 
 def get_user_streak(user_id: int) -> dict:
     from datetime import date, timedelta
+    from database import get_db_user_streak
     today_str = str(date.today())
-    u_streak = _USER_STREAKS.get(user_id, {"streak": 0, "last_date": None})
+    yesterday_str = str(date.today() - timedelta(days=1))
+    
+    db_st = get_db_user_streak(user_id)
+    streak_count = db_st.get("streak_count", 0)
+    last_date = db_st.get("last_claimed_date")
     
     can_claim = False
-    if not u_streak["last_date"]:
+    if not last_date:
         can_claim = True
-    elif u_streak["last_date"] != today_str:
-        yesterday_str = str(date.today() - timedelta(days=1))
-        if u_streak["last_date"] == yesterday_str:
-            can_claim = True
-        else:
-            u_streak["streak"] = 0
-            can_claim = True
+    elif last_date == today_str:
+        can_claim = False
+    elif last_date == yesterday_str:
+        can_claim = True
+    else:
+        # 1 kundan ortiq qolib ketgan - streak buzildi
+        streak_count = 0
+        can_claim = True
             
-    # Haqiqiy pul/Stars umuman yo'q - faqat botning $0 tannarxli raqamli xizmatlari
     rewards = [
         {"day": 1, "title": "5 ta AI YouTube SEO", "icon": "sparkles", "type": "seo_pack", "value": 5},
         {"day": 2, "title": "10 ta AI Video Teglar & Tavsif", "icon": "tag", "type": "ai_tags", "value": 10},
@@ -1757,11 +1827,11 @@ def get_user_streak(user_id: int) -> dict:
         {"day": 7, "title": "1 Oylik CapCut Pro VIP", "icon": "crown", "type": "capcut_pro_month", "value": 30}
     ]
     
-    curr_day = (u_streak["streak"] % 7) + 1
+    curr_day = (streak_count % 7) + 1
     
     return {
         "ok": True,
-        "streak_days": u_streak["streak"],
+        "streak_days": streak_count,
         "can_claim": can_claim,
         "current_day": curr_day,
         "rewards": rewards
@@ -1776,17 +1846,18 @@ def generate_capcut_license_key() -> str:
 
 def claim_daily_streak(user_id: int) -> dict:
     from datetime import date
+    from database import update_db_user_streak
     st = get_user_streak(user_id)
     if not st["can_claim"]:
         return {"ok": False, "error": "Bugungi kunlik sovg'ani allaqachon olgansiz! Ertaga qaytib kiring."}
         
     curr_day = st["current_day"]
     reward = st["rewards"][curr_day - 1]
+    today_str = str(date.today())
+    new_streak = st["streak_days"] + 1
     
-    _USER_STREAKS[user_id] = {
-        "streak": st["streak_days"] + 1,
-        "last_date": str(date.today())
-    }
+    # PostgreSQL bazasida doimiy saqlash
+    update_db_user_streak(user_id, new_streak, today_str)
     
     if reward["type"] in ["capcut_trial", "capcut_pro_month"]:
         reward["license_key"] = generate_capcut_license_key()
@@ -1799,24 +1870,34 @@ def claim_daily_streak(user_id: int) -> dict:
         "ok": True,
         "claimed_day": curr_day,
         "reward": reward,
-        "new_streak": st["streak_days"] + 1
+        "new_streak": new_streak
     }
 
 
-# ==================== 12. MYSTERY SCRATCH CARDS ====================
+# ==================== 12. MYSTERY SCRATCH CARDS (ANIQ SOVGA NOMLARI VA AVTO-OCHILISH) ====================
 def play_scratch_card(user_id: int) -> dict:
     import random
+    
+    SCRATCH_PRIZES = {
+        "capcut": {"icon": "clapper", "title": "CapCut Pro", "label": "1 Oylik VIP"},
+        "seo": {"icon": "sparkles", "title": "AI SEO Paketi", "label": "15 ta YouTube"},
+        "stars": {"icon": "gem", "title": "Stars Sovg'a", "label": "100 Stars"},
+        "vip": {"icon": "crown", "title": "VIP Obuna", "label": "1 Oylik VIP"}
+    }
+    
     roll = random.random()
     if roll < 0.05:
         won = True
+        slots = [dict(SCRATCH_PRIZES["capcut"]) for _ in range(3)]
         symbols = ["clapper", "clapper", "clapper"]
         prize = {
-            "title": "1 Oylik CapCut Pro Litsenziyasi!",
+            "title": "1 Oylik CapCut Pro VIP Litsenziyasi!",
             "key": generate_capcut_license_key(),
             "type": "capcut"
         }
     elif roll < 0.20:
         won = True
+        slots = [dict(SCRATCH_PRIZES["seo"]) for _ in range(3)]
         symbols = ["sparkles", "sparkles", "sparkles"]
         prize = {
             "title": "15 ta AI YouTube SEO & Teglar Paketi!",
@@ -1824,10 +1905,12 @@ def play_scratch_card(user_id: int) -> dict:
         }
     else:
         won = False
-        pair = random.choice(["clapper", "sparkles", "gem"])
-        diff = random.choice([s for s in ["clapper", "sparkles", "gem", "star"] if s != pair])
-        symbols = [pair, pair, diff]
-        random.shuffle(symbols)
+        pair_key = random.choice(["capcut", "seo", "stars"])
+        diff_key = random.choice([k for k in ["capcut", "seo", "stars", "vip"] if k != pair_key])
+        chosen_keys = [pair_key, pair_key, diff_key]
+        random.shuffle(chosen_keys)
+        slots = [dict(SCRATCH_PRIZES[k]) for k in chosen_keys]
+        symbols = [s["icon"] for s in slots]
         prize = None
 
     if won and prize:
@@ -1836,14 +1919,16 @@ def play_scratch_card(user_id: int) -> dict:
     return {
         "ok": True,
         "won": won,
+        "slots": slots,
         "symbols": symbols,
         "prize": prize
     }
 
 
-# ==================== 13. REDEEM CREATOR STORE ====================
+# ==================== 13. REDEEM CREATOR STORE (HAQIQIY BALANSDAN YECHISH VA XARID TARIXI) ====================
 def redeem_creator_service(user_id: int, service_id: str) -> dict:
     import uuid
+    from database import record_user_purchase
     
     services = {
         "capcut_30": {"title": "CapCut Pro 1 Oylik", "stars": 350, "type": "capcut", "icon": "clapper"},
@@ -1856,10 +1941,30 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
     if not srv:
         return {"ok": False, "error": "Bunday xizmat topilmadi!"}
         
+    price_uzs = srv["stars"] * 400
+    license_key = generate_capcut_license_key() if srv["type"] == "capcut" else f"VIP-QUOTA-{uuid.uuid4().hex[:6].upper()}"
+
+    # Real balansdan yechish va user_purchases jadvaliga yozish
+    p_res = record_user_purchase(
+        tg_user_id=user_id,
+        item_type=f"creator_store_{srv['type']}",
+        item_name=srv["title"],
+        price_uzs=price_uzs,
+        payload=f"key:{license_key}"
+    )
+    if not p_res.get("ok"):
+        return {
+            "ok": False,
+            "error": p_res.get("error", "Mablag' yetarli emas! Sizning balansingizda yetarli mablag' mavjud emas.")
+        }
+        
     res = {
         "ok": True,
         "service": srv,
-        "license_key": generate_capcut_license_key() if srv["type"] == "capcut" else f"VIP-QUOTA-{uuid.uuid4().hex[:6].upper()}",
+        "price_uzs": price_uzs,
+        "new_balance": p_res.get("new_balance"),
+        "license_key": license_key,
         "message": f"Tabriklaymiz! {srv['title']} muvaffaqiyatli faollashtirildi!"
     }
     return res
+
