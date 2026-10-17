@@ -421,29 +421,29 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     else:
         # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
         t1_drops = [
-            {"id": "5183889020478160001", "stars": 15, "name": "Delicious Cake", "icon": "cake", "is_nft": False},
-            {"id": "5183889020478160002", "stars": 25, "name": "Green Star", "icon": "star", "is_nft": False},
-            {"id": "5183889020478160003", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "is_nft": False}
+            {"id": "5183889020478160001", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160002", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160003", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "", "file_type": "webp", "is_nft": False}
         ]
         t2_drops = [
-            {"id": "5183889020478160004", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "is_nft": False},
-            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "is_nft": False},
-            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "is_nft": False}
+            {"id": "5183889020478160004", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "", "file_type": "webp", "is_nft": False}
         ]
         t3_drops = [
-            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "is_nft": False},
-            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "is_nft": False},
-            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "is_nft": False}
+            {"id": "5183889020478160005", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160006", "stars": 250, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "file_id": "", "file_type": "webp", "is_nft": False}
         ]
         t4_drops = [
-            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "is_nft": False},
-            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "is_nft": False},
-            {"id": "5183889020478160009", "stars": 1000, "name": "Black Cap Collectible", "icon": "cap", "is_nft": True}
+            {"id": "5183889020478160007", "stars": 500, "name": "Golden Trophy", "icon": "trophy", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160009", "stars": 1000, "name": "Black Cap Collectible", "icon": "cap", "file_id": "", "file_type": "webp", "is_nft": True}
         ]
         t5_drops = [
-            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "is_nft": False},
-            {"id": "5183889020478160010", "stars": 1500, "name": "Plush Collectible", "icon": "plush", "is_nft": True},
-            {"id": "5183889020478160011", "stars": 5000, "name": "Royal Crown Collectible", "icon": "crown", "is_nft": True}
+            {"id": "5183889020478160008", "stars": 1000, "name": "Space Rocket", "icon": "rocket", "file_id": "", "file_type": "webp", "is_nft": False},
+            {"id": "5183889020478160010", "stars": 1500, "name": "Plush Collectible", "icon": "plush", "file_id": "", "file_type": "webp", "is_nft": True},
+            {"id": "5183889020478160011", "stars": 5000, "name": "Royal Crown Collectible", "icon": "crown", "file_id": "", "file_type": "webp", "is_nft": True}
         ]
 
     # Maxsus Telegram Premium Yutuqlari
@@ -452,6 +452,10 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "stars": 1100,
         "name": "Telegram Premium (3 Oylik)",
         "icon": "telegram_premium",
+        "file_id": "",
+        "file_type": "video",
+        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v2",
+        "video_url": "/api/nft/video/TG_PREMIUM.mp4",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 3,
@@ -462,6 +466,10 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "stars": 2150,
         "name": "Telegram Premium (6 Oylik)",
         "icon": "telegram_premium",
+        "file_id": "",
+        "file_type": "video",
+        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v2",
+        "video_url": "/api/nft/video/TG_PREMIUM.mp4",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 6,
@@ -489,7 +497,15 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             elif weight >= 5: rarity = "rare"
             else: rarity = "legendary"
             
-            formatted.append({**item, "weight": weight, "rarity": rarity})
+            formatted.append({
+                **item,
+                "file_id": item.get("file_id", ""),
+                "file_type": item.get("file_type", "webp"),
+                "image_url": item.get("image_url", ""),
+                "video_url": item.get("video_url", ""),
+                "weight": weight,
+                "rarity": rarity
+            })
             
         return formatted
 
@@ -501,7 +517,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 25,
             "price_uzs": 10000,
             "icon": "package",
-            "image_url": "/api/nft/image/case_bronze_3d.webp",
+            "image_url": "/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v2",
             "badge": "25 Stars / 10,000 so'm",
             "color": "#cd7f32",
             "description": "Telegram serveridagi rasmiy sovg'alar: 25 Stars gacha yutuqlar!",
@@ -514,7 +530,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 75,
             "price_uzs": 30000,
             "icon": "gift",
-            "image_url": "/api/nft/image/case_silver_3d.webp",
+            "image_url": "/api/nft/image/case_silver_3d.webp?v=20261017_3d_v2",
             "badge": "75 Stars / 30,000 so'm",
             "color": "#c0c0c0",
             "description": "Telegram server sovg'alari: 50 Stars dan 250 Stars gacha!",
@@ -527,7 +543,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 250,
             "price_uzs": 100000,
             "icon": "trophy",
-            "image_url": "/api/nft/image/case_gold_3d.webp",
+            "image_url": "/api/nft/image/case_gold_3d.webp?v=20261017_3d_v2",
             "badge": "250 Stars / 100,000 so'm",
             "color": "#ffd700",
             "description": "Telegram server sovg'alari: 100 Stars dan 500 Stars gacha!",
@@ -540,7 +556,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 750,
             "price_uzs": 300000,
             "icon": "gem",
-            "image_url": "/api/nft/image/case_platinum_3d.webp",
+            "image_url": "/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v2",
             "badge": "750 Stars / 300,000 so'm",
             "color": "#00f0ff",
             "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
@@ -553,7 +569,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "price_stars": 2500,
             "price_uzs": 1000000,
             "icon": "crown",
-            "image_url": "/api/nft/image/case_galaxy_3d.webp",
+            "image_url": "/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v2",
             "badge": "2,500 Stars / 1,000,000 so'm",
             "color": "#b026ff",
             "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",

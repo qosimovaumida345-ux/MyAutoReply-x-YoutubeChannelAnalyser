@@ -2235,6 +2235,9 @@ async def handle_api_auth_verify_otp(request):
             _LOGIN_OTPS.pop(tg_user_id, None)
             return web.json_response({"ok": False, "error": "Ko'p xato urinishlar! Qaytadan yangi kod so'rang."}, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
+        if str(session.get("otp")) != raw_otp:
+            return web.json_response({"ok": False, "error": "Tasdiqlash kodi noto'g'ri! Tekshirib qaytadan kiriting."}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
         saved_msg_id = session.get("message_id")
         _LOGIN_OTPS.pop(tg_user_id, None)
 
