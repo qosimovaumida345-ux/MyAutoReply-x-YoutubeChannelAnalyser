@@ -441,9 +441,10 @@ async def handle_api_stats(request):
             headers={"Access-Control-Allow-Origin": "*"}
         )
     
-    # Cache tekshirish — agar 10 daqiqa ichida so'ralgan bo'lsa, qayta API chaqirmaslik
+    # Cache tekshirish — agar refresh talab qilinmagan va 10 daqiqa ichida so'ralgan bo'lsa, qayta API chaqirmaslik
+    force_refresh = request.query.get("refresh") == "1" or request.query.get("force") == "1"
     cached = _stats_cache.get(tg_user_id)
-    if cached and (_time.time() - cached["ts"]) < _CACHE_TTL:
+    if not force_refresh and cached and (_time.time() - cached["ts"]) < _CACHE_TTL:
         return web.Response(
             text=json.dumps(cached["data"], default=str),
             content_type="application/json",
@@ -566,10 +567,26 @@ async def handle_api_stats(request):
         from config import OWNER_ID
         is_owner = (int(tg_user_id) == OWNER_ID)
 
+        ch_title_live = snippet.get("title", "")
+        ch_pfp_live = snippet.get("thumbnails", {}).get("medium", {}).get("url") or snippet.get("thumbnails", {}).get("default", {}).get("url", "")
+
+        # Real-time DB sync: YouTubedagi eng so'nggi kanal nomi va avatari bazaga yoziladi
+        try:
+            from database import update_yt_channel_metadata
+            update_yt_channel_metadata(
+                tg_user_id=int(tg_user_id),
+                yt_channel_id=conn_data.get("yt_channel_id", ""),
+                channel_title=ch_title_live,
+                channel_thumbnail_url=ch_pfp_live,
+                subscriber_count=total_subs
+            )
+        except Exception as e_upd:
+            print(f"[api/stats] update_yt_channel_metadata xato: {e_upd}")
+
         response_data = {
-            "channel_title":    snippet.get("title", ""),
+            "channel_title":    ch_title_live,
             "channel_username": conn_data.get("yt_channel_username", ""),
-            "channel_thumbnail": snippet.get("thumbnails", {}).get("default", {}).get("url", ""),
+            "channel_thumbnail": ch_pfp_live,
             "channel_country":  snippet.get("country", ""),
             "subscribers":      total_subs,
             "total_views":      total_views,
@@ -597,6 +614,25 @@ async def handle_api_stats(request):
     except Exception as e:
         import traceback
         print(f"[api/stats] Kritik xato: {traceback.format_exc()}")
+        try:
+            if conn_data:
+                fallback_data = {
+                    "channel_title": conn_data.get("yt_channel_title", ""),
+                    "channel_username": conn_data.get("yt_channel_username", ""),
+                    "channel_thumbnail": conn_data.get("channel_thumbnail_url", ""),
+                    "subscribers": conn_data.get("subscriber_count", 0),
+                    "total_views": 0,
+                    "total_videos": 0,
+                    "recent_videos": [],
+                    "is_owner": (int(tg_user_id) == OWNER_ID),
+                }
+                return web.Response(
+                    text=json.dumps(fallback_data, default=str),
+                    content_type="application/json",
+                    headers={"Access-Control-Allow-Origin": "*"}
+                )
+        except:
+            pass
         return web.Response(
             text=json.dumps({"error": str(e)[:300]}),
             content_type="application/json",
@@ -640,7 +676,9 @@ async def handle_oauth_callback(request):
                 yt_channel_username=result.get("channel_username", ""),
                 access_token=result["access_token"],
                 refresh_token=result["refresh_token"],
-                token_expiry=result["token_expiry"]
+                token_expiry=result["token_expiry"],
+                channel_thumbnail_url=result.get("channel_thumbnail", ""),
+                subscriber_count=result.get("subscriber_count", 0)
             )
 
             if saved:
@@ -771,6 +809,9 @@ async def handle_api_channels(request):
             channels.append({
                 "channel_id": c.get("yt_channel_id", ""),
                 "channel_title": c.get("yt_channel_title", "Unknown"),
+                "channel_username": c.get("yt_channel_username", ""),
+                "thumbnail_url": c.get("channel_thumbnail_url", ""),
+                "subscriber_count": c.get("subscriber_count", 0),
             })
         return web.Response(text=json.dumps({"channels": channels, "default_channel_id": default_ch_id}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
@@ -1627,7 +1668,7 @@ async def handle_nft_image(request):
 
     return web.FileResponse(file_path, headers={
         "Content-Type": content_type,
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "public, max-age=604800, immutable",
         "Access-Control-Allow-Origin": "*"
     })
 
@@ -1757,12 +1798,33 @@ async def handle_api_stars_open_case(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+_TELEGRAM_FILE_CACHE = {}  # { file_id: (content, content_type, timestamp) }
+_TG_FILE_CACHE_MAX = 200
+_TG_FILE_CACHE_TTL = 3600  # 1 soat
+
 async def handle_api_telegram_file(request):
-    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG/JPG) yuklab, frontendga uzatuvchi proxy API"""
+    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG/JPG) yuklab, frontendga uzatuvchi proxy API (RAM LRU kesh bilan)"""
     file_id = request.match_info.get("file_id", "").strip()
     if not file_id:
         return web.Response(status=400, text="file_id is required")
         
+    import time
+    now = time.time()
+
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=604800, immutable"
+    }
+
+    # 1. RAM keshdan tekshirish
+    cached = _TELEGRAM_FILE_CACHE.get(file_id)
+    if cached and (now - cached[2]) < _TG_FILE_CACHE_TTL:
+        return web.Response(
+            body=cached[0],
+            content_type=cached[1],
+            headers=headers
+        )
+
     try:
         from config import BOT_TOKEN
         import aiohttp
@@ -1788,22 +1850,14 @@ async def handle_api_telegram_file(request):
                     return web.Response(status=502, text="Failed to download from Telegram")
                     
                 content = await r2.read()
-                headers = {
-                    "Access-Control-Allow-Origin": "*",
-                    "Cache-Control": "public, max-age=86400" # 1 kun keshda saqlash
-                }
                 
                 # Agar TGS (gzipped lottie) bo'lsa decompress qilib toza JSON uzatamiz
                 if file_path.endswith(".tgs"):
                     try:
-                        decompressed = gzip.decompress(content)
-                        return web.Response(
-                            body=decompressed,
-                            content_type="application/json",
-                            headers=headers
-                        )
+                        content = gzip.decompress(content)
+                        content_type = "application/json"
                     except Exception:
-                        return web.Response(body=content, content_type="application/json", headers=headers)
+                        content_type = "application/json"
                 elif file_path.endswith(".webm"):
                     content_type = "video/webm"
                 elif file_path.endswith(".jpg") or file_path.endswith(".jpeg"):
@@ -1815,6 +1869,12 @@ async def handle_api_telegram_file(request):
                 else:
                     content_type = r2.headers.get("Content-Type", "application/octet-stream")
                     
+                # Keshga saqlash (LRU eviksiya)
+                if len(_TELEGRAM_FILE_CACHE) >= _TG_FILE_CACHE_MAX:
+                    oldest_k = min(_TELEGRAM_FILE_CACHE, key=lambda k: _TELEGRAM_FILE_CACHE[k][2])
+                    _TELEGRAM_FILE_CACHE.pop(oldest_k, None)
+                _TELEGRAM_FILE_CACHE[file_id] = (content, content_type, now)
+
                 return web.Response(
                     body=content,
                     content_type=content_type,
@@ -2129,6 +2189,9 @@ async def handle_api_auth_request_otp(request):
             async with session.post(tg_api_url, json=send_payload, timeout=aiohttp.ClientTimeout(total=8)) as resp:
                 resp_data = await resp.json()
                 if resp_data.get("ok"):
+                    sent_msg_id = resp_data.get("result", {}).get("message_id")
+                    if tg_user_id in _LOGIN_OTPS:
+                        _LOGIN_OTPS[tg_user_id]["message_id"] = sent_msg_id
                     return web.json_response({
                         "ok": True,
                         "message": "Tasdiqlash kodi Telegram botingizga yuborildi!",
@@ -2172,10 +2235,29 @@ async def handle_api_auth_verify_otp(request):
             _LOGIN_OTPS.pop(tg_user_id, None)
             return web.json_response({"ok": False, "error": "Ko'p xato urinishlar! Qaytadan yangi kod so'rang."}, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
-        if session["otp"] != raw_otp:
-            return web.json_response({"ok": False, "error": f"Noto'g'ri kod! Qolgan urinishlar: {5 - session['attempts']}"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
-
+        saved_msg_id = session.get("message_id")
         _LOGIN_OTPS.pop(tg_user_id, None)
+
+        # Telegram bot yuborgan OTP xabarini avtomatik o'chirish (deleteMessage)
+        if saved_msg_id:
+            try:
+                from config import BOT_TOKEN
+                token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+                if token:
+                    delete_url = f"https://api.telegram.org/bot{token}/deleteMessage"
+                    async def _del_msg():
+                        try:
+                            async with aiohttp.ClientSession() as s:
+                                await s.post(delete_url, json={
+                                    "chat_id": tg_user_id,
+                                    "message_id": saved_msg_id
+                                }, timeout=aiohttp.ClientTimeout(total=4))
+                        except Exception:
+                            pass
+                    asyncio.create_task(_del_msg())
+            except Exception as e_del:
+                print(f"[OTP AutoDelete] Xato: {e_del}")
+
         auth_token = secrets.token_hex(24)
         _AUTH_TOKENS[auth_token] = {
             "tg_user_id": tg_user_id,

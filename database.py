@@ -195,6 +195,14 @@ def init_db():
     cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='stream_active'")
     if not cur.fetchone():
         cur.execute("ALTER TABLE yt_connections ADD COLUMN stream_active BOOLEAN DEFAULT FALSE")
+
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='channel_thumbnail_url'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE yt_connections ADD COLUMN channel_thumbnail_url TEXT")
+
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='yt_connections' AND column_name='subscriber_count'")
+    if not cur.fetchone():
+        cur.execute("ALTER TABLE yt_connections ADD COLUMN subscriber_count BIGINT DEFAULT 0")
     
     # Auto-post vazifalar (topshiriqlar)
     cur.execute("""
@@ -1427,13 +1435,13 @@ def save_video_snapshot(video_id, channel_id, title, views, likes, comments):
 
 # ==================== YT CONNECTIONS (Auto-Post uchun) ====================
 
-def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry=None):
+def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry=None, channel_thumbnail_url=None, subscriber_count=None):
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
 
-        # ? FIX 1: Avval bu channel_id boshqa tg_user_id ga tegishli ekanini tekshir
+        # 1. Avval bu channel_id boshqa tg_user_id ga tegishli ekanini tekshir
         cur.execute(
             "SELECT tg_user_id FROM yt_connections WHERE yt_channel_id = %s",
             (yt_channel_id,)
@@ -1445,37 +1453,72 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_u
             print(f"[DB] Kanal {yt_channel_id} allaqachon mavjud (tg={existing['tg_user_id']}), tg={tg_user_id} ga yangilanmoqda")
             cur.execute("""
                 UPDATE yt_connections
-                SET tg_user_id      = %s,
-                    yt_channel_title = %s,
+                SET tg_user_id          = %s,
+                    yt_channel_title    = %s,
                     yt_channel_username = %s,
-                    access_token    = %s,
-                    refresh_token   = %s,
-                    token_expiry    = %s,
-                    connected_at    = NOW()
+                    access_token        = %s,
+                    refresh_token       = %s,
+                    token_expiry        = %s,
+                    channel_thumbnail_url = COALESCE(%s, channel_thumbnail_url),
+                    subscriber_count    = COALESCE(%s, subscriber_count),
+                    connected_at        = NOW()
                 WHERE yt_channel_id = %s
-            """, (tg_user_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry, yt_channel_id))
+            """, (tg_user_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry, channel_thumbnail_url, subscriber_count, yt_channel_id))
         else:
-            # ? FIX 2: ON CONFLICT -> yt_channel_title ham yangilansin (avval yangilanmayotgan edi!)
             cur.execute("""
                 INSERT INTO yt_connections
-                    (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry)
+                    (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry, channel_thumbnail_url, subscriber_count)
                 VALUES
-                    (%s, %s, %s, %s, %s, %s, %s)
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (tg_user_id, yt_channel_id)
                 DO UPDATE SET
-                    yt_channel_title = EXCLUDED.yt_channel_title,
+                    yt_channel_title    = EXCLUDED.yt_channel_title,
                     yt_channel_username = EXCLUDED.yt_channel_username,
-                    access_token    = EXCLUDED.access_token,
-                    refresh_token   = EXCLUDED.refresh_token,
-                    token_expiry    = EXCLUDED.token_expiry,
-                    connected_at    = NOW()
-            """, (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry))
+                    access_token        = EXCLUDED.access_token,
+                    refresh_token       = EXCLUDED.refresh_token,
+                    token_expiry        = EXCLUDED.token_expiry,
+                    channel_thumbnail_url = COALESCE(EXCLUDED.channel_thumbnail_url, yt_connections.channel_thumbnail_url),
+                    subscriber_count    = COALESCE(EXCLUDED.subscriber_count, yt_connections.subscriber_count),
+                    connected_at        = NOW()
+            """, (tg_user_id, yt_channel_id, yt_channel_title, yt_channel_username, access_token, refresh_token, token_expiry, channel_thumbnail_url, subscriber_count))
         
         conn.commit()
         return True
     except Exception as e:
         conn.rollback()
         print(f"[DB] save_yt_connection xato: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_yt_channel_metadata(tg_user_id, yt_channel_id, channel_title=None, channel_thumbnail_url=None, subscriber_count=None):
+    """YouTube dan olingan eng so'nggi kanal ma'lumotlarini (nom, avatar, obunachilar) bazada yangilash"""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        updates = []
+        params = []
+        if channel_title:
+            updates.append("yt_channel_title = %s")
+            params.append(channel_title)
+        if channel_thumbnail_url:
+            updates.append("channel_thumbnail_url = %s")
+            params.append(channel_thumbnail_url)
+        if subscriber_count is not None:
+            updates.append("subscriber_count = %s")
+            params.append(int(subscriber_count))
+        if not updates:
+            return True
+        params.extend([int(tg_user_id), str(yt_channel_id)])
+        query = f"UPDATE yt_connections SET {', '.join(updates)} WHERE tg_user_id = %s AND yt_channel_id = %s"
+        cur.execute(query, tuple(params))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"[DB] update_yt_channel_metadata error: {e}")
         return False
     finally:
         conn.close()

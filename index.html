@@ -467,6 +467,13 @@
             </svg>
         );
 
+        const SvgYoutube = ({ size = 18, color = "#ef4444" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" />
+                <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill={color} />
+            </svg>
+        );
+
         const SvgRefreshCw = ({ size = 18, color = "currentColor", className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
                 <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
@@ -961,7 +968,7 @@
             const sz = typeof size === 'number' ? `${size}px` : size;
             const numSz = parseInt(size) || 80;
 
-            if (fileId && !forceVector && numSz > 26) {
+            if (fileId && !forceVector && numSz >= 20) {
                 const src = `/api/telegram-file/${fileId}`;
                 const mergedStyle = { width: sz, height: sz, margin: "0 auto", objectFit: "contain", ...style };
                 if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
@@ -1497,13 +1504,13 @@
                     .catch(() => {});
             };
 
-            const loadStudioStats = (uid) => {
+            const loadStudioStats = (uid, forceRefresh = false) => {
                 const targetUid = uid || tgUser.id;
                 if (!targetUid) return;
-                fetch(`/api/stats?tg_user_id=${targetUid}`)
+                fetch(`/api/stats?tg_user_id=${targetUid}${forceRefresh ? '&refresh=1' : ''}`)
                     .then(r => r.json())
                     .then(d => {
-                        if (d && (d.ok || d.total_videos !== undefined)) {
+                        if (d && (d.ok || d.total_videos !== undefined || d.channel_title)) {
                             setStudioStats(d);
                         }
                     })
@@ -1710,6 +1717,53 @@
                 }, 14000);
                 return () => clearInterval(timer);
             }, []);
+
+            // Trigger Demo Spin (100% Bepul, hisobdan pul yechilmaydi, queue ga tushmaydi)
+            const handleDemoSpin = (c) => {
+                setActiveUnboxing({ ...c, isDemo: true });
+                setIsRolling(true);
+                setUnboxingPrize(null);
+
+                const tickTimer = setInterval(playTickSound, 120);
+
+                setTimeout(() => {
+                    clearInterval(tickTimer);
+                    setIsRolling(false);
+
+                    // Case drops dan ehtimollik bo'yicha tasodifiy tanlash
+                    const drops = (c.drops && c.drops.length > 0) ? c.drops : [
+                        { name: "Telegram Gift", stars: 25, icon: "package", file_id: "", file_type: "webp" }
+                    ];
+                    const weights = drops.map(d => d.weight || 1);
+                    const totalWeight = weights.reduce((a, b) => a + b, 0);
+                    let rand = Math.random() * totalWeight;
+                    let picked = drops[0];
+                    for (const d of drops) {
+                        rand -= (d.weight || 1);
+                        if (rand <= 0) { picked = d; break; }
+                    }
+
+                    const demoResult = {
+                        ok: true,
+                        prize_name: picked.name,
+                        prize_stars: picked.stars,
+                        icon: picked.icon,
+                        file_id: picked.file_id || "",
+                        file_type: picked.file_type || "webp",
+                        rarity: picked.rarity || "common",
+                        is_nft: picked.is_nft || false,
+                        total_count: picked.total_count || null,
+                        remaining_count: picked.remaining_count || null,
+                        isDemo: true
+                    };
+
+                    setUnboxingPrize(demoResult);
+                    playWinFanfare();
+                    if (window.confetti) {
+                        window.confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+                    }
+                }, 2800);
+            };
 
             // Trigger Stars Mystery Case Opening (Strictly Authenticated)
             const handleOpenCase = (c) => {
@@ -2247,6 +2301,63 @@
                                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                         {tgUser.id > 0 ? (
                                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                {/* Connected YouTube Channel Profile Pill */}
+                                                {(studioStats.channel_title || (channels && channels.length > 0)) && (
+                                                    <div
+                                                        onClick={() => setActiveTab('analytics')}
+                                                        title="Ulangan YouTube Kanal (Bosib statistikaga o'tish)"
+                                                        style={{
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "8px",
+                                                            background: "#ffffff",
+                                                            border: "1px solid #fee2e2",
+                                                            boxShadow: "0 2px 8px rgba(239, 68, 68, 0.08)",
+                                                            borderRadius: "999px",
+                                                            padding: "3px 12px 3px 4px",
+                                                            cursor: "pointer",
+                                                            transition: "all 0.2s"
+                                                        }}
+                                                    >
+                                                        {/* YouTube Channel Profile Avatar */}
+                                                        <div style={{
+                                                            position: "relative",
+                                                            width: "32px",
+                                                            height: "32px",
+                                                            borderRadius: "50%",
+                                                            overflow: "hidden",
+                                                            background: "#fef2f2",
+                                                            border: "2px solid #ef4444",
+                                                            flexShrink: 0,
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center"
+                                                        }}>
+                                                            {(studioStats.channel_thumbnail || (channels[0] && channels[0].thumbnail_url)) ? (
+                                                                <img
+                                                                    src={studioStats.channel_thumbnail || channels[0]?.thumbnail_url}
+                                                                    alt={studioStats.channel_title || channels[0]?.channel_title}
+                                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                <SvgYoutube size={16} color="#ef4444" />
+                                                            )}
+                                                        </div>
+                                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                                                <SvgYoutube size={12} color="#ef4444" />
+                                                                <span style={{ fontSize: "12px", fontWeight: 700, color: "#0f172a", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                                    {studioStats.channel_title || channels[0]?.channel_title || "YouTube Kanal"}
+                                                                </span>
+                                                            </div>
+                                                            <span style={{ fontSize: "10px", fontWeight: 600, color: "#64748b" }}>
+                                                                {studioStats.subscribers ? Number(studioStats.subscribers).toLocaleString() + " subs" : (channels[0]?.subscriber_count ? Number(channels[0].subscriber_count).toLocaleString() + " subs" : "Ulangan")}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Profile Avatar (Real Photo with SVG Fallback) */}
                                                 <div style={{
                                                     position: "relative",
@@ -2319,7 +2430,8 @@
                                                             }
                                                         } catch(e) {}
                                                         loadUserStats(tgUser.id, true);
-                                                        loadStudioStats(tgUser.id);
+                                                        loadStudioStats(tgUser.id, true);
+                                                        loadChannels(tgUser.id);
                                                         setTimeout(() => setSyncLoading(false), 1200);
                                                     }}
                                                     title="Profil va balansni sinxronlash"
@@ -2661,18 +2773,43 @@
                                     </div>
 
                                     {/* Ulangan Kanallar Ro'yxati */}
-                                    {channels.length > 0 && (
-                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "24px", padding: "28px", marginBottom: "40px" }}>
-                                            <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", marginBottom: "16px" }}>
-                                                Ulangan YouTube Kanallar
-                                            </h3>
+                                    {(channels.length > 0 || studioStats.channel_title) && (
+                                        <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "24px", padding: "28px", marginBottom: "40px", boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
+                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "18px" }}>
+                                                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                                                    <SvgYoutube size={22} color="#ef4444" />
+                                                    <span>Ulangan YouTube Kanallar</span>
+                                                </h3>
+                                                <span style={{ fontSize: "11px", color: "#16a34a", fontWeight: 700, background: "rgba(22, 163, 74, 0.08)", border: "1px solid rgba(22, 163, 74, 0.2)", padding: "3px 10px", borderRadius: "999px" }}>
+                                                    Faol & Jonli Sinxronlangan
+                                                </span>
+                                            </div>
                                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
-                                                {channels.map((ch, cIdx) => (
+                                                {(channels.length > 0 ? channels : [{
+                                                    channel_title: studioStats.channel_title,
+                                                    thumbnail_url: studioStats.channel_thumbnail,
+                                                    subscriber_count: studioStats.subscribers
+                                                }]).map((ch, cIdx) => (
                                                     <div key={cIdx} style={{ display: "flex", alignItems: "center", gap: "14px", padding: "16px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
-                                                        <img src={ch.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100"} alt="" style={{ width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover" }} />
+                                                        <div style={{ width: "48px", height: "48px", borderRadius: "50%", overflow: "hidden", border: "2px solid #ef4444", flexShrink: 0, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                            {(ch.thumbnail_url || studioStats.channel_thumbnail) ? (
+                                                                <img
+                                                                    src={ch.thumbnail_url || studioStats.channel_thumbnail}
+                                                                    alt={ch.channel_title}
+                                                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                <SvgYoutube size={24} color="#ef4444" />
+                                                            )}
+                                                        </div>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ fontWeight: 700, fontSize: "14px", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ch.channel_title}</div>
-                                                            <div style={{ fontSize: "12px", color: "#64748b" }}>{ch.subscriber_count ? Number(ch.subscriber_count).toLocaleString() + " obunachi" : "Kanal faol"}</div>
+                                                            <div style={{ fontWeight: 700, fontSize: "14px", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                                {ch.channel_title || studioStats.channel_title || "YouTube Kanal"}
+                                                            </div>
+                                                            <div style={{ fontSize: "12px", color: "#64748b" }}>
+                                                                {ch.subscriber_count ? Number(ch.subscriber_count).toLocaleString() + " obunachi" : (studioStats.subscribers ? Number(studioStats.subscribers).toLocaleString() + " obunachi" : "Kanal faol")}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -3352,6 +3489,8 @@
                                                             <img
                                                                 src={c.image_url}
                                                                 alt={c.name}
+                                                                loading="lazy"
+                                                                decoding="async"
                                                                 style={{
                                                                     maxHeight: "115px",
                                                                     maxWidth: "145px",
@@ -3373,7 +3512,7 @@
                                                         {c.description || `${c.price_stars} Starslik super keys!`}
                                                     </p>
 
-                                                    {/* Possible drops mini preview (Responsive Vector Badges, Zero Emojis, No Horizontal Overflow) */}
+                                                    {/* Possible drops mini preview (Real Animated Stickers, Responsive Badges, Zero Emojis) */}
                                                     <div style={{
                                                         display: "flex",
                                                         flexWrap: "wrap",
@@ -3405,7 +3544,7 @@
                                                                 onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(115, 66, 226, 0.08)"; e.currentTarget.style.borderColor = "rgba(115, 66, 226, 0.25)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                                                                 onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)"; e.currentTarget.style.borderColor = "rgba(0, 0, 0, 0.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
                                                             >
-                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size={18} forceVector={true} />
+                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} icon={d.icon} name={d.name} size={28} />
                                                             </span>
                                                         ))}
                                                     </div>
@@ -3431,7 +3570,7 @@
                                                         Ehtimollar & Sovg'alar
                                                     </button>
 
-                                                    {/* Dual Open Buttons: So'm (UZS) & Stars */}
+                                                    {/* Triple Action Buttons: So'm (UZS), Stars & Free Demo */}
                                                     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px" }}>
                                                         {/* 1. So'm Balansi Bilan Ochish */}
                                                         <button
@@ -3476,6 +3615,31 @@
                                                             onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                         >
                                                             <SvgStar size={14} color="#ffd700" /> <span>Ochish ({c.price_stars} Stars)</span>
+                                                        </button>
+
+                                                        {/* 3. Demo Aylantirish (100% Bepul Ko'rish) */}
+                                                        <button
+                                                            onClick={() => handleDemoSpin(c)}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "9px 0",
+                                                                borderRadius: "999px",
+                                                                background: "rgba(0, 0, 0, 0.03)",
+                                                                color: "var(--muted)",
+                                                                border: "1px dashed rgba(0, 0, 0, 0.18)",
+                                                                fontWeight: 600,
+                                                                fontSize: "12px",
+                                                                cursor: "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px",
+                                                                transition: "all 0.15s ease"
+                                                            }}
+                                                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#7342E2"; e.currentTarget.style.color = "#7342E2"; e.currentTarget.style.background = "rgba(115, 66, 226, 0.05)"; }}
+                                                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0, 0, 0, 0.18)"; e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)"; }}
+                                                        >
+                                                            <SvgEye size={13} color="currentColor" /> <span>Demo Aylantirish (Bepul)</span>
                                                         </button>
                                                     </div>
                                                 </div>
@@ -4490,11 +4654,28 @@
                                             position: "relative",
                                             overflow: "hidden"
                                         }}>
+                                            {activeUnboxing.isDemo && (
+                                                <div style={{
+                                                    position: "absolute",
+                                                    top: "16px",
+                                                    right: "16px",
+                                                    background: "#ffd700",
+                                                    color: "#000000",
+                                                    fontWeight: 900,
+                                                    fontSize: "11px",
+                                                    padding: "3px 12px",
+                                                    borderRadius: "999px",
+                                                    letterSpacing: "0.08em",
+                                                    boxShadow: "0 2px 8px rgba(255,215,0,0.4)"
+                                                }}>
+                                                    DEMO
+                                                </div>
+                                            )}
                                             <div style={{ fontSize: "13px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7342E2", marginBottom: "8px" }}>
                                                 {activeUnboxing.name}
                                             </div>
                                             <h3 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "28px" }}>
-                                                {isRolling ? "Sovg'a aniqlanmoqda..." : "Yutuq Qabul Qilindi!"}
+                                                {isRolling ? "Sovg'a aniqlanmoqda..." : (activeUnboxing.isDemo ? "Demo Natija (Bepul Ko'rish)" : "Yutuq Qabul Qilindi!")}
                                             </h3>
 
                                             {/* Center Reel Display */}
@@ -4550,8 +4731,8 @@
                                             {/* Winner Details */}
                                             {!isRolling && unboxingPrize && (
                                                 <div style={{ marginBottom: "24px", background: unboxingPrize.is_nft ? "linear-gradient(135deg, rgba(255,215,0,0.15), rgba(115,66,226,0.2))" : "rgba(255,215,0,0.1)", padding: "16px", borderRadius: "16px", border: `1px solid ${unboxingPrize.is_nft ? 'rgba(115,66,226,0.5)' : 'rgba(255,215,0,0.3)'}` }}>
-                                                    <div style={{ fontSize: "13px", color: unboxingPrize.is_nft ? "#00f0ff" : "#ffd700", fontWeight: 700, textTransform: "uppercase" }}>
-                                                        {unboxingPrize.is_nft ? "LIMITED EDITION TELEGRAM SOVG'ASI!" : "YUTUQ QO'LGA KIRITILDI!"}
+                                                    <div style={{ fontSize: "13px", color: activeUnboxing.isDemo ? "#ffd700" : (unboxingPrize.is_nft ? "#00f0ff" : "#ffd700"), fontWeight: 700, textTransform: "uppercase" }}>
+                                                        {activeUnboxing.isDemo ? "DEMO KO'RISH NATIJASI (HISOBINGIZ O'ZGARMADI)" : (unboxingPrize.is_nft ? "LIMITED EDITION TELEGRAM SOVG'ASI!" : "YUTUQ QO'LGA KIRITILDI!")}
                                                     </div>
                                                     <div style={{ fontSize: "18px", fontWeight: 700, margin: "6px 0" }}>
                                                         {unboxingPrize.prize_name}
@@ -4562,59 +4743,106 @@
                                                         </div>
                                                     )}
                                                     <div style={{ fontSize: "13px", color: "#aaa" }}>
-                                                        {unboxingPrize.is_nft ? "Eksklyuziv Telegram sovg'asi profilingizga yuboriladi!" : "Sovg'a sizning Telegram profilingizga yetkaziladi!"}
+                                                        {activeUnboxing.isDemo ? "Bu faqat sinov aylantirish. Hisobingizdan mablag' yechilmadi va sovg'a yuborilmadi." : (unboxingPrize.is_nft ? "Eksklyuziv Telegram sovg'asi profilingizga yuboriladi!" : "Sovg'a sizning Telegram profilingizga yetkaziladi!")}
                                                     </div>
                                                 </div>
                                             )}
 
                                             {/* Action Buttons */}
                                             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                                <div style={{ display: "flex", gap: "8px" }}>
-                                                    <button
-                                                        onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(activeUnboxing); }}
-                                                        disabled={isRolling}
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: "14px 0",
-                                                            borderRadius: "12px",
-                                                            background: "#7342E2",
-                                                            color: "#ffffff",
-                                                            fontWeight: 700,
-                                                            border: "none",
-                                                            cursor: isRolling ? "not-allowed" : "pointer",
-                                                            opacity: isRolling ? 0.6 : 1,
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            gap: "6px"
-                                                        }}
-                                                    >
-                                                        <SvgStar size={16} color="#ffd700" />
-                                                        <span>Yana Ochish ({activeUnboxing.price_stars} Stars)</span>
-                                                    </button>
-                                                    
-                                                    <button
-                                                        onClick={() => handleOpenCaseUzs(activeUnboxing)}
-                                                        disabled={isRolling}
-                                                        style={{
-                                                            flex: 1,
-                                                            padding: "14px 0",
-                                                            borderRadius: "12px",
-                                                            background: "#4CAF50",
-                                                            color: "#ffffff",
-                                                            fontWeight: 700,
-                                                            border: "none",
-                                                            cursor: isRolling ? "not-allowed" : "pointer",
-                                                            opacity: isRolling ? 0.6 : 1,
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            gap: "6px"
-                                                        }}
-                                                    >
-                                                        <span>Yana Ochish ({(activeUnboxing.price_uzs || activeUnboxing.price_stars * 400).toLocaleString()} so'm)</span>
-                                                    </button>
-                                                </div>
+                                                {activeUnboxing.isDemo ? (
+                                                    <div style={{ display: "flex", gap: "8px" }}>
+                                                        <button
+                                                            onClick={() => { const c = activeUnboxing; setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(c); }}
+                                                            disabled={isRolling}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: "14px 0",
+                                                                borderRadius: "12px",
+                                                                background: "linear-gradient(135deg, #ffd700, #ffaa00)",
+                                                                color: "#000000",
+                                                                fontWeight: 800,
+                                                                border: "none",
+                                                                cursor: isRolling ? "not-allowed" : "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <SvgStar size={16} color="#000" />
+                                                            <span>Haqiqiy Ochish ({activeUnboxing.price_stars} Stars)</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDemoSpin(activeUnboxing)}
+                                                            disabled={isRolling}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: "14px 0",
+                                                                borderRadius: "12px",
+                                                                background: "rgba(255, 255, 255, 0.1)",
+                                                                color: "#ffffff",
+                                                                fontWeight: 700,
+                                                                border: "1px solid rgba(255, 255, 255, 0.2)",
+                                                                cursor: isRolling ? "not-allowed" : "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <SvgEye size={16} color="#ffffff" />
+                                                            <span>Yana Demo</span>
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ display: "flex", gap: "8px" }}>
+                                                        <button
+                                                            onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(activeUnboxing); }}
+                                                            disabled={isRolling}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: "14px 0",
+                                                                borderRadius: "12px",
+                                                                background: "#7342E2",
+                                                                color: "#ffffff",
+                                                                fontWeight: 700,
+                                                                border: "none",
+                                                                cursor: isRolling ? "not-allowed" : "pointer",
+                                                                opacity: isRolling ? 0.6 : 1,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <SvgStar size={16} color="#ffd700" />
+                                                            <span>Yana Ochish ({activeUnboxing.price_stars} Stars)</span>
+                                                        </button>
+                                                        
+                                                        <button
+                                                            onClick={() => handleOpenCaseUzs(activeUnboxing)}
+                                                            disabled={isRolling}
+                                                            style={{
+                                                                flex: 1,
+                                                                padding: "14px 0",
+                                                                borderRadius: "12px",
+                                                                background: "#4CAF50",
+                                                                color: "#ffffff",
+                                                                fontWeight: 700,
+                                                                border: "none",
+                                                                cursor: isRolling ? "not-allowed" : "pointer",
+                                                                opacity: isRolling ? 0.6 : 1,
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <span>Yana Ochish ({(activeUnboxing.price_uzs || activeUnboxing.price_stars * 400).toLocaleString()} so'm)</span>
+                                                        </button>
+                                                    </div>
+                                                )}
 
                                                 <button
                                                     onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); }}

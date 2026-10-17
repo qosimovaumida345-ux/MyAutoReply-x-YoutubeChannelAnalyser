@@ -66,15 +66,23 @@ def exchange_code_with_redirect(code, state=None):
 
     # Kanalingiz nomini aniqlash
     youtube = build("youtube", "v3", credentials=creds)
-    r = youtube.channels().list(part="snippet", mine=True).execute()
+    r = youtube.channels().list(part="snippet,statistics", mine=True).execute()
 
     channel_title = "Unknown"
     channel_id = "unknown"
     channel_username = ""
+    channel_thumbnail = ""
+    subscriber_count = 0
     if r.get("items"):
-        channel_title = r["items"][0]["snippet"]["title"]
-        channel_id = r["items"][0]["id"]
-        channel_username = r["items"][0]["snippet"].get("customUrl", "")
+        item = r["items"][0]
+        snippet = item.get("snippet", {})
+        channel_title = snippet.get("title", "Unknown")
+        channel_id = item.get("id", "unknown")
+        channel_username = snippet.get("customUrl", "")
+        thumbs = snippet.get("thumbnails", {})
+        channel_thumbnail = thumbs.get("medium", {}).get("url") or thumbs.get("default", {}).get("url", "")
+        stats = item.get("statistics", {})
+        subscriber_count = int(stats.get("subscriberCount", 0))
 
     # Telegram user ID ni state orqali topish
     tg_user_id = pending_oauth.pop(state, None) if state else None
@@ -84,6 +92,8 @@ def exchange_code_with_redirect(code, state=None):
         "channel_title": channel_title,
         "channel_username": channel_username,
         "channel_id": channel_id,
+        "channel_thumbnail": channel_thumbnail,
+        "subscriber_count": subscriber_count,
         "access_token": creds.token,
         "refresh_token": creds.refresh_token,
         "token_expiry": creds.expiry
