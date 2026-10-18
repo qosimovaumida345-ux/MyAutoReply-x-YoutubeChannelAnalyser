@@ -1594,36 +1594,57 @@
                 .catch(err => alert("Xatolik: " + err));
             };
 
-            // Scratch Card (3 ta katak ochilganda avtomatik fully ochilish va aniq sovga nomlari)
-            const initScratchCard = () => {
+            // Scratch Card (UI ni pul yechmasdan chipta tayyorlash va faqat o'ynaganda API chaqirish)
+            const setupScratchCardUI = () => {
+                setScratchFoilCleared(false);
+                scratchedSlots.clear();
+                setScratchData({
+                    won: false,
+                    slots: [
+                        { icon: "clapper", title: "CapCut Pro", label: "1 Oylik VIP" },
+                        { icon: "clapper", title: "CapCut Pro", label: "1 Oylik VIP" },
+                        { icon: "sparkles", title: "AI SEO", label: "15 ta Paket" }
+                    ],
+                    symbols: ["clapper", "clapper", "sparkles"],
+                    prize: null
+                });
+                setTimeout(drawScratchCanvas, 80);
+            };
+
+            const playScratchCard = () => {
+                const uid = tgUser?.id || 0;
+                if (!uid) {
+                    alert("Iltimos, avval Telegram orqali kiring!");
+                    return;
+                }
                 setScratchFoilCleared(false);
                 scratchedSlots.clear();
                 fetch('/api/stars/scratch-card/play', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: tgUser.id || 0 })
+                    body: JSON.stringify({ user_id: uid, tg_user_id: uid })
                 })
                 .then(r => r.json())
                 .then(data => {
-                    if (data.ok) {
+                    if (data && data.ok) {
                         setScratchData(data);
+                        if (typeof data.new_balance === 'number') {
+                            setTgUser(prev => ({ ...prev, balance_uzs: data.new_balance }));
+                        }
                         setTimeout(drawScratchCanvas, 80);
+                    } else {
+                        if (data && data.error) {
+                            alert(data.error);
+                        }
+                        setupScratchCardUI();
                     }
                 })
                 .catch(() => {
-                    setScratchData({
-                        won: false,
-                        slots: [
-                            { icon: "clapper", title: "CapCut Pro", label: "1 Oylik VIP" },
-                            { icon: "clapper", title: "CapCut Pro", label: "1 Oylik VIP" },
-                            { icon: "sparkles", title: "AI SEO", label: "15 ta Paket" }
-                        ],
-                        symbols: ["clapper", "clapper", "sparkles"],
-                        prize: null
-                    });
-                    setTimeout(drawScratchCanvas, 80);
+                    setupScratchCardUI();
                 });
             };
+
+            const initScratchCard = playScratchCard;
 
             const drawScratchCanvas = () => {
                 const canvas = scratchCanvasRef.current;
@@ -1903,25 +1924,33 @@
             };
 
             const openFormatModal = (video) => {
-                setSelectedFormatsVideo({ id: video.id, title: video.title, formats: [] });
+                const vId = video?.id || (typeof video === 'string' ? video : '');
+                const vTitle = video?.title || (typeof video === 'string' ? video : 'YouTube Video');
+                const vObj = typeof video === 'object' && video !== null ? video : { id: vId, title: vTitle };
+                setSelectedFormatsVideo({ id: vId, title: vTitle, video: vObj, formats: [] });
                 setFormatsLoading(true);
-                fetch(`/api/video-formats?video_id=${video.id}&tg_user_id=${tgUser.id || 0}`)
+                fetch(`/api/video-formats?video_id=${vId}&tg_user_id=${tgUser?.id || 0}`)
                     .then(r => r.json())
                     .then(d => {
-                        setSelectedFormatsVideo({ id: video.id, title: video.title, formats: d.formats || [] });
+                        const fmts = d?.formats || [];
+                        const retTitle = d?.title || vTitle;
+                        setSelectedFormatsVideo({ id: vId, title: retTitle, video: { ...vObj, title: retTitle }, formats: fmts });
                         setFormatsLoading(false);
                     })
                     .catch(() => setFormatsLoading(false));
             };
 
             const startDownload = (videoId, res) => {
+                const vId = videoId || selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id;
+                if (!vId) return;
                 setDownloadingFormat(res);
                 const iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
-                iframe.src = `/api/download-file?video_id=${videoId}&resolution=${res}&tg_user_id=${tgUser.id || 0}`;
+                iframe.src = `/api/download-file?video_id=${vId}&resolution=${res || '720'}&tg_user_id=${tgUser?.id || 0}`;
                 document.body.appendChild(iframe);
                 setTimeout(() => {
                     setDownloadingFormat(null);
+                    try { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); } catch(e) {}
                 }, 3500);
             };
 
@@ -2057,7 +2086,7 @@
                 fetchRecentDrops();
                 fetchBattles();
                 fetchDailyStreak();
-                initScratchCard();
+                setupScratchCardUI();
                 fetchUpgraderInventory();
 
                 const timer = setInterval(() => {
@@ -2683,8 +2712,8 @@
                                             <div style={{ width: "32px", height: "32px", borderRadius: "8px", background: "rgba(115, 66, 226, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
                                                 <feat.icon size={16} color="#00F0FF" />
                                             </div>
-                                            <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffffff" }}>{feat.title}</div>
-                                            <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", marginTop: "2px" }}>{feat.desc}</div>
+                                            <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffffff" }}>{feat?.title || ""}</div>
+                                            <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.5)", marginTop: "2px" }}>{feat?.desc || ""}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -3294,7 +3323,7 @@
                                                                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                                                         {vid.thumbnail && <img src={vid.thumbnail} alt="" style={{ width: "56px", height: "36px", borderRadius: "6px", objectFit: "cover" }} />}
                                                                         <span style={{ fontWeight: 600, fontSize: "14px", color: "#18181b", maxWidth: "340px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                                            {vid.title}
+                                                                            {vid?.title || "Video"}
                                                                         </span>
                                                                     </div>
                                                                 </td>
@@ -3429,10 +3458,10 @@
                                                     </div>
                                                     <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
                                                         <div>
-                                                            <h4 title={v.title} style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", lineHeight: "1.4", height: "40px", overflow: "hidden", marginBottom: "8px" }}>
-                                                                {v.title}
+                                                            <h4 title={v?.title || ""} style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", lineHeight: "1.4", height: "40px", overflow: "hidden", marginBottom: "8px" }}>
+                                                                {v?.title || "Video"}
                                                             </h4>
-                                                            <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "6px" }}>{v.channel}</div>
+                                                            <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "6px" }}>{v?.channel || ""}</div>
                                                             <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#a1a1aa", marginBottom: "14px" }}>
                                                                 <span>{Number(v.views || 0).toLocaleString()} ko'rish</span>
                                                             </div>
@@ -4579,9 +4608,9 @@
                                                             <div style={{ fontSize: "11px", fontWeight: 800, color: isToday ? "#15803d" : "var(--muted)", textTransform: "uppercase" }}>
                                                                 {r.day}-Kun
                                                             </div>
-                                                            <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center", margin: "8px 0" }}><TelegramGiftMedia icon={r.icon} name={r.title} size="36px" /></div>
+                                                            <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center", margin: "8px 0" }}><TelegramGiftMedia icon={r?.icon || "package"} name={r?.title || ""} size="36px" /></div>
                                                             <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>
-                                                                {r.title}
+                                                                {r?.title || ""}
                                                             </div>
                                                             <div style={{ marginTop: "10px" }}>
                                                                 {isClaimed && <span style={{ fontSize: "10px", fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.15)", padding: "2px 8px", borderRadius: "999px" }}>OLINGAN</span>}
@@ -4655,14 +4684,14 @@
                                                     justifyContent: "space-around",
                                                     padding: "0 10px"
                                                 }}>
-                                                    {((scratchData.slots && scratchData.slots.length === 3)
+                                                    {(((scratchData?.slots && scratchData.slots.length === 3)
                                                         ? scratchData.slots
-                                                        : (scratchData.symbols || ["clapper", "clapper", "sparkles"]).map(s => ({
+                                                        : (scratchData?.symbols || ["clapper", "clapper", "sparkles"]).map(s => ({
                                                             icon: s,
                                                             title: s === 'clapper' ? 'CapCut Pro' : (s === 'sparkles' ? 'AI SEO' : (s === 'gem' ? 'Stars' : 'VIP')),
                                                             label: s === 'clapper' ? '1 Oylik VIP' : (s === 'sparkles' ? '15 ta Paket' : (s === 'gem' ? '100 Stars' : '1 Oylik'))
                                                         }))
-                                                    ).map((slotItem, sIdx) => (
+                                                    ) || []).map((slotItem, sIdx) => (
                                                         <div key={sIdx} style={{
                                                             width: "90px",
                                                             height: "102px",
@@ -4676,7 +4705,7 @@
                                                             padding: "8px 4px",
                                                             boxShadow: "0 4px 12px rgba(0,0,0,0.25)"
                                                         }}>
-                                                            <TelegramGiftMedia icon={slotItem.icon} size="32px" />
+                                                            <TelegramGiftMedia icon={slotItem?.icon || "package"} size="32px" />
                                                             <div style={{
                                                                 fontSize: "11px",
                                                                 fontWeight: 800,
@@ -4687,7 +4716,7 @@
                                                                 textOverflow: "ellipsis",
                                                                 maxWidth: "82px"
                                                             }}>
-                                                                {slotItem.title}
+                                                                {slotItem?.title || ""}
                                                             </div>
                                                             <div style={{
                                                                 fontSize: "10px",
@@ -4695,7 +4724,7 @@
                                                                 color: "#ffd700",
                                                                 marginTop: "2px"
                                                             }}>
-                                                                {slotItem.label}
+                                                                {slotItem?.label || ""}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -4744,8 +4773,8 @@
                                                     fontWeight: 700,
                                                     color: scratchData.won ? "#15803d" : "#854d0e"
                                                 }}>
-                                                    {scratchData.won
-                                                        ? `Tabriklaymiz! Siz ${scratchData.prize ? scratchData.prize.title : "Sovg'a"} yutib oldingiz!`
+                                                    {scratchData?.won
+                                                        ? `Tabriklaymiz! Siz ${scratchData?.prize ? (scratchData.prize.title || scratchData.prize.name || "Sovg'a") : "Sovg'a"} yutib oldingiz!`
                                                         : "2 tasi bir xil tushdi! Deyarli yutgandingiz. Yangi chipta olib yana urinib ko'ring!"}
                                                 </div>
                                             )}
@@ -4797,12 +4826,12 @@
                                                         fontSize: "10px",
                                                         fontWeight: 800
                                                     }}>
-                                                        {srv.tag}
+                                                        {srv?.tag || ""}
                                                     </div>
                                                     <div>
-                                                        <div style={{ height: "56px", display: "flex", alignItems: "center", marginBottom: "14px" }}><TelegramGiftMedia icon={srv.icon} name={srv.title} size="48px" /></div>
-                                                        <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>{srv.title}</h4>
-                                                        <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.4, marginBottom: "20px" }}>{srv.desc}</p>
+                                                        <div style={{ height: "56px", display: "flex", alignItems: "center", marginBottom: "14px" }}><TelegramGiftMedia icon={srv?.icon || "package"} name={srv?.title || srv?.name || ""} size="48px" /></div>
+                                                        <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>{srv?.title || srv?.name || ""}</h4>
+                                                        <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.4, marginBottom: "20px" }}>{srv?.desc || ""}</p>
                                                     </div>
                                                     <div>
                                                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
@@ -4958,12 +4987,12 @@
                                         padding: "20px"
                                     }}>
                                         <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "440px", width: "100%", textAlign: "center", color: "var(--text)" }}>
-                                            <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}><TelegramGiftMedia icon={streakClaimedModal.icon} name={streakClaimedModal.title} size="56px" /></div>
+                                            <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}><TelegramGiftMedia icon={streakClaimedModal?.icon || "package"} name={streakClaimedModal?.title || streakClaimedModal?.name || ""} size="56px" /></div>
                                             <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Tabriklaymiz!</h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
-                                                Siz bugungi sovg'ani qo'lga kiritdingiz: <b>{streakClaimedModal.title}</b>
+                                                Siz bugungi sovg'ani qo'lga kiritdingiz: <b>{streakClaimedModal?.title || streakClaimedModal?.name || "Sovg'a"}</b>
                                             </p>
-                                            {streakClaimedModal.license_key && (
+                                            {streakClaimedModal?.license_key && (
                                                 <div style={{ background: "#f8f8fa", padding: "12px", borderRadius: "12px", border: "1px dashed #7342E2", marginBottom: "20px" }}>
                                                     <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>CapCut Pro Litsenziya Kaliti:</div>
                                                     <div style={{ fontSize: "15px", fontWeight: 800, color: "#7342E2" }}>{streakClaimedModal.license_key}</div>
@@ -4994,7 +5023,7 @@
                                     }}>
                                         <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "460px", width: "100%", textAlign: "center", color: "var(--text)" }}>
                                             <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                                                <TelegramGiftMedia icon={redeemModal.service.icon} name={redeemModal.service.title} size="56px" />
+                                                <TelegramGiftMedia icon={redeemModal?.service?.icon || "package"} name={redeemModal?.service?.title || redeemModal?.service?.name || ""} size="56px" />
                                             </div>
                                             <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>{redeemModal.message}</h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
@@ -5755,7 +5784,7 @@
                                             <div style={{ flex: 1, paddingRight: "12px" }}>
                                                 <div style={{ fontSize: "12px", fontWeight: 700, color: "#7342E2", textTransform: "uppercase" }}>Video yuklab olish</div>
                                                 <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#18181b", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                    {selectedFormatsVideo.video.title}
+                                                    {selectedFormatsVideo?.title || selectedFormatsVideo?.video?.title || "Video"}
                                                 </h3>
                                             </div>
                                             <button
@@ -5771,55 +5800,59 @@
                                                 <div style={{ textAlign: "center", padding: "40px 0", color: "#71717a", fontSize: "14px" }}>
                                                     Formatlar tekshirilmoqda...
                                                 </div>
-                                            ) : selectedFormatsVideo.formats && selectedFormatsVideo.formats.length > 0 ? (
-                                                selectedFormatsVideo.formats.map((fmt, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        style={{
-                                                            padding: "12px 16px",
-                                                            borderRadius: "14px",
-                                                            border: "1px solid #e4e4e7",
-                                                            display: "flex",
-                                                            justifyContent: "space-between",
-                                                            alignItems: "center",
-                                                            background: "#fafafa"
-                                                        }}
-                                                    >
-                                                        <div>
-                                                            <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>
-                                                                {fmt.resolution || fmt.quality || "Standart"} • {fmt.ext ? fmt.ext.toUpperCase() : "MP4"}
-                                                            </div>
-                                                            <div style={{ fontSize: "12px", color: "#71717a" }}>
-                                                                {fmt.filesize_str || (fmt.filesize ? (fmt.filesize / 1024 / 1024).toFixed(1) + " MB" : "Hajmi noma'lum")}
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => startDownload(selectedFormatsVideo.video.id, fmt.format_id)}
-                                                            disabled={downloadingFormat === fmt.format_id}
+                                            ) : selectedFormatsVideo?.formats && selectedFormatsVideo.formats.length > 0 ? (
+                                                selectedFormatsVideo.formats.map((fmt, idx) => {
+                                                    const fmtVal = fmt.value || fmt.format_id || fmt.resolution || "720";
+                                                    const isDownloading = downloadingFormat === fmtVal;
+                                                    return (
+                                                        <div
+                                                            key={idx}
                                                             style={{
-                                                                padding: "8px 16px",
-                                                                borderRadius: "999px",
-                                                                background: "#7342E2",
-                                                                color: "#ffffff",
-                                                                border: "none",
-                                                                fontSize: "12px",
-                                                                fontWeight: 700,
-                                                                cursor: downloadingFormat === fmt.format_id ? "not-allowed" : "pointer",
+                                                                padding: "12px 16px",
+                                                                borderRadius: "14px",
+                                                                border: "1px solid #e4e4e7",
                                                                 display: "flex",
+                                                                justifyContent: "space-between",
                                                                 alignItems: "center",
-                                                                gap: "6px"
+                                                                background: "#fafafa"
                                                             }}
                                                         >
-                                                            <SvgDownload size={13} color="#ffffff" />
-                                                            <span>{downloadingFormat === fmt.format_id ? "Tayyorlanmoqda..." : "Yuklab olish"}</span>
-                                                        </button>
-                                                    </div>
-                                                ))
+                                                            <div>
+                                                                <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b" }}>
+                                                                    {fmt.label || fmt.resolution || fmt.quality || "Standart"} • {(fmt.ext || "MP4").toUpperCase()}
+                                                                </div>
+                                                                <div style={{ fontSize: "12px", color: "#71717a" }}>
+                                                                    {fmt.filesize_str || (fmt.filesize ? (fmt.filesize / 1024 / 1024).toFixed(1) + " MB" : "Yuklab olishga tayyor")}
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => startDownload(selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id, fmtVal)}
+                                                                disabled={isDownloading}
+                                                                style={{
+                                                                    padding: "8px 16px",
+                                                                    borderRadius: "999px",
+                                                                    background: "#7342E2",
+                                                                    color: "#ffffff",
+                                                                    border: "none",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: 700,
+                                                                    cursor: isDownloading ? "not-allowed" : "pointer",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    gap: "6px"
+                                                                }}
+                                                            >
+                                                                <SvgDownload size={13} color="#ffffff" />
+                                                                <span>{isDownloading ? "Tayyorlanmoqda..." : "Yuklab olish"}</span>
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })
                                             ) : (
                                                 <div style={{ textAlign: "center", padding: "30px 0" }}>
                                                     <div style={{ fontSize: "14px", color: "#71717a", marginBottom: "12px" }}>Formatlar aniqlanmadi, to'g'ridan-to'g'ri yuklab olish:</div>
                                                     <button
-                                                        onClick={() => startDownload(selectedFormatsVideo.video.id, 'best')}
+                                                        onClick={() => startDownload(selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id, 'best')}
                                                         style={{
                                                             padding: "10px 24px",
                                                             borderRadius: "999px",
@@ -5844,8 +5877,119 @@
             );
         }
 
+        // ==================== REACT ERROR BOUNDARY ====================
+        class ErrorBoundary extends React.Component {
+            constructor(props) {
+                super(props);
+                this.state = { hasError: false, error: null };
+            }
+            static getDerivedStateFromError(error) {
+                return { hasError: true, error };
+            }
+            componentDidCatch(error, errorInfo) {
+                console.error("ErrorBoundary caught an unhandled render error:", error, errorInfo);
+            }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div style={{
+                            minHeight: "100vh",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "#090A0F",
+                            color: "#ffffff",
+                            padding: "24px",
+                            fontFamily: "var(--font-body, -apple-system, BlinkMacSystemFont, sans-serif)",
+                            textAlign: "center"
+                        }}>
+                            <div style={{
+                                maxWidth: "460px",
+                                width: "100%",
+                                background: "rgba(255, 255, 255, 0.05)",
+                                border: "1px solid rgba(255, 255, 255, 0.1)",
+                                borderRadius: "24px",
+                                padding: "32px",
+                                backdropFilter: "blur(16px)",
+                                boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5)"
+                            }}>
+                                <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: "rgba(239, 68, 68, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                                    <SvgAlertCircle size={24} color="#EF4444" />
+                                </div>
+                                <h2 style={{ fontSize: "20px", fontWeight: 800, marginBottom: "8px", color: "#ffffff" }}>
+                                    Ilovada kutilmagan xatolik yuz berdi
+                                </h2>
+                                <p style={{ fontSize: "14px", color: "rgba(255, 255, 255, 0.6)", marginBottom: "20px", lineHeight: 1.5 }}>
+                                    Iltimos, sahifani yangilang yoki xotirani tozalab qayta kiring.
+                                </p>
+                                {this.state.error && (
+                                    <div style={{
+                                        background: "rgba(239, 68, 68, 0.08)",
+                                        border: "1px solid rgba(239, 68, 68, 0.25)",
+                                        borderRadius: "12px",
+                                        padding: "12px",
+                                        fontSize: "12px",
+                                        color: "#fca5a5",
+                                        marginBottom: "20px",
+                                        textAlign: "left",
+                                        overflowX: "auto",
+                                        fontFamily: "monospace"
+                                    }}>
+                                        {String(this.state.error.message || this.state.error)}
+                                    </div>
+                                )}
+                                <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                                    <button
+                                        onClick={() => {
+                                            this.setState({ hasError: false, error: null });
+                                            window.location.reload();
+                                        }}
+                                        style={{
+                                            padding: "12px 24px",
+                                            background: "#7342E2",
+                                            color: "#ffffff",
+                                            border: "none",
+                                            borderRadius: "14px",
+                                            fontWeight: 700,
+                                            fontSize: "14px",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        Sahifani yangilash
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            localStorage.clear();
+                                            window.location.href = window.location.pathname;
+                                        }}
+                                        style={{
+                                            padding: "12px 20px",
+                                            background: "rgba(255, 255, 255, 0.08)",
+                                            color: "#ffffff",
+                                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                                            borderRadius: "14px",
+                                            fontWeight: 600,
+                                            fontSize: "14px",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        Keshni tozalash
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
         // Render root
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
     </script>
 </body>
 </html>
