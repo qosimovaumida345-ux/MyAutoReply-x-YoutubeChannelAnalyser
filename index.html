@@ -1295,6 +1295,24 @@
             const [reelTransition, setReelTransition] = useState('none');
             const [winningHighlight, setWinningHighlight] = useState(false);
             const reelContainerRef = useRef(null);
+            const reelTimersRef = useRef([]);
+            const isReelCancelledRef = useRef(false);
+
+            const clearReelTimers = () => {
+                isReelCancelledRef.current = true;
+                if (reelTimersRef.current && reelTimersRef.current.length > 0) {
+                    reelTimersRef.current.forEach(t => clearTimeout(t));
+                    reelTimersRef.current = [];
+                }
+            };
+            const addReelTimer = (timerId) => {
+                reelTimersRef.current.push(timerId);
+                return timerId;
+            };
+
+            useEffect(() => {
+                return () => clearReelTimers();
+            }, []);
 
             // Shared AudioContext Singleton (Prevents leaking audio threads and memory)
             const audioCtxRef = useRef(null);
@@ -2048,7 +2066,9 @@
                 return list;
             };
 
-            const runReelAnimation = (strip, onComplete) => {
+            const runReelAnimation = (strip, resultPromise, onComplete) => {
+                clearReelTimers();
+                isReelCancelledRef.current = false;
                 setReelItems(strip);
                 setReelTransition('none');
                 setReelTranslate(0);
@@ -2059,10 +2079,6 @@
                 const TARGET_INDEX = 38;
                 const cardStep = 122;
                 const cardWidth = 110;
-                const containerWidth = (reelContainerRef.current && reelContainerRef.current.clientWidth) ? reelContainerRef.current.clientWidth : 470;
-                const center = containerWidth / 2;
-                const jitter = (Math.random() - 0.5) * 20; // -10px to +10px realistic landing offset
-                const targetTranslate = -(TARGET_INDEX * cardStep + (cardWidth / 2) - center) + jitter;
 
                 // Authentic Decelerating Audio Ticks over 5.5s
                 const tickDelays = [
@@ -2072,30 +2088,90 @@
                 tickDelays.forEach(d => {
                     elapsed += d;
                     if (elapsed <= 5400) {
-                        setTimeout(() => { playTickSound(); }, elapsed);
+                        addReelTimer(setTimeout(() => {
+                            if (!isReelCancelledRef.current) {
+                                playTickSound();
+                            }
+                        }, elapsed));
                     }
                 });
 
-                // Trigger smooth 5.5s transform
-                setTimeout(() => {
+                // Trigger smooth 5.5s transform after DOM mounts (computes precise center based on actual clientWidth)
+                addReelTimer(setTimeout(() => {
+                    if (isReelCancelledRef.current) return;
+                    const containerWidth = (reelContainerRef.current && reelContainerRef.current.clientWidth > 0)
+                        ? reelContainerRef.current.clientWidth
+                        : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 48, 470) : 470);
+                    const center = containerWidth / 2;
+                    const jitter = (Math.random() - 0.5) * 16; // realistic micro-jitter within needle bounds
+                    const targetTranslate = -(TARGET_INDEX * cardStep + (cardWidth / 2) - center) + jitter;
+
                     setReelTransition('transform 5.5s cubic-bezier(0.12, 0.8, 0.33, 1)');
                     setReelTranslate(targetTranslate);
-                }, 50);
+                }, 50));
+
+                let finalPrize = null;
+                let hasResolved = false;
+
+                // Listen to parallel server resolution and slot prize into index 38
+                resultPromise.then(data => {
+                    if (isReelCancelledRef.current) return;
+                    if (!data || !data.ok) {
+                        clearReelTimers();
+                        setIsRolling(false);
+                        setActiveUnboxing(null);
+                        alert((data && data.error) || "Xatolik: Sovg'ani ochib bo'lmadi.");
+                        return;
+                    }
+                    finalPrize = data;
+                    hasResolved = true;
+                    setReelItems(prev => {
+                        const next = [...prev];
+                        if (next.length > TARGET_INDEX) {
+                            next[TARGET_INDEX] = { ...data, isWinningCard: true };
+                        }
+                        return next;
+                    });
+                }).catch(err => {
+                    if (isReelCancelledRef.current) return;
+                    clearReelTimers();
+                    setIsRolling(false);
+                    setActiveUnboxing(null);
+                    alert("Tarmoq xatosi: Server bilan aloqa o'rnatilmadi.");
+                });
 
                 // At 5.5s, precisely stop on card 38
-                setTimeout(() => {
-                    playTickSound();
-                    setWinningHighlight(true); // highlight card 38 at needle
-                    // 500ms pause so user clearly observes the winning item before popup
-                    setTimeout(() => {
-                        setIsRolling(false);
-                        if (onComplete) onComplete();
-                    }, 500);
-                }, 5500);
+                addReelTimer(setTimeout(() => {
+                    if (isReelCancelledRef.current) return;
+                    const finishLanding = () => {
+                        if (isReelCancelledRef.current) return;
+                        playTickSound();
+                        setWinningHighlight(true); // highlight card 38 at needle
+                        // 500ms pause so user clearly observes the winning item before popup
+                        addReelTimer(setTimeout(() => {
+                            if (isReelCancelledRef.current) return;
+                            setIsRolling(false);
+                            if (onComplete && finalPrize) onComplete(finalPrize);
+                        }, 500));
+                    };
+
+                    if (hasResolved && finalPrize) {
+                        finishLanding();
+                    } else {
+                        // In the rare event network took > 5.5s, await resolution
+                        resultPromise.then(data => {
+                            if (isReelCancelledRef.current) return;
+                            if (data && data.ok) {
+                                finishLanding();
+                            }
+                        }).catch(() => {});
+                    }
+                }, 5500));
             };
 
             // Trigger Demo Spin (100% Bepul, hisobdan pul yechilmaydi, queue ga tushmaydi)
             const handleDemoSpin = (c) => {
+                if (isRolling) return;
                 const drops = (c.drops && c.drops.length > 0) ? c.drops : [
                     { name: "Telegram Gift", stars: 25, icon: "package", file_id: "", file_type: "webp" }
                 ];
@@ -2127,8 +2203,8 @@
                 setActiveUnboxing({ ...c, isDemo: true });
                 setUnboxingPrize(null);
                 const strip = buildReelItems(c, demoResult);
-                runReelAnimation(strip, () => {
-                    setUnboxingPrize(demoResult);
+                runReelAnimation(strip, Promise.resolve(demoResult), (prize) => {
+                    setUnboxingPrize(prize);
                     playWinFanfare();
                     if (window.confetti) {
                         window.confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
@@ -2136,50 +2212,43 @@
                 });
             };
 
-            // Trigger Stars Mystery Case Opening (Strictly Authenticated)
+            // Trigger Stars Mystery Case Opening (Strictly Authenticated — 0ms Latency Roll)
             const handleOpenCase = (c) => {
+                if (isRolling) return;
                 if (!tgUser || !tgUser.id || tgUser.id <= 0) {
                     setShowLoginModal(true);
                     return;
                 }
+                const drops = (c.drops && c.drops.length > 0) ? c.drops : [
+                    { name: "Telegram Gift", stars: 25, icon: "package", file_id: "", file_type: "webp" }
+                ];
+                const candidateItem = drops[Math.floor(Math.random() * drops.length)];
+
+                // 0ms perceived latency: immediately mount modal & start strip roll
                 setActiveUnboxing(c);
                 setUnboxingPrize(null);
-                setIsRolling(true);
+                const strip = buildReelItems(c, candidateItem);
 
-                // Call backend API for real unboxing result
-                fetch('/api/stars/open-case', {
+                const apiPromise = fetch('/api/stars/open-case', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.ok) {
-                        const strip = buildReelItems(c, data);
-                        runReelAnimation(strip, () => {
-                            setUnboxingPrize(data);
-                            setUserGifts(prev => [{ ...data, date: "Hozir" }, ...prev]);
-                            playWinFanfare();
-                            if (window.confetti) {
-                                window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-                            }
-                            loadUserStats(tgUser.id, true);
-                        });
-                    } else {
-                        setIsRolling(false);
-                        setActiveUnboxing(null);
-                        alert(data.error || "Xatolik: Hisobingizda Stars yetarli emas yoki sovg'ani ochib bo'lmadi.");
+                }).then(r => r.json());
+
+                runReelAnimation(strip, apiPromise, (data) => {
+                    setUnboxingPrize(data);
+                    setUserGifts(prev => [{ ...data, date: "Hozir" }, ...prev]);
+                    playWinFanfare();
+                    if (window.confetti) {
+                        window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
                     }
-                })
-                .catch(() => {
-                    setIsRolling(false);
-                    setActiveUnboxing(null);
-                    alert("Tarmoq xatosi: Server bilan aloqa o'rnatilmadi.");
+                    loadUserStats(tgUser.id, true);
                 });
             };
 
-            // Trigger Case Opening with UZS (So'm Balansi orqali)
+            // Trigger Case Opening with UZS (So'm Balansi orqali — 0ms Latency Roll)
             const handleOpenCaseUzs = (c) => {
+                if (isRolling) return;
                 if (!tgUser || !tgUser.id || tgUser.id <= 0) {
                     setShowLoginModal(true);
                     return;
@@ -2191,42 +2260,33 @@
                     return;
                 }
 
+                const drops = (c.drops && c.drops.length > 0) ? c.drops : [
+                    { name: "Telegram Gift", stars: 25, icon: "package", file_id: "", file_type: "webp" }
+                ];
+                const candidateItem = drops[Math.floor(Math.random() * drops.length)];
+
+                // 0ms perceived latency: immediately mount modal & start strip roll
                 setActiveUnboxing(c);
                 setUnboxingPrize(null);
-                setIsRolling(true);
+                const strip = buildReelItems(c, candidateItem);
 
-                // Call backend API for real UZS unboxing
-                fetch('/api/stars/open-case-uzs', {
+                const apiPromise = fetch('/api/stars/open-case-uzs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.ok) {
-                        const strip = buildReelItems(c, data);
-                        runReelAnimation(strip, () => {
-                            setUnboxingPrize(data);
-                            setUserGifts(prev => [{ ...data, date: "Hozir" }, ...prev]);
-                            if (data.new_balance !== undefined) {
-                                setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
-                            }
-                            playWinFanfare();
-                            if (window.confetti) {
-                                window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-                            }
-                            loadUserStats(tgUser.id, true);
-                        });
-                    } else {
-                        setIsRolling(false);
-                        setActiveUnboxing(null);
-                        alert(data.error || "Xatolik: Balansingiz yetarli emas yoki sovg'ani ochib bo'lmadi.");
+                }).then(r => r.json());
+
+                runReelAnimation(strip, apiPromise, (data) => {
+                    setUnboxingPrize(data);
+                    setUserGifts(prev => [{ ...data, date: "Hozir" }, ...prev]);
+                    if (data.new_balance !== undefined) {
+                        setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
                     }
-                })
-                .catch(() => {
-                    setIsRolling(false);
-                    setActiveUnboxing(null);
-                    alert("Tarmoq xatosi: Server bilan aloqa o'rnatilmadi.");
+                    playWinFanfare();
+                    if (window.confetti) {
+                        window.confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                    }
+                    loadUserStats(tgUser.id, true);
                 });
             };
 
@@ -5289,7 +5349,7 @@
                                                 {activeUnboxing.isDemo ? (
                                                     <div style={{ display: "flex", gap: "8px" }}>
                                                         <button
-                                                            onClick={() => { const c = activeUnboxing; setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(c); }}
+                                                            onClick={() => { clearReelTimers(); const c = activeUnboxing; setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(c); }}
                                                             disabled={isRolling}
                                                             style={{
                                                                 flex: 1,
@@ -5334,7 +5394,7 @@
                                                 ) : (
                                                     <div style={{ display: "flex", gap: "8px" }}>
                                                         <button
-                                                            onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(activeUnboxing); }}
+                                                            onClick={() => { clearReelTimers(); setActiveUnboxing(null); setUnboxingPrize(null); handleBuyInvoice(activeUnboxing); }}
                                                             disabled={isRolling}
                                                             style={{
                                                                 flex: 1,
@@ -5381,7 +5441,7 @@
                                                 )}
 
                                                 <button
-                                                    onClick={() => { setActiveUnboxing(null); setUnboxingPrize(null); }}
+                                                    onClick={() => { clearReelTimers(); setActiveUnboxing(null); setUnboxingPrize(null); setIsRolling(false); }}
                                                     style={{
                                                         padding: "14px 24px",
                                                         borderRadius: "12px",

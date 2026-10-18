@@ -7,6 +7,9 @@ va YouTube xizmatlariga avtomatik buyurtma berishi mumkin.
 """
 
 import json
+import os
+import re
+import asyncio
 from aiohttp import web
 from database import (
     get_user_by_api_key,
@@ -16,7 +19,21 @@ from database import (
     purchase_api_key,
     purchase_proxy,
     create_engagement_order,
-    get_db
+    get_db,
+    set_reseller_webhook,
+    get_reseller_webhook,
+    redeem_promo_code,
+    get_user_balance,
+    deduct_user_balance,
+    add_user_balance,
+    save_gift_record
+)
+from games_monetization import (
+    open_stars_case,
+    open_stars_case_with_uzs,
+    fetch_telegram_server_gifts,
+    build_cases_from_gifts,
+    redeem_voucher
 )
 
 def extract_api_key(request) -> str:
@@ -366,6 +383,368 @@ async def handle_api_smm_status(request):
         conn.close()
 
 
+
+# ==================== 5 EXPANDED DEVELOPER ENDPOINTS ====================
+
+async def handle_api_downloader(request):
+    """
+    POST /api/v1/downloader - Media info & direct MP4/MP3 download extractor
+    JSON payload:
+      - url: YouTube video havola yoki video ID
+      - format: '360', '480', '720', '1080', '1440', '2160', 'mp3' (ixtiyoriy, default '720')
+    GET orqali ham ishlaydi: ?url=...&format=...
+    """
+    user, err = authenticate_request(request)
+    if err:
+        return err
+
+    if request.method == "POST":
+        try:
+            data = await request.json()
+        except Exception:
+            return web.json_response({"ok": False, "error": "invalid_json", "message": "JSON tana kiritilmadi"}, status=400)
+    else:
+        data = request.query
+
+    raw_url = str(data.get("url", "")).strip()
+    requested_format = str(data.get("format", "720")).strip().lower()
+
+    if not raw_url:
+        return web.json_response({
+            "ok": False,
+            "error": "missing_url",
+            "message": "'url' parametri kiritilishi shart (YouTube video havola yoki video ID)"
+        }, status=400)
+
+    # Video ID ajratish
+    video_id = None
+    if len(raw_url) == 11 and re.match(r'^[A-Za-z0-9_-]{11}$', raw_url):
+        video_id = raw_url
+        target_url = f"https://www.youtube.com/watch?v={video_id}"
+    else:
+        target_url = raw_url
+        match = re.search(r'(?:v=|\/|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})', raw_url)
+        if match:
+            video_id = match.group(1)
+
+    base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+    standard_formats = [
+        {"label": "360p", "value": "360", "ext": "mp4"},
+        {"label": "480p", "value": "480", "ext": "mp4"},
+        {"label": "720p (HD)", "value": "720", "ext": "mp4"},
+        {"label": "1080p (FHD)", "value": "1080", "ext": "mp4"},
+        {"label": "1440p (2K)", "value": "1440", "ext": "mp4"},
+        {"label": "2160p (4K)", "value": "2160", "ext": "mp4"},
+        {"label": "MP3 (Audio 192k)", "value": "mp3", "ext": "mp3"}
+    ]
+
+    try:
+        import yt_dlp
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_skip': ['webpage'],
+                }
+            }
+        }
+
+        def _extract():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                return ydl.extract_info(target_url, download=False)
+
+        info = await asyncio.to_thread(_extract)
+        title = info.get("title", "Video")
+        duration = info.get("duration", 0)
+        thumbnail = info.get("thumbnail", "")
+        uploader = info.get("uploader", "")
+        vid = video_id or info.get("id", "")
+
+        download_url = f"{base_domain}/api/download-file?video_id={vid}&resolution={requested_format}&tg_user_id={user['tg_user_id']}"
+
+        return web.json_response({
+            "ok": True,
+            "video_id": vid,
+            "title": title,
+            "duration": duration,
+            "thumbnail": thumbnail,
+            "uploader": uploader,
+            "selected_format": requested_format,
+            "download_url": download_url,
+            "available_formats": standard_formats
+        })
+    except Exception as e:
+        if video_id:
+            download_url = f"{base_domain}/api/download-file?video_id={video_id}&resolution={requested_format}&tg_user_id={user['tg_user_id']}"
+            return web.json_response({
+                "ok": True,
+                "video_id": video_id,
+                "title": f"YouTube Media ({video_id})",
+                "selected_format": requested_format,
+                "download_url": download_url,
+                "available_formats": standard_formats,
+                "note": "Metadata qisman tayyorlandi"
+            })
+        return web.json_response({
+            "ok": False,
+            "error": "extract_error",
+            "message": f"Media ma'lumotlarini ajratib bo'lmadi: {str(e)[:200]}"
+        }, status=500)
+
+
+async def handle_api_gifts_available(request):
+    """
+    GET /api/v1/gifts/available - Telegram jonli rasmiy sovg'alar katalogi
+    (Narxlar, kamyoblik va NFT sonlari bilan)
+    """
+    user, err = authenticate_request(request)
+    if err:
+        return err
+
+    try:
+        gifts = await fetch_telegram_server_gifts()
+        if not gifts:
+            cases = build_cases_from_gifts()
+            gifts = []
+            for c in cases.values():
+                gifts.extend(c.get("drops", []))
+
+        formatted = []
+        for g in gifts:
+            formatted.append({
+                "id": g.get("id") or g.get("file_id"),
+                "name": g.get("name") or g.get("prize_name", "Telegram Gift"),
+                "stars": g.get("stars", 25),
+                "rarity": g.get("rarity", "common"),
+                "is_nft": bool(g.get("is_nft")),
+                "total_count": g.get("total_count"),
+                "remaining_count": g.get("remaining_count"),
+                "file_id": g.get("file_id", ""),
+                "file_type": g.get("file_type", "webp"),
+                "icon": g.get("icon", "package"),
+                "image_url": g.get("image_url")
+            })
+
+        return web.json_response({
+            "ok": True,
+            "count": len(formatted),
+            "gifts": formatted
+        })
+    except Exception as e:
+        return web.json_response({"ok": False, "error": "server_error", "message": str(e)}, status=500)
+
+
+async def handle_api_cases_open(request):
+    """
+    POST /api/v1/cases/open - Tashqi Reseller / Dasturchi Keys Ochish API
+    JSON payload:
+      - tier_id: 'tier_1', 'tier_2', 'tier_3', 'tier_4', 'tier_5' (default 'tier_1')
+      - currency: 'uzs' yoki 'stars' (default 'uzs')
+      - user_id: ixtiyoriy yutuq egasi (default - API kalit egasi)
+    Mablag' qat'iy ravishda autentifikatsiyadan o'tgan API kalit egasidan yechiladi.
+    """
+    user, err = authenticate_request(request)
+    if err:
+        return err
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    tier_id = str(data.get("tier_id", "tier_1")).strip().lower()
+    payer_id = int(user["tg_user_id"])
+    target_user_id = int(data.get("user_id", 0) or payer_id)
+
+    cases = build_cases_from_gifts()
+    case = cases.get(tier_id)
+    if not case:
+        for c in cases.values():
+            if c.get("key") == tier_id or c.get("id") == tier_id:
+                case = c
+                break
+    if not case:
+        return web.json_response({
+            "ok": False,
+            "error": "invalid_tier",
+            "message": f"Noto'g'ri keys tanlandi: '{tier_id}'. Mavjud keyslar: tier_1, tier_2, tier_3, tier_4, tier_5"
+        }, status=400)
+
+    price_uzs = case.get("price_uzs", case["price_stars"] * 400)
+
+    # 1. Payer balansini tekshirish
+    current_bal = get_user_balance(payer_id)
+    if current_bal < price_uzs:
+        return web.json_response({
+            "ok": False,
+            "error": "insufficient_funds",
+            "message": f"Balansingiz yetarli emas! Sizda: {current_bal:,} so'm bor, keys ochish uchun esa: {price_uzs:,} so'm kerak.",
+            "current_balance": current_bal,
+            "required_balance": price_uzs
+        }, status=400)
+
+    # 2. Payer balansidan atomik tarzda yechish
+    if not deduct_user_balance(payer_id, price_uzs):
+        latest_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": False,
+            "error": "insufficient_funds",
+            "message": f"Balansdan mablag' yechishda xatolik yuz berdi. Joriy balans: {latest_bal:,} so'm.",
+            "current_balance": latest_bal,
+            "required_balance": price_uzs
+        }, status=400)
+
+    # 3. Keysni ochish
+    res = open_stars_case(target_user_id, tier_id, user_name=str(target_user_id))
+    if not res.get("ok"):
+        # Xatolik bo'lsa pulni zudlik bilan qaytarish
+        add_user_balance(payer_id, price_uzs)
+        return web.json_response(res, status=400)
+
+    rem_bal = get_user_balance(payer_id)
+    res["price_uzs"] = price_uzs
+    res["new_balance"] = rem_bal
+    res["target_user_id"] = target_user_id
+    res["payer_id"] = payer_id
+
+    # 4. Sovg'ani pending_gifts jadvaliga saqlaymiz
+    try:
+        save_gift_record(
+            tg_user_id=target_user_id,
+            prize_name=res["prize_name"],
+            prize_stars=res["prize_stars"],
+            case_name=res["case_name"],
+            gift_id=res.get("gift_id")
+        )
+    except Exception:
+        pass
+
+    return web.json_response(res)
+
+
+async def handle_api_vouchers_redeem(request):
+    """
+    POST /api/v1/vouchers/redeem - Promokod va vaucher kodini faollashtirish
+    JSON payload:
+      - code: Promokod yoki Vaucher matni (masalan: VIP2026, GIFT50K)
+      - user_id: ixtiyoriy (default - API kalit egasi)
+    """
+    user, err = authenticate_request(request)
+    if err:
+        return err
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json", "message": "JSON tana kiritilmadi"}, status=400)
+
+    code = str(data.get("code", "")).strip().upper()
+    if not code:
+        return web.json_response({
+            "ok": False,
+            "error": "missing_code",
+            "message": "'code' parametri kiritilishi shart"
+        }, status=400)
+
+    target_user_id = int(data.get("user_id", 0) or user["tg_user_id"])
+
+    # 1. Avval vouchers jadvalidan tekshirish
+    v_res = redeem_voucher(target_user_id, code)
+    if v_res.get("ok"):
+        v_res["type"] = "voucher"
+        v_res["code"] = code
+        v_res["message"] = "Vaucher muvaffaqiyatli faollashtirildi!"
+        return web.json_response(v_res)
+
+    # 2. Keyin promo_codes jadvalidan tekshirish
+    success, msg, bonus = redeem_promo_code(code, target_user_id)
+    if success:
+        new_bal = get_user_balance(target_user_id)
+        return web.json_response({
+            "ok": True,
+            "type": "promo_code",
+            "code": code,
+            "amount_uzs": bonus,
+            "bonus_amount": bonus,
+            "new_balance": new_bal,
+            "message": msg
+        })
+
+    return web.json_response({
+        "ok": False,
+        "error": "invalid_code",
+        "message": v_res.get("error") or msg or "Bunday promokod yoki vaucher mavjud emas!"
+    }, status=400)
+
+
+async def handle_api_webhooks_set(request):
+    """
+    POST /api/v1/webhooks/set - Reseller tashqi webhook URL manzilini biriktirish
+    JSON payload:
+      - webhook_url: Tashqi tizim HTTPS/HTTP webhook URL manzili
+      - secret_token: Ixtiyoriy xavfsizlik tokeni (HMAC/Bearer tekshirish uchun)
+    """
+    user, err = authenticate_request(request)
+    if err:
+        return err
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json", "message": "JSON tana kiritilmadi"}, status=400)
+
+    webhook_url = str(data.get("webhook_url", "")).strip()
+    secret_token = str(data.get("secret_token", "")).strip() or None
+
+    if not webhook_url or not (webhook_url.startswith("http://") or webhook_url.startswith("https://")):
+        return web.json_response({
+            "ok": False,
+            "error": "invalid_url",
+            "message": "'webhook_url' to'g'ri HTTP/HTTPS manzil bo'lishi shart"
+        }, status=400)
+
+    ok = set_reseller_webhook(user["tg_user_id"], webhook_url, secret_token)
+    if ok:
+        return web.json_response({
+            "ok": True,
+            "webhook_url": webhook_url,
+            "secret_token": secret_token,
+            "is_active": True,
+            "message": "Webhook muvaffaqiyatli saqlandi va faollashtirildi!"
+        })
+    else:
+        return web.json_response({
+            "ok": False,
+            "error": "db_error",
+            "message": "Webhookni saqlab bo'lmadi"
+        }, status=500)
+
+
+async def handle_api_webhooks_get(request):
+    """
+    GET /api/v1/webhooks - Hozirgi biriktirilgan webhook holati
+    """
+    user, err = authenticate_request(request)
+    if err:
+        return err
+
+    data = get_reseller_webhook(user["tg_user_id"])
+    if data:
+        if data.get("expires_at"):
+            data["expires_at"] = str(data["expires_at"])
+        if data.get("created_at"):
+            data["created_at"] = str(data["created_at"])
+        return web.json_response({"ok": True, "webhook": data})
+    else:
+        return web.json_response({
+            "ok": True,
+            "webhook": None,
+            "message": "Sizda faol webhook biriktirilmagan"
+        })
+
+
 # ==================== INTERACTIVE API DOCUMENTATION (HTML) ====================
 
 async def handle_api_docs_html(request):
@@ -507,7 +886,7 @@ async def handle_api_docs_html(request):
         </div>
         <div class="endpoint-desc">
             Hisobingiz ma'lumotlari, balansingiz (so'mda) va umumiy so'rovlar sonini qaytaradi.
-            <pre><code>curl -X GET "https://YOUR_DOMAIN/api/v1/me" \\
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/me" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
             <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
             <pre><code>{
@@ -531,7 +910,7 @@ async def handle_api_docs_html(request):
         </div>
         <div class="endpoint-desc">
             Mavjud barcha API kalitlar (OpenRouter, Gemini, Groq), Dedicated Proxylar soni va YouTube xizmatlari narxlarini qaytaradi.
-            <pre><code>curl -X GET "https://YOUR_DOMAIN/api/v1/products" \\
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/products" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
             <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
             <pre><code>{
@@ -563,7 +942,7 @@ async def handle_api_docs_html(request):
                 <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
                 <tr><td class="param-name">service <span class="tag-req">shart</span></td><td>string</td><td><code>openrouter</code>, <code>gemini</code>, <code>groq</code> yoki <code>proxy</code></td></tr>
             </table>
-            <pre><code>curl -X POST "https://YOUR_DOMAIN/api/v1/buy" \\
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/buy" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
      -d '{"service": "openrouter"}'</code></pre>
@@ -578,7 +957,7 @@ async def handle_api_docs_html(request):
         </div>
     </div>
 
-    <!-- 4. YouTube buyurtma -->
+    <!-- 4. YouTube buyurtma berish -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
@@ -592,21 +971,189 @@ async def handle_api_docs_html(request):
                 <tr><td class="param-name">target_url <span class="tag-req">shart</span></td><td>string</td><td>YouTube video yoki kanal havolasi</td></tr>
                 <tr><td class="param-name">quantity <span class="tag-req">shart</span></td><td>integer</td><td>Buyurtma soni (kamida 1)</td></tr>
             </table>
-            <pre><code>curl -X POST "https://YOUR_DOMAIN/api/v1/smm/order" \\
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/smm/order" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
      -d '{"order_type": "like", "target_url": "https://youtu.be/xxx", "quantity": 10}'</code></pre>
         </div>
     </div>
 
-    <!-- Python Kod Namunasi -->
+    <!-- 5. YouTube buyurtma holatini tekshirish -->
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="path">/api/v1/smm/order/{order_id}</span>
+        </div>
+        <div class="endpoint-desc">
+            Berilgan YouTube buyurtmasining bajarilish holatini (bajarilgan soni, status) tekshirish.
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/smm/order/1042" \\
+     -H "Authorization: Bearer art_live_xxx"</code></pre>
+            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
+            <pre><code>{
+  "ok": true,
+  "order": {
+    "id": 1042,
+    "order_type": "like",
+    "target_url": "https://youtu.be/xxx",
+    "quantity": 10,
+    "completed_count": 8,
+    "status": "pending"
+  }
+}</code></pre>
+        </div>
+    </div>
+
+    <!-- 6. Media Downloader Extractor -->
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/downloader</span>
+        </div>
+        <div class="endpoint-desc">
+            YouTube va Shorts videolardan to'g'ridan-to'g'ri MP4 (360p - 4K) yoki MP3 audio yuklab olish havolasini olish.
+            <table class="param-table">
+                <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
+                <tr><td class="param-name">url <span class="tag-req">shart</span></td><td>string</td><td>YouTube havola yoki 11 belgili video ID</td></tr>
+                <tr><td class="param-name">format</td><td>string</td><td><code>360</code>, <code>480</code>, <code>720</code> (standart), <code>1080</code>, <code>mp3</code></td></tr>
+            </table>
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/downloader" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"url": "https://youtu.be/dQw4w9WgXcQ", "format": "720"}'</code></pre>
+            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
+            <pre><code>{
+  "ok": true,
+  "video_id": "dQw4w9WgXcQ",
+  "title": "Rick Astley - Never Gonna Give You Up",
+  "duration": 213,
+  "uploader": "Rick Astley",
+  "selected_format": "720",
+  "download_url": "https://botclient-d1jn.onrender.com/api/download-file?video_id=dQw4w9WgXcQ&resolution=720"
+}</code></pre>
+        </div>
+    </div>
+
+    <!-- 7. Jonli Telegram Sovg'alari Katalogi -->
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="path">/api/v1/gifts/available</span>
+        </div>
+        <div class="endpoint-desc">
+            Telegram serveridagi barcha jonli rasmiy sovg'alar (narxlari, kamyobligi, NFT sonlari) katalogini olish.
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/gifts/available" \\
+     -H "Authorization: Bearer art_live_xxx"</code></pre>
+            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
+            <pre><code>{
+  "ok": true,
+  "count": 48,
+  "gifts": [
+    {
+      "name": "Delicious Cake",
+      "stars": 15,
+      "rarity": "common",
+      "is_nft": false,
+      "icon": "cake"
+    },
+    {
+      "name": "Black Cap Collectible",
+      "stars": 1000,
+      "rarity": "legendary",
+      "is_nft": true,
+      "total_count": 5000,
+      "remaining_count": 142
+    }
+  ]
+}</code></pre>
+        </div>
+    </div>
+
+    <!-- 8. Keys Ochish (Unboxing) -->
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/cases/open</span>
+        </div>
+        <div class="endpoint-desc">
+            Tashqi ilovangiz orqali Telegram Stars yoki UZS balansi hisobidan omadli keyslarni ochish va yutuqni olish.
+            <table class="param-table">
+                <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
+                <tr><td class="param-name">tier_id <span class="tag-req">shart</span></td><td>string</td><td><code>tier_1</code>, <code>tier_2</code>, <code>tier_3</code>, <code>tier_4</code>, <code>tier_5</code></td></tr>
+                <tr><td class="param-name">currency</td><td>string</td><td><code>uzs</code> (standart) yoki <code>stars</code></td></tr>
+                <tr><td class="param-name">user_id</td><td>integer</td><td>Ixtiyoriy yutuq egasi Telegram ID (standart - API egasi)</td></tr>
+            </table>
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/cases/open" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"tier_id": "tier_2", "currency": "uzs"}'</code></pre>
+            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
+            <pre><code>{
+  "ok": true,
+  "prize_name": "Bouquet of Flowers",
+  "prize_stars": 50,
+  "rarity": "rare",
+  "is_nft": false,
+  "price_uzs": 20000,
+  "new_balance": 130000
+}</code></pre>
+        </div>
+    </div>
+
+    <!-- 9. Vaucher va Promokod Faollashtirish -->
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/vouchers/redeem</span>
+        </div>
+        <div class="endpoint-desc">
+            Balans to'ldirish vaucherlarini yoki aksiya promokodlarini avtomatik faollashtirish.
+            <table class="param-table">
+                <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
+                <tr><td class="param-name">code <span class="tag-req">shart</span></td><td>string</td><td>Vaucher yoki promokod matni (masalan: <code>VIP2026</code>)</td></tr>
+            </table>
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/vouchers/redeem" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"code": "VIP2026"}'</code></pre>
+            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
+            <pre><code>{
+  "ok": true,
+  "type": "voucher",
+  "amount_uzs": 50000,
+  "new_balance": 180000,
+  "message": "Vaucher muvaffaqiyatli faollashtirildi!"
+}</code></pre>
+        </div>
+    </div>
+
+    <!-- 10. Webhook Boshqaruvi -->
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/webhooks/set</span>
+        </div>
+        <div class="endpoint-desc">
+            Yutuqlar, xaridlar va buyurtma yangilanishlarini real vaqtda qabul qilish uchun o'z serveringiz HTTPS webhook manzilini biriktirish.
+            <table class="param-table">
+                <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
+                <tr><td class="param-name">webhook_url <span class="tag-req">shart</span></td><td>string</td><td>Tashqi HTTPS havola</td></tr>
+                <tr><td class="param-name">secret_token</td><td>string</td><td>Ixtiyoriy xavfsizlik tokeni (HMAC imzolash uchun)</td></tr>
+            </table>
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/webhooks/set" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"webhook_url": "https://myshop.com/webhook", "secret_token": "secret123"}'</code></pre>
+        </div>
+    </div>
+
+    <!-- Multi-Language Kod Namunalari -->
     <div class="card">
         <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> Python orqali ulash kodi (Reseller Bot namunasi)</h2>
-        <p>Quyidagi tayyor kodni o'z loyihangizga qo'shib, to'liq ishlatishingiz mumkin:</p>
+        <p>Quyidagi tayyor Python kodini loyihangizga qo'shib, to'liq ishlatishingiz mumkin:</p>
         <pre><code>import requests
 
 API_KEY = "art_live_SIZNING_KALITINGIZ"
-BASE_URL = "https://YOUR_DOMAIN/api/v1"
+BASE_URL = "https://botclient-d1jn.onrender.com/api/v1"
 
 headers = {
     "Authorization": f"Bearer {API_KEY}",
@@ -623,7 +1170,44 @@ if buy_resp["ok"]:
     print("Kalit:", buy_resp["api_key"])
     print("Qoldiq balans:", buy_resp["remaining_balance_uzs"])
 else:
-    print("Xatolik:", buy_resp["message"])
+    print("Xatolik:", buy_resp.get("message"))
+
+# 3. Media yuklab olish havolasini olish
+dl_resp = requests.post(f"{BASE_URL}/downloader", headers=headers, json={"url": "dQw4w9WgXcQ", "format": "720"}).json()
+if dl_resp["ok"]:
+    print("Download URL:", dl_resp["download_url"])
+</code></pre>
+    </div>
+
+    <!-- Node.js / JavaScript Kod Namunasi -->
+    <div class="card">
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg> Node.js / TypeScript Ulash Kodi</h2>
+        <p>Modern Node.js (v18+) da <code>fetch</code> orqali integratsiya:</p>
+        <pre><code>const API_KEY = "art_live_SIZNING_KALITINGIZ";
+const BASE_URL = "https://botclient-d1jn.onrender.com/api/v1";
+
+async function runResellerClient() {
+    const headers = {
+        "Authorization": `Bearer ${API_KEY}`,
+        "Content-Type": "application/json"
+    };
+
+    // 1. Foydalanuvchi ma'lumotlari
+    const meRes = await fetch(`${BASE_URL}/me`, { headers });
+    const meData = await meRes.json();
+    console.log("Balans:", meData.user.balance_uzs, "so'm");
+
+    // 2. Keys ochish
+    const caseRes = await fetch(`${BASE_URL}/cases/open`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ tier_id: "tier_1", currency: "uzs" })
+    });
+    const caseData = await caseRes.json();
+    console.log("Yutuq:", caseData.prize_name);
+}
+
+runResellerClient();
 </code></pre>
     </div>
 
@@ -858,6 +1442,16 @@ def setup_reseller_api_routes(app: web.Application):
     app.router.add_post("/api/v1/buy", handle_api_buy)
     app.router.add_post("/api/v1/smm/order", handle_api_smm_order)
     app.router.add_get("/api/v1/smm/order/{order_id}", handle_api_smm_status)
+
+    # 5 Yangi Kengaytirilgan Endpointlar
+    app.router.add_post("/api/v1/downloader", handle_api_downloader)
+    app.router.add_get("/api/v1/downloader", handle_api_downloader)
+    app.router.add_get("/api/v1/gifts/available", handle_api_gifts_available)
+    app.router.add_post("/api/v1/cases/open", handle_api_cases_open)
+    app.router.add_post("/api/v1/vouchers/redeem", handle_api_vouchers_redeem)
+    app.router.add_post("/api/v1/webhooks/set", handle_api_webhooks_set)
+    app.router.add_get("/api/v1/webhooks", handle_api_webhooks_get)
+
     app.router.add_get("/api/v1/docs", handle_api_docs_html)
     app.router.add_get("/dashboard", handle_dashboard_webapp)
     print("[Reseller API] REST API yo'nalishlari muvaffaqiyatli ulandi (/api/v1/... va /dashboard)")

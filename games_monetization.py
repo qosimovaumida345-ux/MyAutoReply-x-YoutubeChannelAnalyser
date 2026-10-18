@@ -329,13 +329,22 @@ async def fetch_telegram_server_gifts(bot_token: str = None) -> list:
 
     return _LIVE_SERVER_GIFTS
 
+_CACHED_BUILT_CASES = None
+_CACHED_CASES_TIME = 0.0
+
 def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     """
     Serverdan olingan sovg'alarni avtomatik ravishda qiymati va NFT darajasiga ko'ra
     5 ta keysga taqsimlaydi.
     Barcha soxta serial raqamlar va Fragment.com matnlari tozalangan.
+    In-memory kesh bilan 0ms tezlikda qaytariladi.
     """
-    global _LIVE_SERVER_GIFTS
+    global _LIVE_SERVER_GIFTS, _CACHED_BUILT_CASES, _CACHED_CASES_TIME
+    import time
+    now = time.time()
+    if raw_gifts is None and _CACHED_BUILT_CASES is not None and (now - _CACHED_CASES_TIME < 300):
+        return _CACHED_BUILT_CASES
+
     gifts = raw_gifts if raw_gifts is not None else _LIVE_SERVER_GIFTS
     if not gifts:
         gifts = _load_cached_server_gifts()
@@ -576,6 +585,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "drops": format_drops(t5_drops)
         }
     }
+    _CACHED_BUILT_CASES = cases
+    _CACHED_CASES_TIME = time.time()
     return cases
 
 # Shuningdek backward compatibility uchun STARS_CASES generator funksiyasi
@@ -731,10 +742,17 @@ def open_stars_case_with_uzs(tg_user_id: int, tier_id: str, user_name: str = "")
             "required_balance": price_uzs
         }
 
-    # Balansdan yechish
+    # Balansdan yechish (DB tranzaksiyasida FOR UPDATE bilan atomik tekshiriladi)
     deducted = deduct_user_balance(tg_user_id, price_uzs)
     if not deducted:
-        return {"ok": False, "error": "Balansdan mablag' yechishda xatolik yuz berdi"}
+        latest_bal = get_user_balance(tg_user_id)
+        return {
+            "ok": False,
+            "error": f"Balansingiz yetarli emas! Sizda: {latest_bal:,} so'm bor, keys ochish uchun esa: {price_uzs:,} so'm kerak.",
+            "need_deposit": True,
+            "current_balance": latest_bal,
+            "required_balance": price_uzs
+        }
 
     rem_bal = get_user_balance(tg_user_id)
 

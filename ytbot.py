@@ -75,7 +75,10 @@ from games_monetization import (
     order_whitelabel_bot, get_user_whitelabel_bots
 )
 from autopost import autopost_worker, get_auth_url, upload_to_youtube
-from custom_emojis import EMOJI_MAP, e, ce, BRAND_EMOJIS_MAP, CUSTOM_EMOJI_REGISTRY, get_button_icon_id
+from custom_emojis import (
+    EMOJI_MAP, e, ce, BRAND_EMOJIS_MAP, CUSTOM_EMOJI_REGISTRY,
+    get_button_icon_id, get_brand_emoji, get_brand_emoji_id
+)
 from crypto_pay import create_crypto_pay_invoice, CRYPTO_PACKAGES
 from instagram_processor import download_instagram_reel, is_instagram_url, get_ffmpeg_binary
 from mass_engagement import _do_like, _do_comment, _do_subscribe, generate_gemini_comment, extract_video_id
@@ -99,46 +102,32 @@ STARS_PACKAGES = [
 ]
 
 # We'll create a reverse map: fallback_emoji -> custom_emoji_id (with both \ufe0f and non-\ufe0f variants)
-PRIMARY_FALLBACK_TO_ID = {
-    # 1. Pul / Hamyon / Balans -> BTN_WALLET (5265197972919964944) - QAT'IY ravishda Hamyon, Crown emas!
-    "💰": int(CUSTOM_EMOJI_REGISTRY.get("BTN_WALLET", {}).get("id", "5265197972919964944")),
-    # 2. VIP Oltin Toj -> PAY_VIP_CROWN (5274225173837394638)
-    "👑": int(CUSTOM_EMOJI_REGISTRY.get("PAY_VIP_CROWN", {}).get("id", "5274225173837394638")),
-    # 3. Telegram Stars -> PAY_STARS (5370784581341422520)
-    "⭐": int(CUSTOM_EMOJI_REGISTRY.get("PAY_STARS", {}).get("id", "5370784581341422520")),
-    # 4. Bank Kartasi (Humo / Uzcard) -> PAY_HUMO_UZCARD (5445353829304387411)
-    "💳": int(CUSTOM_EMOJI_REGISTRY.get("PAY_HUMO_UZCARD", {}).get("id", "5445353829304387411")),
-    # 5. TON Blockchain / Kripto -> PAY_TON_CRYPTO (5077829135573714360)
-    "💎": int(CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5077829135573714360")),
-    # 6. Promokod / Vaucher -> PAY_PROMOCODE (6187973994273050060)
-    "🎟️": int(CUSTOM_EMOJI_REGISTRY.get("PAY_PROMOCODE", {}).get("id", "6187973994273050060")),
-    # 7. Cashout / Pul yechish -> PAY_CASHOUT (5472250091332993630)
-    "💸": int(CUSTOM_EMOJI_REGISTRY.get("PAY_CASHOUT", {}).get("id", "5472250091332993630")),
-    # 8. Muvaffaqiyatli -> STATUS_SUCCESS (5350722806281676158)
-    "✅": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_SUCCESS", {}).get("id", "5350722806281676158")),
-    # 9. Xatolik -> STATUS_ERROR (5391352243419108983)
-    "❌": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_ERROR", {}).get("id", "5391352243419108983")),
-    # 10. Ogohlantirish -> STATUS_WARNING (5395358455768837479)
-    "⚠️": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_WARNING", {}).get("id", "5395358455768837479")),
-    # 11. Tezkor / Yashin -> STATUS_LIGHTNING (5258203794772085854)
-    "⚡": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_LIGHTNING", {}).get("id", "5258203794772085854")),
-    # 12. Yuklanmoqda -> STATUS_LOADING (6113844439292054570)
-    "⏳": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_LOADING", {}).get("id", "6113844439292054570")),
-    # 13. Xavfsizlik Qalqoni -> STATUS_SECURITY (5348129380474306311)
-    "🛡️": int(CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5348129380474306311")),
-    # 14. 1080p Video -> MEDIA_VIDEO_FHD (5082592692391641768)
-    "🎬": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_VIDEO_FHD", {}).get("id", "5082592692391641768")),
-    # 15. Qaychi / Clipper -> MEDIA_SCISSORS (5422781517011111694)
-    "✂️": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_SCISSORS", {}).get("id", "5422781517011111694")),
-    # 16. YouTube -> MEDIA_YOUTUBE (4999366254943798100)
-    "📺": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_YOUTUBE", {}).get("id", "4999366254943798100")),
-    # 17. Avtopilot / Bot -> MEDIA_AUTOPILOT (5258093637450866522)
-    "🤖": int(CUSTOM_EMOJI_REGISTRY.get("MEDIA_AUTOPILOT", {}).get("id", "5258093637450866522")),
-    # 18. Developer API / Cursor -> BRAND_CURSOR (6273793612715138423)
-    "💻": int(CUSTOM_EMOJI_REGISTRY.get("BRAND_CURSOR", {}).get("id", "6273793612715138423")),
-    # 19. QR Kod -> TOOL_QR_CODE (5440410042773824003)
-    "📲": int(CUSTOM_EMOJI_REGISTRY.get("TOOL_QR_CODE", {}).get("id", "5440410042773824003")),
-}
+PRIMARY_FALLBACK_TO_ID = {}
+for _fb, _reg_key in [
+    ("💰", "BTN_WALLET"),
+    ("👑", "PAY_VIP_CROWN"),
+    ("⭐", "PAY_STARS"),
+    ("💳", "PAY_HUMO_UZCARD"),
+    ("💎", "PAY_TON_CRYPTO"),
+    ("🎟️", "PAY_PROMOCODE"),
+    ("💸", "PAY_CASHOUT"),
+    ("✅", "STATUS_SUCCESS"),
+    ("❌", "STATUS_ERROR"),
+    ("⚠️", "STATUS_WARNING"),
+    ("⚡", "STATUS_LIGHTNING"),
+    ("⏳", "STATUS_LOADING"),
+    ("🛡️", "STATUS_SECURITY"),
+    ("🎬", "MEDIA_VIDEO_FHD"),
+    ("✂️", "MEDIA_SCISSORS"),
+    ("📺", "MEDIA_YOUTUBE"),
+    ("🤖", "MEDIA_AUTOPILOT"),
+    ("💻", "BRAND_CURSOR"),
+    ("📲", "TOOL_QR_CODE"),
+]:
+    _cid = CUSTOM_EMOJI_REGISTRY.get(_reg_key, {}).get("id", "")
+    if _cid and str(_cid).strip().isdigit():
+        PRIMARY_FALLBACK_TO_ID[_fb] = int(str(_cid).strip())
+
 
 FALLBACK_TO_ID = {}
 for val in EMOJI_MAP.values():
@@ -3071,32 +3060,32 @@ def create_ytbot():
         try:
             url = get_auth_url(message.from_user.id)
             text = (
-                "🔗 **YouTube kanalingizni ulash uchun quyidagi linkni bosing:**\n\n"
-                f"[➡️ Google orqali ruxsat berish]({url})\n\n"
-                "**Qadamlar:**\n"
-                "1️⃣ Yuqoridagi linkni bosing\n"
-                "2️⃣ YouTube kanalingiz bor Gmail akkauntni tanlang\n"
-                "3️⃣ \"Allow\" (Ruxsat berish) tugmasini bosing\n"
-                "4️⃣ Avtomatik ulanadi — bu yerga qaytib xabar keladi!\n\n"
-                "_Ruxsat berganingizdan so'ng, bot avtomatik xabar yuboradi._"
+                f"{ce('MEDIA_YOUTUBE')} <b>YouTube kanalingizni ulash uchun quyidagi linkni bosing:</b>\n\n"
+                f"<a href=\"{url}\">Google orqali ruxsat berish</a>\n\n"
+                f"<b>Qadamlar:</b>\n"
+                f"{ce('NUM_STEP_1')} Yuqoridagi linkni bosing\n"
+                f"{ce('NUM_STEP_2')} YouTube kanalingiz bor Gmail akkauntni tanlang\n"
+                f"{ce('NUM_STEP_3')} \"Allow\" (Ruxsat berish) tugmasini bosing\n"
+                f"{ce('NUM_STEP_4')} Avtomatik ulanadi — bu yerga qaytib xabar keladi!\n\n"
+                f"<i>Ruxsat berganingizdan so'ng, bot avtomatik xabar yuboradi.</i>"
             )
             await message.reply_text(text, disable_web_page_preview=True)
         except Exception as e:
-            await message.reply_text(f"❌ Xatolik yuz berdi: {e}")
+            await message.reply_text(f"{ce('STATUS_ERROR')} Xatolik yuz berdi: {e}")
             
     # ==================== /setproxy & /myproxy ====================
     @bot.on_message(filters.command("setproxy"))
     async def setproxy_cmd(client, message):
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
-            await message.reply_text("❌ `Noto'g'ri format! Foydalanish: /setproxy http://ip:port yoki /setproxy socks5://user:pass@ip:port`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"{ce('STATUS_ERROR')} `Noto'g'ri format! Foydalanish: /setproxy http://ip:port yoki /setproxy socks5://user:pass@ip:port`", parse_mode=ParseMode.MARKDOWN)
             return
         proxy = args[1].strip()
         user_id = message.from_user.id
         if set_user_proxy(user_id, proxy):
-            await message.reply_text(f"✅ `Proxy muvaffaqiyatli saqlandi:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"{ce('STATUS_SUCCESS')} `Proxy muvaffaqiyatli saqlandi:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
         else:
-            await message.reply_text("❌ `Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"{ce('STATUS_ERROR')} `Bazaga saqlashda xatolik yuz berdi.`", parse_mode=ParseMode.MARKDOWN)
 
     @bot.on_message(filters.command("myproxy"))
     async def myproxy_cmd(client, message):
@@ -3131,37 +3120,37 @@ def create_ytbot():
             
         wallet_address = args[1].strip()
         if len(wallet_address) < 24:
-            await message.reply_text("❌ Noto'g'ri TON hamyon manzili! Manzil uzunligi kamida 24 belgi bo'lishi kerak.")
+            await message.reply_text(f"{ce('STATUS_ERROR')} Noto'g'ri TON hamyon manzili! Manzil uzunligi kamida 24 belgi bo'lishi kerak.")
             return
             
         if set_ton_wallet(wallet_address):
             await message.reply_text(
-                f"✅ <b>TON / GRAM hamyon manzili muvaffaqiyatli saqlandi!</b>\n\n"
-                f"💎 <b>Manzil:</b> <code>{wallet_address}</code>\n\n"
-                f"🚀 Endi foydalanuvchilar GRAM (TON) orqali to'lov qilganda ushbu manzil va Tonkeeper / Telegram Wallet havolasi avtomatik ko'rsatiladi."
+                f"{ce('STATUS_SUCCESS')} <b>TON / GRAM hamyon manzili muvaffaqiyatli saqlandi!</b>\n\n"
+                f"{ce('PAY_TON_CRYPTO')} <b>Manzil:</b> <code>{wallet_address}</code>\n\n"
+                f"{ce('STATUS_LIGHTNING')} Endi foydalanuvchilar GRAM (TON) orqali to'lov qilganda ushbu manzil va Tonkeeper / Telegram Wallet havolasi avtomatik ko'rsatiladi."
             )
         else:
-            await message.reply_text("❌ Bazaga saqlashda xatolik yuz berdi.")
+            await message.reply_text(f"{ce('STATUS_ERROR')} Bazaga saqlashda xatolik yuz berdi.")
 
     @bot.on_message(filters.command("myton"))
     async def myton_cmd(client, message):
         curr = get_ton_wallet()
         if curr:
-            await message.reply_text(f"💎 <b>O'rnatilgan TON / GRAM hamyon manzili:</b>\n<code>{curr}</code>")
+            await message.reply_text(f"{ce('PAY_TON_CRYPTO')} <b>O'rnatilgan TON / GRAM hamyon manzili:</b>\n<code>{curr}</code>")
         else:
-            await message.reply_text("ℹ️ TON hamyon manzili hali o'rnatilmagan. O'rnatish: <code>/setton &lt;manzil&gt;</code>")
+            await message.reply_text(f"{ce('DEV_API_DOCS')} TON hamyon manzili hali o'rnatilmagan. O'rnatish: <code>/setton &lt;manzil&gt;</code>")
 
     # ==================== /addkey & /stock (AI API Keys Do'koni) ====================
     @bot.on_message(filters.command("addkey"))
     async def addkey_cmd(client, message):
         if not check_is_admin(message.from_user):
-            await message.reply_text("⛔ Bu buyruq faqat bot administratorlari uchun!")
+            await message.reply_text(f"{ce('STATUS_WARNING')} Bu buyruq faqat bot administratorlari uchun!")
             return
             
         parts = message.text.strip().split()
         if len(parts) < 3:
             await message.reply_text(
-                "ℹ️ <b>Foydalanish:</b>\n"
+                f"{ce('DEV_API_DOCS')} <b>Foydalanish:</b>\n"
                 "<code>/addkey &lt;openrouter|gemini&gt; &lt;key1&gt; [key2 key3 ...]</code>\n\n"
                 "<b>Misollar:</b>\n"
                 "<code>/addkey openrouter sk-or-v1-xxx sk-or-v1-yyy</code>\n"
@@ -3171,7 +3160,7 @@ def create_ytbot():
             
         service = parts[1].lower()
         if service not in ("openrouter", "gemini", "groq"):
-            await message.reply_text("❌ Noto'g'ri xizmat nomi! Faqat <code>openrouter</code>, <code>gemini</code> yoki <code>groq</code> kiriting.")
+            await message.reply_text(f"{ce('STATUS_ERROR')} Noto'g'ri xizmat nomi! Faqat <code>openrouter</code>, <code>gemini</code> yoki <code>groq</code> kiriting.")
             return
             
         keys = parts[2:]
@@ -3246,38 +3235,39 @@ def create_ytbot():
         user_id = message.from_user.id
         res = get_or_create_user_api_key(user_id)
         if not res.get("ok"):
-            await message.reply_text("❌ Xatolik yuz berdi. Qayta urinib ko'ring.")
+            await message.reply_text(f"{ce('STATUS_ERROR')} Xatolik yuz berdi. Qayta urinib ko'ring.")
             return
             
         api_key = res["api_key"]
         total_reqs = res.get("total_requests", 0)
         bal = get_user_balance(user_id)
         
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-        docs_url = f"{base_domain}/api/v1/docs" if base_domain else "https://sizning-botingiz.onrender.com/api/v1/docs"
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        docs_url = f"{base_domain}/api/v1/docs"
         
         text = (
-            f"{e('API')} <b>Developer & Reseller REST API</b>\n\n"
+            f"{ce('DEV_API_KEY')} <b>Developer & Reseller REST API</b>\n\n"
             f"O'z Telegram botingiz, saytingiz yoki skriptingizni bizning bot bilan bog'lang va mahsulotlarimizni (AI kalitlar, Proxylar, YouTube buyurtmalar) to'liq avtomatlashtirilgan tarzda sotib oling!\n\n"
-            f"🔑 <b>Sizning Shaxsiy API Kalitingiz:</b>\n"
+            f"{ce('DEV_API_KEY')} <b>Sizning Shaxsiy API Kalitingiz:</b>\n"
             f"<code>{api_key}</code> <i>(Nusxalash uchun ustiga bosing)</i>\n\n"
-            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
-            f"📊 <b>Amalga oshirilgan so'rovlar:</b> <code>{total_reqs} ta</code>\n\n"
-            f"🌐 <b>API Asosiy Manzil (Base URL):</b>\n"
-            f"<code>{base_domain or 'https://...onrender.com'}/api/v1</code>\n\n"
-            f"⚡ <b>Avtorizatsiya sarlavhasi (Header):</b>\n"
+            f"{ce('PAY_HUMO_UZCARD')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
+            f"{ce('TOOL_CHART_GROWTH')} <b>Amalga oshirilgan so'rovlar:</b> <code>{total_reqs} ta</code>\n\n"
+            f"{ce('DEV_API_DOCS')} <b>API Asosiy Manzil (Base URL):</b>\n"
+            f"<code>{base_domain}/api/v1</code>\n\n"
+            f"{ce('STATUS_LIGHTNING')} <b>Avtorizatsiya sarlavhasi (Header):</b>\n"
             f"<code>Authorization: Bearer {api_key}</code>\n\n"
             f"<i>Quyidagi tugmalar orqali tayyor Python kodini olishingiz yoki kalitingizni yangilashingiz mumkin.</i>"
         )
         
         buttons = [
             [
-                InlineKeyboardButton(f"{e('REFRESH')} Kalitni yangilash (Rotate)", callback_data="api_regen"),
-                InlineKeyboardButton(f"{e('MEMO')} Python Kod Namunasi", callback_data="api_code_sample")
+                InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} Kalitni yangilash (Rotate)", callback_data="api_regen"),
+                InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Python Kod Namunasi", callback_data="api_code_sample")
+            ],
+            [
+                InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Web Dokumentatsiya (Docs)", url=docs_url)
             ]
         ]
-        if docs_url.startswith("http"):
-            buttons.append([InlineKeyboardButton(f"{e('GLOBE')} Web Dokumentatsiya (Docs)", url=docs_url)])
             
         kb = InlineKeyboardMarkup(buttons)
         await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
@@ -3287,44 +3277,45 @@ def create_ytbot():
         user_id = callback_query.from_user.id
         res = regenerate_user_api_key(user_id)
         if not res.get("ok"):
-            await callback_query.answer("❌ Xatolik yuz berdi!", show_alert=True)
+            await callback_query.answer("Xatolik yuz berdi!", show_alert=True)
             return
             
         new_key = res["api_key"]
         bal = get_user_balance(user_id)
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-        docs_url = f"{base_domain}/api/v1/docs" if base_domain else "https://sizning-botingiz.onrender.com/api/v1/docs"
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        docs_url = f"{base_domain}/api/v1/docs"
         
         text = (
-            f"{e('API')} <b>Developer & Reseller REST API</b>\n\n"
-            f"🔄 <b>Yangi API kalit yaratildi! Eski kalit bekor qilindi.</b>\n\n"
-            f"🔑 <b>Yangi Shaxsiy API Kalitingiz:</b>\n"
+            f"{ce('DEV_API_KEY')} <b>Developer & Reseller REST API</b>\n\n"
+            f"{ce('STATUS_SUCCESS')} <b>Yangi API kalit yaratildi! Eski kalit bekor qilindi.</b>\n\n"
+            f"{ce('DEV_API_KEY')} <b>Yangi Shaxsiy API Kalitingiz:</b>\n"
             f"<code>{new_key}</code> <i>(Nusxalash uchun ustiga bosing)</i>\n\n"
-            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"🌐 <b>API Asosiy Manzil (Base URL):</b>\n"
-            f"<code>{base_domain or 'https://...onrender.com'}/api/v1</code>\n\n"
-            f"⚡ <b>Header:</b>\n"
+            f"{ce('PAY_HUMO_UZCARD')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+            f"{ce('DEV_API_DOCS')} <b>API Asosiy Manzil (Base URL):</b>\n"
+            f"<code>{base_domain}/api/v1</code>\n\n"
+            f"{ce('STATUS_LIGHTNING')} <b>Header:</b>\n"
             f"<code>Authorization: Bearer {new_key}</code>"
         )
         
         buttons = [
             [
-                InlineKeyboardButton(f"{e('REFRESH')} Qayta yangilash", callback_data="api_regen"),
-                InlineKeyboardButton(f"{e('MEMO')} Python Kod Namunasi", callback_data="api_code_sample")
+                InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} Qayta yangilash", callback_data="api_regen"),
+                InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Python Kod Namunasi", callback_data="api_code_sample")
+            ],
+            [
+                InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Web Dokumentatsiya (Docs)", url=docs_url)
             ]
         ]
-        if docs_url.startswith("http"):
-            buttons.append([InlineKeyboardButton(f"{e('GLOBE')} Web Dokumentatsiya (Docs)", url=docs_url)])
             
         await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
-        await callback_query.answer("✅ API kalit muvaffaqiyatli yangilandi!")
+        await callback_query.answer("API kalit muvaffaqiyatli yangilandi!")
 
     @bot.on_callback_query(filters.regex(r"^api_code_sample$"))
     async def api_code_sample_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         res = get_or_create_user_api_key(user_id)
         api_key = res.get("api_key", "art_live_sizning_kalitingiz")
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://SIZNING_DOMAIN.onrender.com"
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
         
         sample_code = (
             f"import requests\n\n"
@@ -3347,13 +3338,13 @@ def create_ytbot():
         )
         
         text = (
-            f"🐍 <b>Reseller Bot yaratish uchun tayyor Python kodi:</b>\n\n"
+            f"{ce('DEV_CODE_SNIPPET')} <b>Reseller Bot yaratish uchun tayyor Python kodi:</b>\n\n"
             f"<pre><code class=\"language-python\">{sample_code}</code></pre>\n\n"
             f"<i>Ushbu kod orqali o'z botingizdan bizning bot bazasidagi mahsulotlarni avtomatik sotishingiz mumkin!</i>"
         )
         
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{e('BACK')} Orqaga", callback_data="api_back_info")]
+            [InlineKeyboardButton(f"{ce('BTN_HOME')} Orqaga", callback_data="api_back_info")]
         ])
         await callback_query.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
         await callback_query.answer()
@@ -3365,30 +3356,31 @@ def create_ytbot():
         api_key = res.get("api_key", "")
         total_reqs = res.get("total_requests", 0)
         bal = get_user_balance(user_id)
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-        docs_url = f"{base_domain}/api/v1/docs" if base_domain else "https://sizning-botingiz.onrender.com/api/v1/docs"
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        docs_url = f"{base_domain}/api/v1/docs"
         
         text = (
-            f"{e('API')} <b>Developer & Reseller REST API</b>\n\n"
+            f"{ce('DEV_API_KEY')} <b>Developer & Reseller REST API</b>\n\n"
             f"O'z Telegram botingiz, saytingiz yoki skriptingizni bizning bot bilan bog'lang va mahsulotlarimizni (AI kalitlar, Proxylar, YouTube buyurtmalar) to'liq avtomatlashtirilgan tarzda sotib oling!\n\n"
-            f"🔑 <b>Sizning Shaxsiy API Kalitingiz:</b>\n"
+            f"{ce('DEV_API_KEY')} <b>Sizning Shaxsiy API Kalitingiz:</b>\n"
             f"<code>{api_key}</code> <i>(Nusxalash uchun ustiga bosing)</i>\n\n"
-            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
-            f"📊 <b>Amalga oshirilgan so'rovlar:</b> <code>{total_reqs} ta</code>\n\n"
-            f"🌐 <b>API Asosiy Manzil (Base URL):</b>\n"
-            f"<code>{base_domain or 'https://...onrender.com'}/api/v1</code>\n\n"
-            f"⚡ <b>Avtorizatsiya sarlavhasi (Header):</b>\n"
+            f"{ce('PAY_HUMO_UZCARD')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
+            f"{ce('TOOL_CHART_GROWTH')} <b>Amalga oshirilgan so'rovlar:</b> <code>{total_reqs} ta</code>\n\n"
+            f"{ce('DEV_API_DOCS')} <b>API Asosiy Manzil (Base URL):</b>\n"
+            f"<code>{base_domain}/api/v1</code>\n\n"
+            f"{ce('STATUS_LIGHTNING')} <b>Avtorizatsiya sarlavhasi (Header):</b>\n"
             f"<code>Authorization: Bearer {api_key}</code>\n\n"
             f"<i>Quyidagi tugmalar orqali tayyor Python kodini olishingiz yoki kalitingizni yangilashingiz mumkin.</i>"
         )
         buttons = [
             [
-                InlineKeyboardButton(f"{e('REFRESH')} Kalitni yangilash (Rotate)", callback_data="api_regen"),
-                InlineKeyboardButton(f"{e('MEMO')} Python Kod Namunasi", callback_data="api_code_sample")
+                InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} Kalitni yangilash (Rotate)", callback_data="api_regen"),
+                InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Python Kod Namunasi", callback_data="api_code_sample")
+            ],
+            [
+                InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Web Dokumentatsiya (Docs)", url=docs_url)
             ]
         ]
-        if docs_url.startswith("http"):
-            buttons.append([InlineKeyboardButton(f"{e('GLOBE')} Web Dokumentatsiya (Docs)", url=docs_url)])
             
         await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
         await callback_query.answer()
@@ -4260,18 +4252,18 @@ def create_ytbot():
     @bot.on_message(filters.command(["dashboard", "devpanel"]))
     async def dashboard_cmd(client, message):
         user_id = message.from_user.id
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
-        dash_url = f"{base_domain}/dashboard?user_id={user_id}" if base_domain else f"https://sizning-botingiz.onrender.com/dashboard?user_id={user_id}"
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        dash_url = f"{base_domain}/dashboard?user_id={user_id}"
         
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📊 Dashboard Mini App ni ochish", web_app=WebAppInfo(url=dash_url))]
+            [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Dashboard Mini App ni ochish", web_app=WebAppInfo(url=dash_url))]
         ])
         await message.reply_text(
-            "📊 <b>Developer & Reseller Dashboard Mini App</b>\n\n"
+            f"{ce('BTN_DASHBOARD')} <b>Developer & Reseller Dashboard Mini App</b>\n\n"
             "Telegram ichida to'liq interaktiv boshqaruv paneli:\n"
-            "• Jonli balans va so'rovlar grafigi\n"
-            "• API kalitni nusxalash va boshqarish\n"
-            "• 💎 <b>TON</b> va ⭐ <b>Telegram Stars</b> orqali 1-klikda to'ldirish\n\n"
+            f"• {ce('TOOL_CHART_GROWTH')} Jonli balans va so'rovlar grafigi\n"
+            f"• {ce('DEV_API_KEY')} API kalitni nusxalash va boshqarish\n"
+            f"• {ce('PAY_TON_CRYPTO')} <b>TON</b> va {ce('PAY_STARS')} <b>Telegram Stars</b> orqali 1-klikda to'ldirish\n\n"
             "<i>Pastdagi tugmani bosing:</i>",
             reply_markup=kb
         )
@@ -5095,12 +5087,12 @@ def create_ytbot():
         )
         await message.reply_text(text, reply_markup=back_main_kb(), parse_mode=ParseMode.MARKDOWN)
     
-    # ==================== /milestone ====================
-    @bot.on_message(filters.command("milestone"))
+    # ==================== /milestone & /goal ====================
+    @bot.on_message(filters.command(["milestone", "goal", "target"]))
     async def milestone_cmd(client, message):
         args = message.text.split(maxsplit=1)
         if len(args) < 2:
-            await message.reply_text("Foydalanish: `/milestone <kanal>`", parse_mode=ParseMode.MARKDOWN)
+            await message.reply_text(f"{ce('TOOL_GOAL')} Foydalanish: `/goal <kanal>` yoki `/milestone <kanal>`", parse_mode=ParseMode.MARKDOWN)
             return
         ch = get_channel(extract_channel_id(args[1]))
         if not ch:
@@ -5114,27 +5106,50 @@ def create_ytbot():
                 next_m = m
                 break
         
-        text = f"**{ch['snippet']['title']}** - Milestone\n\n{'='*28}\n\n"
-        text += f"Hozirgi obunachilar: **{fmt_full(subs)}**\n\n"
+        text = f"{ce('TOOL_GOAL')} <b>{ch['snippet']['title']}</b> - Maqsad & Milestone\n\n{'='*28}\n\n"
+        text += f"Hozirgi obunachilar: <b>{fmt_full(subs)}</b>\n\n"
         if next_m:
             remaining = next_m - subs
             progress = (subs / next_m) * 100
             bar_len = 20
             filled = int(bar_len * progress / 100)
-            bar = "|" * filled + "." * (bar_len - filled)
-            text += f"Keyingi milestone: **{fmt(next_m)}**\n"
-            text += f"Qoldi: **{fmt_full(remaining)}** obunachi\n"
-            text += f"Progress: `[{bar}]` {progress:.1f}%\n"
+            bar = "█" * filled + "░" * (bar_len - filled)
+            text += f"Keyingi nishon (Milestone): <b>{fmt(next_m)}</b>\n"
+            text += f"Qoldi: <b>{fmt_full(remaining)}</b> obunachi\n"
+            text += f"Progress: <code>[{bar}]</code> {progress:.1f}%\n"
         else:
-            text += "Barcha asosiy milestonelarni qo'lga kiritgan!"
+            text += f"{ce('STATUS_SUCCESS')} Barcha asosiy milestonelarni qo'lga kiritgan!"
         
         # O'tilgan milestonlar
         passed = [m for m in milestones if subs >= m]
         if passed:
-            text += f"\n\nO'tilgan milestonelar: "
-            text += ", ".join([f"`{fmt(m)}`" for m in passed])
+            text += f"\n\nO'tilgan marralar: "
+            text += ", ".join([f"<code>{fmt(m)}</code>" for m in passed])
         
-        await message.reply_text(text, reply_markup=back_main_kb(), parse_mode=ParseMode.MARKDOWN)
+        await message.reply_text(text, reply_markup=back_main_kb())
+
+    # ==================== /boost ====================
+    @bot.on_message(filters.command(["boost", "raketa", "tezlashtirish"]))
+    async def boost_cmd(client, message):
+        text = (
+            f"{ce('TOOL_BOOST')} <b>Kanal va Postlarni Tezlashtirish (/boost)</b>\n\n"
+            f"Kanal obunachilari, ko'rishlar va likelarni bir zumda oshirish uchun rasmiy tezkor vositalar:\n\n"
+            f"• {ce('TOOL_LIKES')} <b>Layk:</b> <code>500 so'm / dona</code>\n"
+            f"• {ce('TOOL_SUBS')} <b>Obuna:</b> <code>1,000 so'm / dona</code>\n"
+            f"• {ce('TOOL_COMMENTS')} <b>Izoh:</b> <code>300 so'm / dona</code>\n"
+            f"• {ce('TOOL_GOAL')} <b>Maqsad (Target):</b> <code>/goal &lt;kanal&gt;</code>\n"
+            f"• {ce('TOOL_CHART_GROWTH')} <b>O'sish dinamikasi:</b> <code>/growth &lt;kanal&gt;</code>\n\n"
+            f"<i>Kerakli xizmat turini tanlang:</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('TOOL_LIKES')} Layk sotib olish", callback_data="mkt_order_like"),
+             InlineKeyboardButton(f"{ce('TOOL_SUBS')} Obunachi sotib olish", callback_data="mkt_order_subscribe")],
+            [InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} Izoh sotib olish", callback_data="mkt_order_comment")],
+            [InlineKeyboardButton(f"{ce('BTN_SERVICES')} Barcha Xizmatlar", callback_data="menu_marketplace"),
+             InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh Menyu", callback_data="back_main")]
+        ])
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
+
     
     # ==================== /report ====================
     @bot.on_message(filters.command("report"))
@@ -7821,14 +7836,8 @@ def create_ytbot():
             stock = p.get("stock")
             in_stock = (stock is None or stock > 0)
 
-            brand_icon_id = None
-            for brand, emoji_id in BRAND_EMOJIS_MAP.items():
-                if brand in name.lower():
-                    brand_icon_id = emoji_id
-                    break
-
             if in_stock:
-                tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
+                tag = f"{get_brand_emoji(name)} "
                 stock_str = f"({stock} ta)" if stock is not None else ""
                 btn_txt = f"{name} | {price_uzs:,} so'm {stock_str}".strip()
                 b = InlineKeyboardButton(f"{tag}{btn_txt}", callback_data=f"vb_item_{p_id}_{cat}")
@@ -7910,12 +7919,7 @@ def create_ytbot():
         stock_str = f"{stock} ta mavjud" if stock is not None else "Avtomatik zaxira"
         delivery_str = "Tezkor zaxira (Stock)" if delivery_type == "stock" else "Akkaunt aktivatsiyasi"
 
-        brand_icon_id = None
-        for brand, emoji_id in BRAND_EMOJIS_MAP.items():
-            if brand in name.lower():
-                brand_icon_id = emoji_id
-                break
-        icon_tag = f'<emoji id="{brand_icon_id}">⚡</emoji> ' if brand_icon_id else f"{ce('BOX')} "
+        icon_tag = f"{get_brand_emoji(name)} "
 
         text = (
             f"{icon_tag}<b>Mahsulot:</b> {name}\n"

@@ -7242,6 +7242,54 @@ def cancel_db_case_battle(battle_id: str, host_id: int) -> dict:
         conn.close()
 
 
+def set_reseller_webhook(tg_user_id: int, webhook_url: str, secret_token: str = None) -> bool:
+    """Reseller/Developer uchun tashqi webhook URL manzilini saqlash"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO reseller_webhooks (tg_user_id, webhook_url, secret_token, is_active, expires_at)
+            VALUES (%s, %s, %s, TRUE, NOW() + INTERVAL '30 days')
+            ON CONFLICT (tg_user_id) DO UPDATE SET
+                webhook_url = EXCLUDED.webhook_url,
+                secret_token = EXCLUDED.secret_token,
+                is_active = TRUE,
+                expires_at = NOW() + INTERVAL '30 days'
+        """, (tg_user_id, webhook_url, secret_token))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"set_reseller_webhook error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_reseller_webhook(tg_user_id: int) -> dict:
+    """Foydalanuvchining o'rnatilgan webhook ma'lumotlarini olish"""
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT webhook_url, secret_token, is_active, expires_at, created_at
+            FROM reseller_webhooks
+            WHERE tg_user_id = %s
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_reseller_webhook error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+
 
 
 

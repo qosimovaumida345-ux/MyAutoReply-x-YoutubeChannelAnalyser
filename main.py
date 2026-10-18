@@ -1730,15 +1730,13 @@ async def handle_api_stars_live_gifts(request):
 
 async def handle_api_stars_cases(request):
     """5 Tier Telegram Stars Mystery Cases ma'lumotlari (Telegram serveridan jonli)"""
-    from games_monetization import fetch_telegram_server_gifts, build_cases_from_gifts
-    from config import BOT_TOKEN
-    server_gifts = await fetch_telegram_server_gifts(BOT_TOKEN)
-    cases_dict = build_cases_from_gifts(server_gifts)
+    from games_monetization import build_cases_from_gifts
+    cases_dict = build_cases_from_gifts()
     return web.json_response(
         {"ok": True, "cases": list(cases_dict.values())},
         headers={
             "Access-Control-Allow-Origin": "*",
-            "Cache-Control": "no-cache, no-store, must-revalidate"
+            "Cache-Control": "public, max-age=30"
         }
     )
 
