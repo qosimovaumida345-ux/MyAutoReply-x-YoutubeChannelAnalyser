@@ -10,8 +10,8 @@ def get_privacy_html():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy | CreatorFlow Studio</title>
-    <meta name="description" content="Privacy Policy for CreatorFlow Studio, detailing Google OAuth 2.0, YouTube Data API usage, data protection, and Google API Services User Data Policy compliance.">
+    <title>Privacy Policy | Bot Client</title>
+    <meta name="description" content="Privacy Policy for Bot Client (CreatorFlow Studio), detailing Google OAuth 2.0, YouTube Data API usage, data protection, and Google API Services User Data Policy compliance.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -280,8 +280,8 @@ def get_privacy_html():
                     </svg>
                 </div>
                 <div>
-                    <span class="brand-text">CreatorFlow</span>
-                    <span class="brand-tag">Studio</span>
+                    <span class="brand-text">Bot Client</span>
+                    <span class="brand-tag">CreatorFlow Studio</span>
                 </div>
             </a>
             
@@ -312,7 +312,7 @@ def get_privacy_html():
                 </div>
                 <h1>Privacy Policy</h1>
                 <div class="meta-info">
-                    <span>Application: <strong>CreatorFlow Studio</strong></span>
+                    <span>Application: <strong>Bot Client (CreatorFlow Studio)</strong></span>
                     <span>Last Updated: <strong>October 18, 2026</strong></span>
                     <span>Domain: <strong>botclient-d1jn.onrender.com</strong></span>
                 </div>
@@ -329,17 +329,17 @@ def get_privacy_html():
                     Google API Services User Data Policy Compliance
                 </h4>
                 <p>
-                    <strong>CreatorFlow Studio's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong>
+                    <strong>Bot Client's (operating as CreatorFlow Studio) use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong>
                 </p>
             </div>
 
             <div class="section-card">
                 <h2>1. Introduction & Overview</h2>
                 <p>
-                    CreatorFlow Studio ("we", "us", or "our") operates the web application and automation services accessible at <strong>https://botclient-d1jn.onrender.com</strong> and the associated Telegram user automation studio. This Privacy Policy outlines our commitment to protecting your personal information and explains how we access, collect, process, and safeguard data when you use our services.
+                    Bot Client ("CreatorFlow Studio", "we", "us", or "our") operates the web application and automation services accessible at <strong>https://botclient-d1jn.onrender.com</strong> and the associated Telegram user automation studio. This Privacy Policy outlines our commitment to protecting your personal information and explains how we access, collect, process, and safeguard data when you use our services.
                 </p>
                 <p>
-                    By connecting your Google Account or utilizing CreatorFlow Studio, you consent to the data practices described in this document. If you do not agree with any part of this policy, please do not authorize the application or immediately revoke access via your Google Security settings.
+                    By connecting your Google Account or utilizing Bot Client, you consent to the data practices described in this document. If you do not agree with any part of this policy, please do not authorize the application or immediately revoke access via your Google Security settings.
                 </p>
             </div>
 
@@ -667,8 +667,8 @@ def get_terms_html():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terms of Service | CreatorFlow Studio</title>
-    <meta name="description" content="Terms of Service for CreatorFlow Studio, governing platform usage, YouTube API compliance, and creator automation tools.">
+    <title>Terms of Service | Bot Client</title>
+    <meta name="description" content="Terms of Service for Bot Client (CreatorFlow Studio), governing platform usage, YouTube API compliance, and creator automation tools.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -914,8 +914,8 @@ def get_terms_html():
                     </svg>
                 </div>
                 <div>
-                    <span class="brand-text">CreatorFlow</span>
-                    <span class="brand-tag">Studio</span>
+                    <span class="brand-text">Bot Client</span>
+                    <span class="brand-tag">CreatorFlow Studio</span>
                 </div>
             </a>
             
@@ -941,7 +941,7 @@ def get_terms_html():
                 <div class="badge">Legal Agreement & Service Terms</div>
                 <h1>Terms of Service</h1>
                 <div class="meta-info">
-                    <span>Application: <strong>CreatorFlow Studio</strong></span>
+                    <span>Application: <strong>Bot Client (CreatorFlow Studio)</strong></span>
                     <span>Last Updated: <strong>October 18, 2026</strong></span>
                     <span>Domain: <strong>botclient-d1jn.onrender.com</strong></span>
                 </div>
@@ -951,14 +951,14 @@ def get_terms_html():
             <div class="highlight-box">
                 <h4>YouTube API Services Terms of Service Agreement</h4>
                 <p>
-                    CreatorFlow Studio utilizes YouTube API Services to provide analytics and automation tools. By utilizing YouTube features within CreatorFlow Studio, users agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">YouTube Terms of Service</a> and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google Privacy Policy</a>.
+                    Bot Client (CreatorFlow Studio) utilizes YouTube API Services to provide analytics and automation tools. By utilizing YouTube features within Bot Client, users agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">YouTube Terms of Service</a> and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google Privacy Policy</a>.
                 </p>
             </div>
 
             <div class="section-card">
                 <h2>1. Acceptance of Terms</h2>
                 <p>
-                    By accessing or using CreatorFlow Studio (the "Service") hosted at <strong>https://botclient-d1jn.onrender.com</strong>, you agree to comply with and be legally bound by these Terms of Service ("Terms"). If you do not agree to these terms, you may not access or use the Service.
+                    By accessing or using Bot Client ("CreatorFlow Studio", the "Service") hosted at <strong>https://botclient-d1jn.onrender.com</strong>, you agree to comply with and be legally bound by these Terms of Service ("Terms"). If you do not agree to these terms, you may not access or use the Service.
                 </p>
             </div>
 

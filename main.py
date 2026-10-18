@@ -461,6 +461,16 @@ async def handle_terms_page(request):
     )
 
 
+async def handle_google_verification(request):
+    """Google Search Console Site Verification file handler"""
+    filename = request.match_info.get("filename", "")
+    import os
+    if os.path.exists(filename):
+        with open(filename, "r", encoding="utf-8") as f:
+            return web.Response(text=f.read(), content_type="text/html")
+    return web.Response(text=f"google-site-verification: {filename}", content_type="text/html")
+
+
 # ==================== STATS CACHE (YouTube API quota tejash uchun) ====================
 import time as _time
 _stats_cache = {}  # {tg_user_id: {"data": ..., "ts": time}}
@@ -3031,6 +3041,8 @@ async def start_web_server(port):
     app.router.add_get("/terms", handle_terms_page)
     app.router.add_get("/terms-of-service", handle_terms_page)
     app.router.add_get("/terms.html", handle_terms_page)
+    # Google Search Console Domain Verification File Handler
+    app.router.add_get(r"/{filename:google[a-zA-Z0-9_\-]+\.html}", handle_google_verification)
     # Client-side SPA routes for /goal, /boost, /teamwork-preview
     app.router.add_get("/goal", handle_health)
     app.router.add_get("/boost", handle_health)
