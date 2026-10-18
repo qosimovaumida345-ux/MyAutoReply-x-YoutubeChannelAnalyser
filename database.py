@@ -1176,6 +1176,37 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_case_battles_status ON pvp_case_battles(status)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_pvp_case_battles_host ON pvp_case_battles(host_id)")
 
+    # Reseller White-Label Botlar jadvali
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS reseller_white_label_bots (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            bot_token VARCHAR(255) NOT NULL UNIQUE,
+            bot_id BIGINT,
+            bot_username VARCHAR(128),
+            brand_name VARCHAR(128),
+            custom_margin_percent INTEGER DEFAULT 10,
+            webhook_url TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_reseller_bots_user ON reseller_white_label_bots(tg_user_id)")
+
+    # API Metered Usage (Pay-As-You-Go mikro-tranzaksiyalar auditi)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS api_metered_usage (
+            id SERIAL PRIMARY KEY,
+            tg_user_id BIGINT NOT NULL,
+            endpoint VARCHAR(128) NOT NULL,
+            cost_uzs BIGINT NOT NULL,
+            status VARCHAR(32) DEFAULT 'success',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_api_metered_usage_user ON api_metered_usage(tg_user_id)")
+
     conn.commit()
     cur.close()
     conn.close()
@@ -7554,6 +7585,79 @@ def get_reseller_webhook(tg_user_id: int) -> dict:
         return None
     finally:
         conn.close()
+
+
+def save_reseller_white_label_bot(tg_user_id: int, bot_token: str, bot_id: int, bot_username: str, brand_name: str = None, custom_margin_percent: int = 10) -> bool:
+    """Reseller White-label bot ma'lumotlarini saqlash yoki yangilash"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO reseller_white_label_bots (tg_user_id, bot_token, bot_id, bot_username, brand_name, custom_margin_percent, is_active, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, TRUE, NOW())
+            ON CONFLICT (bot_token) DO UPDATE SET
+                tg_user_id = EXCLUDED.tg_user_id,
+                bot_id = EXCLUDED.bot_id,
+                bot_username = EXCLUDED.bot_username,
+                brand_name = EXCLUDED.brand_name,
+                custom_margin_percent = EXCLUDED.custom_margin_percent,
+                is_active = TRUE,
+                updated_at = NOW()
+        """, (tg_user_id, bot_token, bot_id, bot_username, brand_name, custom_margin_percent))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"save_reseller_white_label_bot error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_reseller_white_label_bots(tg_user_id: int) -> list:
+    """Foydalanuvchiga tegishli barcha ulangan white-label botlar ro'yxati"""
+    conn = get_db()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, bot_id, bot_username, brand_name, custom_margin_percent, webhook_url, is_active, created_at, updated_at
+            FROM reseller_white_label_bots
+            WHERE tg_user_id = %s
+            ORDER BY id DESC
+        """, (tg_user_id,))
+        rows = cur.fetchall()
+        return [dict(r) for r in rows] if rows else []
+    except Exception as e:
+        print(f"get_reseller_white_label_bots error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def record_api_metered_usage(tg_user_id: int, endpoint: str, cost_uzs: int, status: str = "success") -> bool:
+    """Pay-As-You-Go API chaqiruvlari auditi va mikro-xarajatlarini muhrlash"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO api_metered_usage (tg_user_id, endpoint, cost_uzs, status, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
+        """, (tg_user_id, endpoint, cost_uzs, status))
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"record_api_metered_usage error: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 
 

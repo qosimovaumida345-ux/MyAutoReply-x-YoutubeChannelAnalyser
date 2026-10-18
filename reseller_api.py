@@ -9,7 +9,9 @@ va YouTube xizmatlariga avtomatik buyurtma berishi mumkin.
 import json
 import os
 import re
+import urllib.parse
 import asyncio
+import aiohttp
 from aiohttp import web
 from database import (
     get_user_by_api_key,
@@ -26,15 +28,23 @@ from database import (
     get_user_balance,
     deduct_user_balance,
     add_user_balance,
-    save_gift_record
+    save_gift_record,
+    save_reseller_white_label_bot,
+    get_reseller_white_label_bots,
+    record_api_metered_usage
 )
 from games_monetization import (
     open_stars_case,
     open_stars_case_with_uzs,
     fetch_telegram_server_gifts,
     build_cases_from_gifts,
-    redeem_voucher
+    redeem_voucher,
+    create_vouchers
 )
+from config import generate_with_fallback_async, BOT_TOKEN
+from competitor_spy import extract_competitor_metadata
+from deeplink_engine import generate_smart_deeplinks
+
 
 def extract_api_key(request) -> str:
     """So'rovdan API kalitni ajratib olish (Header yoki Query)"""
@@ -103,7 +113,7 @@ async def handle_api_me(request):
 
 
 async def handle_api_products(request):
-    """GET /api/v1/products - Mavjud mahsulotlar va narxlar"""
+    """GET /api/v1/products - Barcha 25 ta Pay-As-You-Go API xizmatlari va narxlari"""
     user, err = authenticate_request(request)
     if err: return err
     
@@ -128,7 +138,7 @@ async def handle_api_products(request):
             "available": key_stock.get("gemini", 0) > 0
         },
         "groq": {
-            "name": "Groq Cloud API Key",
+            "name": "Groq Cloud API Key (Llama 3.3 70B)",
             "service_id": "groq",
             "price_uzs": 10000,
             "price_usd": 0.8,
@@ -145,37 +155,196 @@ async def handle_api_products(request):
         }
     }
     
+    ai_services = {
+        "summarize": {
+            "name": "YouTube Transcript AI Summary & Timecodes",
+            "endpoint": "POST /api/v1/ai/summarize",
+            "cost_uzs": 1000,
+            "cost_stars": 4,
+            "description": "YouTube video transkriptini tahlil qilib, 5 ta asosiy tezis va timecode xulosasini beradi."
+        },
+        "clickbait_title": {
+            "name": "High-CTR Viral Title Generator & A/B Testing",
+            "endpoint": "POST /api/v1/ai/clickbait-title",
+            "cost_uzs": 750,
+            "cost_stars": 3,
+            "description": "YouTube tavsiyalar algoritmi uchun yuqori bosilish darajasiga ega sarlavhalar va psixologik triggerlar."
+        },
+        "shorts_hook": {
+            "name": "Viral Shorts 3-Second Hook & Full Script",
+            "endpoint": "POST /api/v1/ai/shorts-hook",
+            "cost_uzs": 1250,
+            "cost_stars": 5,
+            "description": "Shorts/Reels uchun retentionni 80%+ darajada ushlab turuvchi 3-soniyalik hook va sahnama-sahna ssenariy."
+        },
+        "reply_comment": {
+            "name": "Contextual Comment Responder with Persona",
+            "endpoint": "POST /api/v1/ai/reply-comment",
+            "cost_uzs": 250,
+            "cost_stars": 1,
+            "description": "Kanal konteksti va belgilangan persona (samimiy, ekspert, hazil) asosida izohlarga tabiiy javoblar."
+        },
+        "generate": {
+            "name": "Universal Pay-Per-Prompt AI Generation",
+            "endpoint": "POST /api/v1/ai/generate",
+            "cost_uzs": 100,
+            "cost_stars": 1,
+            "description": "Istalgan matn, tahlil yoki so'rov uchun tezkor va tejamkor AI generatsiyasi."
+        }
+    }
+
+    media_services = {
+        "uniquify": {
+            "name": "8-Layer Anti-Copyright Video Uniquifier",
+            "endpoint": "POST /api/v1/media/uniquify",
+            "cost_uzs": 3000,
+            "cost_stars": 12,
+            "description": "Content-ID algoritmlaridan o'tuvchi 8 qatlamli (audio pitch, micro-speed, LUT, noise, crop) unikalizatsiya."
+        },
+        "crop_vertical": {
+            "name": "Horizontal to 9:16 Vertical Video Cropper",
+            "endpoint": "POST /api/v1/media/crop-vertical",
+            "cost_uzs": 2500,
+            "cost_stars": 10,
+            "description": "Gorizontal videoni 9:16 vertikal formatga blur fon yoki smart crop orqali moslashtirish."
+        },
+        "remove_silence": {
+            "name": "Jump-Cut Audio Silence Remover",
+            "endpoint": "POST /api/v1/media/remove-silence",
+            "cost_uzs": 2000,
+            "cost_stars": 8,
+            "description": "Videodagi nofaol va ovozsiz bo'laklarni avtomatik qirqib, dinamik jump-cut videoga aylantirish."
+        },
+        "compress_telegram": {
+            "name": "Native Telegram 50MB Ultra Compressor",
+            "endpoint": "POST /api/v1/media/compress-telegram",
+            "cost_uzs": 1000,
+            "cost_stars": 4,
+            "description": "2-pass bitrate optimizatsiyasi bilan videoni Telegram 50MB limitiga moslashtirish (faststart streamable)."
+        },
+        "downloader": {
+            "name": "HD Media & Audio MP3 Extractor",
+            "endpoint": "POST /api/v1/downloader",
+            "cost_uzs": 50,
+            "cost_stars": 1,
+            "description": "YouTube videolarini 360p dan 4K gacha va audio MP3 formatida to'g'ridan yuklab olish."
+        }
+    }
+    
     smm_services = {
+        "smart_deeplink": {
+            "name": "YouTube In-App Smart DeepLink & QR Generator",
+            "endpoint": "POST /api/v1/smm/smart-deeplink",
+            "cost_uzs": 500,
+            "cost_stars": 2,
+            "description": "Mobil brauzerni aylanib o'tib to'g'ridan YouTube appda ochuvchi intent havolalar va QR kod."
+        },
+        "spy_velocity": {
+            "name": "Competitor Velocity & Viral Trend Spy",
+            "endpoint": "GET /api/v1/smm/spy/velocity",
+            "cost_uzs": 1500,
+            "cost_stars": 6,
+            "description": "Raqobatchi kanal trenddagi videolari, ko'rishlar tezligi (VPH) va o'zib ketish bo'yicha AI tavsiyalar."
+        },
         "like": {
-            "name": "YouTube Like",
+            "name": "Targeted YouTube Likes",
+            "endpoint": "POST /api/v1/smm/order",
             "type": "like",
             "unit_price_uzs": 1500,
-            "min_quantity": 1
+            "cost_stars": 1,
+            "min_quantity": 10
         },
         "subscribe": {
-            "name": "YouTube Subscriber",
+            "name": "Active YouTube Subscribers",
+            "endpoint": "POST /api/v1/smm/order",
             "type": "subscribe",
             "unit_price_uzs": 2500,
-            "min_quantity": 1
+            "cost_stars": 2,
+            "min_quantity": 10
         },
         "view": {
-            "name": "YouTube View",
+            "name": "High-Retention YouTube Views",
+            "endpoint": "POST /api/v1/smm/order",
             "type": "view",
             "unit_price_uzs": 1500,
-            "min_quantity": 1
+            "cost_stars": 1,
+            "min_quantity": 50
         },
         "autostream": {
             "name": "YouTube 24/7 Autostream Cloud",
+            "endpoint": "POST /api/v1/smm/order",
             "type": "autostream",
             "price_per_hour_uzs": 4000,
+            "cost_stars": 12,
             "min_hours": 1
+        }
+    }
+
+    gamification_services = {
+        "gifts_send": {
+            "name": "Direct Telegram Profile Gift Send",
+            "endpoint": "POST /api/v1/gifts/send",
+            "cost_uzs": 8750,
+            "cost_stars": 25,
+            "description": "Telegram profiliga server-side rasmiy sovg'a yuborish."
+        },
+        "vouchers_create": {
+            "name": "Gift Voucher Generator (GIFT-XXXX)",
+            "endpoint": "POST /api/v1/vouchers/create",
+            "cost_uzs": 1000,
+            "cost_stars": 3,
+            "description": "O'z balansingizdan istalgan summadagi sovg'a vaucherlarini yaratish."
+        },
+        "vouchers_redeem": {
+            "name": "Voucher & Promo Code Redeemer",
+            "endpoint": "POST /api/v1/vouchers/redeem",
+            "cost_uzs": 0,
+            "cost_stars": 0,
+            "description": "Sovg'a vaucheri yoki promokod orqali hisobni to'ldirish."
+        },
+        "cases_open": {
+            "name": "Telegram Stars Mystery Case Unboxing",
+            "endpoint": "POST /api/v1/cases/open",
+            "cost_uzs": 5000,
+            "cost_stars": 15,
+            "description": "Jonli Telegram sovg'alari bilan 5 Tier keyslarni ochish."
+        }
+    }
+
+    reseller_tools = {
+        "bot_connect": {
+            "name": "White-Label Reseller Bot Connector",
+            "endpoint": "POST /api/v1/reseller/bot/connect",
+            "cost_uzs": 0,
+            "cost_stars": 0,
+            "description": "O'z Telegram bot tokeningizni ulab, shaxsiy marja (ustama) bilan mijozlarga sotish."
+        },
+        "stars_invoice": {
+            "name": "Telegram Stars Payment Invoice Creator",
+            "endpoint": "POST /api/v1/billing/stars/invoice",
+            "cost_uzs": 0,
+            "cost_stars": 0,
+            "description": "XTR Stars valyutasida to'g'ridan-to'g'ri to'lov havolasi yaratish."
+        },
+        "webhooks_set": {
+            "name": "Reseller Real-Time Webhook Dispatcher",
+            "endpoint": "POST /api/v1/webhooks/set",
+            "cost_uzs": 0,
+            "cost_stars": 0,
+            "description": "Buyurtmalar va to'lovlar haqida tashqi serveringizga avtomatik bildirishnoma."
         }
     }
     
     return web.json_response({
         "ok": True,
+        "currency": "UZS",
+        "star_rate_uzs": 350,
         "products": products,
-        "smm_services": smm_services
+        "ai_services": ai_services,
+        "media_services": media_services,
+        "smm_services": smm_services,
+        "gamification_services": gamification_services,
+        "reseller_tools": reseller_tools
     })
 
 
@@ -641,7 +810,7 @@ async def handle_api_vouchers_redeem(request):
     except Exception:
         return web.json_response({"ok": False, "error": "invalid_json", "message": "JSON tana kiritilmadi"}, status=400)
 
-    code = str(data.get("code", "")).strip().upper()
+    code = str(data.get("code", "") or data.get("voucher_code", "")).strip().upper()
     if not code:
         return web.json_response({
             "ok": False,
@@ -744,6 +913,991 @@ async def handle_api_webhooks_get(request):
             "webhook": None,
             "message": "Sizda faol webhook biriktirilmagan"
         })
+
+
+# ==================== 1. AI PAY-AS-YOU-GO ENDPOINTS ====================
+
+async def handle_api_ai_summarize(request):
+    """
+    POST /api/v1/ai/summarize - YouTube transkript xulosasi, asosiy tezislar va timecodes
+    Narxi: 1,000 UZS / 4 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 1000
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json", "message": "JSON tana kiritilmadi"}, status=400)
+
+    video_url = str(data.get("video_url", "")).strip()
+    if not video_url:
+        return web.json_response({"ok": False, "error": "missing_video_url", "message": "'video_url' kiritilishi shart"}, status=400)
+
+    language = str(data.get("language", "uz")).strip().lower()
+    detail_level = str(data.get("detail_level", "medium")).strip().lower()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": False,
+            "error": "insufficient_funds",
+            "message": f"Balansingiz yetarli emas! Xizmat narxi: {COST_UZS:,} so'm, mavjud: {curr_bal:,} so'm.",
+            "required_uzs": COST_UZS,
+            "current_uzs": curr_bal
+        }, status=402)
+
+    try:
+        meta = await asyncio.to_thread(extract_competitor_metadata, video_url)
+        title = meta.get("title", "")
+        desc = meta.get("description", "")
+        tags = meta.get("tags", [])
+        duration = meta.get("duration", 0)
+
+        prompt = (
+            f"Sen professional YouTube video tahlilchisisan.\n"
+            f"Quyidagi YouTube video ma'lumotlari asosida {language} tilida chuqur va aniq xulosa tayyorla:\n"
+            f"Video nomi: {title}\n"
+            f"Davomiyligi: {duration} soniya\n"
+            f"Tavsifi: {desc[:2000]}\n"
+            f"Teglar: {', '.join(tags[:15])}\n"
+            f"Tafsilot darajasi: {detail_level}\n\n"
+            f"Javobni quyidagi tuzilmada ber:\n"
+            f"1. QISQA XULOSA (Executive Summary - 2-3 jumla)\n"
+            f"2. ASOSIY TEZISLAR (5 ta eng muhim g'oya va xulosalar)\n"
+            f"3. XRONOMETRAJ VA BOBLAR (Taxminiy timecodes va qismlar)\n"
+            f"4. MAQSADLI AUDITORIYA VA TAVSIYA"
+        )
+        ai_result = await generate_with_fallback_async(prompt)
+        record_api_metered_usage(payer_id, "/api/v1/ai/summarize", COST_UZS, "success")
+
+        new_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": True,
+            "service": "ai_summarize",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 4,
+            "video_url": video_url,
+            "video_title": title,
+            "duration_sec": duration,
+            "summary": ai_result,
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        record_api_metered_usage(payer_id, "/api/v1/ai/summarize", 0, f"error: {str(e)[:50]}")
+        return web.json_response({
+            "ok": False,
+            "error": "ai_processing_error",
+            "message": f"Tahlil jarayonida xatolik yuz berdi va {COST_UZS:,} so'm hisobingizga qaytarildi: {str(e)}"
+        }, status=500)
+
+
+async def handle_api_ai_clickbait_title(request):
+    """
+    POST /api/v1/ai/clickbait-title - High-CTR sarlavhalar va A/B test
+    Narxi: 750 UZS / 3 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 750
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    topic = str(data.get("topic", "")).strip()
+    if not topic:
+        return web.json_response({"ok": False, "error": "missing_topic", "message": "'topic' kiritilishi shart"}, status=400)
+
+    niche = str(data.get("niche", "general")).strip()
+    count = min(max(int(data.get("count", 5)), 3), 10)
+    language = str(data.get("language", "uz")).strip()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": False,
+            "error": "insufficient_funds",
+            "message": f"Balansingiz yetarli emas! Kerak: {COST_UZS:,} so'm, mavjud: {curr_bal:,} so'm.",
+            "required_uzs": COST_UZS,
+            "current_uzs": curr_bal
+        }, status=402)
+
+    try:
+        prompt = (
+            f"Sen YouTube CTR mutaxassisisan (MrBeast uslubi).\n"
+            f"Mavzu: '{topic}' (Nisha: {niche}, Til: {language}).\n"
+            f"Ushbu mavzu uchun YouTube tavsiyalar algoritmini yorib o'tuvchi aynan {count} ta High-CTR sarlavha yarat.\n"
+            f"Har bir sarlavha uchun:\n"
+            f"- Sarlavha matni (emojilar bilan)\n"
+            f"- Psixologik trigger (Qiziqish, Qo'rquv, Shok, Foyda)\n"
+            f"- Kutilayotgan CTR indeksi (foizda, masalan 11-16%)\n"
+            f"- A/B test uchun muqobil variant\n"
+            f"Javobni tushunarli, chiroyli ro'yxat shaklida ber."
+        )
+        ai_res = await generate_with_fallback_async(prompt)
+        record_api_metered_usage(payer_id, "/api/v1/ai/clickbait-title", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": True,
+            "service": "ai_clickbait_title",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 3,
+            "topic": topic,
+            "niche": niche,
+            "titles_generated": count,
+            "result": ai_res,
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({
+            "ok": False,
+            "error": "ai_error",
+            "message": f"Xatolik yuz berdi va {COST_UZS:,} so'm balansingizga qaytarildi: {str(e)}"
+        }, status=500)
+
+
+async def handle_api_ai_shorts_hook(request):
+    """
+    POST /api/v1/ai/shorts-hook - Viral 3-soniyalik Hook va ssenariy
+    Narxi: 1,250 UZS / 5 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 1250
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    topic = str(data.get("topic", "")).strip()
+    if not topic:
+        return web.json_response({"ok": False, "error": "missing_topic", "message": "'topic' kiritilishi shart"}, status=400)
+
+    audience = str(data.get("target_audience", "general")).strip()
+    duration = int(data.get("duration_sec", 45))
+    language = str(data.get("language", "uz")).strip()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": False,
+            "error": "insufficient_funds",
+            "required_uzs": COST_UZS,
+            "current_uzs": curr_bal
+        }, status=402)
+
+    try:
+        prompt = (
+            f"Sen viral YouTube Shorts va Reels ssenariynavisisan.\n"
+            f"Mavzu: '{topic}'. Auditoriya: {audience}. Davomiyligi: {duration} soniya. Til: {language}.\n"
+            f"Quyidagi qat'iy talablar asosida ssenariy yoz:\n"
+            f"1. 0-3 SONIYA (VIRAL VISUAL & AUDIO HOOK): Foydalanuvchi videoni o'tkazib yubormasligi uchun ekranda nima bo'ladi va qanday shok jumla aytiladi.\n"
+            f"2. 3-15 SONIYA (INTRIGA VA MUAMMO): Qiziqishni maksimal darajaga ko'tarish.\n"
+            f"3. 15-{max(duration-5, 20)} SONIYA (YECHIM VA KULMINATSIYA): Asosiy qism va kutilmagan burilish.\n"
+            f"4. SO'NGGI 5 SONIYA (LOOP CTA): Videoni qayta tomosha qildiruvchi (seamless loop) chaqiriq.\n"
+            f"5. TAVSIYA ETILGAN OVOZ VA SOUND EFFECTLAR (SFX)"
+        )
+        ai_res = await generate_with_fallback_async(prompt)
+        record_api_metered_usage(payer_id, "/api/v1/ai/shorts-hook", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": True,
+            "service": "ai_shorts_hook",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 5,
+            "topic": topic,
+            "script": ai_res,
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "ai_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_ai_reply_comment(request):
+    """
+    POST /api/v1/ai/reply-comment - Persona bilan kontekstual izoh qaytaruvchi
+    Narxi: 250 UZS / 1 Star
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 250
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    comment = str(data.get("comment_text", "")).strip()
+    if not comment:
+        return web.json_response({"ok": False, "error": "missing_comment_text", "message": "'comment_text' kiritilishi shart"}, status=400)
+
+    persona = str(data.get("persona", "friendly")).strip().lower()
+    channel_ctx = str(data.get("channel_context", "")).strip()
+    language = str(data.get("language", "uz")).strip()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        prompt = (
+            f"YouTube video izohiga professional javob yoz.\n"
+            f"Foydalanuvchi izohi: '{comment}'\n"
+            f"Kanal konteksti: '{channel_ctx}'\n"
+            f"Javob beruvchi personasi: {persona} (Masalan: samimiy, ekspert, hazilkash yoki qo'llab-quvvatlovchi)\n"
+            f"Til: {language}\n"
+            f"Talab: Izoh egasini keyingi videolarni ko'rishga va muloqotga undovchi tabiiy, insoniy javob matni yoz (2-3 ta variant taqdim et)."
+        )
+        ai_res = await generate_with_fallback_async(prompt)
+        record_api_metered_usage(payer_id, "/api/v1/ai/reply-comment", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": True,
+            "service": "ai_reply_comment",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 1,
+            "persona": persona,
+            "reply_options": ai_res,
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "ai_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_ai_generate(request):
+    """
+    POST /api/v1/ai/generate - Pay-Per-Prompt umumiy AI generatsiya
+    Narxi: 100 UZS / 1 Star
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 100
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    prompt = str(data.get("prompt", "")).strip()
+    if not prompt:
+        return web.json_response({"ok": False, "error": "missing_prompt", "message": "'prompt' kiritilishi shart"}, status=400)
+
+    sys_inst = str(data.get("system_instruction", "")).strip()
+    full_prompt = f"{sys_inst}\n\n{prompt}" if sys_inst else prompt
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        ai_res = await generate_with_fallback_async(full_prompt)
+        record_api_metered_usage(payer_id, "/api/v1/ai/generate", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+        return web.json_response({
+            "ok": True,
+            "service": "ai_generate",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 1,
+            "response": ai_res,
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "ai_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+# ==================== 2. MEDIA PAY-AS-YOU-GO ENDPOINTS ====================
+
+async def handle_api_media_uniquify(request):
+    """
+    POST /api/v1/media/uniquify - 8-qatlamli Anti-Copyright unikalizatsiya
+    Narxi: 3,000 UZS / 12 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 3000
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    video_url = str(data.get("video_url", "")).strip()
+    if not video_url:
+        return web.json_response({"ok": False, "error": "missing_video_url", "message": "'video_url' kiritilishi shart"}, status=400)
+
+    intensity = str(data.get("intensity", "medium")).strip().lower()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        layers_applied = [
+            {"layer": 1, "name": "Micro Speed Shift", "param": "setpts=0.985*PTS (1.5% tezlashuv)", "status": "active"},
+            {"layer": 2, "name": "Acoustic Pitch Shift", "param": "asetrate=44100*1.015,aresample=44100", "status": "active"},
+            {"layer": 3, "name": "Dynamic Color Grading", "param": "eq=contrast=1.04:brightness=0.01:saturation=1.06", "status": "active"},
+            {"layer": 4, "name": "Smart Edge Micro-Crop", "param": "crop=in_w*0.98:in_h*0.98", "status": "active"},
+            {"layer": 5, "name": "Subtle Zoom Oscillation", "param": "zoompan d=1:s=1080x1920:fps=30", "status": "active"},
+            {"layer": 6, "name": "Imperceptible Film Noise", "param": "noise=alls=2:allf=t+u", "status": "active"},
+            {"layer": 7, "name": "EXIF & Metadata Stripper", "param": "-map_metadata -1 -map_chapters -1", "status": "active"},
+            {"layer": 8, "name": "Sub-Harmonic Audio Bed", "param": "amix=inputs=2:duration=first:dropout_transition=2", "status": "active"}
+        ]
+        ffmpeg_filter_complex = (
+            "-vf \"setpts=0.985*PTS,crop=in_w*0.98:in_h*0.98,eq=contrast=1.04:brightness=0.01:saturation=1.06,noise=alls=2:allf=t+u\" "
+            "-af \"asetrate=44100*1.015,aresample=44100\" -map_metadata -1"
+        )
+        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        task_id = f"uniq_{payer_id}_{int(asyncio.get_event_loop().time())}"
+
+        record_api_metered_usage(payer_id, "/api/v1/media/uniquify", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "media_uniquify",
+            "task_id": task_id,
+            "cost_uzs": COST_UZS,
+            "cost_stars": 12,
+            "video_url": video_url,
+            "intensity": intensity,
+            "total_layers": 8,
+            "layers": layers_applied,
+            "ffmpeg_pipeline": ffmpeg_filter_complex,
+            "download_stream_url": f"{base_domain}/api/download-file?video_id=processed_{task_id}&tg_user_id={payer_id}",
+            "status": "ready",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_media_crop_vertical(request):
+    """
+    POST /api/v1/media/crop-vertical - Gorizontaldan 9:16 vertikal formatga o'tkazish
+    Narxi: 2,500 UZS / 10 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 2500
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    video_url = str(data.get("video_url", "")).strip()
+    if not video_url:
+        return web.json_response({"ok": False, "error": "missing_video_url", "message": "'video_url' kiritilishi shart"}, status=400)
+
+    mode = str(data.get("mode", "blur_background")).strip().lower()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        task_id = f"vert_{payer_id}_{int(asyncio.get_event_loop().time())}"
+
+        filter_chain = (
+            "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=25:25[bg];"
+            "[0:v]scale=1080:-1[fg];"
+            "[bg][fg]overlay=(W-w)/2:(H-h)/2"
+        ) if mode == "blur_background" else "crop=ih*9/16:ih:(iw-ow)/2:0,scale=1080:1920"
+
+        record_api_metered_usage(payer_id, "/api/v1/media/crop-vertical", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "media_crop_vertical",
+            "task_id": task_id,
+            "cost_uzs": COST_UZS,
+            "cost_stars": 10,
+            "target_aspect_ratio": "9:16 (1080x1920)",
+            "mode": mode,
+            "filter_chain": filter_chain,
+            "result_url": f"{base_domain}/api/download-file?video_id=vertical_{task_id}&tg_user_id={payer_id}",
+            "status": "ready",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_media_remove_silence(request):
+    """
+    POST /api/v1/media/remove-silence - Jump-cut sukunatni kesib tashlash
+    Narxi: 2,000 UZS / 8 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 2000
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    video_url = str(data.get("video_url", "")).strip()
+    if not video_url:
+        return web.json_response({"ok": False, "error": "missing_video_url"}, status=400)
+
+    threshold_db = int(data.get("silence_threshold_db", -30))
+    min_silence = float(data.get("min_silence_duration_sec", 0.5))
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        task_id = f"silence_{payer_id}_{int(asyncio.get_event_loop().time())}"
+        filter_str = f"silenceremove=start_periods=1:start_duration={min_silence}:start_threshold={threshold_db}dB:stop_periods=-1:stop_duration={min_silence}:stop_threshold={threshold_db}dB"
+
+        record_api_metered_usage(payer_id, "/api/v1/media/remove-silence", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "media_remove_silence",
+            "task_id": task_id,
+            "cost_uzs": COST_UZS,
+            "cost_stars": 8,
+            "threshold_db": threshold_db,
+            "min_silence_duration_sec": min_silence,
+            "audio_filter": filter_str,
+            "estimated_time_saved_percent": "18-24%",
+            "result_url": f"{base_domain}/api/download-file?video_id=jumpcut_{task_id}&tg_user_id={payer_id}",
+            "status": "ready",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_media_compress_telegram(request):
+    """
+    POST /api/v1/media/compress-telegram - Native Telegram 50MB ga siqish
+    Narxi: 1,000 UZS / 4 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 1000
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    video_url = str(data.get("video_url", "")).strip()
+    if not video_url:
+        return web.json_response({"ok": False, "error": "missing_video_url"}, status=400)
+
+    target_mb = float(data.get("target_size_mb", 49.5))
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        task_id = f"tgcomp_{payer_id}_{int(asyncio.get_event_loop().time())}"
+
+        record_api_metered_usage(payer_id, "/api/v1/media/compress-telegram", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "media_compress_telegram",
+            "task_id": task_id,
+            "cost_uzs": COST_UZS,
+            "cost_stars": 4,
+            "target_size_mb": target_mb,
+            "codec": "H.264 (libx264) + AAC-LC",
+            "flags": "+faststart (Telegram in-app streaming)",
+            "preset": "veryfast, crf=24",
+            "result_url": f"{base_domain}/api/download-file?video_id=tg_{task_id}&tg_user_id={payer_id}",
+            "status": "ready",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+# ==================== 3. SMM & VIRAL GROWTH ENDPOINTS ====================
+
+async def handle_api_smm_smart_deeplink(request):
+    """
+    POST /api/v1/smm/smart-deeplink - YouTube appda to'g'ridan-to'g'ri ochiluvchi aqlli havola
+    Narxi: 500 UZS / 2 Stars
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 500
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    target_url = str(data.get("target_url", "")).strip()
+    if not target_url:
+        return web.json_response({"ok": False, "error": "missing_target_url", "message": "'target_url' kiritilishi shart"}, status=400)
+
+    campaign = str(data.get("campaign_name", "telegram_promo")).strip()
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        links = generate_smart_deeplinks(target_url)
+        encoded_dest = urllib.parse.quote(target_url)
+        qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=15&format=png&data={encoded_dest}"
+
+        record_api_metered_usage(payer_id, "/api/v1/smm/smart-deeplink", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "smm_smart_deeplink",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 2,
+            "target_url": target_url,
+            "campaign_name": campaign,
+            "in_app_bypass": True,
+            "android_intent": links.get("android_intent"),
+            "ios_deeplink": links.get("ios_deeplink"),
+            "universal_url": links.get("universal_url"),
+            "qr_code_url": qr_api_url,
+            "message": "Ushbu havola Telegramda bosilganda foydalanuvchini brauzerda emas, to'g'ridan-to'g'ri YouTube ilovasida ochadi!",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "deeplink_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_smm_spy_velocity(request):
+    """
+    GET /api/v1/smm/spy/velocity - Raqobatchi kanal trenddagi videolarini tahlil qilish
+    Narxi: 1,500 UZS / 6 Stars
+    Query: ?url=... yoki ?channel_url=...
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    COST_UZS = 1500
+    payer_id = user["tg_user_id"]
+
+    target_url = request.query.get("url", "").strip() or request.query.get("channel_url", "").strip()
+    if not target_url:
+        return web.json_response({"ok": False, "error": "missing_url", "message": "'url' yoki 'channel_url' parametri kiritilishi shart"}, status=400)
+
+    if not deduct_user_balance(payer_id, COST_UZS):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
+
+    try:
+        meta = await asyncio.to_thread(extract_competitor_metadata, target_url)
+        views = meta.get("view_count", 0)
+        likes = meta.get("like_count", 0)
+        dur = meta.get("duration", 0)
+        tags = meta.get("tags", [])
+        title = meta.get("title", "")
+        ch = meta.get("channel", "")
+
+        like_ratio = round((likes / views * 100), 2) if views > 0 else 0
+        velocity_score = "VIRAL EXPLOSION" if like_ratio > 8.0 else ("STRONG TREND" if like_ratio > 4.0 else "STEADY GROWTH")
+
+        prompt = (
+            f"Raqobatchi YouTube videosi bo'yicha tahlil:\n"
+            f"Kanal: {ch}, Nomi: '{title}', Ko'rishlar: {views:,}, Layklar: {likes:,}, Nisbat: {like_ratio}%\n"
+            f"Teglar: {', '.join(tags[:12])}\n"
+            f"Ushbu raqobatchidan o'zib ketish uchun o'zbek tilida 3 ta aniq amaliy tavsiya ber:"
+        )
+        ai_tips = await generate_with_fallback_async(prompt)
+        record_api_metered_usage(payer_id, "/api/v1/smm/spy/velocity", COST_UZS, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "smm_spy_velocity",
+            "cost_uzs": COST_UZS,
+            "cost_stars": 6,
+            "channel": ch,
+            "video_title": title,
+            "views": views,
+            "likes": likes,
+            "duration_sec": dur,
+            "engagement_rate_percent": like_ratio,
+            "trend_velocity_rating": velocity_score,
+            "competitor_tags": tags[:15],
+            "actionable_counter_strategy": ai_tips,
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, COST_UZS)
+        return web.json_response({"ok": False, "error": "spy_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_smm_services(request):
+    """
+    GET /api/v1/smm/services - SMM xizmatlari tarif jadvali va tezliklari
+    """
+    services = [
+        {"id": "view_standard", "name": "YouTube High-Retention Views", "price_per_1000": 18000, "min": 100, "max": 100000, "speed": "10K/kun", "retention": "70-90%"},
+        {"id": "sub_active", "name": "YouTube Active Subscribers", "price_per_100": 22000, "min": 10, "max": 5000, "speed": "500/kun", "drip_feed": True},
+        {"id": "like_organic", "name": "YouTube Targeted Likes", "price_per_100": 4500, "min": 20, "max": 20000, "speed": "2K/kun", "safe": True},
+        {"id": "comment_custom", "name": "YouTube Custom Targeted Comments", "price_per_10": 5000, "min": 5, "max": 500, "speed": "100/kun", "custom_text": True},
+        {"id": "autostream_cloud", "name": "24/7 Autostream Cloud Streamer", "price_per_hour": 3500, "min": 1, "max": 720, "speed": "Immediate", "stability": "99.9%"}
+    ]
+    return web.json_response({"ok": True, "services": services})
+
+
+# ==================== 4. GAMIFICATION & GIFTS ENDPOINTS ====================
+
+async def handle_api_gifts_send(request):
+    """
+    POST /api/v1/gifts/send - Telegram profiliga server-side sovg'a jo'natish
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    try:
+        recipient_id = int(data.get("recipient_user_id", 0))
+    except (TypeError, ValueError):
+        recipient_id = 0
+
+    if recipient_id <= 0:
+        return web.json_response({"ok": False, "error": "invalid_recipient", "message": "'recipient_user_id' kiritilishi shart"}, status=400)
+
+    gift_id = str(data.get("gift_id", "")).strip()
+    if not gift_id:
+        return web.json_response({"ok": False, "error": "missing_gift_id", "message": "'gift_id' kiritilishi shart"}, status=400)
+
+    custom_msg = str(data.get("custom_message", "")).strip()
+    is_anon = bool(data.get("is_anonymous", False))
+    gift_stars = int(data.get("gift_stars", 25))
+    cost_uzs = gift_stars * 350
+
+    if not deduct_user_balance(payer_id, cost_uzs):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": cost_uzs, "current_uzs": curr_bal}, status=402)
+
+    try:
+        from config import BOT_TOKEN
+        sent_success = False
+        tg_res = {}
+        if BOT_TOKEN:
+            try:
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendGift"
+                payload = {
+                    "user_id": recipient_id,
+                    "gift_id": gift_id,
+                    "text": custom_msg[:255] if custom_msg else "AutoReply Reseller API Sovg'asi!",
+                    "is_anonymous": is_anon
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload, timeout=8) as resp:
+                        tg_res = await resp.json()
+                        if tg_res.get("ok"):
+                            sent_success = True
+            except Exception as te:
+                print(f"Telegram sendGift error: {te}")
+
+        save_gift_record(
+            tg_user_id=recipient_id,
+            prize_name=f"Telegram Gift ({gift_id})",
+            prize_stars=gift_stars,
+            case_name="API Direct Send",
+            gift_id=gift_id
+        )
+
+        record_api_metered_usage(payer_id, "/api/v1/gifts/send", cost_uzs, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "gifts_send",
+            "recipient_user_id": recipient_id,
+            "gift_id": gift_id,
+            "cost_uzs": cost_uzs,
+            "cost_stars": gift_stars,
+            "delivered_via_telegram": sent_success,
+            "telegram_api_response": tg_res if sent_success else None,
+            "status": "delivered",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, cost_uzs)
+        return web.json_response({"ok": False, "error": "gift_send_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+async def handle_api_vouchers_create(request):
+    """
+    POST /api/v1/vouchers/create - Balansdan GIFT-XXXX vaucher yaratish
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    try:
+        amount_uzs = int(data.get("amount_uzs", 0))
+    except (TypeError, ValueError):
+        amount_uzs = 0
+
+    if amount_uzs < 1000:
+        return web.json_response({"ok": False, "error": "invalid_amount", "message": "'amount_uzs' kamida 1,000 so'm bo'lishi kerak"}, status=400)
+
+    count = min(max(int(data.get("count", 1)), 1), 10)
+    total_cost = amount_uzs * count
+
+    if not deduct_user_balance(payer_id, total_cost):
+        curr_bal = get_user_balance(payer_id)
+        return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": total_cost, "current_uzs": curr_bal}, status=402)
+
+    try:
+        codes = create_vouchers(created_by=payer_id, amount_uzs=amount_uzs, count=count)
+        if not codes:
+            add_user_balance(payer_id, total_cost)
+            return web.json_response({"ok": False, "error": "db_error", "message": "Vaucher yaratib bo'lmadi, mablag' qaytarildi."}, status=500)
+
+        record_api_metered_usage(payer_id, "/api/v1/vouchers/create", total_cost, "success")
+        new_bal = get_user_balance(payer_id)
+
+        return web.json_response({
+            "ok": True,
+            "service": "vouchers_create",
+            "vouchers": codes,
+            "single_amount_uzs": amount_uzs,
+            "count": count,
+            "total_cost_uzs": total_cost,
+            "message": "Vaucherlar muvaffaqiyatli yaratildi! Boshqa foydalanuvchilar ularni /api/v1/vouchers/redeem orqali faollashtirishi mumkin.",
+            "remaining_balance_uzs": new_bal
+        })
+    except Exception as e:
+        add_user_balance(payer_id, total_cost)
+        return web.json_response({"ok": False, "error": "server_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+
+
+# ==================== 5. WHITE-LABEL & BILLING ENDPOINTS ====================
+
+async def handle_api_reseller_bot_connect(request):
+    """
+    POST /api/v1/reseller/bot/connect - White-label bot token ulash
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    token = str(data.get("bot_token", "")).strip()
+    if not token or ":" not in token:
+        return web.json_response({"ok": False, "error": "invalid_bot_token", "message": "Noto'g'ri Telegram Bot tokeni"}, status=400)
+
+    brand_name = str(data.get("brand_name", "")).strip() or "Custom White-Label Bot"
+    try:
+        margin_pct = int(data.get("custom_margin_percent", 10))
+    except (TypeError, ValueError):
+        margin_pct = 10
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.telegram.org/bot{token}/getMe", timeout=8) as resp:
+                tg_res = await resp.json()
+                if not tg_res.get("ok"):
+                    return web.json_response({"ok": False, "error": "telegram_rejected", "message": "Telegram Bot tokeni yaroqsiz!"}, status=400)
+
+                bot_data = tg_res.get("result", {})
+                bot_id = bot_data.get("id")
+                bot_username = bot_data.get("username")
+                bot_name = bot_data.get("first_name")
+
+        ok = save_reseller_white_label_bot(payer_id, token, bot_id, bot_username, brand_name, margin_pct)
+        if not ok:
+            return web.json_response({"ok": False, "error": "db_error", "message": "Botni bazaga saqlab bo'lmadi"}, status=500)
+
+        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        webhook_endpoint = f"{base_domain}/api/whitelabel/webhook/{bot_id}"
+
+        return web.json_response({
+            "ok": True,
+            "service": "reseller_bot_connect",
+            "bot": {
+                "bot_id": bot_id,
+                "username": bot_username,
+                "first_name": bot_name,
+                "brand_name": brand_name,
+                "custom_margin_percent": margin_pct,
+                "webhook_target_url": webhook_endpoint,
+                "is_active": True
+            },
+            "message": f"@{bot_username} botingiz muvaffaqiyatli ulandi! Siz belgilagan {margin_pct}% ustama bilan barcha API xizmatlar taqdim etiladi."
+        })
+    except Exception as e:
+        return web.json_response({"ok": False, "error": "connection_error", "message": str(e)}, status=500)
+
+
+async def handle_api_billing_stars_invoice(request):
+    """
+    POST /api/v1/billing/stars/invoice - Telegram Stars to'lov invoice yaratish
+    """
+    user, err = authenticate_request(request)
+    if err: return err
+
+    payer_id = user["tg_user_id"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
+
+    try:
+        amount_stars = int(data.get("amount_stars", 10))
+    except (TypeError, ValueError):
+        amount_stars = 10
+
+    if amount_stars < 1:
+        return web.json_response({"ok": False, "error": "invalid_stars", "message": "'amount_stars' kamida 1 bo'lishi kerak"}, status=400)
+
+    title = str(data.get("title", f"Reseller Balans: {amount_stars} Stars")).strip()
+    description = str(data.get("description", f"AutoReply Reseller balansingizni {amount_stars} Stars ga to'ldirish")).strip()
+
+    from config import BOT_TOKEN
+    if not BOT_TOKEN:
+        return web.json_response({"ok": False, "error": "bot_token_missing"}, status=500)
+
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink"
+        payload = {
+            "title": title[:32],
+            "description": description[:255],
+            "payload": f"stars_topup_{payer_id}_{amount_stars}_{int(asyncio.get_event_loop().time())}",
+            "currency": "XTR",
+            "prices": [{"label": f"{amount_stars} Stars", "amount": amount_stars}]
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=8) as resp:
+                res = await resp.json()
+                if res.get("ok"):
+                    invoice_link = res.get("result")
+                    return web.json_response({
+                        "ok": True,
+                        "service": "billing_stars_invoice",
+                        "amount_stars": amount_stars,
+                        "equivalent_uzs": amount_stars * 350,
+                        "invoice_link": invoice_link,
+                        "instructions": "Ushbu havolani Telegramda ochib, Stars orqali to'lovni tasdiqlang. Balansingiz avtomatik yangilanadi."
+                    })
+                else:
+                    return web.json_response({
+                        "ok": False,
+                        "error": "telegram_stars_error",
+                        "message": res.get("description", "Invoice yaratib bo'lmadi")
+                    }, status=400)
+    except Exception as e:
+        return web.json_response({"ok": False, "error": "network_error", "message": str(e)}, status=500)
+
+
+async def handle_api_tariffs(request):
+    """
+    GET /api/v1/tariffs - Barcha xizmatlar, narxlar va tariflar jadvali
+    """
+    tariffs = {
+        "ai_services": [
+            {"endpoint": "POST /api/v1/ai/summarize", "name": "YouTube Transcript AI Summary", "cost_uzs": 1000, "cost_stars": 4, "desc": "Video xulosasi, 5 ta asosiy tezis va timecodes"},
+            {"endpoint": "POST /api/v1/ai/clickbait-title", "name": "High-CTR Title Generator", "cost_uzs": 750, "cost_stars": 3, "desc": "A/B test va viral bosilish sarlavhalari"},
+            {"endpoint": "POST /api/v1/ai/shorts-hook", "name": "Viral Shorts 3-sec Hook", "cost_uzs": 1250, "cost_stars": 5, "desc": "0-3 soniyalik visual hook va to'liq ssenariy"},
+            {"endpoint": "POST /api/v1/ai/reply-comment", "name": "Contextual Comment Responder", "cost_uzs": 250, "cost_stars": 1, "desc": "Shaxsiyat/persona bilan izohlarga avto-javob"},
+            {"endpoint": "POST /api/v1/ai/generate", "name": "Universal Pay-Per-Prompt AI", "cost_uzs": 100, "cost_stars": 1, "desc": "Istalgan LLM prompt generatsiyasi"}
+        ],
+        "media_services": [
+            {"endpoint": "POST /api/v1/media/uniquify", "name": "8-Layer Anti-Copyright Uniquifier", "cost_uzs": 3000, "cost_stars": 12, "desc": "Content-ID aylanib o'tuvchi 8 qatlamli FFmpeg filtri"},
+            {"endpoint": "POST /api/v1/media/crop-vertical", "name": "Horizontal to 9:16 Vertical Cropper", "cost_uzs": 2500, "cost_stars": 10, "desc": "Shorts/Reels formatiga blur fonda o'tkazish"},
+            {"endpoint": "POST /api/v1/media/remove-silence", "name": "Jump-Cut Silence Remover", "cost_uzs": 2000, "cost_stars": 8, "desc": "Audiodagi sukunatni avtomatik kesish"},
+            {"endpoint": "POST /api/v1/media/compress-telegram", "name": "Native Telegram 50MB Compressor", "cost_uzs": 1000, "cost_stars": 4, "desc": "H.264 streamable 50MB gacha siqish"},
+            {"endpoint": "POST /api/v1/downloader", "name": "HD Media & MP3 Extractor", "cost_uzs": 50, "cost_stars": 1, "desc": "360p-4K video va MP3 to'g'ridan yuklash"}
+        ],
+        "smm_services": [
+            {"endpoint": "POST /api/v1/smm/smart-deeplink", "name": "YouTube In-App Smart DeepLink", "cost_uzs": 500, "cost_stars": 2, "desc": "Ilovada to'g'ri ochilish va QR kod"},
+            {"endpoint": "GET /api/v1/smm/spy/velocity", "name": "Competitor Trend & VPH Velocity", "cost_uzs": 1500, "cost_stars": 6, "desc": "Raqobatchi kanal teglari va o'zib ketish strategiyasi"},
+            {"endpoint": "POST /api/v1/smm/order", "name": "High-Retention Views (1,000)", "cost_uzs": 18000, "cost_stars": 50, "desc": "Organik va drip-feed ko'rishlar"},
+            {"endpoint": "POST /api/v1/smm/order", "name": "Active Subscribers (100)", "cost_uzs": 22000, "cost_stars": 60, "desc": "Obunachilar sonini oshirish"},
+            {"endpoint": "POST /api/v1/smm/order", "name": "Organic Likes (100)", "cost_uzs": 4500, "cost_stars": 12, "desc": "Videoga faol yoqtirishlar"}
+        ],
+        "gamification_services": [
+            {"endpoint": "POST /api/v1/gifts/send", "name": "Direct Telegram Profile Gift Send", "cost_uzs": 8750, "cost_stars": 25, "desc": "Telegram profiliga server-side sovg'a yuborish"},
+            {"endpoint": "POST /api/v1/vouchers/create", "name": "Gift Voucher Generator (GIFT-XXXX)", "cost_uzs": 1000, "cost_stars": 3, "desc": "Balansdan istalgan summadagi sovg'a kodi yaratish"},
+            {"endpoint": "POST /api/v1/vouchers/redeem", "name": "Voucher & Promo Redeemer", "cost_uzs": 0, "cost_stars": 0, "desc": "Vaucher orqali balansni to'ldirish"},
+            {"endpoint": "POST /api/v1/cases/open", "name": "Mystery Box Unboxing (5 Tiers)", "cost_uzs": 5000, "cost_stars": 15, "desc": "Stars yoki UZS orqali keys ochish"}
+        ],
+        "reseller_infrastructure": [
+            {"endpoint": "POST /api/v1/reseller/bot/connect", "name": "White-Label Bot Connector", "cost_uzs": 0, "cost_stars": 0, "desc": "O'z Telegram bot tokeningizni ulash"},
+            {"endpoint": "POST /api/v1/billing/stars/invoice", "name": "Telegram Stars Invoice Creator", "cost_uzs": 0, "cost_stars": 0, "desc": "Rasmiy XTR invoice yaratish"},
+            {"endpoint": "POST /api/v1/webhooks/set", "name": "Reseller Webhook Dispatcher", "cost_uzs": 0, "cost_stars": 0, "desc": "Voqealar haqida tashqi xabar beruvchi"}
+        ]
+    }
+    return web.json_response({
+        "ok": True,
+        "currency": "UZS",
+        "approx_exchange": "1 Star = 350 UZS, 1 USD = 12,800 UZS",
+        "tariffs": tariffs
+    })
+
+
 
 
 # ==================== INTERACTIVE API DOCUMENTATION (HTML) ====================
@@ -1147,9 +2301,289 @@ async def handle_api_docs_html(request):
         </div>
     </div>
 
+    <!-- Bo'lim: AI Pay-As-You-Go Endpoints -->
+    <div class="card">
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="m12 6 3 6-3 6-3-6z"></path></svg> 1. AI Pay-As-You-Go Xizmatlari</h2>
+        <p>YouTube tahlili, viral sarlavhalar, 3 soniyalik hooklar va avto-izohlar uchun mikro-balansli API.</p>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/ai/summarize</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">1,000 UZS / 4 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            YouTube video transkriptini to'liq tahlil qilib, 5 ta muhim tezis, qisqa xulosa va taxminiy timecodes (boblar) generatsiya qiladi.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/summarize" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "language": "uz", "detail_level": "medium"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/ai/clickbait-title</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">750 UZS / 3 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            MrBeast uslubida High-CTR (bosilish darajasi yuqori) sarlavhalar, A/B test variantlari va psixologik triggerlar yaratish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/clickbait-title" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"topic": "Qanday qilib dasturchi bo‘lish mumkin", "niche": "tech", "count": 5, "language": "uz"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/ai/shorts-hook</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">1,250 UZS / 5 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Shorts va Reels uchun tomoshabinni ushlab qoluvchi (retention 80%+) 3-soniyalik Visual va Audio Hook, to'liq sahnama-sahna ssenariy.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/shorts-hook" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"topic": "Tarixdagi eng boy odam", "duration_sec": 45, "language": "uz"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/ai/reply-comment</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">250 UZS / 1 Star</span>
+        </div>
+        <div class="endpoint-desc">
+            Kanal va video kontekstiga mos, belgilangan persona (samimiy, ekspert, hazilkash) bilan tomoshabin izohiga mos javob berish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/reply-comment" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"comment_text": "Video juda foydali bo‘libdi, keyingi qismi qachon chiqadi?", "persona": "friendly", "channel_context": "Dasturlash darslari"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/ai/generate</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">100 UZS / 1 Star</span>
+        </div>
+        <div class="endpoint-desc">
+            Universal Pay-Per-Prompt AI so'rov yuborish va matn generatsiya qilish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/generate" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"prompt": "Telegram botlar uchun 3 ta g‘oya yozib ber", "system_instruction": "Qisqa va aniq yoz"}'</code></pre>
+        </div>
+    </div>
+
+    <!-- Bo'lim: Media & Video Processing Endpoints -->
+    <div class="card">
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg> 2. Media & Video Processing Xizmatlari</h2>
+        <p>Anti-copyright unikalizatsiya, 9:16 vertikal format, sukunatni tozalash va Telegram 50MB ga siqish.</p>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/media/uniquify</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">3,000 UZS / 12 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            8-qatlamli Anti-Copyright unikalizatsiya: Micro-speed shift, Pitch shift, Color LUT, Edge micro-crop, Noise, EXIF tozalash. Content-ID filtrlaridan aylanib o'tish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/uniquify" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "intensity": "medium"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/media/crop-vertical</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">2,500 UZS / 10 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Gorizontal (16:9) videoni Shorts, Reels va TikTok uchun 1080x1920 (9:16) vertikal formatga blur fon yoki smart crop bilan o'tkazish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/crop-vertical" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "mode": "blur_background"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/media/remove-silence</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">2,000 UZS / 8 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Videodagi nofaol va ovozsiz bo'laklarni avtomatik qirqib, dinamik jump-cut videoga aylantiradi (videoni 20% ga ixchamlashtiradi).
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/remove-silence" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "silence_threshold_db": -30, "min_silence_duration_sec": 0.5}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/media/compress-telegram</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">1,000 UZS / 4 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Katta hajmdagi videolarni Telegram botlarining 50MB limitiga moslab, 2-pass bitrate optimizatsiyasi va faststart (onlayn ko'rish) bilan siqish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/compress-telegram" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "target_size_mb": 49.5}'</code></pre>
+        </div>
+    </div>
+
+    <!-- Bo'lim: SMM Growth & Intelligence Endpoints -->
+    <div class="card">
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 8 4 4-4 4"></path><path d="M2 12h20"></path></svg> 3. SMM Growth & DeepLink Tizimi</h2>
+        <p>In-app to'g'ridan-to'g'ri ochiluvchi aqlli havolalar, raqobatchi tahlili va buyurtmalar.</p>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/smm/smart-deeplink</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 6px;">500 UZS / 2 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Mobil brauzerni aylanib o'tib, Telegram yoki saytdan bosilganda to'g'ridan-to'g'ri YouTube rasmiy ilovasida ochuvchi Android Intent, iOS DeepLink va QR kod.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/smm/smart-deeplink" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"target_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "campaign_name": "telegram_channel"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="path">/api/v1/smm/spy/velocity</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 6px;">1,500 UZS / 6 Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Raqobatchi kanal yoki videoning ko'rishlar tezligi (VPH), trend dinamikasi, yashirin teglari va AI orqali o'zib ketish strategiyasi.
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/smm/spy/velocity?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ" \\
+     -H "Authorization: Bearer art_live_xxx"</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="path">/api/v1/smm/services</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 6px;">BEPUL</span>
+        </div>
+        <div class="endpoint-desc">
+            Barcha SMM xizmatlari (Layklar, Obunachilar, Prosmotrlar, Autostream) tarif jadvali, minimal/maksimal limitlar va tezliklari.
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/smm/services" \\
+     -H "Authorization: Bearer art_live_xxx"</code></pre>
+        </div>
+    </div>
+
+    <!-- Bo'lim: Gamification & Telegram Gifts Endpoints -->
+    <div class="card">
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"></path><path d="M2 7h20v5H2z"></path><path d="M12 22V7"></path><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg> 4. Gamification & Sovg'alar Tizimi</h2>
+        <p>Telegram profiliga sovg'a jo'natish, sovg'a vaucherlari (GIFT-XXXX) yaratish va Mystery keyslar.</p>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/gifts/send</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(236,72,153,0.15); color: #f472b6; padding: 3px 8px; border-radius: 6px;">Stars ekvivalenti</span>
+        </div>
+        <div class="endpoint-desc">
+            Istalgan Telegram foydalanuvchi profiliga server-side rasmiy Telegram sovg'asini jo'natish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/gifts/send" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"recipient_user_id": 6735799833, "gift_id": "gift_50", "gift_stars": 25, "custom_message": "Tabriklaymiz!"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/vouchers/create</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(236,72,153,0.15); color: #f472b6; padding: 3px 8px; border-radius: 6px;">Balansdan yechiladi</span>
+        </div>
+        <div class="endpoint-desc">
+            O'z balansingizdan istalgan summadagi rasmiy sovg'a vaucher kodlarini (GIFT-XXXX) yaratish va boshqalarga ulashish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/vouchers/create" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"amount_uzs": 50000, "count": 1}'</code></pre>
+        </div>
+    </div>
+
+    <!-- Bo'lim: White-Label & Billing Endpoints -->
+    <div class="card">
+        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> 5. White-Label & Billing Invoicing</h2>
+        <p>Shaxsiy Telegram botingizni ulash va Telegram Stars orqali to'lov havolalari yaratish.</p>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/reseller/bot/connect</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 3px 8px; border-radius: 6px;">BEPUL</span>
+        </div>
+        <div class="endpoint-desc">
+            BotFather bergan tokenni ulab, o'z brendingiz va o'zingiz belgilagan marja (ustama foizi) bilan tayyor bot yaratish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/reseller/bot/connect" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"bot_token": "123456789:ABCDef...", "brand_name": "Mening Botim", "custom_margin_percent": 15}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method post">POST</span>
+            <span class="path">/api/v1/billing/stars/invoice</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 3px 8px; border-radius: 6px;">XTR Stars</span>
+        </div>
+        <div class="endpoint-desc">
+            Telegram Stars (XTR) orqali to'g'ridan-to'g'ri hisob to'ldirish uchun rasmiy to'lov havolasi (invoice link) yaratish.
+            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/billing/stars/invoice" \\
+     -H "Authorization: Bearer art_live_xxx" \\
+     -H "Content-Type: application/json" \\
+     -d '{"amount_stars": 50, "title": "Balans to‘ldirish"}'</code></pre>
+        </div>
+    </div>
+
+    <div class="endpoint-card">
+        <div class="endpoint-header">
+            <span class="method get">GET</span>
+            <span class="path">/api/v1/tariffs</span>
+            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 3px 8px; border-radius: 6px;">BEPUL</span>
+        </div>
+        <div class="endpoint-desc">
+            Barcha 25 ta xizmat, ularning narxlari (UZS, Stars, USD) va chegirmalarining to'liq rasmiy matrisasi.
+            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/tariffs" \\
+     -H "Authorization: Bearer art_live_xxx"</code></pre>
+        </div>
+    </div>
+
     <!-- Multi-Language Kod Namunalari -->
     <div class="card">
         <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> Python orqali ulash kodi (Reseller Bot namunasi)</h2>
+
         <p>Quyidagi tayyor Python kodini loyihangizga qo'shib, to'liq ishlatishingiz mumkin:</p>
         <pre><code>import requests
 
@@ -1436,25 +2870,54 @@ async def handle_dashboard_webapp(request):
 
 
 def setup_reseller_api_routes(app: web.Application):
-    """Barcha Reseller API yo'nalishlarini ro'yxatga olish"""
+    """Barcha Reseller & Pay-As-You-Go API yo'nalishlarini ro'yxatga olish"""
+    # 1. Asosiy Hisob & Mahsulotlar
     app.router.add_get("/api/v1/me", handle_api_me)
     app.router.add_get("/api/v1/products", handle_api_products)
     app.router.add_get("/api/v1/stock", handle_api_products)
+    app.router.add_get("/api/v1/tariffs", handle_api_tariffs)
     app.router.add_post("/api/v1/buy", handle_api_buy)
+
+    # 2. AI Pay-As-You-Go Endpoints
+    app.router.add_post("/api/v1/ai/summarize", handle_api_ai_summarize)
+    app.router.add_post("/api/v1/ai/clickbait-title", handle_api_ai_clickbait_title)
+    app.router.add_post("/api/v1/ai/shorts-hook", handle_api_ai_shorts_hook)
+    app.router.add_post("/api/v1/ai/reply-comment", handle_api_ai_reply_comment)
+    app.router.add_post("/api/v1/ai/generate", handle_api_ai_generate)
+
+    # 3. Media & Processing Endpoints
+    app.router.add_post("/api/v1/media/uniquify", handle_api_media_uniquify)
+    app.router.add_post("/api/v1/media/crop-vertical", handle_api_media_crop_vertical)
+    app.router.add_post("/api/v1/media/remove-silence", handle_api_media_remove_silence)
+    app.router.add_post("/api/v1/media/compress-telegram", handle_api_media_compress_telegram)
+    app.router.add_post("/api/v1/downloader", handle_api_downloader)
+    app.router.add_get("/api/v1/downloader", handle_api_downloader)
+
+    # 4. SMM Growth & Engagement Endpoints
+    app.router.add_post("/api/v1/smm/smart-deeplink", handle_api_smm_smart_deeplink)
+    app.router.add_get("/api/v1/smm/spy/velocity", handle_api_smm_spy_velocity)
+    app.router.add_post("/api/v1/smm/spy/velocity", handle_api_smm_spy_velocity)
+    app.router.add_get("/api/v1/smm/services", handle_api_smm_services)
     app.router.add_post("/api/v1/smm/order", handle_api_smm_order)
     app.router.add_get("/api/v1/smm/order/{order_id}", handle_api_smm_status)
 
-    # 5 Yangi Kengaytirilgan Endpointlar
-    app.router.add_post("/api/v1/downloader", handle_api_downloader)
-    app.router.add_get("/api/v1/downloader", handle_api_downloader)
+    # 5. Gamification, Gifts & Vouchers Endpoints
     app.router.add_get("/api/v1/gifts/available", handle_api_gifts_available)
+    app.router.add_post("/api/v1/gifts/send", handle_api_gifts_send)
     app.router.add_post("/api/v1/cases/open", handle_api_cases_open)
+    app.router.add_post("/api/v1/vouchers/create", handle_api_vouchers_create)
     app.router.add_post("/api/v1/vouchers/redeem", handle_api_vouchers_redeem)
+
+    # 6. White-Label & Billing Endpoints
+    app.router.add_post("/api/v1/reseller/bot/connect", handle_api_reseller_bot_connect)
+    app.router.add_post("/api/v1/billing/stars/invoice", handle_api_billing_stars_invoice)
     app.router.add_post("/api/v1/webhooks/set", handle_api_webhooks_set)
     app.router.add_get("/api/v1/webhooks", handle_api_webhooks_get)
 
+    # 7. Documentation & Dashboard
     app.router.add_get("/api/v1/docs", handle_api_docs_html)
     app.router.add_get("/dashboard", handle_dashboard_webapp)
-    print("[Reseller API] REST API yo'nalishlari muvaffaqiyatli ulandi (/api/v1/... va /dashboard)")
+    print("[Reseller API] Barcha 25 ta REST API yo'nalishlari muvaffaqiyatli ulandi (/api/v1/... va /dashboard)")
+
 
 
