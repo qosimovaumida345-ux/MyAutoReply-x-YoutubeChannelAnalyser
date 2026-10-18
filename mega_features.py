@@ -1494,6 +1494,10 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^menu_nft$"))
     async def cb_menu_nft(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         uid = cb.from_user.id
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"{e('GALLERY')} NFT Kolleksiya (Bozor)", callback_data="nft_market")],
@@ -1521,10 +1525,13 @@ def load_mega_features(bot: Client):
                 ),
                 reply_markup=kb
             )
-        await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^nft_market$"))
     async def cb_nft_market(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         uid = cb.from_user.id
         user_bal = db.get_user_balance(uid)
         ton_rate = await get_current_ton_rate_uzs()
@@ -1695,6 +1702,10 @@ def load_mega_features(bot: Client):
 
     @bot.on_callback_query(filters.regex(r"^nft_my_items$"))
     async def cb_nft_my_items(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
         uid = cb.from_user.id
         items = db.get_user_nfts(uid)
 
@@ -2243,7 +2254,7 @@ def load_mega_features(bot: Client):
                 lang = db.get_user_language(uid)
                 wait_m = await message.reply_text(f"{ce('WAIT')} <code>Gemini AI javob tayyorlamoqda...</code>")
                 try:
-                    ans = await asyncio.wait_for(generate_support_answer(text, role, lang), timeout=15)
+                    ans = await asyncio.wait_for(generate_support_answer(text, role, lang), timeout=30)
                 except Exception as ai_err:
                     logger.error(f"Support AI timeout/error: {ai_err}")
                     ans = "Kechirasiz, sun'iy intellekt xizmati hozirda band. Iltimos, admin bilan to'g'ridan-to'g'ri bog'laning!"

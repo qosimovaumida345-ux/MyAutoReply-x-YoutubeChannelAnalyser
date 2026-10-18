@@ -422,10 +422,31 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
 
     # Har bir tier uchun drops ro'yxati (serverdan olingan sovg'alar bo'yicha)
     if items:
-        t1_drops = [it for it in items if it["stars"] <= 50] or items[:max(1, len(items)//5)]
-        t2_drops = [it for it in items if 25 <= it["stars"] <= 250] or items[len(items)//5:max(2, 2*len(items)//5)]
-        t3_drops = [it for it in items if 100 <= it["stars"] <= 500] or items[2*len(items)//5:max(3, 3*len(items)//5)]
+        # Tier 1: Bronze (25 Stars) -> asosan 10-25 stars, max 1 dona 50 stars jackpot
+        t1_base = [it for it in items if it["stars"] <= 25] or items[:max(1, len(items)//5)]
+        t1_jackpot = [it for it in items if 25 < it["stars"] <= 50]
+        t1_drops = list(t1_base)
+        if t1_jackpot:
+            t1_drops.append(t1_jackpot[0])
+
+        # Tier 2: Silver (75 Stars) -> asosan 25-75 stars, max 100 stars jackpot
+        t2_base = [it for it in items if 25 <= it["stars"] <= 75] or items[len(items)//5:max(2, 2*len(items)//5)]
+        t2_jackpot = [it for it in items if 75 < it["stars"] <= 100]
+        t2_drops = list(t2_base)
+        if t2_jackpot:
+            t2_drops.append(t2_jackpot[0])
+
+        # Tier 3: Gold (250 Stars) -> asosan 50-250 stars, max 350-500 stars jackpot
+        t3_base = [it for it in items if 50 <= it["stars"] <= 250] or items[2*len(items)//5:max(3, 3*len(items)//5)]
+        t3_jackpot = [it for it in items if 250 < it["stars"] <= 500]
+        t3_drops = list(t3_base)
+        if t3_jackpot:
+            t3_drops.append(t3_jackpot[0])
+
+        # Tier 4: Platinum (750 Stars) -> asosan 250-750 stars, max 1000 stars
         t4_drops = [it for it in items if (250 <= it["stars"] <= 1000) or it["is_nft"]] or items[3*len(items)//5:max(4, 4*len(items)//5)]
+
+        # Tier 5: Diamond (2500 Stars) -> 1000+ stars
         t5_drops = [it for it in items if it["stars"] >= 1000 or it["is_nft"]] or items[4*len(items)//5:]
     else:
         # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
@@ -485,26 +506,32 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "min_stars_required": 2365
     })
 
-    def format_drops(drop_list):
+    def format_drops(drop_list, case_cost_stars: int = 25):
         if not drop_list:
             return []
             
         formatted = []
         for i, item in enumerate(drop_list):
             stars = item.get("stars", 100)
+            ratio = stars / max(1, case_cost_stars)
             
-            # Ehtimollik (weight) arzon sovg'alarga balandroq beriladi
-            if stars <= 15: weight = 60
-            elif stars <= 25: weight = 25
-            elif stars <= 50: weight = 10
-            elif stars <= 100: weight = 4
-            elif stars <= 500: weight = 2
-            else: weight = 1
-            
-            # Rarity belgilash
-            if weight >= 20: rarity = "common"
-            elif weight >= 5: rarity = "rare"
-            else: rarity = "legendary"
+            # Ehtimollik (weight) nisbatga qarab kassa foydasi (House Edge ~30-35%, RTP ~65-70%) kafolatlangan holda beriladi:
+            # - ratio <= 0.65: Common (Arzon, kassa foydada) -> 82-85% ehtimollik
+            # - 0.65 < ratio <= 1.0: Rare (O'zini qoplaydigan) -> 12-15% ehtimollik
+            # - 1.0 < ratio <= 2.0: Legendary (Jackpot) -> 2-3% ehtimollik
+            # - ratio > 2.0: Ultra-Legendary -> 1% ehtimollik
+            if ratio <= 0.65:
+                weight = 85
+                rarity = "common"
+            elif ratio <= 1.0:
+                weight = 12
+                rarity = "rare"
+            elif ratio <= 2.0:
+                weight = 3
+                rarity = "legendary"
+            else:
+                weight = 1
+                rarity = "legendary"
             
             formatted.append({
                 **item,
@@ -530,7 +557,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "badge": "25 Stars / 10,000 so'm",
             "color": "#cd7f32",
             "description": "Telegram serveridagi rasmiy sovg'alar: 25 Stars gacha yutuqlar!",
-            "drops": format_drops(t1_drops)
+            "drops": format_drops(t1_drops, 25)
         },
         "tier_2": {
             "id": "tier_2",
@@ -543,7 +570,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "badge": "75 Stars / 30,000 so'm",
             "color": "#c0c0c0",
             "description": "Telegram server sovg'alari: 50 Stars dan 250 Stars gacha!",
-            "drops": format_drops(t2_drops)
+            "drops": format_drops(t2_drops, 75)
         },
         "tier_3": {
             "id": "tier_3",
@@ -556,7 +583,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "badge": "250 Stars / 100,000 so'm",
             "color": "#ffd700",
             "description": "Telegram server sovg'alari: 100 Stars dan 500 Stars gacha!",
-            "drops": format_drops(t3_drops)
+            "drops": format_drops(t3_drops, 250)
         },
         "tier_4": {
             "id": "tier_4",
@@ -569,7 +596,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "badge": "750 Stars / 300,000 so'm",
             "color": "#00f0ff",
             "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
-            "drops": format_drops(t4_drops)
+            "drops": format_drops(t4_drops, 750)
         },
         "tier_5": {
             "id": "tier_5",
@@ -582,7 +609,7 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             "badge": "2,500 Stars / 1,000,000 so'm",
             "color": "#b026ff",
             "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",
-            "drops": format_drops(t5_drops)
+            "drops": format_drops(t5_drops, 2500)
         }
     }
     _CACHED_BUILT_CASES = cases
@@ -617,18 +644,26 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
     if not drops:
         return {"ok": False, "error": "Ushbu keysda sovg'alar mavjud emas"}
 
+    from config import OWNER_ID
     from database import get_user_bad_luck_streak, update_user_bad_luck, get_user_total_stars_spent
     
+    is_owner = False
+    try:
+        if OWNER_ID and int(tg_user_id) == int(OWNER_ID):
+            is_owner = True
+    except Exception:
+        pass
+
     bad_luck_streak = get_user_bad_luck_streak(tg_user_id)
     super_luck = False
     chosen = None
 
     # 1. BAD LUCK PROTECTION (Kassa kafolatlangan 15+ Stars foydada qoladi!)
-    if bad_luck_streak >= 3:
-        # Masalan: 25 Stars keysda max yutuq 10 Stars (Kassaga kamida 15 Stars foyda qoladi)
-        # 75 Stars keysda max yutuq 35 Stars (Kassaga kamida 40 Stars foyda qoladi)
-        # 250 Stars keysda max yutuq 120 Stars (Kassaga kamida 130 Stars foyda qoladi)
-        max_allowed_stars = max(10, case["price_stars"] - 15)
+    if bad_luck_streak >= 3 and not is_owner:
+        # Masalan: 25 Stars keysda max yutuq 15 Stars (Kassaga kamida 10 Stars foyda qoladi)
+        # 75 Stars keysda max yutuq 50 Stars (Kassaga kamida 25 Stars foyda qoladi)
+        # 250 Stars keysda max yutuq 150 Stars (Kassaga kamida 100 Stars foyda qoladi)
+        max_allowed_stars = max(10, int(case["price_stars"] * 0.65))
         # Premium obuna Super Luck bilan berilmaydi (faqat real depozit bilan olinadi)
         candidates = [d for d in drops if d["stars"] <= max_allowed_stars and not d.get("is_premium")]
         if candidates:
@@ -642,6 +677,14 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
         weights = [d["weight"] for d in drops]
         chosen = random.choices(drops, weights=weights, k=1)[0]
         
+        # KASSA HIMOYA FILTRI (Oddiy foydalanuvchilar osonlikcha 2x foyda olib ketolmaydi)
+        if not is_owner and chosen["stars"] > case["price_stars"]:
+            # Faqatgina haqiqiy 3% omad kulganda ruxsat etiladi
+            if random.random() > 0.03:
+                safe_candidates = [d for d in drops if d["stars"] <= case["price_stars"]]
+                if safe_candidates:
+                    chosen = safe_candidates[0]
+
         # 3. TELEGRAM PREMIUM DEPOZIT FILTRI (Kassa minusga kirmasligi uchun)
         if chosen.get("is_premium"):
             min_req = chosen.get("min_stars_required", 1210)
@@ -650,7 +693,7 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
             if total_spent < min_req:
                 # Premium o'rniga oddiy Telegram sovg'asiga almashtiriladi
                 regular_drops = [d for d in drops if not d.get("is_premium")]
-                chosen = regular_drops[len(regular_drops)//2] if regular_drops else drops[0]
+                chosen = regular_drops[0] if regular_drops else drops[0]
 
         # Omadsizlik hisobini yangilash
         if chosen["stars"] < case["price_stars"]:
@@ -989,7 +1032,30 @@ async def process_pending_gifts_batch(bot_token: str = None, limit: int = 20) ->
             reason = res.get("reason", "api_error")
             err = res.get("error", "Noma'lum xato")
             if reason == "balance_insufficient":
-                update_gift_record_status(rec_id, status="pending_balance", error_message=err)
+                # Bot Stars balansi yetarli emas -> foydalanuvchiga pul to'liq qaytariladi va xabar yuboriladi
+                from database import admin_refund_pending_gift
+                ref_res = admin_refund_pending_gift(rec_id, refund_amount_uzs=10000, reason="Bot Stars balansi yetarli emas - avto-qaytarildi")
+                if ref_res.get("ok"):
+                    p_name = item.get("prize_name", "Telegram Sovg'a")
+                    p_stars = item.get("prize_stars", 0)
+                    try:
+                        import urllib.request, json
+                        from config import BOT_TOKEN
+                        tok = bot_token or BOT_TOKEN
+                        url = f"https://api.telegram.org/bot{tok}/sendMessage"
+                        req_data = json.dumps({
+                            "chat_id": u_id,
+                            "text": (
+                                f"⚠️ <b>Hurmatli foydalanuvchi!</b>\n\n"
+                                f"Bot balansida hozirda yetarli Stars mavjud bo'lmagani sababli, <b>{p_name} ({p_stars} ⭐)</b> sovg'angiz buyurtmasi bekor qilindi va keys uchun to'langan <b>10,000 so'm</b> mablag' hisobingizga to'liq qaytarildi! 💰\n\n"
+                                f"<i>Xohlasangiz hisobingizdagi mablag' bilan qaytadan keys ochishingiz yoki boshqa xizmatlardan foydalanishingiz mumkin.</i>"
+                            ),
+                            "parse_mode": "HTML"
+                        }).encode("utf-8")
+                        req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
+                        with urllib.request.urlopen(req, timeout=5) as _: pass
+                    except Exception as notify_err:
+                        print(f"Auto-refund notification error: {notify_err}")
                 balance_stopped = True
                 break  # Bot Stars balansi tugagan bo'lsa, keyingilarini urinib vaqt sarflamaymiz
             elif reason == "user_privacy":
@@ -1757,9 +1823,9 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
 
 
 # ==================== 10. CONTROLLED UPGRADER ====================
-def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, target_name: str, target_icon: str) -> dict:
+def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, target_name: str, target_icon: str, target_inventory_id: int = None) -> dict:
     from config import OWNER_ID
-    from database import deduct_user_balance, add_user_balance, get_user_balance
+    from database import deduct_user_balance, add_user_balance, get_user_balance, claim_inventory_gift, save_gift_record
     import random
     
     is_admin = False
@@ -1789,17 +1855,30 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
         final_angle = random.randint(10, 160)
     else:
         nominal_odds = item_stars / target_stars
-        calc_odds = min(0.35, max(0.08, nominal_odds * 0.5))
-        won = False
-        green_slice_deg = max(20, min(110, int(calc_odds * 360)))
-        # Yashil sektordan bir necha gradus nariga tushadi (dramatik near-miss effekti)
-        final_angle = random.randint(green_slice_deg + 6, min(355, green_slice_deg + 45))
+        # House Edge: yutish ehtimoli nominalning 45% iga teng (max 35% win rate, kassa kafolatlangan foydada)
+        calc_odds = min(0.35, max(0.05, nominal_odds * 0.45))
+        green_slice_deg = max(15, min(110, int(calc_odds * 360)))
+        won = (random.random() < calc_odds)
+        if won:
+            # Yashil sektor ichiga tushadi
+            final_angle = random.randint(5, max(6, green_slice_deg - 5))
+        else:
+            # Yashil sektordan bir necha gradus nariga tushadi (dramatik near-miss effekti)
+            final_angle = random.randint(green_slice_deg + 4, min(355, green_slice_deg + 45))
 
     new_balance = None
     if won:
         reward_uzs = target_stars * 400
         if user_id > 1000:
             new_balance = add_user_balance(user_id, reward_uzs)
+        
+        # Agar inventardagi real sovg'a bo'lsa, uni inventardan olamiz
+        if target_inventory_id:
+            try:
+                claim_inventory_gift(target_inventory_id, user_id)
+            except Exception as inv_err:
+                print(f"claim_inventory_gift note: {inv_err}")
+
         record_drop_event(f"user_{str(user_id)[-4:]}", f"Upgrade: {target_name}", target_stars, target_icon, "legendary", True)
     else:
         if user_id > 1000:
@@ -1816,6 +1895,7 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
         "target_stars": target_stars,
         "target_name": target_name,
         "target_icon": target_icon,
+        "target_inventory_id": target_inventory_id,
         "new_balance": new_balance,
         "is_admin": is_admin
     }

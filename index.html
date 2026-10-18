@@ -1274,6 +1274,7 @@
             const [upgraderAngle, setUpgraderAngle] = useState(0);
             const [isUpgrading, setIsUpgrading] = useState(false);
             const [upgradeResult, setUpgradeResult] = useState(null);
+            const [upgraderInventory, setUpgraderInventory] = useState([]);
             
             // Daily Streak (Faqat raqamli xizmatlar)
             const [streakData, setStreakData] = useState(null);
@@ -1419,6 +1420,22 @@
                     .catch(() => {});
             };
 
+            // Fetch Upgrader Real Inventory (from aiko_64 and bot received gifts)
+            const fetchUpgraderInventory = () => {
+                fetch('/api/stars/upgrader/inventory')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.ok && data.inventory && data.inventory.length > 0) {
+                            setUpgraderInventory(data.inventory);
+                            setUpgraderTarget(prev => {
+                                const exists = data.inventory.some(it => it.name === prev.name || it.id === prev.id);
+                                return exists ? prev : data.inventory[0];
+                            });
+                        }
+                    })
+                    .catch(() => {});
+            };
+
             const handleCreateBattle = (tierId) => {
                 if (!tgUser || !tgUser.id || tgUser.id <= 0) {
                     setShowLoginModal(true);
@@ -1507,7 +1524,8 @@
                         item_stars: upgraderItem.stars,
                         target_stars: upgraderTarget.stars,
                         target_name: upgraderTarget.name,
-                        target_icon: upgraderTarget.icon
+                        target_icon: upgraderTarget.icon,
+                        target_inventory_id: upgraderTarget.id || null
                     })
                 })
                 .then(r => r.json())
@@ -1532,6 +1550,7 @@
                                 setUserGifts(prev => [{ prize_name: res.target_name, prize_stars: res.target_stars, rarity: "legendary", icon: res.target_icon, date: "Hozir" }, ...prev]);
                             }
                             fetchRecentDrops();
+                            fetchUpgraderInventory();
                         }, 3800);
                     } else {
                         setIsUpgrading(false);
@@ -2039,11 +2058,13 @@
                 fetchBattles();
                 fetchDailyStreak();
                 initScratchCard();
+                fetchUpgraderInventory();
 
                 const timer = setInterval(() => {
                     if (document.hidden) return;
                     fetchRecentDrops();
                     fetchBattles();
+                    fetchUpgraderInventory();
                 }, 14000);
                 return () => clearInterval(timer);
             }, []);
@@ -4348,25 +4369,32 @@
 
                                                 {/* Right: Target Goal */}
                                                 <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center" }}>
-                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px" }}>
+                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "6px" }}>
                                                         Kutilayotgan Sovg'a:
                                                     </div>
+                                                    {upgraderTarget && (upgraderTarget.receiver_target || upgraderTarget.sender_name) ? (
+                                                        <div style={{ fontSize: "10px", fontWeight: 700, color: "#10B981", background: "rgba(16, 185, 129, 0.1)", borderRadius: "10px", padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: "4px", marginBottom: "6px" }}>
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                            <span>Bor Sovg'a ({upgraderTarget.receiver_target === 'aiko_64' ? '@aiko_64' : 'Bot'})</span>
+                                                        </div>
+                                                    ) : null}
                                                     <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderTarget.icon} name={upgraderTarget.name} size="48px" /></div>
                                                     <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderTarget.name}</div>
                                                     <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderTarget.stars} Stars</span><SvgStar size={13} color="#ffd700" /></div>
 
-                                                    {/* Target Quick Select */}
-                                                    <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
-                                                        {[
+                                                    {/* Target Quick Select - Real Bor Sovg'alar */}
+                                                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
+                                                        {(upgraderInventory && upgraderInventory.length > 0 ? upgraderInventory : [
                                                             { name: "Champagne Bottle", stars: 100, icon: "champagne" },
                                                             { name: "Diamond Ring", stars: 250, icon: "diamond_ring" },
                                                             { name: "Golden Trophy", stars: 500, icon: "trophy" },
                                                             { name: "Space Rocket", stars: 1000, icon: "rocket" }
-                                                        ].map((it, idx) => (
+                                                        ]).map((it, idx) => (
                                                             <button
                                                                 key={idx}
                                                                 onClick={() => setUpgraderTarget(it)}
                                                                 style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderTarget.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+                                                                title={it.receiver_target ? `Bor sovg'a: ${it.receiver_target}` : ""}
                                                             >
                                                                 {it.stars} Stars
                                                             </button>

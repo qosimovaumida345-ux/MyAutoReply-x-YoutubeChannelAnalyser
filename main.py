@@ -1750,6 +1750,10 @@ async def handle_api_stars_open_case(request):
         if user_id <= 0:
             return web.json_response({"ok": False, "error": "Foydalanuvchi ID talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
 
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
         from database import get_db
         # 1. Bot orqali to'langan so'nggi 3 daqiqadagi haqiqiy yutuqni tekshirish
         conn = get_db()
@@ -1901,6 +1905,9 @@ async def handle_api_stars_open_case_uzs(request):
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         tier_id = str(data.get("tier_id", "tier_1")).strip()
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
         from games_monetization import open_stars_case_with_uzs, process_pending_gifts_batch
         res = open_stars_case_with_uzs(user_id, tier_id)
         if res.get("ok"):
@@ -1967,6 +1974,9 @@ async def handle_api_stars_pvp_create(request):
         host_id = int(data.get("user_id", 0))
         host_name = str(data.get("user_name", "")).strip()
         tier_id = str(data.get("tier_id", "tier_1")).strip()
+        import database
+        if database.is_user_banned(host_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
         from games_monetization import create_case_battle
         res = create_case_battle(host_id, host_name, tier_id)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
@@ -1980,6 +1990,9 @@ async def handle_api_stars_pvp_join(request):
         battle_id = str(data.get("battle_id", "")).strip()
         guest_id = int(data.get("user_id", 0))
         guest_name = str(data.get("user_name", "")).strip()
+        import database
+        if database.is_user_banned(guest_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
         from games_monetization import join_and_resolve_battle
         res = join_and_resolve_battle(battle_id, guest_id, guest_name)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
@@ -1998,17 +2011,35 @@ async def handle_api_stars_pvp_cancel(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_stars_upgrader_inventory(request):
+    """Upgrader uchun mavjud bo'lgan haqiqiy sovg'alar inventari (aiko_64 / bot)"""
+    try:
+        from database import get_available_gift_inventory
+        inventory = get_available_gift_inventory(limit=50)
+        return web.json_response({"ok": True, "inventory": inventory}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
 async def handle_api_stars_upgrader(request):
     """Nazoratli Upgrader aylanishi"""
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
         item_stars = int(data.get("item_stars", 15))
         target_stars = int(data.get("target_stars", 50))
         target_name = str(data.get("target_name", "Gift")).strip()
         target_icon = str(data.get("target_icon", "package")).strip()
+        target_inventory_id = data.get("target_inventory_id")
+        if target_inventory_id is not None:
+            try:
+                target_inventory_id = int(target_inventory_id)
+            except Exception:
+                target_inventory_id = None
         from games_monetization import execute_upgrade_roll
-        res = execute_upgrade_roll(user_id, item_stars, target_stars, target_name, target_icon)
+        res = execute_upgrade_roll(user_id, item_stars, target_stars, target_name, target_icon, target_inventory_id)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -2028,28 +2059,66 @@ async def handle_api_stars_daily_claim(request):
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
+        if user_id <= 0:
+            return web.json_response({"ok": False, "error": "Foydalanuvchi ID talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
         from games_monetization import claim_daily_streak
         res = claim_daily_streak(user_id)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+_SCRATCH_COOLDOWN = {}
+
 async def handle_api_stars_scratch_card(request):
-    """Tirnaladigan omad chiptasini o'ynash"""
+    """Tirnaladigan omad chiptasini o'ynash (1,000 UZS / 3 soniya cheklov)"""
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
+        if user_id <= 0:
+            return web.json_response({"ok": False, "error": "Foydalanuvchi ID talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+        # Rate-limiting: 3 soniyalik cooldown
+        import time as _time
+        now = _time.time()
+        last_played = _SCRATCH_COOLDOWN.get(user_id, 0)
+        if now - last_played < 3.0:
+            return web.json_response({"ok": False, "error": "Iltimos, har bir urinish orasida 3 soniya kuting!"}, status=429, headers={"Access-Control-Allow-Origin": "*"})
+
+        # Balans tekshirish va 1,000 so'm yechish
+        bal = database.get_user_balance(user_id)
+        TICKET_PRICE = 1000
+        if bal < TICKET_PRICE:
+            return web.json_response({
+                "ok": False,
+                "error": f"Balansingiz yetarli emas! Chipta narxi: {TICKET_PRICE:,} so'm. Balansingiz: {bal:,} so'm."
+            }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        database.deduct_user_balance(user_id, TICKET_PRICE)
+        _SCRATCH_COOLDOWN[user_id] = now
+
         from games_monetization import play_scratch_card
         res = play_scratch_card(user_id)
+        res["new_balance"] = database.get_user_balance(user_id)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+handle_api_stars_scratch_play = handle_api_stars_scratch_card
 
 async def handle_api_stars_redeem(request):
     """Yutuqlarni CapCut Pro yoki AI xizmatlariga almashtirish"""
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
         service_id = str(data.get("service_id", "")).strip()
         from games_monetization import redeem_creator_service
         res = redeem_creator_service(user_id, service_id)
@@ -2386,55 +2455,96 @@ async def handle_api_auth_verify_webapp(request):
 async def handle_api_auth_verify_token(request):
     """Mavjud sessiya tokenini tekshirish (PostgreSQL 7-kunlik persistent auth)"""
     try:
-        data = await request.json()
-        token = data.get("token", "")
-        raw_uid = data.get("tg_user_id")
-        fingerprint = str(data.get("fingerprint", "")).strip()
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
 
-        if (not token or not raw_uid) and fingerprint:
+        token = str(data.get("token") or request.query.get("token") or "").strip()
+        raw_uid = data.get("tg_user_id") or request.query.get("tg_user_id")
+        fingerprint = str(data.get("fingerprint") or request.query.get("fingerprint") or "").strip()
+
+        tg_user_id = None
+        if raw_uid:
+            try:
+                tg_user_id = int(raw_uid)
+            except Exception:
+                tg_user_id = None
+
+        session = None
+
+        # 1. First check in-memory cache if token is present
+        if token and token in _AUTH_TOKENS:
+            cached_s = _AUTH_TOKENS[token]
+            if not tg_user_id or cached_s.get("tg_user_id") == tg_user_id:
+                session = cached_s
+                tg_user_id = session.get("tg_user_id")
+
+        # 2. Check PostgreSQL web_sessions by token
+        if not session and token:
+            from database import get_web_session
+            db_session = get_web_session(token, fingerprint)
+            if db_session:
+                sess_uid = db_session.get("tg_user_id")
+                if not tg_user_id or sess_uid == tg_user_id:
+                    tg_user_id = sess_uid
+                    session = {
+                        "tg_user_id": tg_user_id,
+                        "created_at": time.time()
+                    }
+                    _AUTH_TOKENS[token] = session
+
+        # 3. Fallback to fingerprint lookup if no token or token not found
+        if not session and fingerprint:
             from database import get_web_session_by_fingerprint
             db_session = get_web_session_by_fingerprint(fingerprint)
             if db_session:
-                token = db_session.get("session_token")
-                tg_user_id = db_session.get("tg_user_id")
-                session = {
-                    "tg_user_id": tg_user_id,
-                    "created_at": time.time()
-                }
-                _AUTH_TOKENS[token] = session
+                sess_uid = db_session.get("tg_user_id")
+                if not tg_user_id or sess_uid == tg_user_id:
+                    token = db_session.get("session_token")
+                    tg_user_id = sess_uid
+                    session = {
+                        "tg_user_id": tg_user_id,
+                        "created_at": time.time()
+                    }
+                    _AUTH_TOKENS[token] = session
 
-        if not token or not tg_user_id:
-            return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        if not token or not tg_user_id or not session:
+            return web.json_response({"ok": False, "error": "Sessiya yaroqsiz yoki muddati o'tgan"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
 
-        # Server restartida xotira tozalansa, PostgreSQL bazadagi web_sessions jadvalidan tekshiramiz
-        if not session or session.get("tg_user_id") != tg_user_id:
-            from database import get_web_session
-            db_session = get_web_session(token, fingerprint)
-            if db_session and db_session.get("tg_user_id") == tg_user_id:
-                session = {
-                    "tg_user_id": tg_user_id,
-                    "created_at": time.time()
-                }
-                _AUTH_TOKENS[token] = session
-            else:
-                session = None
+        import database
+        if database.is_user_banned(tg_user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!", "is_banned": True}, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
-        if session and session.get("tg_user_id") == tg_user_id:
-            from database import is_bot_admin, is_user_vip
-            is_owner = (tg_user_id == 6735799833)
-            is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
-            return web.json_response({
-                "ok": True,
-                "token": token,
-                "tg_user_id": tg_user_id,
-                "is_vip": is_vip,
-                "is_owner": is_owner
-            }, headers={"Access-Control-Allow-Origin": "*"})
+        from database import is_bot_admin, is_user_vip, get_user_balance, is_user_kyc_verified
+        from config import OWNER_ID
+        is_owner = bool(OWNER_ID and tg_user_id == OWNER_ID) or (tg_user_id == 6735799833)
+        is_admin_flag = is_owner or bool(is_bot_admin(tg_user_id))
+        is_vip = is_admin_flag or bool(is_user_vip(tg_user_id))
+        balance = get_user_balance(tg_user_id)
+        is_kyc = is_user_kyc_verified(tg_user_id)
 
-        return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_data = {
+            "id": tg_user_id,
+            "tg_user_id": tg_user_id,
+            "is_vip": is_vip,
+            "is_admin": is_admin_flag,
+            "is_owner": is_owner,
+            "balance_uzs": balance,
+            "is_kyc": is_kyc
+        }
+
+        return web.json_response({
+            "ok": True,
+            "token": token,
+            "tg_user_id": tg_user_id,
+            "is_vip": is_vip,
+            "is_owner": is_owner,
+            "user": user_data
+        }, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         print(f"handle_api_auth_verify_token error: {e}")
-        return web.json_response({"ok": False}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        return web.json_response({"ok": False, "error": str(e)}, status=401, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_api_auth_logout(request):
@@ -2492,10 +2602,15 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/pvp-battle/join", handle_api_stars_pvp_join)
     app.router.add_post("/api/stars/pvp-battle/cancel", handle_api_stars_pvp_cancel)
     app.router.add_post("/api/stars/upgrader", handle_api_stars_upgrader)
+    app.router.add_get("/api/stars/upgrader/inventory", handle_api_stars_upgrader_inventory)
     app.router.add_get("/api/stars/daily-streak", handle_api_stars_daily_streak)
     app.router.add_post("/api/stars/daily-streak/claim", handle_api_stars_daily_claim)
     app.router.add_post("/api/stars/scratch-card/play", handle_api_stars_scratch_card)
     app.router.add_post("/api/stars/redeem-service", handle_api_stars_redeem)
+    app.router.add_post("/api/stars/upgrader/roll", handle_api_stars_upgrader)
+    app.router.add_post("/api/stars/store/redeem", handle_api_stars_redeem)
+    app.router.add_post("/api/stars/pvp/create", handle_api_stars_pvp_create)
+    app.router.add_post("/api/stars/pvp/join", handle_api_stars_pvp_join)
 
     # VenteBot Reseller API (so'm balansi, xavfsiz atomik buyurtma va kesh)
     app.router.add_get("/api/reseller/products", handle_api_reseller_products)

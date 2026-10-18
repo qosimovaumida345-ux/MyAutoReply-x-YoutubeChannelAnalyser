@@ -135,10 +135,30 @@ Foydalanuvchi savoli:
 """
     try:
         import asyncio
-        res = await asyncio.wait_for(generate_with_fallback_async(prompt), timeout=12)
-        return res.text.strip()
+        res = await asyncio.wait_for(generate_with_fallback_async(prompt), timeout=25)
+        if res and hasattr(res, "text") and res.text:
+            return res.text.strip()
+        elif isinstance(res, str) and res.strip():
+            return res.strip()
+        raise ValueError("AI bo'sh javob qaytardi")
+    except asyncio.TimeoutError:
+        logger.warning(f"Support AI javob berish vaqti tugadi (25s timeout): {user_question[:50]}")
+        timeout_msg = {
+            "uz": "⏳ Sun'iy intellekt xizmatida kutish vaqti uzaydi (server band). Murojaatingiz adminga yetkazildi!",
+            "ru": "⏳ Время ответа ИИ превысило лимит (сервер перегружен). Ваш запрос передан администратору!",
+            "en": "⏳ AI response timed out (server busy). Your request has been forwarded to the administrator!"
+        }
+        return timeout_msg.get(lang, timeout_msg["uz"])
     except Exception as e:
-        logger.error(f"Support AI xatosi: {e}")
+        logger.error(f"Support AI xatosi ({type(e).__name__}): {e}")
+        err_str = str(e).lower()
+        if any(term in err_str for term in ["429", "resourceexhausted", "quota", "rate limit", "rate_limit"]):
+            rate_limit_msg = {
+                "uz": "⚠️ Sun'iy intellekt xizmatida so'rovlar limiti oshdi (Rate Limit). Birozdan so'ng qayta urinib ko'ring yoki adminga murojaat qiling.",
+                "ru": "⚠️ Превышен лимит запросов к ИИ (Rate Limit). Пожалуйста, повторите чуть позже или свяжитесь с администратором.",
+                "en": "⚠️ AI service rate limit reached. Please try again shortly or contact support."
+            }
+            return rate_limit_msg.get(lang, rate_limit_msg["uz"])
         err_msg = {
             "uz": "Kechirasiz, sun'iy intellekt xizmati hozirda band. Iltimos, admin bilan to'g'ridan-to'g'ri bog'laning!",
             "ru": "Извините, сервис ИИ сейчас перегружен. Пожалуйста, свяжитесь напрямую с администратором!",

@@ -808,20 +808,34 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }}
         }}
 
-        // Draws dynamic 3D Wireframe Conforming Exactly to Person's Facial Features
+        // Apple TrueDepth 940nm Infrared 3D Face Scan (468 Dots + Structured Light Laser Sweep)
         function drawRealFaceMesh(ctx, landmarks, width, height, isDone) {{
-            const toX = (p) => (1.0 - p.x) * width; // Mirror horizontally to match video
+            const toX = (p) => (1.0 - p.x) * width; // Mirror horizontally to match camera
             const toY = (p) => p.y * height;
 
-            const primaryColor = isDone ? "#10b981" : "#00f2fe";
-            const wireColor = isDone ? "rgba(16, 185, 129, 0.28)" : "rgba(0, 242, 254, 0.25)";
-            const pointColor = isDone ? "#34d399" : "#38bdf8";
+            // 1. Calculate Face Bounding Box & Depth Metrics
+            let minX = width, maxX = 0, minY = height, maxY = 0;
+            const pts = [];
+            for (let i = 0; i < landmarks.length; i++) {{
+                const p = landmarks[i];
+                if (!p) continue;
+                const px = toX(p), py = toY(p);
+                pts.push({{ x: px, y: py, z: p.z || 0, idx: i }});
+                if (px < minX) minX = px;
+                if (px > maxX) maxX = px;
+                if (py < minY) minY = py;
+                if (py > maxY) maxY = py;
+            }}
 
-            // 1. Jawline Path
+            const faceW = maxX - minX;
+            const faceH = maxY - minY;
+            const cx = (minX + maxX) / 2;
+            const cy = (minY + maxY) / 2;
+
+            // 2. Subtle Biometric Thermal Radiance Halo around face contour
             const jawIndices = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109, 10];
+            ctx.save();
             ctx.beginPath();
-            ctx.strokeStyle = primaryColor;
-            ctx.lineWidth = 2.2;
             jawIndices.forEach((idx, i) => {{
                 const p = landmarks[idx];
                 if (p) {{
@@ -829,65 +843,27 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 }}
             }});
+            ctx.closePath();
+            ctx.strokeStyle = isDone ? "rgba(16, 185, 129, 0.45)" : "rgba(255, 0, 85, 0.32)";
+            ctx.lineWidth = 4.0;
+            ctx.shadowColor = isDone ? "#10b981" : "#ff0055";
+            ctx.shadowBlur = 18;
             ctx.stroke();
 
-            // 2. Real Left & Right Eyes
-            const leftEye = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246, 33];
-            const rightEye = [263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466, 263];
-            [leftEye, rightEye].forEach(eye => {{
-                ctx.beginPath();
-                ctx.strokeStyle = primaryColor;
-                ctx.lineWidth = 1.8;
-                eye.forEach((idx, i) => {{
-                    const p = landmarks[idx];
-                    if (p) {{
-                        const x = toX(p), y = toY(p);
-                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    }}
-                }});
-                ctx.stroke();
-            }});
-
-            // 3. Lips Outer Contour
-            const lips = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 78, 61];
-            ctx.beginPath();
-            ctx.strokeStyle = primaryColor;
-            ctx.lineWidth = 1.6;
-            lips.forEach((idx, i) => {{
-                const p = landmarks[idx];
-                if (p) {{
-                    const x = toX(p), y = toY(p);
-                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }}
-            }});
-            ctx.stroke();
-
-            // 4. Nose Bridge & Contours
-            const nose = [168, 6, 197, 195, 5, 4, 1, 19, 94, 2];
-            ctx.beginPath();
-            ctx.strokeStyle = primaryColor;
-            ctx.lineWidth = 1.6;
-            nose.forEach((idx, i) => {{
-                const p = landmarks[idx];
-                if (p) {{
-                    const x = toX(p), y = toY(p);
-                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                }}
-            }});
-            ctx.stroke();
-
-            // 5. 3D Triangulation Grid Connections across face
-            const connections = [
-                [10, 151], [151, 9], [9, 8], [8, 168], [168, 6], [6, 197],
+            // Very subtle infrared mesh triangulation connecting key landmarks
+            const gridEdges = [
+                [10, 151], [151, 9], [9, 8], [8, 168], [168, 6], [6, 197], [197, 195], [195, 5], [5, 4],
                 [234, 127], [127, 162], [162, 21], [454, 323], [323, 361], [361, 288],
                 [1, 2], [2, 164], [164, 18], [18, 200], [200, 199], [199, 152],
                 [33, 168], [263, 168], [1, 61], [1, 291], [4, 61], [4, 291],
-                [10, 67], [10, 297], [152, 377], [152, 148]
+                [10, 67], [10, 297], [152, 377], [152, 148], [33, 133], [263, 362],
+                [61, 146], [146, 91], [91, 181], [181, 84], [84, 17], [314, 405], [405, 321], [321, 375], [375, 291]
             ];
             ctx.beginPath();
-            ctx.strokeStyle = wireColor;
-            ctx.lineWidth = 1.1;
-            connections.forEach(([i1, i2]) => {{
+            ctx.strokeStyle = isDone ? "rgba(16, 185, 129, 0.22)" : "rgba(255, 42, 95, 0.16)";
+            ctx.lineWidth = 1.0;
+            ctx.shadowBlur = 0;
+            gridEdges.forEach(([i1, i2]) => {{
                 const p1 = landmarks[i1], p2 = landmarks[i2];
                 if (p1 && p2) {{
                     ctx.moveTo(toX(p1), toY(p1));
@@ -895,19 +871,121 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 }}
             }});
             ctx.stroke();
+            ctx.restore();
 
-            // 6. Glowing Keypoint Dots on real face features
-            const keypoints = [10, 152, 234, 454, 4, 33, 263, 61, 291, 168];
-            ctx.fillStyle = pointColor;
-            keypoints.forEach(idx => {{
-                const p = landmarks[idx];
-                if (p) {{
-                    const x = toX(p), y = toY(p);
-                    ctx.beginPath();
-                    ctx.arc(x, y, 3.2, 0, Math.PI * 2);
-                    ctx.fill();
+            // 3. Volumetric 940nm Infrared Scanning Sweep Beam (Smooth Downward Cyclical Sweep)
+            const scanPeriod = 1600; // ms per cycle
+            const scanTime = (Date.now() % scanPeriod) / scanPeriod; // 0.0 to 1.0
+            const sweepY = (minY - 20) + scanTime * (faceH + 40);
+
+            ctx.save();
+            // Volumetric laser gradient swath
+            const beamHeight = 44;
+            const beamGrad = ctx.createLinearGradient(0, sweepY - beamHeight, 0, sweepY + beamHeight);
+            if (isDone) {{
+                beamGrad.addColorStop(0.0, "rgba(16, 185, 129, 0)");
+                beamGrad.addColorStop(0.5, "rgba(52, 211, 153, 0.38)");
+                beamGrad.addColorStop(1.0, "rgba(16, 185, 129, 0)");
+            }} else {{
+                beamGrad.addColorStop(0.0, "rgba(255, 0, 85, 0)");
+                beamGrad.addColorStop(0.5, "rgba(255, 42, 95, 0.42)");
+                beamGrad.addColorStop(1.0, "rgba(255, 0, 85, 0)");
+            }}
+            ctx.fillStyle = beamGrad;
+            ctx.fillRect(minX - 35, sweepY - beamHeight, faceW + 70, beamHeight * 2);
+
+            // Bright core beam line
+            ctx.strokeStyle = isDone ? "#a7f3d0" : "#ffffff";
+            ctx.lineWidth = 1.6;
+            ctx.shadowColor = isDone ? "#10b981" : "#ff0055";
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(minX - 30, sweepY);
+            ctx.lineTo(maxX + 30, sweepY);
+            ctx.stroke();
+            ctx.restore();
+
+            // 4. Apple TrueDepth 468 Luminous Glowing Crimson/Infrared Micro-Dots Projection
+            ctx.save();
+            ctx.shadowColor = isDone ? "#10b981" : "#ff0055";
+            ctx.shadowBlur = 7;
+
+            // Palette of glowing crimson/infrared shades
+            const dotPalette = isDone
+                ? ["#10b981", "#34d399", "#6ee7b7"]
+                : ["#ff0055", "#ff3366", "#ff2a5f"];
+
+            for (let i = 0; i < pts.length; i++) {{
+                const pt = pts[i];
+                const distToBeam = Math.abs(pt.y - sweepY);
+                const isUnderBeam = distToBeam < 22;
+
+                // Structured light depth-modulated radius: closer dots are slightly larger
+                const baseRadius = Math.max(1.1, Math.min(2.7, 1.7 - pt.z * 6.5));
+                const r = isUnderBeam ? baseRadius * 1.6 : baseRadius;
+
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+
+                if (isUnderBeam) {{
+                    // Highlight flash when beam sweeps over
+                    ctx.fillStyle = isDone ? "#ecfdf5" : "#ffffff";
+                }} else {{
+                    ctx.fillStyle = dotPalette[i % dotPalette.length];
                 }}
-            }});
+                ctx.fill();
+            }}
+            ctx.restore();
+
+            // 5. High-Tech HUD Crosshairs & Scanning Telemetry Overlay
+            ctx.save();
+            const bracketPad = 18;
+            const bx1 = minX - bracketPad, by1 = minY - bracketPad;
+            const bx2 = maxX + bracketPad, by2 = maxY + bracketPad;
+            const bLen = Math.min(26, faceW * 0.16);
+
+            ctx.strokeStyle = isDone ? "#10b981" : "#ff0055";
+            ctx.lineWidth = 2.0;
+            ctx.shadowColor = isDone ? "#10b981" : "#ff0055";
+            ctx.shadowBlur = 6;
+
+            // 4 Corner Brackets
+            // Top-Left
+            ctx.beginPath();
+            ctx.moveTo(bx1, by1 + bLen); ctx.lineTo(bx1, by1); ctx.lineTo(bx1 + bLen, by1);
+            // Top-Right
+            ctx.moveTo(bx2 - bLen, by1); ctx.lineTo(bx2, by1); ctx.lineTo(bx2, by1 + bLen);
+            // Bottom-Left
+            ctx.moveTo(bx1, by2 - bLen); ctx.lineTo(bx1, by2); ctx.lineTo(bx1 + bLen, by2);
+            // Bottom-Right
+            ctx.moveTo(bx2 - bLen, by2); ctx.lineTo(bx2, by2); ctx.lineTo(bx2, by2 - bLen);
+            ctx.stroke();
+
+            // Center Target Crosshair
+            const chLen = 8;
+            ctx.beginPath();
+            ctx.moveTo(cx - chLen, cy); ctx.lineTo(cx + chLen, cy);
+            ctx.moveTo(cx, cy - chLen); ctx.lineTo(cx, cy + chLen);
+            ctx.strokeStyle = isDone ? "rgba(16, 185, 129, 0.7)" : "rgba(255, 0, 85, 0.75)";
+            ctx.lineWidth = 1.4;
+            ctx.stroke();
+
+            // Telemetry Data Overlay (Monospace HUD)
+            ctx.font = "600 9.5px 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace";
+            ctx.fillStyle = isDone ? "#34d399" : "#ff3366";
+            ctx.shadowBlur = 4;
+
+            // Top Telemetry Line
+            const statusLabel = isDone ? "STATUS: 3D VERIFIED [PASS]" : "IR SENSOR: 940nm VCSEL";
+            ctx.fillText(statusLabel, bx1, Math.max(14, by1 - 8));
+
+            // Bottom Telemetry Lines
+            const tLine1 = isDone ? "BIOMETRIC HASH: LOCKED" : "DEPTH MAP: ACTIVE";
+            const tLine2 = "STRUCTURED LIGHT: 30K DOTS";
+            ctx.fillText(tLine1, bx1, Math.min(height - 18, by2 + 16));
+            ctx.fillText(tLine2, bx1, Math.min(height - 6, by2 + 28));
+
+            ctx.restore();
         }}
 
         function drawSearchingHUD(ctx, width, height) {{

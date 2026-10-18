@@ -470,6 +470,39 @@ FAQAT JSON formatida javob ber:"""
                 "is_spam": False,
             }
     
+    # ==================== JONLI SOVG'ALAR TINGLOVCHISI (AIKO_64 UCHUN) ====================
+    @app.on_message(filters.service & filters.private)
+    async def service_gift_listener(client, message):
+        """Aiko_64 akkauntiga tushgan har qanday Star Gift ni avtomatik ushlash va inventarga saqlash"""
+        try:
+            action = getattr(message, "action", None)
+            sender = message.from_user
+            sender_id = sender.id if sender else 0
+            sender_name = sender.first_name if sender else "Foydalanuvchi"
+            action_name = type(action).__name__ if action else ""
+            
+            if "Gift" in action_name or "gift" in str(message).lower() or getattr(message, "gift", None):
+                from database import add_received_gift
+                gift_name = "Telegram Sovg'a"
+                stars = 50
+                icon = "gift"
+                if hasattr(action, "gift") and action.gift:
+                    stars = getattr(action.gift, "stars", 50)
+                    icon = "star" if stars <= 25 else "champagne"
+                
+                add_received_gift(
+                    sender_tg_id=sender_id,
+                    sender_name=sender_name,
+                    gift_id=f"rec_gift_{message.id}",
+                    gift_name=gift_name,
+                    stars_value=stars,
+                    icon=icon,
+                    receiver_target="aiko_64"
+                )
+                print(f"[*] Aiko_64 ga yangi sovg'a keldi va Upgrader inventariga qo'shildi! ({sender_name}, {stars} Stars)")
+        except Exception as ge:
+            print(f"[!] service_gift_listener xatosi: {ge}")
+
     # ==================== ASOSIY AUTO-REPLY HANDLER ====================
     
     @app.on_message(filters.private & ~filters.me & ~filters.bot & filters.text)

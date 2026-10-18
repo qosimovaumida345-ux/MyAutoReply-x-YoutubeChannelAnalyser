@@ -84,7 +84,7 @@ def _get_ffmpeg_binary():
     return "ffmpeg"
 
 
-def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id="worker"):
+def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id="worker", client_preset=None, skip_cookies=False):
     """yt-dlp parametrlarini tuzish"""
     format_map = {
         "mp3":  "ba/b",
@@ -125,7 +125,7 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
             "preferredquality": "192"
         }]
 
-    if cookies_text:
+    if not skip_cookies and cookies_text:
         cookie_path = os.path.join(DOWNLOADS_DIR, f"cookies_{user_id}.txt")
         try:
             with open(cookie_path, "w", encoding="utf-8") as f:
@@ -138,13 +138,16 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
             }
         except Exception as ce:
             logger.warning(f"Cookie yozishda xato: {ce}")
-    elif os.path.exists("cookies.txt"):
+    elif not skip_cookies and os.path.exists("cookies.txt"):
         ydl_opts["cookiefile"] = "cookies.txt"
         ydl_opts["extractor_args"] = {
             "youtube": {
                 "player_client": ["web_safari", "web", "mweb"],
             }
         }
+
+    if client_preset:
+        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset}}
 
     if proxy:
         ydl_opts["proxy"] = proxy
@@ -194,21 +197,31 @@ def _extract_with_fallback(url, out_path, fmt="720", cookies_text=None, proxy=No
     except Exception as e2:
         logger.warning(f"2-urinishda xatolik ({e2}), muqobil [ios, web_safari, web] clientlarga o'tilmoqda...")
 
-    # 3-urinish: iOS va Web_safari clientlar (cookies bilan, 'tv' siz)
+    # 3-urinish: YouTube "Sign in to confirm you're not a bot" bypass (mobil clientlar & cookies-siz)
     try:
-        ydl_opts3 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
-        ydl_opts3["extractor_args"] = {"youtube": {"player_client": ["ios", "web_safari", "web"]}}
+        logger.info("3-urinish: Mobil bypass [android, ios] (skip_cookies=True, PO Token)...")
+        ydl_opts3 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id, client_preset=["android", "ios"], skip_cookies=True)
         ydl_opts3["format"] = "bv*+ba/b/best"
+        ydl_opts3.setdefault("extractor_args", {}).setdefault("youtubepot-bgutilhttp", {})["base_url"] = "http://127.0.0.1:4416"
         with yt_dlp.YoutubeDL(ydl_opts3) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e3:
-        logger.warning(f"3-urinishda xatolik ({e3}), standart sozlamalarga o'tilmoqda...")
+        logger.warning(f"3-urinish (mobil bypass) xatolik ({e3}), muqobil [ios, web_safari, web] clientlarga o'tilmoqda...")
 
-    # 4-urinish: Standart yt-dlp sozlamalari
-    ydl_opts4 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
-    ydl_opts4.pop("extractor_args", None)
-    ydl_opts4["format"] = "bv*+ba/b/best"
-    with yt_dlp.YoutubeDL(ydl_opts4) as ydl:
+    # 4-urinish: iOS va Web_safari clientlar (cookies bilan, 'tv' siz)
+    try:
+        ydl_opts4 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id, client_preset=["ios", "web_safari", "web"])
+        ydl_opts4["format"] = "bv*+ba/b/best"
+        with yt_dlp.YoutubeDL(ydl_opts4) as ydl:
+            return ydl.extract_info(url, download=True)
+    except Exception as e4:
+        logger.warning(f"4-urinishda xatolik ({e4}), standart sozlamalarga o'tilmoqda...")
+
+    # 5-urinish: Standart yt-dlp sozlamalari
+    ydl_opts5 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
+    ydl_opts5.pop("extractor_args", None)
+    ydl_opts5["format"] = "bv*+ba/b/best"
+    with yt_dlp.YoutubeDL(ydl_opts5) as ydl:
         return ydl.extract_info(url, download=True)
 
 

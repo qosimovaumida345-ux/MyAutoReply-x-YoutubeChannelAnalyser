@@ -21,6 +21,9 @@ def _set_cached(key, val, ttl_seconds=180):
 def _invalidate_cached(key):
     _CACHE_STORE.pop(key, None)
 
+def _del_cached(key):
+    _CACHE_STORE.pop(key, None)
+
 
 def clean_database_url(url: str) -> str:
     """Tozalangan va xavfsiz SSL parametrli DB URL qaytaradi"""
@@ -536,6 +539,26 @@ def init_db():
             updated_at TIMESTAMP DEFAULT NOW(),
             sent_at TIMESTAMP
         )
+    """)
+
+    # 2.1.1 Jonli Qabul Qilingan Sovg'alar Inventari (Upgrader va Aiko_64 / Bot uchun)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS received_gifts_inventory (
+            id SERIAL PRIMARY KEY,
+            sender_tg_id BIGINT,
+            sender_name VARCHAR(128),
+            receiver_target VARCHAR(32) DEFAULT 'aiko_64',
+            gift_id VARCHAR(64) NOT NULL,
+            gift_name VARCHAR(128) NOT NULL,
+            stars_value INT NOT NULL,
+            icon VARCHAR(64) DEFAULT 'package',
+            file_id TEXT,
+            file_type VARCHAR(16) DEFAULT 'webp',
+            is_available BOOLEAN DEFAULT TRUE,
+            won_by_tg_id BIGINT,
+            received_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_rec_gifts_avail ON received_gifts_inventory(is_available);
     """)
 
     # 2.2 Do'stga Sovg'a Qilingan Keyslar (Gift Case Vouchers)
@@ -4853,6 +4876,9 @@ def ban_antifraud_user(tg_user_id: int, reason: str = "Majburiy kanaldan chiqib 
             ON CONFLICT (tg_user_id) DO UPDATE SET reason = EXCLUDED.reason, banned_at = NOW()
         """, (tg_user_id, reason))
         conn.commit()
+        _del_cached(f"banned_{tg_user_id}")
+        _del_cached(f"antifraud_{tg_user_id}")
+        _set_cached(f"banned_{tg_user_id}", True, 600)
         _set_cached(f"antifraud_{tg_user_id}", True, 600)
         return True
     except Exception as e:
@@ -4864,13 +4890,16 @@ def ban_antifraud_user(tg_user_id: int, reason: str = "Majburiy kanaldan chiqib 
 
 def unban_antifraud_user(tg_user_id: int) -> bool:
     """Foydalanuvchini qora ro'yxatdan chiqarish"""
-    _set_cached(f"antifraud_{tg_user_id}", False, 600)
+    _del_cached(f"banned_{tg_user_id}")
+    _del_cached(f"antifraud_{tg_user_id}")
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
         cur.execute("DELETE FROM banned_antifraud_users WHERE tg_user_id = %s", (tg_user_id,))
         conn.commit()
+        _del_cached(f"banned_{tg_user_id}")
+        _del_cached(f"antifraud_{tg_user_id}")
         return True
     except Exception as e:
         conn.rollback()
@@ -5576,7 +5605,7 @@ def get_pending_gifts(status: str = None, limit: int = 100) -> list:
             cur.execute("""
                 SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at
                 FROM pending_gifts
-                WHERE status != 'sent'
+                WHERE status NOT IN ('sent', 'refunded', 'recycled', 'cancelled')
                 ORDER BY prize_stars ASC, id ASC
                 LIMIT %s
             """, (limit,))
@@ -5806,6 +5835,168 @@ def recycle_gift_record(record_id: int, tg_user_id: int, refund_uzs: int) -> dic
         conn.rollback()
         print(f"recycle_gift_record error: {e}")
         return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = 10000, reason: str = "Bot Stars balansi yetarli emas") -> dict:
+    """Pending giftni bekor qilib, summani foydalanuvchi balansiga to'liq qaytarish"""
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, tg_user_id, status, prize_name, prize_stars, tier_key, case_name 
+            FROM pending_gifts 
+            WHERE id = %s 
+            FOR UPDATE
+        """, (record_id,))
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return {"ok": False, "error": "Sovg'a topilmadi!"}
+            
+        tg_user_id = row["tg_user_id"] if isinstance(row, dict) else row[1]
+        status = row["status"] if isinstance(row, dict) else row[2]
+        prize_name = row["prize_name"] if isinstance(row, dict) else row[3]
+        prize_stars = row["prize_stars"] if isinstance(row, dict) else row[4]
+        
+        if status in ("sent", "refunded"):
+            conn.rollback()
+            return {"ok": False, "error": f"Ushbu sovg'a allaqachon '{status}' holatida!"}
+
+        # 1. Holatni refunded ga o'tkazamiz
+        cur.execute("""
+            UPDATE pending_gifts
+            SET status = 'refunded', error_message = %s, updated_at = NOW()
+            WHERE id = %s
+        """, (reason, record_id))
+
+        # 2. Foydalanuvchi balansiga to'langan mablag'ni qaytaramiz
+        cur.execute("""
+            INSERT INTO user_balances (tg_user_id, balance_uzs)
+            VALUES (%s, %s)
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+            RETURNING balance_uzs
+        """, (tg_user_id, refund_amount_uzs))
+        b_res = cur.fetchone()
+        new_bal = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
+
+        conn.commit()
+        _invalidate_cached(f"bal_{tg_user_id}")
+        return {
+            "ok": True,
+            "record_id": record_id,
+            "tg_user_id": tg_user_id,
+            "refund_uzs": refund_amount_uzs,
+            "new_balance": new_bal,
+            "prize_name": prize_name,
+            "prize_stars": prize_stars
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def add_received_gift(sender_tg_id: int, sender_name: str, gift_id: str, gift_name: str, stars_value: int, icon: str = "package", file_id: str = "", file_type: str = "webp", receiver_target: str = "aiko_64") -> dict:
+    """Yangi qabul qilingan sovg'ani inventarga saqlash (aiko_64 yoki botga tushgan)"""
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO received_gifts_inventory 
+            (sender_tg_id, sender_name, receiver_target, gift_id, gift_name, stars_value, icon, file_id, file_type, is_available)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
+            RETURNING id
+        """, (sender_tg_id, sender_name, receiver_target, gift_id, gift_name, stars_value, icon, file_id, file_type))
+        res = cur.fetchone()
+        gid = res["id"] if isinstance(res, dict) else res[0]
+        conn.commit()
+        return {"ok": True, "id": gid}
+    except Exception as e:
+        conn.rollback()
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def get_available_gift_inventory(limit: int = 50) -> list:
+    """Upgrader uchun mavjud bo'lgan haqiqiy sovg'alar inventari"""
+    conn = get_db()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, sender_name, receiver_target, gift_id, gift_name, stars_value, icon, file_id, file_type, received_at
+            FROM received_gifts_inventory
+            WHERE is_available = TRUE
+            ORDER BY stars_value ASC, id DESC
+            LIMIT %s
+        """, (limit,))
+        rows = cur.fetchall()
+        results = []
+        for r in rows:
+            if isinstance(r, dict):
+                results.append({
+                    "id": r["id"],
+                    "sender_name": r.get("sender_name") or "",
+                    "receiver_target": r.get("receiver_target") or "aiko_64",
+                    "gift_id": r.get("gift_id") or "",
+                    "name": r.get("gift_name") or r.get("name") or "Telegram Sovg'a",
+                    "stars": r.get("stars_value") or r.get("stars") or 50,
+                    "icon": r.get("icon") or "package",
+                    "file_id": r.get("file_id") or "",
+                    "file_type": r.get("file_type") or "webp",
+                    "received_at": str(r.get("received_at") or "")
+                })
+            else:
+                results.append({
+                    "id": r[0],
+                    "sender_name": r[1],
+                    "receiver_target": r[2],
+                    "gift_id": r[3],
+                    "name": r[4],
+                    "stars": r[5],
+                    "icon": r[6],
+                    "file_id": r[7],
+                    "file_type": r[8],
+                    "received_at": str(r[9]) if r[9] else ""
+                })
+        return results
+    except Exception as e:
+        print(f"get_available_gift_inventory error: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def claim_inventory_gift(inventory_id: int, won_by_tg_id: int) -> bool:
+    """Upgrader'da yutilgan sovg'ani inventardan chiqarish (is_available = FALSE)"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE received_gifts_inventory
+            SET is_available = FALSE, won_by_tg_id = %s
+            WHERE id = %s AND is_available = TRUE
+        """, (won_by_tg_id, inventory_id))
+        ok = cur.rowcount > 0
+        conn.commit()
+        return ok
+    except Exception as e:
+        conn.rollback()
+        print(f"claim_inventory_gift error: {e}")
+        return False
     finally:
         conn.close()
 
@@ -6236,6 +6427,45 @@ def admin_adjust_user_balance(tg_user_id: int, delta_uzs: int) -> int:
         conn.close()
 
 
+def is_user_banned(tg_user_id: int) -> bool:
+    """Foydalanuvchi bloklanganmi? (bot_users.is_banned = TRUE yoki banned_antifraud_users) - 120s kesh bilan"""
+    if not tg_user_id:
+        return False
+    try:
+        tg_user_id = int(tg_user_id)
+    except Exception:
+        return False
+
+    cached = _get_cached(f"banned_{tg_user_id}")
+    if cached is not None:
+        return bool(cached)
+
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        # 1. Check bot_users is_banned
+        cur.execute("SELECT 1 FROM bot_users WHERE tg_user_id = %s AND is_banned = TRUE LIMIT 1", (tg_user_id,))
+        if cur.fetchone():
+            _set_cached(f"banned_{tg_user_id}", True, 120)
+            return True
+
+        # 2. Check banned_antifraud_users
+        cur.execute("SELECT 1 FROM banned_antifraud_users WHERE tg_user_id = %s LIMIT 1", (tg_user_id,))
+        if cur.fetchone():
+            _set_cached(f"banned_{tg_user_id}", True, 120)
+            return True
+
+        _set_cached(f"banned_{tg_user_id}", False, 120)
+        return False
+    except Exception as e:
+        print(f"is_user_banned error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def admin_toggle_user_ban(tg_user_id: int, is_banned: bool, reason: str = "") -> bool:
     """Admin foydalanuvchini bloklash yoki blokdan chiqarishi"""
     conn = get_db()
@@ -6252,12 +6482,14 @@ def admin_toggle_user_ban(tg_user_id: int, is_banned: bool, reason: str = "") ->
             cur.execute("""
                 INSERT INTO banned_antifraud_users (tg_user_id, reason, banned_at)
                 VALUES (%s, %s, NOW())
-                ON CONFLICT DO NOTHING
+                ON CONFLICT (tg_user_id) DO UPDATE SET reason = EXCLUDED.reason, banned_at = NOW()
             """, (tg_user_id, reason or "Admin tomonidan bloklandi"))
         else:
             cur.execute("DELETE FROM banned_antifraud_users WHERE tg_user_id = %s", (tg_user_id,))
             
         conn.commit()
+        _del_cached(f"banned_{tg_user_id}")
+        _del_cached(f"antifraud_{tg_user_id}")
         return True
     except Exception as e:
         conn.rollback()

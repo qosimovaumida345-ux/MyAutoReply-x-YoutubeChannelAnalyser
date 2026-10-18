@@ -62,7 +62,8 @@ from database import (
     set_user_language, get_user_language, get_top_referrers, get_top_duel_winners,
     get_config, set_config,
     is_service_disabled, toggle_service, get_all_service_states, ADMIN_SERVICES,
-    get_openrouter_key_for_setup, has_user_purchased_ai_coding_agent, record_ai_coding_agent_purchase
+    get_openrouter_key_for_setup, has_user_purchased_ai_coding_agent, record_ai_coding_agent_purchase,
+    is_user_banned, admin_set_user_balance, admin_adjust_user_balance
 )
 from locales import t, SUPPORTED_LANGUAGES
 from games_monetization import (
@@ -1347,6 +1348,35 @@ def create_ytbot():
     
     bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
+    # ==================== GLOBAL BAN ENFORCEMENT MIDDLEWARE ====================
+    @bot.on_message(group=-100)
+    async def global_ban_middleware_message(client, message: Message):
+        if not message.from_user:
+            return
+        if check_is_admin(message.from_user):
+            return
+        uid = message.from_user.id
+        if is_user_banned(uid):
+            try:
+                await message.reply_text("🚫 **Hisobingiz bloklangan!**\nSiz bot xizmatlaridan foydalana olmaysiz. Savollar bo'lsa ma'muriyatga murojaat qiling.")
+            except Exception:
+                pass
+            message.stop_propagation()
+
+    @bot.on_callback_query(group=-100)
+    async def global_ban_middleware_callback(client, cb: CallbackQuery):
+        if not cb.from_user:
+            return
+        if check_is_admin(cb.from_user):
+            return
+        uid = cb.from_user.id
+        if is_user_banned(uid):
+            try:
+                await cb.answer("Hisobingiz bloklangan!", show_alert=True)
+            except Exception:
+                pass
+            cb.stop_propagation()
+
     # /dl, /seo, /ideas, /translate kabi buyruqlar uchun kunlik limit tekshiruvi
     # (admin va VIP uchun cheklovsiz, oddiy va to'liq foydalanuvchilar uchun mos limitlar)
     def can_use_bot(user):
@@ -1751,12 +1781,12 @@ def create_ytbot():
         else:
             await show_admin_users_page(client, message, page=1, search=arg)
 
-    @bot.on_message(filters.command(["setbalance", "balansornat"]) & filters.private)
+    @bot.on_message(filters.command(["setbalance", "setbal", "balansornat"]) & filters.private)
     async def set_balance_cmd(client, message: Message):
         if not check_is_admin(message.from_user): return
         parts = message.text.split()
         if len(parts) < 3:
-            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/setbalance &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/setbalance 7271080503 50000</code>")
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/setbal &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/setbal 7271080503 50000</code>")
             return
         try:
             target_uid = int(parts[1].strip())
@@ -1767,21 +1797,119 @@ def create_ytbot():
         except Exception as e:
             await message.reply_text(f"❌ Xato: {e}")
 
-    @bot.on_message(filters.command(["addbalance", "balansqosh"]) & filters.private)
+    @bot.on_message(filters.command(["addbalance", "addbal", "balansqosh", "plusbal"]) & filters.private)
     async def add_balance_cmd(client, message: Message):
         if not check_is_admin(message.from_user): return
         parts = message.text.split()
         if len(parts) < 3:
-            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/addbalance &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/addbalance 7271080503 10000</code>")
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/addbal &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/addbal 7271080503 10000</code>")
             return
         try:
             target_uid = int(parts[1].strip())
             amt = int(parts[2].strip().replace(",", "").replace(" ", ""))
             from database import admin_adjust_user_balance
             nb = admin_adjust_user_balance(target_uid, amt)
-            await message.reply_text(f"✅ Foydalanuvchi <code>{target_uid}</code> balansiga o'zgartirish kiritildi: <b>{nb:,} so'm</b>!")
+            sign_str = f"+{amt:,}" if amt >= 0 else f"{amt:,}"
+            await message.reply_text(f"✅ Foydalanuvchi <code>{target_uid}</code> balansiga o'zgartirish kiritildi: <b>{sign_str} so'm</b>! (Yangi balans: <b>{nb:,} so'm</b>)")
         except Exception as e:
             await message.reply_text(f"❌ Xato: {e}")
+
+    @bot.on_message(filters.command(["deductbalance", "deductbal", "ayirbalans", "subbal", "minusbal"]) & filters.private)
+    async def deduct_balance_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 3:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/deductbal &lt;user_id&gt; &lt;summa_uzs&gt;</code>\nMasalan: <code>/deductbal 7271080503 10000</code>")
+            return
+        try:
+            target_uid = int(parts[1].strip())
+            amt = abs(int(parts[2].strip().replace(",", "").replace(" ", "")))
+            from database import admin_adjust_user_balance
+            nb = admin_adjust_user_balance(target_uid, -amt)
+            await message.reply_text(f"✅ Foydalanuvchi <code>{target_uid}</code> balansidan <b>-{amt:,} so'm</b> ayirildi! (Yangi balans: <b>{nb:,} so'm</b>)")
+        except Exception as e:
+            await message.reply_text(f"❌ Xato: {e}")
+
+    @bot.on_message(filters.command(["refundgift", "qaytargift"]) & filters.private)
+    async def admin_refund_gift_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split()
+        if len(parts) < 2 or not parts[1].strip().isdigit():
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/refundgift &lt;record_id&gt; [summa_uzs]</code>\nMasalan: <code>/refundgift 21 10000</code>")
+            return
+        try:
+            rec_id = int(parts[1].strip())
+            amt = int(parts[2].strip()) if len(parts) > 2 and parts[2].strip().isdigit() else 10000
+            from database import admin_refund_pending_gift
+            res = admin_refund_pending_gift(rec_id, refund_amount_uzs=amt)
+            if res.get("ok"):
+                target_uid = res["tg_user_id"]
+                p_name = res.get("prize_name", "Telegram Sovg'a")
+                p_stars = res.get("prize_stars", 0)
+                await message.reply_text(
+                    f"✅ <b>Buyurtma #{rec_id} muvaffaqiyatli bekor qilindi!</b>\n\n"
+                    f"👤 Foydalanuvchi: <code>{target_uid}</code>\n"
+                    f"🎁 Sovg'a: <b>{p_name}</b> ({p_stars} ⭐)\n"
+                    f"💰 Qaytarilgan mablag': <b>{amt:,} so'm</b>\n"
+                    f"💳 Yangi balans: <b>{res['new_balance']:,} so'm</b>"
+                )
+                try:
+                    await client.send_message(
+                        target_uid,
+                        f"⚠️ <b>Hurmatli foydalanuvchi!</b>\n\n"
+                        f"Bot balansida hozirda yetarli Stars mavjud bo'lmagani sababli, <b>{p_name} ({p_stars} ⭐)</b> sovg'angiz buyurtmasi bekor qilindi va keys ochish uchun to'langan <b>{amt:,} so'm</b> mablag' hisobingizga to'liq qaytarildi! 💰\n\n"
+                        f"<i>Xohlasangiz hisobingizdagi mablag' bilan qaytadan keys ochishingiz yoki boshqa xizmatlardan foydalanishingiz mumkin.</i>"
+                    )
+                except Exception as notify_err:
+                    await message.reply_text(f"⚠️ Foydalanuvchiga xabar yuborishda xatolik: {notify_err}")
+            else:
+                await message.reply_text(f"❌ Xatolik: {res.get('error')}")
+        except Exception as e:
+            await message.reply_text(f"❌ Xato: {e}")
+
+    @bot.on_message(filters.command(["addgift", "qoshgift"]) & filters.private)
+    async def admin_add_gift_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        parts = message.text.split(maxsplit=4)
+        if len(parts) < 3:
+            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/addgift &lt;sovg'a_nomi&gt; &lt;stars&gt; [icon] [aiko_64/bot]</code>\nMasalan: <code>/addgift Champagne 50 champagne aiko_64</code>")
+            return
+        try:
+            g_name = parts[1].strip().strip('"').strip("'")
+            g_stars = int(parts[2].strip())
+            g_icon = parts[3].strip() if len(parts) > 3 else "package"
+            g_target = parts[4].strip() if len(parts) > 4 else "aiko_64"
+            from database import add_received_gift
+            res = add_received_gift(
+                sender_tg_id=message.from_user.id,
+                sender_name=message.from_user.first_name or "Aiko",
+                gift_id=f"gift_{g_stars}_{g_icon}",
+                gift_name=g_name,
+                stars_value=g_stars,
+                icon=g_icon,
+                receiver_target=g_target
+            )
+            if res.get("ok"):
+                await message.reply_text(f"✅ Yangi sovg'a inventarga qo'shildi! (ID: {res['id']}, {g_name} - {g_stars} ⭐)")
+            else:
+                await message.reply_text(f"❌ Xatolik: {res.get('error')}")
+        except Exception as e:
+            await message.reply_text(f"❌ Xato: {e}")
+
+    @bot.on_message(filters.command(["inventory", "inventar", "borsovgalar"]) & filters.private)
+    async def admin_inventory_cmd(client, message: Message):
+        if not check_is_admin(message.from_user): return
+        from database import get_available_gift_inventory
+        inv = get_available_gift_inventory(limit=30)
+        if not inv:
+            await message.reply_text("📦 <b>Upgrader inventari bo'sh.</b> Hali birorta ham sovg'a kelmagan.")
+            return
+        lines = ["📦 <b>Upgrader Jonli Sovg'alar Inventari:</b>\n"]
+        for it in inv:
+            target_badge = "@aiko_64" if it.get("receiver_target") == "aiko_64" else "Bot"
+            lines.append(f"• ID #{it.get('id')}: <b>{it.get('name')}</b> ({it.get('stars')} ⭐) | Egasi: <code>{target_badge}</code>")
+        lines.append("\n<i>Ushbu sovg'alar foydalanuvchilar veb upgraderda maqsad (Target) sifatida tanlay oladigan haqiqiy bor sovg'alardir.</i>")
+        await message.reply_text("\n".join(lines))
 
     @bot.on_message(filters.command(["ban", "bloklash"]) & filters.private)
     async def ban_user_cmd(client, message: Message):
@@ -1894,6 +2022,71 @@ def create_ytbot():
 
         await cb.answer()
         await cb.message.reply_text(prompt)
+
+    @bot.on_message(filters.private & filters.create(lambda _, __, m: bool(m.from_user and m.from_user.id in ADMIN_ACTION_STATE and check_is_admin(m.from_user))), group=-50)
+    async def high_priority_admin_action_handler(client, message: Message):
+        user_id = message.from_user.id
+        user_text = message.text.strip() if message.text else ""
+
+        if user_text.lower() in ("/cancel", "cancel", "bekor"):
+            ADMIN_ACTION_STATE.pop(user_id, None)
+            await message.reply_text("❌ Bekor qilindi.")
+            message.stop_propagation()
+            return
+
+        if user_text.startswith("/") and not user_text.lower().startswith("/cancel"):
+            ADMIN_ACTION_STATE.pop(user_id, None)
+            message.continue_propagation()
+            return
+
+        st = ADMIN_ACTION_STATE.pop(user_id, None)
+        if not st:
+            return
+        act = st.get("action")
+        t_uid = st.get("target_uid")
+
+        if act == "search_user":
+            await show_admin_users_page(client, message, page=1, search=user_text)
+            message.stop_propagation()
+            return
+
+        elif act == "send_msg" and t_uid:
+            try:
+                await client.send_message(
+                    t_uid,
+                    f"🔔 <b>Bot Administratoridan Xabar:</b>\n\n{user_text}\n\n<i>Savollaringiz bo'lsa, qo'llab-quvvatlash xizmatiga murojaat qiling.</i>"
+                )
+                await message.reply_text(f"✅ Xabar <code>{t_uid}</code> foydalanuvchisiga muvaffaqiyatli yetkazildi!")
+            except Exception as e:
+                await message.reply_text(f"❌ Xabar yuborishda xatolik: {e}")
+            message.stop_propagation()
+            return
+
+        elif act in ("set_bal", "add_bal", "deduct_bal") and t_uid:
+            try:
+                clean_str = re.sub(r"[^\d]", "", user_text)
+                if not clean_str:
+                    raise ValueError("Raqam topilmadi")
+                amt = abs(int(clean_str))
+                from database import admin_set_user_balance, admin_adjust_user_balance
+                if act == "set_bal":
+                    nb = admin_set_user_balance(t_uid, amt)
+                    msg_act = f"balansi <b>{nb:,} so'm</b> qilib o'rnatildi"
+                elif act == "add_bal":
+                    nb = admin_adjust_user_balance(t_uid, amt)
+                    msg_act = f"balansiga <b>+{amt:,} so'm</b> qo'shildi (Yangi balans: {nb:,} so'm)"
+                else:
+                    nb = admin_adjust_user_balance(t_uid, -amt)
+                    msg_act = f"balansidan <b>-{amt:,} so'm</b> ayirildi (Yangi balans: {nb:,} so'm)"
+
+                await message.reply_text(f"✅ Foydalanuvchi <code>{t_uid}</code> {msg_act}!")
+                await show_admin_user_card(client, message, t_uid)
+            except ValueError:
+                await message.reply_text("❌ Faqat butun son kiriting (masalan: 50000)!")
+            except Exception as e:
+                await message.reply_text(f"❌ Balansni o'zgartirishda xatolik: <code>{e}</code>")
+            message.stop_propagation()
+            return
 
     @bot.on_callback_query(filters.regex(r"^adm_u_(ban|unban)_(\d+)$"))
     async def adm_u_toggle_ban_cb(client, cb: CallbackQuery):
@@ -6024,7 +6217,7 @@ def create_ytbot():
         name = (cb.from_user.first_name or "Foydalanuvchi") if cb.from_user else "Foydalanuvchi"
         await cb.message.edit_text(t("main_menu", lang, name=name), reply_markup=main_menu_kb(user_id))
     
-    @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout)|btn_balance)$"))
+    @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout|nft)|btn_balance)$"))
     async def cb_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         if not check_is_admin(cb.from_user):
@@ -6163,6 +6356,25 @@ def create_ytbot():
             await cb.message.edit_text(spy_text, reply_markup=kb)
             return
 
+        if menu == "nft":
+            await cb.answer()
+            from custom_emojis import e, ce
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{e('GALLERY')} NFT Kolleksiya (Bozor)", callback_data="nft_market")],
+                [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
+                [InlineKeyboardButton(f"{e('HOME')} Bosh Menyu", callback_data="back_main")]
+            ])
+            text = (
+                f"{ce('NFT')} <b>3D NFT Marketplace</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                f"{ce('GALLERY')} Eksklyuziv 3D NFT kolleksiyamizdan tanlang!\n"
+                f"{ce('TONKEEPER')} Xarid qilingan NFT TON blockchainga mint qilinadi."
+            )
+            try:
+                await cb.message.edit_text(text, reply_markup=kb)
+            except Exception:
+                await cb.message.reply_text(text, reply_markup=kb)
+            return
+
         if menu == "cashout":
             bal = get_user_balance(user_id)
             from cashout import MIN_CASHOUT_UZS
@@ -6245,6 +6457,69 @@ def create_ytbot():
             await cb.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             return
         cb.continue_propagation()
+
+    # ==================== CASHOUT & PROMO HANDLERS ====================
+    @bot.on_callback_query(filters.regex(r"^co_method_(stars|ton)$"))
+    async def cb_cashout_method(client, cb: CallbackQuery):
+        await cb.answer()
+        method = cb.matches[0].group(1)
+        uid = cb.from_user.id
+        from database import get_user_balance
+        from cashout import MIN_CASHOUT_UZS, STARS_PER_10K_UZS, TON_PRICE_UZS
+        bal = get_user_balance(uid)
+        if bal < MIN_CASHOUT_UZS:
+            await cb.answer(f"Balansingiz minimal yechish summasidan kam ({bal:,} < {MIN_CASHOUT_UZS:,} so'm)!", show_alert=True)
+            return
+
+        USER_ORDER_STATE[uid] = {"action": f"cashout_{method}", "step": "awaiting_cashout_details"}
+        if method == "stars":
+            text = (
+                f"⭐ <b>Telegram Stars orqali mablag' yechish:</b>\n\n"
+                f"• Joriy balansingiz: <code>{bal:,} so'm</code>\n"
+                f"• Minimal summa: <code>{MIN_CASHOUT_UZS:,} so'm</code> (~80 ⭐)\n"
+                f"• Kurs: 10,000 so'm ≈ {STARS_PER_10K_UZS} Stars\n\n"
+                f"Yechmoqchi bo'lgan <b>summa</b> va Stars qabul qiluvchi <b>Telegram @username yoki ID</b> ni yuboring:\n"
+                f"<i>Masalan: <code>20000 @username</code> yoki <code>50000 7271080503</code></i>"
+            )
+        else:
+            text = (
+                f"💎 <b>TON Kriptovalyuta orqali mablag' yechish:</b>\n\n"
+                f"• Joriy balansingiz: <code>{bal:,} so'm</code>\n"
+                f"• Minimal summa: <code>{MIN_CASHOUT_UZS:,} so'm</code>\n"
+                f"• Kurs: 1 TON ≈ {TON_PRICE_UZS:,} so'm\n\n"
+                f"Yechmoqchi bo'lgan <b>summa</b> va <b>TON hamyon manzilingizni</b> yuboring:\n"
+                f"<i>Masalan: <code>70000 EQCG_...</code> yoki <code>UQ...</code></i>"
+            )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Bekor qilish", callback_data="menu_cashout")]])
+        try:
+            await cb.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            await cb.message.reply_text(text, reply_markup=kb)
+
+    @bot.on_callback_query(filters.regex(r"^adm_co_(app|rej)_(\d+)$"))
+    async def cb_admin_cashout_decision(client, cb: CallbackQuery):
+        if not check_is_admin(cb.from_user): return
+        action = cb.matches[0].group(1)
+        req_id = int(cb.matches[0].group(2))
+        from cashout import handle_admin_cashout_decision
+        ok, msg = await handle_admin_cashout_decision(client, req_id, action, cb.from_user.id)
+        await cb.answer(msg, show_alert=True)
+        status_text = "✅ TASDIQLANDI VA TO'LANDI" if action == "app" else "❌ RAD ETILDI VA BALANS QAYTARILDI"
+        try:
+            await cb.message.edit_text(f"{cb.message.text}\n\n<b>Admin xulosasi:</b> {status_text}")
+        except Exception:
+            pass
+
+    @bot.on_callback_query(filters.regex(r"^enter_promo_code$"))
+    async def cb_enter_promo_code_yt(client, cb: CallbackQuery):
+        try:
+            await cb.answer()
+        except Exception:
+            pass
+        from mega_features import USER_STATES
+        USER_STATES[cb.from_user.id] = {"action": "waiting_promo_code"}
+        from custom_emojis import ce
+        await cb.message.reply_text(f"{ce('TICKET')} <b>Iltimos, promokodingizni yozib yuboring (/redeem KOD):</b>\n<i>Masalan: <code>/redeem START2025</code> yoki promokod matnini to'g'ridan-to'g'ri yuboring</i>")
 
     from mega_features import load_mega_features
     load_mega_features(bot)
@@ -10191,6 +10466,45 @@ def create_ytbot():
                         reply_markup=order_quantity_kb(action)
                     )
                     return
+
+            elif st.get("step") == "awaiting_cashout_details":
+                action = st.get("action", "")
+                method = "stars" if "stars" in action else "ton"
+                USER_ORDER_STATE.pop(user_id, None)
+                parts = user_text.split(None, 1)
+                if len(parts) < 2:
+                    await message.reply_text("❌ Noto'g'ri format! Iltimos, summa va manzilni probel bilan yuboring.\nMasalan: <code>25000 @username</code> yoki <code>70000 EQ...</code>")
+                    return
+                try:
+                    p0_digits = re.sub(r"[^\d]", "", parts[0])
+                    p1_digits = re.sub(r"[^\d]", "", parts[1])
+                    if p0_digits and not parts[0].startswith("@") and not parts[0].startswith("EQ") and not parts[0].startswith("UQ"):
+                        amt = int(p0_digits)
+                        target = parts[1].strip()
+                    elif p1_digits:
+                        amt = int(p1_digits)
+                        target = parts[0].strip()
+                    else:
+                        raise ValueError("Summa topilmadi")
+                except Exception:
+                    await message.reply_text("❌ Summa noto'g'ri kiritildi! Masalan: <code>25000 @username</code> yoki <code>@username 25000</code>")
+                    return
+
+                from cashout import request_user_cashout, notify_admin_new_cashout
+                ok, msg, equiv_str, req_id = request_user_cashout(user_id, method, target, amt)
+                if not ok:
+                    await message.reply_text(f"❌ {msg}")
+                    return
+
+                await notify_admin_new_cashout(client, req_id, message.from_user, method, target, amt, equiv_str)
+                await message.reply_text(
+                    f"✅ <b>Pul yechish arizangiz qabul qilindi (#{req_id})!</b>\n\n"
+                    f"💰 <b>Miqdor:</b> <code>{amt:,} so'm</code> ({equiv_str})\n"
+                    f"🎯 <b>Qabul qiluvchi:</b> <code>{target}</code>\n"
+                    f"💳 <b>Usul:</b> <code>{method.upper()}</code>\n\n"
+                    f"⏳ Ariza ma'muriyat tomonidan ko'rib chiqilgandan so'ng hisobingizga o'tkaziladi."
+                )
+                return
 
             elif st.get("step") == "awaiting_deeplink_url":
                 USER_ORDER_STATE.pop(user_id, None)
