@@ -442,10 +442,11 @@ async def handle_api_downloader(request):
         import yt_dlp
         ydl_opts = {
             'quiet': True,
+            'no_warnings': True,
             'skip_download': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_client': ['android', 'tv_embedded', 'ios'],
                     'player_skip': ['webpage'],
                 }
             }

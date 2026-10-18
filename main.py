@@ -1148,31 +1148,21 @@ async def handle_api_video_formats(request):
         import os
         
         url = f"https://www.youtube.com/watch?v={video_id}"
+        
+        # Priority 1: Toza mobil mijozlar (android, tv_embedded, ios) - Cookies talab qilmaydi
+        # Bu Render datacenter IP larida bot cheklovini va cookie rotation xatolarini aylanib o'tadi
         ydl_opts = {
             'quiet': True,
+            'no_warnings': True,
             'skip_download': True,
-            'socket_timeout': 5,
+            'socket_timeout': 6,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'android', 'mweb', 'web'],
+                    'player_client': ['android', 'tv_embedded', 'ios'],
                     'player_skip': ['webpage'],
                 }
             }
         }
-        
-        cookie_path = None
-        if tg_user_id:
-            try:
-                from database import get_user_cookies
-                cookies_text = get_user_cookies(int(tg_user_id))
-                if cookies_text:
-                    os.makedirs("downloads", exist_ok=True)
-                    cookie_path = f"downloads/cookies_fmt_{tg_user_id}.txt"
-                    with open(cookie_path, "w", encoding="utf-8") as f:
-                        f.write(cookies_text)
-                    ydl_opts['cookiefile'] = cookie_path
-            except Exception:
-                pass
         
         def _extract():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -1184,12 +1174,45 @@ async def handle_api_video_formats(request):
                 title = info.get("title") or title
                 duration = info.get("duration") or 0
                 thumbnail = info.get("thumbnail") or thumbnail
-        except Exception as ex:
-            print(f"handle_api_video_formats extraction notice (using fallback): {ex}")
-        finally:
-            if cookie_path and os.path.exists(cookie_path):
+        except Exception as ex_clean:
+            # Priority 2: Agar toza mobil ekstraksiya o'xshamasa va userda cookies bo'lsa
+            if tg_user_id:
+                cookie_path = None
                 try:
-                    os.remove(cookie_path)
+                    from database import get_user_cookies, clear_user_cookies
+                    cookies_text = get_user_cookies(int(tg_user_id), fallback_to_any=False)
+                    if cookies_text:
+                        os.makedirs("downloads", exist_ok=True)
+                        cookie_path = f"downloads/cookies_fmt_{tg_user_id}.txt"
+                        with open(cookie_path, "w", encoding="utf-8") as f:
+                            f.write(cookies_text)
+                        ydl_opts_ck = {
+                            'quiet': True,
+                            'no_warnings': True,
+                            'skip_download': True,
+                            'cookiefile': cookie_path,
+                            'socket_timeout': 6,
+                            'extractor_args': {'youtube': {'player_client': ['web_safari', 'web']}}
+                        }
+                        def _extract_ck():
+                            with yt_dlp.YoutubeDL(ydl_opts_ck) as ydl:
+                                return ydl.extract_info(url, download=False)
+                        try:
+                            info = await asyncio.wait_for(asyncio.to_thread(_extract_ck), timeout=6.0)
+                            if info:
+                                title = info.get("title") or title
+                                duration = info.get("duration") or 0
+                                thumbnail = info.get("thumbnail") or thumbnail
+                        except Exception as ex_ck:
+                            err_msg = str(ex_ck).lower()
+                            if "no longer valid" in err_msg or "rotated" in err_msg or "confirm you're not a bot" in err_msg:
+                                clear_user_cookies(int(tg_user_id))
+                        finally:
+                            if cookie_path and os.path.exists(cookie_path):
+                                try:
+                                    os.remove(cookie_path)
+                                except Exception:
+                                    pass
                 except Exception:
                     pass
 
@@ -1212,106 +1235,321 @@ async def handle_api_video_formats(request):
         }, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_download_file(request):
-    """Video yuklab olish va stream qilish"""
+    """Video yuklab olish va stream qilish (Multi-tier bypass, mobile client priority, safe 200 fallback)"""
     import json
     import asyncio
     import glob
     import os
-    
-    video_id = request.query.get("video_id")
-    resolution = str(request.query.get("resolution", "720")).lower()
-    tg_user_id = request.query.get("tg_user_id")
-    
-    if not video_id:
-        return web.json_response({"error": "video_id kerak"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
-    
+    import time
+    import random
+    import re
+    from aiohttp import web
+
+    raw_video_id = request.query.get("video_id", "").strip()
+    resolution = str(request.query.get("resolution", "720")).lower().strip()
+    tg_user_id = request.query.get("tg_user_id", "").strip()
+
+    if not raw_video_id:
+        return web.json_response({"ok": False, "error": "video_id kerak"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+    # Extract clean 11-char video ID if full URL was passed
+    video_id = raw_video_id
+    if "youtu" in raw_video_id:
+        m = re.search(r'(?:v=|\/|youtu\.be\/|embed\/|shorts\/)([0-9A-Za-z_-]{11})', raw_video_id)
+        if m:
+            video_id = m.group(1)
+
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    os.makedirs("downloads", exist_ok=True)
+    rnd_suffix = f"{int(time.time())}_{random.randint(1000, 9999)}"
+    filename = f"downloads/webdl_{video_id}_{rnd_suffix}"
+
+    # Determine format specifier
+    if resolution == "mp3":
+        fmt_spec = 'bestaudio/best'
+        postprocessors = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
+    elif resolution in ["best", "max"]:
+        fmt_spec = 'bestvideo+bestaudio/best'
+        postprocessors = []
+    else:
+        try:
+            h = int(resolution.replace("p", ""))
+            fmt_spec = f'bestvideo[height<={h}]+bestaudio/best[height<={h}]/bv*[height<={h}]+ba/best'
+        except (ValueError, TypeError):
+            fmt_spec = 'bestvideo+bestaudio/best'
+        postprocessors = []
+
+    # Helper function to find downloaded file
+    def _find_file(base_prefix):
+        base_name = os.path.basename(base_prefix)
+        if os.path.exists("downloads"):
+            for f in os.listdir("downloads"):
+                if f.startswith(base_name):
+                    cand = os.path.join("downloads", f)
+                    if os.path.exists(cand) and os.path.getsize(cand) > 0:
+                        return cand
+        return None
+
+    # Helper function to return file response
+    def _make_file_response(found_path):
+        ext = os.path.splitext(found_path)[1].lstrip(".").lower() or ("mp3" if resolution == "mp3" else "mp4")
+        content_type = "audio/mpeg" if ext == "mp3" else "video/mp4"
+        dl_name = f"video_{video_id}_{resolution}.{ext}"
+
+        response = web.FileResponse(found_path, headers={
+            "Content-Disposition": f'attachment; filename="{dl_name}"',
+            "Content-Type": content_type,
+            "Access-Control-Allow-Origin": "*",
+        })
+
+        async def cleanup_later():
+            await asyncio.sleep(60)
+            try:
+                if os.path.exists(found_path):
+                    os.remove(found_path)
+            except Exception:
+                pass
+        asyncio.create_task(cleanup_later())
+        return response
+
+    import yt_dlp
+
+    # =========================================================================
+    # TIER 1: Clean Mobile Clients Bypass (NO COOKIES!)
+    # player_client: ['android', 'tv_embedded']
+    # YouTube does not require bot confirmation for android client on datacenter IPs,
+    # and yt-dlp won't skip android since cookies are NOT provided.
+    # =========================================================================
     try:
-        import yt_dlp
-        import random
-        
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        os.makedirs("downloads", exist_ok=True)
-        filename = f"downloads/webdl_{random.randint(10000, 99999)}"
-        
-        ydl_opts = {
+        ydl_opts_clean = {
             'outtmpl': filename + '.%(ext)s',
             'quiet': True,
+            'no_warnings': True,
+            'format': fmt_spec,
+            'socket_timeout': 15,
+            'retries': 3,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_client': ['android', 'tv_embedded'],
                     'player_skip': ['webpage'],
                 }
             }
         }
-        
-        cookie_path = None
-        if tg_user_id:
-            try:
-                from database import get_user_cookies
-                cookies_text = get_user_cookies(int(tg_user_id))
-                if cookies_text:
-                    cookie_path = f"downloads/cookies_dl_{tg_user_id}.txt"
-                    with open(cookie_path, "w", encoding="utf-8") as f:
-                        f.write(cookies_text)
-                    ydl_opts['cookiefile'] = cookie_path
-            except Exception:
-                pass
-        
-        if resolution == "mp3":
-            ydl_opts['format'] = 'bestaudio/best'
-            ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
-        elif resolution == "best":
-            ydl_opts['format'] = 'bestvideo+bestaudio/best'
-        else:
-            try:
-                h = int(resolution.replace("p", ""))
-                ydl_opts['format'] = f'bestvideo[height<={h}]+bestaudio/best[height<={h}]/best'
-            except (ValueError, TypeError):
-                ydl_opts['format'] = 'bestvideo+bestaudio/best'
-        
-        def _download():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        if postprocessors:
+            ydl_opts_clean['postprocessors'] = postprocessors
+
+        def _download_clean():
+            with yt_dlp.YoutubeDL(ydl_opts_clean) as ydl:
                 ydl.download([url])
-        
+
+        await asyncio.to_thread(_download_clean)
+        found = _find_file(filename)
+        if found:
+            return _make_file_response(found)
+    except Exception as e_clean:
+        print(f"Tier 1 (Mobile Clean) download notice for {video_id}: {e_clean}")
+
+    # =========================================================================
+    # TIER 2: Fallback to Flexible bv*+ba/b/best (Clean No Cookies)
+    # If the specific resolution combination failed to mux, try flexible format
+    # =========================================================================
+    try:
+        ydl_opts_flex = {
+            'outtmpl': filename + '_flex.%(ext)s',
+            'quiet': True,
+            'no_warnings': True,
+            'format': 'bestaudio/best' if resolution == "mp3" else 'bv*+ba/b/best',
+            'socket_timeout': 15,
+            'retries': 2,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'tv_embedded'],
+                    'player_skip': ['webpage'],
+                }
+            }
+        }
+        if postprocessors:
+            ydl_opts_flex['postprocessors'] = postprocessors
+
+        def _download_flex():
+            with yt_dlp.YoutubeDL(ydl_opts_flex) as ydl:
+                ydl.download([url])
+
+        await asyncio.to_thread(_download_flex)
+        found = _find_file(filename + '_flex')
+        if found:
+            return _make_file_response(found)
+    except Exception as e_flex:
+        print(f"Tier 2 (Flexible Clean) download notice for {video_id}: {e_flex}")
+
+    # =========================================================================
+    # TIER 3: Authenticated User Cookies (Only if User Has Cookies in DB)
+    # Used if video is private or age-restricted. If cookies are expired/rotated,
+    # automatically purge them from DB so they don't break future calls.
+    # =========================================================================
+    cookie_path = None
+    if tg_user_id:
         try:
-            await asyncio.to_thread(_download)
+            from database import get_user_cookies, clear_user_cookies
+            user_cookies = get_user_cookies(int(tg_user_id), fallback_to_any=False)
+            if user_cookies:
+                cookie_path = f"downloads/cookies_dl_{tg_user_id}.txt"
+                with open(cookie_path, "w", encoding="utf-8") as f:
+                    f.write(user_cookies)
+
+                ydl_opts_cookies = {
+                    'outtmpl': filename + '_cookie.%(ext)s',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'format': fmt_spec,
+                    'cookiefile': cookie_path,
+                    'socket_timeout': 15,
+                    'retries': 2,
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['web_safari', 'web', 'mweb'],
+                        }
+                    }
+                }
+                if postprocessors:
+                    ydl_opts_cookies['postprocessors'] = postprocessors
+
+                def _download_cookie():
+                    with yt_dlp.YoutubeDL(ydl_opts_cookies) as ydl:
+                        ydl.download([url])
+
+                try:
+                    await asyncio.to_thread(_download_cookie)
+                    found = _find_file(filename + '_cookie')
+                    if found:
+                        return _make_file_response(found)
+                except Exception as e_ck:
+                    err_str = str(e_ck).lower()
+                    if "no longer valid" in err_str or "rotated" in err_str or "confirm you're not a bot" in err_str:
+                        print(f"Purging invalid/rotated cookies for user {tg_user_id}")
+                        clear_user_cookies(int(tg_user_id))
+        except Exception as e_cookie_tier:
+            print(f"Tier 3 (User Cookies) notice for {video_id}: {e_cookie_tier}")
         finally:
             if cookie_path and os.path.exists(cookie_path):
-                os.remove(cookie_path)
-        
-        # Find downloaded file
-        base = os.path.basename(filename)
-        found = None
-        for f in os.listdir("downloads"):
-            if f.startswith(base):
-                found = os.path.join("downloads", f)
-                break
-        
-        if not found or not os.path.exists(found):
-            return web.json_response({"error": "Fayl topilmadi"}, status=500)
-        
-        # Stream the file
-        content_type = "audio/mpeg" if resolution == "mp3" else "video/mp4"
-        dl_name = f"video_{video_id}_{resolution}.{'mp3' if resolution == 'mp3' else 'mp4'}"
-        
-        response = web.FileResponse(found, headers={
-            "Content-Disposition": f'attachment; filename="{dl_name}"',
-            "Access-Control-Allow-Origin": "*",
-        })
-        
-        # Cleanup after response (schedule deletion)
-        async def cleanup_later():
-            await asyncio.sleep(60)
-            try:
-                if os.path.exists(found):
-                    os.remove(found)
-            except:
-                pass
-        asyncio.create_task(cleanup_later())
-        
-        return response
-    except Exception as e:
-        return web.json_response({"error": str(e)[:300]}, status=500)
+                try:
+                    os.remove(cookie_path)
+                except Exception:
+                    pass
+
+    # =========================================================================
+    # TIER 4: Direct Format Stream URL Extraction (No Merging / Redirect)
+    # Extract direct googlevideo CDN stream URL via mobile client and redirect browser
+    # =========================================================================
+    try:
+        ydl_opts_info = {
+            'quiet': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'socket_timeout': 8,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'tv_embedded'],
+                    'player_skip': ['webpage'],
+                }
+            }
+        }
+        def _extract_direct():
+            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+                return ydl.extract_info(url, download=False)
+
+        info = await asyncio.to_thread(_extract_direct)
+        formats = info.get("formats", []) if info else []
+
+        direct_url = None
+        if resolution == "mp3":
+            # Best audio format
+            audio_fmts = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+            if audio_fmts:
+                audio_fmts.sort(key=lambda x: x.get("abr") or 0, reverse=True)
+                direct_url = audio_fmts[0].get("url")
+        else:
+            # Progressive combined mp4 stream (contains both video and audio)
+            progressive = [f for f in formats if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("url")]
+            if progressive:
+                direct_url = progressive[-1].get("url")
+            elif formats:
+                video_fmts = [f for f in formats if f.get("url")]
+                if video_fmts:
+                    direct_url = video_fmts[-1].get("url")
+
+        if direct_url:
+            raise web.HTTPFound(direct_url)
+    except web.HTTPFound:
+        raise
+    except Exception as e_direct:
+        print(f"Tier 4 (Direct Stream Extraction) notice for {video_id}: {e_direct}")
+
+    # =========================================================================
+    # TIER 5: Fallback Public APIs (Invidious / Piped / Cobalt)
+    # =========================================================================
+    try:
+        import httpx
+        invidious_endpoints = [
+            f"https://iv.ggtyler.dev/api/v1/videos/{video_id}",
+            f"https://invidious.nerdvpn.de/api/v1/videos/{video_id}",
+            f"https://inv.nadeko.net/api/v1/videos/{video_id}",
+        ]
+        async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
+            for ep in invidious_endpoints:
+                try:
+                    resp = await client.get(ep)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        streams = data.get("formatStreams", [])
+                        if streams and len(streams) > 0 and streams[0].get("url"):
+                            stream_url = streams[0]["url"]
+                            raise web.HTTPFound(stream_url)
+                except web.HTTPFound:
+                    raise
+                except Exception:
+                    continue
+    except web.HTTPFound:
+        raise
+    except Exception as e_fallback_api:
+        print(f"Tier 5 (Public APIs) notice for {video_id}: {e_fallback_api}")
+
+    # =========================================================================
+    # TIER 6: Safe Graceful Fallback (NEVER 500 INTERNAL SERVER ERROR!)
+    # =========================================================================
+    accept = request.headers.get("Accept", "")
+    if "text/html" in accept:
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Video Yuklab Olish</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090a0f; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }}
+        .card {{ background: #131722; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 32px 24px; max-width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }}
+        h2 {{ margin: 0 0 12px; font-size: 20px; color: #00f2fe; }}
+        p {{ color: #a1a1aa; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
+        .btn {{ display: inline-block; background: linear-gradient(135deg, #7342e2, #00f2fe); color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-weight: 700; font-size: 14px; margin: 6px; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Video Yuklab Olish</h2>
+        <p>Video server orqali tayyorlanmoqda. Telegram botimiz orqali to'g'ridan-to'g'ri va tezkor yuklab olishingiz mumkin.</p>
+        <a class="btn" href="https://www.youtube.com/watch?v={video_id}" target="_blank">YouTube da ochish</a>
+    </div>
+</body>
+</html>"""
+        return web.Response(text=html, content_type="text/html", status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+    return web.json_response({
+        "ok": True,
+        "status": "fallback",
+        "video_id": video_id,
+        "download_url": f"https://www.youtube.com/watch?v={video_id}",
+        "message": "Video to'g'ridan-to'g'ri yuklab olinmadi. Telegram botimiz orqali yuqori sifatda yuklab olishingiz mumkin."
+    }, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_autopost_create(request):
     """Tanlangan videolarni autopost_tasks ga qo'shish"""
@@ -2742,6 +2980,8 @@ async def start_web_server(port):
     # Yangi: CryptoPay Webhook va KYC WebApp
     app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)
     app.router.add_get("/kyc/verify", handle_kyc_page)
+    app.router.add_get("/kyc", handle_kyc_page)
+    app.router.add_get("/kyc/face-scan", handle_kyc_page)
     app.router.add_get("/kyc/status", handle_kyc_status)
     app.router.add_post("/kyc/submit", handle_kyc_submit)
     

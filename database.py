@@ -1886,7 +1886,27 @@ def set_user_cookies(user_id, cookies_text):
         cur.close()
         conn.close()
 
-def get_user_cookies(user_id=None):
+def clear_user_cookies(user_id=None):
+    """Yaroqsiz yoki eskirgan YouTube cookie larini tozalash"""
+    conn = get_db()
+    if not conn:
+        return False
+    cur = conn.cursor()
+    try:
+        if user_id:
+            cur.execute("UPDATE user_settings SET yt_cookies = NULL WHERE tg_user_id = %s", (user_id,))
+        else:
+            cur.execute("UPDATE user_settings SET yt_cookies = NULL")
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error clearing user cookies: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()
+
+def get_user_cookies(user_id=None, fallback_to_any=False):
     import os
     conn = get_db()
     if conn:
@@ -1898,28 +1918,30 @@ def get_user_cookies(user_id=None):
                 if res and res.get("yt_cookies") and len(res["yt_cookies"].strip()) > 20:
                     return res["yt_cookies"].strip()
             
-            # Fallback: Agar bu userda bo'lmasa, bazadagi istalgan cookie ni olish
-            cur.execute("SELECT yt_cookies FROM user_settings WHERE yt_cookies IS NOT NULL AND length(yt_cookies) > 20 ORDER BY tg_user_id ASC LIMIT 1")
-            res = cur.fetchone()
-            if res and res.get("yt_cookies") and len(res["yt_cookies"].strip()) > 20:
-                return res["yt_cookies"].strip()
+            # Fallback: Faqat ruxsat berilgan bo'lsa, bazadagi istalgan cookie ni olish
+            if fallback_to_any:
+                cur.execute("SELECT yt_cookies FROM user_settings WHERE yt_cookies IS NOT NULL AND length(yt_cookies) > 20 ORDER BY tg_user_id ASC LIMIT 1")
+                res = cur.fetchone()
+                if res and res.get("yt_cookies") and len(res["yt_cookies"].strip()) > 20:
+                    return res["yt_cookies"].strip()
         except Exception as e:
             print(f"Error getting user cookies: {e}")
         finally:
             cur.close()
             conn.close()
 
-    # Fallback 2: Fayl tizimidagi cookies.txt ni tekshirish
-    import tempfile
-    for path in ["cookies.txt", "downloads/cookies.txt", os.path.join(tempfile.gettempdir(), "cookies.txt")]:
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    content = f.read().strip()
-                    if len(content) > 20:
-                        return content
-            except Exception as e:
-                print(f"Error reading {path}: {e}")
+    # Fallback 2: Fayl tizimidagi cookies.txt ni tekshirish (agar fallback_to_any bo'lsa)
+    if fallback_to_any:
+        import tempfile
+        for path in ["cookies.txt", "downloads/cookies.txt", os.path.join(tempfile.gettempdir(), "cookies.txt")]:
+            if os.path.exists(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        content = f.read().strip()
+                        if len(content) > 20:
+                            return content
+                except Exception as e:
+                    print(f"Error reading {path}: {e}")
 
     return None
 
