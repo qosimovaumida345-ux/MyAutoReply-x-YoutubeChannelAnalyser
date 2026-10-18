@@ -1220,9 +1220,272 @@
 
         const MediaRenderer = TelegramGiftMedia;
 
+        // ==================== MULTILINGUAL I18N DICTIONARY (EN DEFAULT, RU, UZ) ====================
+        const I18N = {
+            en: {
+                brand: "CreatorFlow",
+                studio: "Studio",
+                botOnline: "Telegram Bot Online",
+                privacyPolicy: "Privacy Policy",
+                termsOfService: "Terms of Service",
+                googleApiDisclosure: "Google API Disclosure",
+                allRightsReserved: "All rights reserved.",
+                suiteBadge: "CreatorFlow AI & Stars Suite",
+                heroTitle: "CreatorFlow Studio",
+                heroSubtitle: "Next-Generation YouTube Channel Automation & Creative Studio. Track real-time metrics, automate video workflows, and manage Telegram Stars cases.",
+                loginCardDesc: "Sign in with your Telegram User ID to sync your connected YouTube channels, bot account, and Stars balance.",
+                telegramIdLabel: "Telegram User ID",
+                telegramIdPlaceholder: "e.g. 123456789",
+                sendCodeBtn: "Send Code to Telegram",
+                sendingCode: "Sending Code...",
+                otpSentMsg: "Confirmation code sent to your Telegram bot!",
+                otpLabel: "6-Digit Confirmation Code",
+                verifyBtn: "Confirm & Enter Studio",
+                verifying: "Verifying...",
+                resendCode: "Resend Code",
+                changeId: "Change ID",
+                findIdHint: "Send /start to our Telegram bot to find your User ID.",
+                demoExploreBtn: "Explore Studio (Demo Mode)",
+                orExploreNotice: "Or explore the studio without Telegram login:",
+                googleOauthBadge: "Official Google & YouTube OAuth 2.0 Integration",
+                googleOauthNotice: "CreatorFlow Studio connects securely to YouTube via Google OAuth 2.0. We strictly adhere to the Google API Services User Data Policy, including Limited Use requirements.",
+                feat1Title: "Channel Analytics",
+                feat1Desc: "Real-time YouTube insights",
+                feat2Title: "Stars Mystery Cases",
+                feat2Desc: "Telegram Gifts & 3D NFTs",
+                feat3Title: "Video Downloader",
+                feat3Desc: "HD 1080p & 4K transcoder",
+                feat4Title: "AI Creative Suite",
+                feat4Desc: "SEO & autopilot workflows",
+                tabAnalytics: "YouTube Analytics",
+                tabVideos: "Video Downloader",
+                tabCases: "Stars Cases",
+                tabNfts: "3D Gift NFTs",
+                analyticsTitle: "YouTube Channel Analytics & Insights",
+                analyticsSubtitle: "Real-time views, subscriber growth, and latest video performance across connected channels.",
+                totalViews: "Total Views",
+                subscribers: "Subscribers",
+                totalVideos: "Total Videos",
+                connectedChannels: "Connected Channels",
+                syncProfile: "Sync Profile",
+                syncing: "Syncing...",
+                activeUploads: "Active Uploads",
+                recentVideos: "Recent Videos & Views",
+                noVideosNotice: "No videos found. Upload a video via Telegram bot or connect your channel.",
+                searchTitle: "YouTube Video Search & Downloader",
+                searchSubtitle: "Search any video and download or transcode in pristine quality (1080p, 720p, audio).",
+                searchPlaceholder: "Search YouTube videos or paste video link...",
+                searchBtn: "Search",
+                searching: "Searching...",
+                downloadsActive: "Active Downloads",
+                downloadBtn: "Download",
+                selectQuality: "Select Quality",
+                enterSearchQuery: "Enter a search query to find YouTube videos",
+                guestCreator: "Guest Creator",
+                logout: "Sign Out",
+                loginModalTitle: "Sync Telegram Account",
+                loginModalDesc: "Enter your Telegram User ID to synchronize connected YouTube channels and Stars balance.",
+                explorePublicDemo: "Public Demo",
+                menu: "Menu"
+            },
+            ru: {
+                brand: "CreatorFlow",
+                studio: "Studio",
+                botOnline: "Telegram бот онлайн",
+                privacyPolicy: "Политика конфиденциальности",
+                termsOfService: "Условия использования",
+                googleApiDisclosure: "Раскрытие Google API",
+                allRightsReserved: "Все права защищены.",
+                suiteBadge: "Платформа CreatorFlow AI и Stars",
+                heroTitle: "CreatorFlow Studio",
+                heroSubtitle: "Платформа автоматизации YouTube-каналов и креативная студия следующего поколения. Отслеживайте метрики в реальном времени, автоматизируйте видео и управляйте кейсами Telegram Stars.",
+                loginCardDesc: "Войдите по Telegram User ID для синхронизации подключенных YouTube каналов, аккаунта бота и баланса Stars.",
+                telegramIdLabel: "Telegram User ID",
+                telegramIdPlaceholder: "Например: 123456789",
+                sendCodeBtn: "Отправить код в Telegram",
+                sendingCode: "Отправка кода...",
+                otpSentMsg: "Код подтверждения отправлен в ваш Telegram-бот!",
+                otpLabel: "6-значный код подтверждения",
+                verifyBtn: "Подтвердить вход",
+                verifying: "Проверка...",
+                resendCode: "Отправить повторно",
+                changeId: "Изменить ID",
+                findIdHint: "Отправьте /start в наш Telegram бот, чтобы узнать свой ID.",
+                demoExploreBtn: "Открыть студию (Демо-режим)",
+                orExploreNotice: "Или просмотрите студию без входа через Telegram:",
+                googleOauthBadge: "Официальная интеграция Google & YouTube OAuth 2.0",
+                googleOauthNotice: "CreatorFlow Studio безопасно подключается к YouTube через Google OAuth 2.0. Мы строго соблюдаем Политику данных пользователей Google API Services, включая Limited Use.",
+                feat1Title: "Аналитика каналов",
+                feat1Desc: "Статистика YouTube в реальном времени",
+                feat2Title: "Кейсы Stars",
+                feat2Desc: "Подарки Telegram и 3D NFT",
+                feat3Title: "Загрузчик видео",
+                feat3Desc: "Транскодер HD 1080p и 4K",
+                feat4Title: "AI Креатив Студия",
+                feat4Desc: "SEO и автопилот",
+                tabAnalytics: "Аналитика YouTube",
+                tabVideos: "Загрузка видео",
+                tabCases: "Stars Кейсы",
+                tabNfts: "3D Подарки и NFT",
+                analyticsTitle: "Аналитика и статистика YouTube-канала",
+                analyticsSubtitle: "Просмотры в реальном времени, прирост подписчиков и статистика последних видео по подключенным каналам.",
+                totalViews: "Всего просмотров",
+                subscribers: "Подписчики",
+                totalVideos: "Всего видео",
+                connectedChannels: "Подключенные каналы",
+                syncProfile: "Синхронизировать",
+                syncing: "Синхронизация...",
+                activeUploads: "Активные загрузки",
+                recentVideos: "Недавние видео и просмотры",
+                noVideosNotice: "Видео не найдены. Загрузите видео через бота или подключите канал.",
+                searchTitle: "Поиск и загрузка видео YouTube",
+                searchSubtitle: "Ищите любые видео и скачивайте в высоком качестве (1080p, 720p, аудио).",
+                searchPlaceholder: "Поиск видео на YouTube или ссылка...",
+                searchBtn: "Искать",
+                searching: "Поиск...",
+                downloadsActive: "Активные загрузки",
+                downloadBtn: "Скачать",
+                selectQuality: "Выбрать качество",
+                enterSearchQuery: "Введите запрос для поиска видео на YouTube",
+                guestCreator: "Гостевой создатель",
+                logout: "Выйти",
+                loginModalTitle: "Синхронизация с Telegram",
+                loginModalDesc: "Введите ваш Telegram User ID для синхронизации каналов YouTube и баланса Stars.",
+                explorePublicDemo: "Демо-режим",
+                menu: "Меню"
+            },
+            uz: {
+                brand: "CreatorFlow",
+                studio: "Studio",
+                botOnline: "Telegram Bot Faol",
+                privacyPolicy: "Maxfiylik siyosati",
+                termsOfService: "Foydalanish shartlari",
+                googleApiDisclosure: "Google API Talablari",
+                allRightsReserved: "Barcha huquqlar himoyalangan.",
+                suiteBadge: "CreatorFlow AI & Stars To'plami",
+                heroTitle: "CreatorFlow Studio",
+                heroSubtitle: "YouTube kanallarni avtomatlashtirish va kreativ studiya. Real vaqt statistikasini kuzating, videolarni boshqaring va Telegram Stars keyslarini oching.",
+                loginCardDesc: "Bot hisobingiz, YouTube kanallaringiz statistikasi va Stars keyslarini boshqarish uchun Telegram ID orqali kiring.",
+                telegramIdLabel: "Telegram User ID",
+                telegramIdPlaceholder: "Masalan: 123456789",
+                sendCodeBtn: "Kodni Telegramga Yuborish",
+                sendingCode: "Kod yuborilmoqda...",
+                otpSentMsg: "Tasdiqlash kodi Telegram botingizga yuborildi!",
+                otpLabel: "6-Raqamli Tasdiqlash Kodi",
+                verifyBtn: "Kirishni Tasdiqlash",
+                verifying: "Tekshirilmoqda...",
+                resendCode: "Kodni qayta yuborish",
+                changeId: "ID ni o'zgartirish",
+                findIdHint: "Telegram botimizda /start buyrug'ini yuborib ID raqamingizni bilib olishingiz mumkin.",
+                demoExploreBtn: "Studiyani Ko'rish (Demo Rejim)",
+                orExploreNotice: "Yoki hisobsiz mehmon rejimida studiyani ko'zdan kechiring:",
+                googleOauthBadge: "Rasmiy Google & YouTube OAuth 2.0 Integratsiyasi",
+                googleOauthNotice: "CreatorFlow Studio Google OAuth 2.0 orqali xavfsiz ulanadi. Biz Google API Services User Data Policy va Limited Use talablariga to'liq rioya qilamiz.",
+                feat1Title: "Kanal Analitikasi",
+                feat1Desc: "Real-vaqt statistikasi",
+                feat2Title: "Stars Mystery Keyslar",
+                feat2Desc: "Telegram Gifts & NFT",
+                feat3Title: "Video Yuklab Olish",
+                feat3Desc: "1080p & 4K formatlar",
+                feat4Title: "AI Kreativ Studio",
+                feat4Desc: "SEO & avtomatizatsiya",
+                tabAnalytics: "YouTube Analitika",
+                tabVideos: "Video Yuklash",
+                tabCases: "Stars Keyslar",
+                tabNfts: "3D Sovg'alar & NFT",
+                analyticsTitle: "YouTube Kanal Statistikasi & Tahlil",
+                analyticsSubtitle: "Real vaqt rejimidagi ko'rishlar, obunachilar va oxirgi yuklangan videolar statistikasi",
+                totalViews: "Jami Ko'rishlar",
+                subscribers: "Obunachilar",
+                totalVideos: "Jami Videolar",
+                connectedChannels: "Ulangan Kanallar",
+                syncProfile: "Sinxronlash",
+                syncing: "Sinxronlanmoqda...",
+                activeUploads: "Faol yuklanganlar",
+                recentVideos: "Oxirgi Yuklangan Videolar & Ko'rishlar",
+                noVideosNotice: "Telegram bot orqali video yuklang yoki kanalingizni ulang.",
+                searchTitle: "YouTube Video Qidiruv & Yuklab Olish",
+                searchSubtitle: "Istalgan mavzudagi videolarni qidiring va eng yuqori sifatda (1080p, 720p, audio) yuklab oling",
+                searchPlaceholder: "Video qidirish yoki YouTube linki...",
+                searchBtn: "Qidirish",
+                searching: "Qidirilmoqda...",
+                downloadsActive: "Faol Yuklamalar",
+                downloadBtn: "Yuklab Olish",
+                selectQuality: "Formatni Tanlang",
+                enterSearchQuery: "Video qidirish uchun so'rov kiriting",
+                guestCreator: "Mehmon Muallif",
+                logout: "Chiqish",
+                loginModalTitle: "Telegram Hisobini Sinxronlash",
+                loginModalDesc: "Botdagi hisobingiz, ulangan YouTube kanallaringiz va Stars balansini sinxronlash uchun Telegram User ID raqamingizni kiriting.",
+                explorePublicDemo: "Demo rejim",
+                menu: "Menyu"
+            }
+        };
+
+        const LanguageSelector = ({ currentLang, onChangeLang, isDark = true }) => {
+            return (
+                <div style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    background: isDark ? "rgba(255, 255, 255, 0.08)" : "#f4f4f5",
+                    border: isDark ? "1px solid rgba(255, 255, 255, 0.14)" : "1px solid rgba(0, 0, 0, 0.08)",
+                    borderRadius: "999px",
+                    padding: "3px 4px",
+                    gap: "2px"
+                }}>
+                    {['en', 'ru', 'uz'].map((code) => {
+                        const active = currentLang === code;
+                        return (
+                            <button
+                                key={code}
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onChangeLang(code); }}
+                                style={{
+                                    background: active ? "#7342E2" : "transparent",
+                                    color: active ? "#ffffff" : (isDark ? "rgba(255, 255, 255, 0.65)" : "#71717a"),
+                                    border: "none",
+                                    borderRadius: "999px",
+                                    padding: "4px 8px",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                    textTransform: "uppercase",
+                                    transition: "all 0.2s"
+                                }}
+                            >
+                                {code}
+                            </button>
+                        );
+                    })}
+                </div>
+            );
+        };
 
         // ==================== MAIN APPLICATION ====================
         function App() {
+            // Multilingual State: 'en' (default), 'ru', 'uz'
+            const [lang, setLang] = useState(() => {
+                try {
+                    const p = new URLSearchParams(window.location.search);
+                    const l = p.get('lang');
+                    if (l && ['en', 'ru', 'uz'].includes(l)) return l;
+                    const stored = localStorage.getItem('cf_lang');
+                    if (stored && ['en', 'ru', 'uz'].includes(stored)) return stored;
+                } catch(e) {}
+                return 'en';
+            });
+
+            const changeLang = (newLang) => {
+                setLang(newLang);
+                try {
+                    localStorage.setItem('cf_lang', newLang);
+                } catch(e) {}
+            };
+
+            const t = (key) => {
+                return (I18N[lang] && I18N[lang][key]) || (I18N['en'] && I18N['en'][key]) || key;
+            };
+
             // View state: 'login' (Dedicated CreatorFlow Login Gateway) vs 'dashboard' (CreatorFlow Studio)
             const [view, setView] = useState('login');
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2468,12 +2731,14 @@
                                 maxWidth: "1200px",
                                 width: "100%",
                                 margin: "0 auto",
-                                padding: "24px 28px",
+                                padding: "20px 28px",
                                 display: "flex",
                                 justifyContent: "space-between",
-                                alignItems: "center"
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: "14px"
                             }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }} onClick={() => setView('login')}>
                                     <SvgLogo size={34} color="#ffffff" />
                                     <span style={{ fontSize: "20px", fontWeight: 800, letterSpacing: "-0.03em", color: "#ffffff" }}>
                                         CreatorFlow
@@ -2483,9 +2748,36 @@
                                     </span>
                                 </div>
 
-                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 10px #10b981" }} />
-                                    <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>Telegram Bot Online</span>
+                                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setView('dashboard')}
+                                        style={{
+                                            padding: "6px 14px",
+                                            borderRadius: "999px",
+                                            background: "rgba(0, 240, 255, 0.08)",
+                                            border: "1px solid rgba(0, 240, 255, 0.25)",
+                                            color: "#00F0FF",
+                                            fontSize: "12px",
+                                            fontWeight: 700,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                            transition: "all 0.2s"
+                                        }}
+                                    >
+                                        <SvgSparkles size={13} color="#00F0FF" />
+                                        <span>{t('demoExploreBtn')}</span>
+                                    </button>
+
+                                    {/* Language Switcher */}
+                                    <LanguageSelector currentLang={lang} onChangeLang={changeLang} isDark={true} />
+
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                        <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", boxShadow: "0 0 10px #10b981" }} />
+                                        <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{t('botOnline')}</span>
+                                    </div>
                                 </div>
                             </nav>
 
@@ -2493,7 +2785,7 @@
                             <div style={{
                                 position: "relative",
                                 zIndex: 10,
-                                maxWidth: "520px",
+                                maxWidth: "540px",
                                 width: "100%",
                                 margin: "20px auto 40px",
                                 padding: "0 24px",
@@ -2505,7 +2797,7 @@
                                     WebkitBackdropFilter: "blur(24px)",
                                     border: "1px solid rgba(255, 255, 255, 0.08)",
                                     borderRadius: "28px",
-                                    padding: "40px 32px",
+                                    padding: "36px 30px",
                                     boxShadow: "0 24px 64px rgba(0,0,0,0.6)"
                                 }}>
                                     {/* Badge */}
@@ -2520,10 +2812,10 @@
                                         fontSize: "12px",
                                         fontWeight: 700,
                                         color: "#c084fc",
-                                        marginBottom: "20px"
+                                        marginBottom: "16px"
                                     }}>
                                         <SvgSparkles size={14} color="#00f0ff" />
-                                        <span>CreatorFlow AI & Stars Suite</span>
+                                        <span>{t('suiteBadge')}</span>
                                     </div>
 
                                     {/* Heading */}
@@ -2535,23 +2827,49 @@
                                         color: "#ffffff",
                                         marginBottom: "12px"
                                     }}>
-                                        CreatorFlow Studio
+                                        {t('heroTitle')}
                                     </h1>
                                     <p style={{
                                         fontSize: "14px",
                                         color: "rgba(255, 255, 255, 0.65)",
                                         lineHeight: 1.55,
-                                        marginBottom: "28px"
+                                        marginBottom: "20px"
                                     }}>
-                                        Bot hisobingiz, YouTube kanallaringiz statistikasi va Stars keyslarini boshqarish uchun Telegram ID orqali kiring.
+                                        {t('heroSubtitle')}
                                     </p>
+
+                                    {/* Google OAuth & YouTube Integration Transparency Card */}
+                                    <div style={{
+                                        background: "rgba(115, 66, 226, 0.08)",
+                                        border: "1px solid rgba(115, 66, 226, 0.28)",
+                                        borderRadius: "16px",
+                                        padding: "14px 16px",
+                                        marginBottom: "22px",
+                                        textAlign: "left"
+                                    }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                                            <SvgYoutube size={16} color="#ef4444" />
+                                            <span style={{ fontSize: "12px", fontWeight: 700, color: "#00F0FF" }}>{t('googleOauthBadge')}</span>
+                                        </div>
+                                        <p style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.72)", lineHeight: 1.5, margin: 0 }}>
+                                            {t('googleOauthNotice')}
+                                        </p>
+                                        <div style={{ display: "flex", gap: "16px", marginTop: "10px", fontSize: "11px" }}>
+                                            <a href="/privacy" target="_blank" rel="noopener" style={{ color: "#00F0FF", textDecoration: "underline", fontWeight: 700 }}>
+                                                {t('privacyPolicy')}
+                                            </a>
+                                            <a href="/terms" target="_blank" rel="noopener" style={{ color: "#00F0FF", textDecoration: "underline", fontWeight: 700 }}>
+                                                {t('termsOfService')}
+                                            </a>
+                                        </div>
+                                    </div>
 
                                     {/* Two-Step Secure OTP Authentication Form */}
                                     {otpStep === 1 ? (
                                         <form onSubmit={handleRequestOtp} style={{ textAlign: "left" }}>
                                             <div style={{ marginBottom: "18px" }}>
                                                 <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)", marginBottom: "8px" }}>
-                                                    Telegram User ID
+                                                    {t('telegramIdLabel')}
                                                 </label>
                                                 <div style={{ position: "relative" }}>
                                                     <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
@@ -2561,7 +2879,7 @@
                                                         type="number"
                                                         value={loginIdInput}
                                                         onChange={(e) => setLoginIdInput(e.target.value)}
-                                                        placeholder="Masalan: 123456789"
+                                                        placeholder={t('telegramIdPlaceholder')}
                                                         autoFocus
                                                         style={{
                                                             width: "100%",
@@ -2611,23 +2929,23 @@
                                                 onMouseEnter={(e) => !otpLoading && (e.currentTarget.style.filter = "brightness(1.1)")}
                                                 onMouseLeave={(e) => e.currentTarget.style.filter = "brightness(1)"}
                                             >
-                                                <span>{otpLoading ? "Kod yuborilmoqda..." : "Kodni Telegramga Yuborish"}</span>
+                                                <span>{otpLoading ? t('sendingCode') : t('sendCodeBtn')}</span>
                                                 <SvgArrowRight size={18} color="#ffffff" />
                                             </button>
                                         </form>
                                     ) : (
                                         <form onSubmit={handleVerifyOtp} style={{ textAlign: "left" }}>
                                             <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", color: "#6ee7b7", fontSize: "13px", lineHeight: 1.4 }}>
-                                                {authSuccessMsg || "Tasdiqlash kodi Telegram botingizga yuborildi!"}
+                                                {authSuccessMsg || t('otpSentMsg')}
                                             </div>
 
                                             <div style={{ marginBottom: "18px" }}>
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
                                                     <label style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
-                                                        6-Raqamli Tasdiqlash Kodi
+                                                        {t('otpLabel')}
                                                     </label>
                                                     <span style={{ fontSize: "12px", color: "#00F0FF", cursor: "pointer", textDecoration: "underline" }} onClick={() => { setOtpStep(1); setAuthError(''); }}>
-                                                        ID ni o'zgartirish
+                                                        {t('changeId')}
                                                     </span>
                                                 </div>
                                                 <div style={{ position: "relative" }}>
@@ -2691,7 +3009,7 @@
                                                     marginBottom: "12px"
                                                 }}
                                             >
-                                                <span>{otpLoading ? "Tekshirilmoqda..." : "Kirishni Tasdiqlash"}</span>
+                                                <span>{otpLoading ? t('verifying') : t('verifyBtn')}</span>
                                                 <SvgCheckCircle size={18} color="#ffffff" />
                                             </button>
 
@@ -2710,14 +3028,46 @@
                                                         padding: "4px 8px"
                                                     }}
                                                 >
-                                                    {otpCooldown > 0 ? `Qayta yuborish (${otpCooldown}s)` : "Kodni qayta yuborish"}
+                                                    {otpCooldown > 0 ? `${t('resendCode')} (${otpCooldown}s)` : t('resendCode')}
                                                 </button>
                                             </div>
                                         </form>
                                     )}
 
                                     <div style={{ marginTop: "18px", fontSize: "12px", color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
-                                        Telegram botimizda <span style={{ color: "#00F0FF", fontWeight: 700 }}>/start</span> buyrug'ini yuborib ID raqamingizni bilib olishingiz mumkin.
+                                        {t('findIdHint')}
+                                    </div>
+
+                                    {/* Direct Public Demo Entry */}
+                                    <div style={{ marginTop: "22px", paddingTop: "18px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                                        <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.55)", marginBottom: "10px" }}>
+                                            {t('orExploreNotice')}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setView('dashboard')}
+                                            style={{
+                                                width: "100%",
+                                                padding: "12px 0",
+                                                borderRadius: "14px",
+                                                background: "rgba(255, 255, 255, 0.08)",
+                                                border: "1px solid rgba(255, 255, 255, 0.16)",
+                                                color: "#ffffff",
+                                                fontSize: "14px",
+                                                fontWeight: 600,
+                                                cursor: "pointer",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                gap: "8px",
+                                                transition: "all 0.2s"
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                                        >
+                                            <SvgSparkles size={16} color="#00F0FF" />
+                                            <span>{t('demoExploreBtn')}</span>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -2729,10 +3079,10 @@
                                     marginTop: "24px"
                                 }}>
                                     {[
-                                        { title: "Kanal Analitikasi", desc: "Real-vaqt statistikasi", icon: SvgBarChart },
-                                        { title: "Stars Mystery Keyslar", desc: "Telegram Gifts & NFT", icon: SvgGift },
-                                        { title: "Video Yuklab Olish", desc: "1080p & 4K formatlar", icon: SvgDownload },
-                                        { title: "AI Kreativ Studio", desc: "SEO & avtomatizatsiya", icon: SvgSparkles }
+                                        { title: t('feat1Title'), desc: t('feat1Desc'), icon: SvgBarChart },
+                                        { title: t('feat2Title'), desc: t('feat2Desc'), icon: SvgGift },
+                                        { title: t('feat3Title'), desc: t('feat3Desc'), icon: SvgDownload },
+                                        { title: t('feat4Title'), desc: t('feat4Desc'), icon: SvgSparkles }
                                     ].map((feat, idx) => (
                                         <div
                                             key={idx}
@@ -2754,17 +3104,30 @@
                                 </div>
                             </div>
 
-                            {/* Footer */}
+                            {/* Gateway Footer */}
                             <footer style={{
                                 position: "relative",
                                 zIndex: 10,
                                 textAlign: "center",
-                                padding: "20px 24px",
+                                padding: "24px 20px",
                                 borderTop: "1px solid rgba(255, 255, 255, 0.06)",
                                 fontSize: "12px",
-                                color: "rgba(255, 255, 255, 0.4)"
+                                color: "rgba(255, 255, 255, 0.45)",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: "12px"
                             }}>
-                                © {new Date().getFullYear()} CreatorFlow Studio. Barcha huquqlar himoyalangan.
+                                <div style={{ display: "flex", gap: "18px", flexWrap: "wrap", justifyContent: "center" }}>
+                                    <a href="/privacy" style={{ color: "rgba(255, 255, 255, 0.75)", textDecoration: "none" }}>{t('privacyPolicy')}</a>
+                                    <span style={{ color: "rgba(255, 255, 255, 0.2)" }}>•</span>
+                                    <a href="/terms" style={{ color: "rgba(255, 255, 255, 0.75)", textDecoration: "none" }}>{t('termsOfService')}</a>
+                                    <span style={{ color: "rgba(255, 255, 255, 0.2)" }}>•</span>
+                                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style={{ color: "#00F0FF", textDecoration: "none" }}>Google Permissions</a>
+                                </div>
+                                <div>
+                                    &copy; {new Date().getFullYear()} CreatorFlow Studio. {t('allRightsReserved')}
+                                </div>
                             </footer>
                         </div>
                     )}
@@ -3009,9 +3372,12 @@
                                                 }}
                                             >
                                                 <SvgUser size={14} color="#ffffff" />
-                                                <span>Telegram ID bilan kirish</span>
+                                                <span>{t('signIn')}</span>
                                             </button>
                                         )}
+                                        {/* Dashboard Header Language Selector */}
+                                        <LanguageSelector currentLang={lang} onChangeLang={changeLang} isDark={false} />
+
                                         <button
                                             onClick={() => setDrawerOpen(!drawerOpen)}
                                             style={{
@@ -3029,7 +3395,7 @@
                                                 transition: "all 0.2s"
                                             }}
                                         >
-                                            <span>Menu</span>
+                                            <span>{t('menu')}</span>
                                             <ChevronUpIcon size={16} color="#ffffff" />
                                         </button>
                                     </div>
@@ -3072,7 +3438,7 @@
                                         }}
                                     >
                                         <SvgBarChart size={16} color={activeTab === 'analytics' ? "#ffffff" : "#71717a"} />
-                                        <span>Kanal Analitikasi</span>
+                                        <span>{t('tabAnalytics')}</span>
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('videos')}
@@ -3093,7 +3459,7 @@
                                         }}
                                     >
                                         <SvgVideo size={16} color={activeTab === 'videos' ? "#ffffff" : "#71717a"} />
-                                        <span>Video Qidiruv & Yuklash</span>
+                                        <span>{t('tabVideos')}</span>
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('cases')}
@@ -3114,7 +3480,7 @@
                                         }}
                                     >
                                         <SvgStar size={16} color={activeTab === 'cases' ? "#ffd700" : "#71717a"} />
-                                        <span>Stars Mystery Cases</span>
+                                        <span>{t('tabCases')}</span>
                                     </button>
                                     <button
                                         onClick={() => setActiveTab('nfts')}
@@ -3135,7 +3501,7 @@
                                         }}
                                     >
                                         <SvgBox size={16} color={activeTab === 'nfts' ? "#00f0ff" : "#71717a"} />
-                                        <span>3D Gift NFTs</span>
+                                        <span>{t('tabNfts')}</span>
                                     </button>
                                     <button
                                         onClick={() => setShowTeamworkModal(true)}
@@ -5582,13 +5948,23 @@
 
                             {/* Footer */}
                             <footer style={{ borderTop: "1px solid var(--border-soft)", padding: "48px 24px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: "4px", marginBottom: "8px" }}>
-                                    <span className="serif italic" style={{ fontSize: "20px", fontWeight: 600, color: "var(--text)" }}>CreatorFlow</span>
-                                    <sup style={{ fontWeight: 600 }}>®</sup>
-                                    <span style={{ margin: "0 8px" }}>•</span>
-                                    <span style={{ color: "var(--text)", fontWeight: 600 }}>CreatorFlow Studio</span>
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "baseline", gap: "6px", marginBottom: "12px" }}>
+                                    <span className="serif italic" style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)" }}>CreatorFlow</span>
+                                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#7342E2", background: "rgba(115, 66, 226, 0.08)", padding: "2px 8px", borderRadius: "999px" }}>Studio</span>
                                 </div>
-                                <p>© {new Date().getFullYear()} CreatorFlow Studio. Barcha huquqlar himoyalangan.</p>
+                                <div style={{ display: "flex", gap: "18px", flexWrap: "wrap", justifyContent: "center", marginBottom: "18px", fontSize: "13px" }}>
+                                    <a href="/privacy" style={{ color: "#7342E2", textDecoration: "none", fontWeight: 600 }}>{t('privacyPolicy')}</a>
+                                    <span>•</span>
+                                    <a href="/terms" style={{ color: "#7342E2", textDecoration: "none", fontWeight: 600 }}>{t('termsOfService')}</a>
+                                    <span>•</span>
+                                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style={{ color: "#7342E2", textDecoration: "none", fontWeight: 600 }}>Google Permissions</a>
+                                    <span>•</span>
+                                    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style={{ color: "#71717a", textDecoration: "none" }}>Limited Use Disclosure</a>
+                                </div>
+                                <div style={{ marginBottom: "16px" }}>
+                                    <LanguageSelector currentLang={lang} onChangeLang={changeLang} isDark={false} />
+                                </div>
+                                <p>&copy; {new Date().getFullYear()} CreatorFlow Studio. {t('allRightsReserved')}</p>
                             </footer>
 
                             {/* Telegram User ID Login Modal */}
@@ -5621,7 +5997,7 @@
                                                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f4f0ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                     <SvgUser size={20} color="#7342E2" />
                                                 </div>
-                                                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0 }}>Telegram ID orqali kirish</h3>
+                                                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0 }}>{t('loginModalTitle')}</h3>
                                             </div>
                                             <button
                                                 onClick={() => { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); }}
@@ -5631,13 +6007,13 @@
                                             </button>
                                         </div>
                                         <p style={{ fontSize: "13px", color: "#71717a", lineHeight: 1.5, marginBottom: "20px" }}>
-                                            Botdagi hisobingiz, ulangan YouTube kanallaringiz va Stars balansini sinxronlash uchun Telegram User ID raqamingizni kiriting.
+                                            {t('loginModalDesc')}
                                         </p>
                                         {otpStep === 1 ? (
                                             <form onSubmit={handleRequestOtp}>
                                                 <div style={{ marginBottom: "16px" }}>
                                                     <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#3f3f46", marginBottom: "6px" }}>
-                                                        Telegram User ID
+                                                        {t('telegramIdLabel')}
                                                     </label>
                                                     <div style={{ position: "relative" }}>
                                                         <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
@@ -5647,7 +6023,7 @@
                                                             type="number"
                                                             value={loginIdInput}
                                                             onChange={(e) => setLoginIdInput(e.target.value)}
-                                                            placeholder="Masalan: 123456789"
+                                                            placeholder={t('telegramIdPlaceholder')}
                                                             style={{
                                                                 width: "100%",
                                                                 padding: "12px 16px 12px 42px",
@@ -5684,7 +6060,7 @@
                                                             cursor: "pointer"
                                                         }}
                                                     >
-                                                        Bekor qilish
+                                                        {lang === 'uz' ? 'Bekor qilish' : (lang === 'ru' ? 'Отмена' : 'Cancel')}
                                                     </button>
                                                     <button
                                                         type="submit"
@@ -5702,23 +6078,23 @@
                                                             opacity: otpLoading ? 0.7 : 1
                                                         }}
                                                     >
-                                                        {otpLoading ? "Kutilmoqda..." : "Kod Olish"}
+                                                        {otpLoading ? t('sendingCode') : t('sendCodeBtn')}
                                                     </button>
                                                 </div>
                                             </form>
                                         ) : (
                                             <form onSubmit={handleVerifyOtp}>
                                                 <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#065f46", fontSize: "13px" }}>
-                                                    {authSuccessMsg || "Tasdiqlash kodi Telegram botingizga yuborildi!"}
+                                                    {authSuccessMsg || t('otpSentMsg')}
                                                 </div>
 
                                                 <div style={{ marginBottom: "16px" }}>
                                                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                                                         <label style={{ fontSize: "12px", fontWeight: 700, color: "#3f3f46" }}>
-                                                            6-Raqamli Kod
+                                                            {t('otpLabel')}
                                                         </label>
                                                         <span style={{ fontSize: "12px", color: "#7342E2", cursor: "pointer", textDecoration: "underline" }} onClick={() => { setOtpStep(1); setAuthError(''); }}>
-                                                            ID ni o'zgartirish
+                                                            {t('changeId')}
                                                         </span>
                                                     </div>
                                                     <div style={{ position: "relative" }}>
@@ -5770,7 +6146,7 @@
                                                             cursor: "pointer"
                                                         }}
                                                     >
-                                                        Bekor qilish
+                                                        {lang === 'uz' ? 'Bekor qilish' : (lang === 'ru' ? 'Отмена' : 'Cancel')}
                                                     </button>
                                                     <button
                                                         type="submit"
@@ -5788,7 +6164,7 @@
                                                             opacity: (otpLoading || otpInput.trim().length < 6) ? 0.7 : 1
                                                         }}
                                                     >
-                                                        {otpLoading ? "Tekshirilmoqda..." : "Tasdiqlash"}
+                                                        {otpLoading ? t('verifying') : t('verifyBtn')}
                                                     </button>
                                                 </div>
 

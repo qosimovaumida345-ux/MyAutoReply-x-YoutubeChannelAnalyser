@@ -433,6 +433,34 @@ async def handle_health(request):
     return web.Response(text="Bot is running!", content_type="text/html")
 
 
+async def handle_privacy_page(request):
+    """Google OAuth & YouTube Data API Compliant Privacy Policy page"""
+    from legal_templates import get_privacy_html
+    return web.Response(
+        text=get_privacy_html(),
+        content_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+async def handle_terms_page(request):
+    """CreatorFlow Studio SaaS Terms of Service page"""
+    from legal_templates import get_terms_html
+    return web.Response(
+        text=get_terms_html(),
+        content_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
 # ==================== STATS CACHE (YouTube API quota tejash uchun) ====================
 import time as _time
 _stats_cache = {}  # {tg_user_id: {"data": ..., "ts": time}}
@@ -2996,6 +3024,13 @@ async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
     app.router.add_get("/", handle_health)
+    # Public Multilingual Legal & Compliance Pages (Google OAuth Branding Verification)
+    app.router.add_get("/privacy", handle_privacy_page)
+    app.router.add_get("/privacy-policy", handle_privacy_page)
+    app.router.add_get("/privacy.html", handle_privacy_page)
+    app.router.add_get("/terms", handle_terms_page)
+    app.router.add_get("/terms-of-service", handle_terms_page)
+    app.router.add_get("/terms.html", handle_terms_page)
     # Client-side SPA routes for /goal, /boost, /teamwork-preview
     app.router.add_get("/goal", handle_health)
     app.router.add_get("/boost", handle_health)
