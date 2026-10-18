@@ -106,24 +106,103 @@ STARS_PACKAGES = [
 PRIMARY_FALLBACK_TO_ID = {}
 for _fb, _reg_key in [
     ("💰", "BTN_WALLET"),
+    ("💵", "PAY_CASHOUT"),
+    ("💸", "PAY_CASHOUT"),
+    ("💳", "PAY_HUMO_UZCARD"),
     ("👑", "PAY_VIP_CROWN"),
     ("⭐", "PAY_STARS"),
-    ("💳", "PAY_HUMO_UZCARD"),
     ("💎", "PAY_TON_CRYPTO"),
     ("🎟️", "PAY_PROMOCODE"),
-    ("💸", "PAY_CASHOUT"),
+    ("🎟", "PAY_PROMOCODE"),
     ("✅", "STATUS_SUCCESS"),
     ("❌", "STATUS_ERROR"),
     ("⚠️", "STATUS_WARNING"),
     ("⚡", "STATUS_LIGHTNING"),
     ("⏳", "STATUS_LOADING"),
     ("🛡️", "STATUS_SECURITY"),
+    ("🛡", "STATUS_SECURITY"),
     ("🎬", "MEDIA_VIDEO_FHD"),
+    ("🎥", "TOOL_LIVE_STREAM"),
+    ("🎞️", "MEDIA_AI_VIDEO"),
+    ("🎞", "MEDIA_AI_VIDEO"),
+    ("🩳", "MEDIA_SCISSORS"),
     ("✂️", "MEDIA_SCISSORS"),
+    ("✂", "MEDIA_SCISSORS"),
     ("📺", "MEDIA_YOUTUBE"),
+    ("📢", "MEDIA_YOUTUBE"),
     ("🤖", "MEDIA_AUTOPILOT"),
     ("💻", "BRAND_CURSOR"),
+    ("🪟", "BRAND_WINDOWS"),
+    ("🍏", "BRAND_APPLE"),
+    ("🐧", "BRAND_CODEX"),
     ("📲", "TOOL_QR_CODE"),
+    ("📱", "TOOL_QR_CODE"),
+    ("🔗", "TOOL_QR_CODE"),
+    ("🌐", "BTN_DASHBOARD"),
+    ("🌍", "BTN_DASHBOARD"),
+    ("🏠", "BTN_HOME"),
+    ("⬅️", "BTN_BACK"),
+    ("⬅", "BTN_BACK"),
+    ("➡️", "BTN_NEXT"),
+    ("➡", "BTN_NEXT"),
+    ("▶", "BTN_NEXT"),
+    ("🎁", "GIFT_CASE_BOX"),
+    ("📦", "GIFT_CASE_BOX"),
+    ("🏆", "GIFT_TROPHY"),
+    ("🥇", "GIFT_TROPHY"),
+    ("🥈", "GIFT_TROPHY"),
+    ("🥉", "GIFT_TROPHY"),
+    ("🚀", "GIFT_ROCKET"),
+    ("✨", "GIFT_STAR"),
+    ("❤", "GIFT_HEART"),
+    ("🎮", "BTN_GAMES"),
+    ("🎰", "BTN_GAMES"),
+    ("🎯", "BTN_GAMES"),
+    ("⚔", "BTN_GAMES"),
+    ("🪙", "BTN_WALLET"),
+    ("🛒", "BTN_SERVICES"),
+    ("🛍", "BTN_SERVICES"),
+    ("🏪", "BTN_SERVICES"),
+    ("📋", "BTN_ORDERS"),
+    ("📄", "BTN_ORDERS"),
+    ("📂", "BTN_ORDERS"),
+    ("🧾", "BTN_ORDERS"),
+    ("👥", "BTN_REFERRAL"),
+    ("👤", "BTN_SETTINGS"),
+    ("⚙️", "BTN_SETTINGS"),
+    ("⚙", "BTN_SETTINGS"),
+    ("🔔", "BTN_SUPPORT"),
+    ("💬", "TOOL_COMMENTS"),
+    ("✉", "TOOL_COMMENTS"),
+    ("📊", "TOOL_CHART_GROWTH"),
+    ("📈", "TOOL_CHART_GROWTH"),
+    ("📉", "TOOL_CHART_GROWTH"),
+    ("🔥", "TOOL_TREND_FIRE"),
+    ("🔍", "TOOL_SEARCH"),
+    ("🔎", "TOOL_SEARCH"),
+    ("🔑", "DEV_API_KEY"),
+    ("📖", "DEV_API_DOCS"),
+    ("📝", "DEV_API_DOCS"),
+    ("✏", "DEV_API_DOCS"),
+    ("🔄", "DEV_ROTATE_KEY"),
+    ("🔁", "DEV_ROTATE_KEY"),
+    ("♻", "DEV_ROTATE_KEY"),
+    ("🏷️", "TOOL_PRICE_TAG"),
+    ("🏷", "TOOL_PRICE_TAG"),
+    ("📌", "TOOL_PRICE_TAG"),
+    ("🖼️", "TOOL_THUMBNAIL"),
+    ("🖼", "TOOL_THUMBNAIL"),
+    ("🧠", "BRAND_CHATGPT"),
+    ("🧮", "BRAND_CHATGPT"),
+    ("🟢", "STATUS_SUCCESS"),
+    ("👇", "BTN_NEXT"),
+    ("➕", "STATUS_LIGHTNING"),
+    ("➖", "STATUS_ERROR"),
+    ("🚫", "STATUS_ERROR"),
+    ("🗑", "STATUS_ERROR"),
+    ("👍", "TOOL_LIKES"),
+    ("👎", "STATUS_ERROR"),
+    ("⚖", "BTN_SETTINGS"),
 ]:
     _cid = CUSTOM_EMOJI_REGISTRY.get(_reg_key, {}).get("id", "")
     if _cid and str(_cid).strip().isdigit():
@@ -289,13 +368,13 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     # 4. Developer API & Downloader (Foydalanuvchi talabi bo'yicha aniq mapping)
     if any(k in cb_lower for k in ["help_api", "api_keys", "developer_api", "menu_api"]) or any(k in text_lower for k in ["developer api", "api & studio", "dasturchi api", "api"]):
         return CUSTOM_EMOJI_REGISTRY.get("BRAND_CURSOR", {}).get("id", "6273793612715138423")
-    if any(k in cb_lower for k in ["download", "yuklash", "dl_video", "format_"]) or any(k in text_lower for k in ["video yuklash", "yuklab olish", "download", "1080p", "720p"]):
+    if any(k in cb_lower for k in ["download", "yuklash", "dl_video", "format_", "dl_yt_"]) or any(k in text_lower for k in ["video yuklash", "videoni yuklab olish", "yuklab olish", "download", "1080p", "720p"]):
         return CUSTOM_EMOJI_REGISTRY.get("MEDIA_VIDEO_FHD", {}).get("id", "5082592692391641768")
     if any(k in cb_lower for k in ["clipper", "qaychi", "scissors", "shorts_cut"]) or any(k in text_lower for k in ["clipper", "qaychi", "shorts kesish"]):
         return CUSTOM_EMOJI_REGISTRY.get("MEDIA_SCISSORS", {}).get("id", "5422781517011111694")
     if any(k in cb_lower for k in ["menu_channel", "channel_"]) or any(k in text_lower for k in ["kanal & video", "youtube kanal", "kanal"]):
         return CUSTOM_EMOJI_REGISTRY.get("MEDIA_YOUTUBE", {}).get("id", "4999366254943798100")
-    if any(k in cb_lower for k in ["menu_ig_cloner", "ig_", "autopilot", "menu_reels", "dl_reels"]) or any(k in text_lower for k in ["avtopilot", "kloner", "reels"]):
+    if any(k in cb_lower for k in ["menu_ig_cloner", "ig_", "autopilot", "menu_reels", "dl_reels"]) or any(k in text_lower for k in ["avtopilot", "kloner", "reels", "instagram"]):
         return CUSTOM_EMOJI_REGISTRY.get("MEDIA_AUTOPILOT", {}).get("id", "5258093637450866522")
     if any(k in cb_lower for k in ["menu_capcut", "capcut"]) or "capcut" in text_lower:
         return CUSTOM_EMOJI_REGISTRY.get("BRAND_CAPCUT", {}).get("id", "5978895591894161700")
@@ -315,8 +394,20 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
         return CUSTOM_EMOJI_REGISTRY.get("BTN_REFERRAL", {}).get("id", "5944970130554359187")
     if any(k in cb_lower for k in ["menu_leaderboard"]) or "liderlar" in text_lower:
         return CUSTOM_EMOJI_REGISTRY.get("BTN_LEADERBOARD", {}).get("id", "5307608734858484532")
-    if any(k in cb_lower for k in ["menu_analytics"]) or "analitika" in text_lower:
+    if any(k in cb_lower for k in ["menu_analytics", "an_"]) or "analitika" in text_lower:
         return CUSTOM_EMOJI_REGISTRY.get("TOOL_GRAPH_UP", {}).get("id", "5258194577772274087")
+    if any(k in cb_lower for k in ["menu_tools", "tl_"]) or "asboblar" in text_lower or "tools" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("BTN_SETTINGS", {}).get("id", "5341715473882955310")
+    if any(k in cb_lower for k in ["menu_trending", "trend_"]) or "trending" in text_lower or "trend" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_TREND_FIRE", {}).get("id", "5334725814040674667")
+    if any(k in cb_lower for k in ["menu_search", "sr_"]) or "qidiruv" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("TOOL_SEARCH", {}).get("id", "5429419796988970289")
+    if any(k in cb_lower for k in ["menu_video", "vid_"]) or "video" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("MEDIA_VIDEO_FHD", {}).get("id", "5082592692391641768")
+    if any(k in cb_lower for k in ["menu_bundles", "vb_bundles", "bundle_"]) or any(k in text_lower for k in ["super to'plamlar", "bundles", "to'plamlar"]):
+        return CUSTOM_EMOJI_REGISTRY.get("GIFT_CASE_BOX", {}).get("id", "5280615440928758599")
+    if any(k in cb_lower for k in ["menu_ai_video", "aivid_"]) or "ai video" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("MEDIA_AI_VIDEO", {}).get("id", "5846005794767639663")
     if any(k in cb_lower for k in ["menu_lang"]) or any(k in text_lower for k in ["til", "language"]):
         return CUSTOM_EMOJI_REGISTRY.get("BTN_SETTINGS", {}).get("id", "4967490064234840998")
     if any(k in cb_lower for k in ["menu_nft", "nft_"]) or "nft" in text_lower:
@@ -416,16 +507,14 @@ _TRAILING_EMOJI_PATTERN = re.compile(
 def _clean_button_text(btn_text, icon_id=None):
     if not btn_text:
         return ""
-    if icon_id:
-        cleaned = _LEADING_EMOJI_PATTERN.sub('', btn_text).strip()
-        cleaned = _TRAILING_EMOJI_PATTERN.sub('', cleaned).strip()
-        for fb in sorted(FALLBACK_TO_ID.keys(), key=len, reverse=True):
-            if cleaned.startswith(fb):
-                cleaned = cleaned[len(fb):].strip()
-            if cleaned.endswith(fb):
-                cleaned = cleaned[:-len(fb)].strip()
-        return cleaned if cleaned else btn_text
-    return btn_text
+    cleaned = _LEADING_EMOJI_PATTERN.sub('', btn_text).strip()
+    cleaned = _TRAILING_EMOJI_PATTERN.sub('', cleaned).strip()
+    for fb in sorted(FALLBACK_TO_ID.keys(), key=len, reverse=True):
+        if cleaned.startswith(fb):
+            cleaned = cleaned[len(fb):].strip()
+        if cleaned.endswith(fb):
+            cleaned = cleaned[:-len(fb)].strip()
+    return cleaned if cleaned else btn_text
 
 def _build_bot_api_reply_markup(reply_markup, user_id=None):
     """Converts Pyrogram InlineKeyboardMarkup or ReplyKeyboardMarkup to Telegram Bot API payload dict"""
@@ -1007,7 +1096,7 @@ def main_menu_kb(user_id=None):
         
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("👑 Tariflar & VIP (69,000 UZS)", callback_data="menu_tariffs")],
-        [InlineKeyboardButton("🌐 Web Dashboard", web_app=WebAppInfo(url=web_url)),
+        [InlineKeyboardButton("🌐 Web Dashboard", web_app=WebAppInfo(url=f"{web_url}/?tg_user_id={user_id or 0}")),
          InlineKeyboardButton(kyc_text, web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}"))],
         [InlineKeyboardButton(t("btn_balance", lang), callback_data="menu_wallet"),
          InlineKeyboardButton(t("btn_games", lang), callback_data="menu_games")],
@@ -1295,6 +1384,7 @@ def channel_action_kb(channel_id):
 
 def video_action_kb(video_id):
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⬇️ Videoni Yuklab Olish", callback_data=f"dl_yt_{video_id}")],
         [InlineKeyboardButton("💬 Izohlar", callback_data=f"vact_comments_{video_id}"),
          InlineKeyboardButton("🏷 Teglar", callback_data=f"vact_tags_{video_id}")],
         [InlineKeyboardButton("🖼 Thumbnail", callback_data=f"vact_thumb_{video_id}"),
@@ -6306,13 +6396,6 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^(?:menu_(wallet|marketplace|instagram|channel|video|analytics|search|tracking|tools|trending|help|support_desk|vouchers|ig_cloner|capcut|ai_video|spy|cashout|nft)|btn_balance)$"))
     async def cb_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
-        if not check_is_admin(cb.from_user):
-            has_phone = bool(get_telegram_phone(user_id))
-            is_face = is_user_kyc_verified(user_id)
-            if not has_phone and not is_face:
-                await cb.answer("⚠️ Botdan foydalanish uchun avval telefon raqamingizni tasdiqlang! /start ni bosing.", show_alert=True)
-                return
-
         try:
             await cb.answer()
         except Exception:
@@ -6444,7 +6527,6 @@ def create_ytbot():
 
         if menu == "nft":
             await cb.answer()
-            from custom_emojis import e, ce
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{e('GALLERY')} NFT Kolleksiya (Bozor)", callback_data="nft_market")],
                 [InlineKeyboardButton(f"{e('NFT')} Mening NFT larim", callback_data="nft_my_items")],
@@ -6604,7 +6686,6 @@ def create_ytbot():
             pass
         from mega_features import USER_STATES
         USER_STATES[cb.from_user.id] = {"action": "waiting_promo_code"}
-        from custom_emojis import ce
         await cb.message.reply_text(f"{ce('TICKET')} <b>Iltimos, promokodingizni yozib yuboring (/redeem KOD):</b>\n<i>Masalan: <code>/redeem START2025</code> yoki promokod matnini to'g'ridan-to'g'ri yuboring</i>")
 
     from mega_features import load_mega_features
@@ -9288,6 +9369,62 @@ def create_ytbot():
                 f"Engagement: `{eng:.2f}%`"
             )
             await cb.message.edit_text(text, reply_markup=video_action_kb(video_id), parse_mode=ParseMode.MARKDOWN)
+
+    # ==================== DL_YT CALLBACK (DIRECT CLOUD DOWNLOAD) ====================
+    @bot.on_callback_query(filters.regex(r"^dl_yt_([0-9A-Za-z_-]{11})$"))
+    async def cb_dl_yt_video(client, cb: CallbackQuery):
+        video_id = cb.matches[0].group(1)
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        me = await client.get_me()
+        bot_user = me.username or "AutoReplyBot"
+        promo = t("dl_promo_caption", lang, bot_user=bot_user)
+        target_url = f"https://www.youtube.com/watch?v={video_id}"
+        
+        try:
+            await cb.answer()
+        except Exception:
+            pass
+
+        wait_msg = await cb.message.reply_text(
+            f"{ce('MEDIA_VIDEO_FHD')} <b>Video yuklab olinmoqda...</b>\n\n"
+            f"🎬 Video ID: <code>{video_id}</code>\n"
+            f"⏳ <i>7 GB RAM Cloud Server (GitHub Actions) orqali tayyorlanmoqda...</i>"
+        )
+        
+        from config import BOT_TOKEN
+        from worker_client import dispatch_task
+        cookies_text = None
+        try:
+            from database import get_user_cookies
+            cookies_text = get_user_cookies(user_id)
+        except Exception:
+            pass
+
+        try:
+            res = await dispatch_task(
+                task_type="download",
+                url=target_url,
+                chat_id=cb.message.chat.id,
+                format="720",
+                caption=f"🎬 <b>YouTube Video</b> ({video_id}){promo}",
+                cookies_text=cookies_text,
+                bot_token=BOT_TOKEN
+            )
+            if res.get("ok"):
+                if res.get("provider") == "github":
+                    await wait_msg.edit_text(
+                        f"{ce('LIGHTNING')} <b>So'rov qabul qilindi!</b>\n"
+                        f"☁️ <b>7 GB RAM Cloud Server</b> (GitHub Actions) da yuklanmoqda...\n"
+                        f"⚡ 30-45 soniyada videongiz shu yerga yuboriladi!"
+                    )
+                else:
+                    await wait_msg.delete()
+            else:
+                err_text = res.get("error") or "Noma'lum xato"
+                await wait_msg.edit_text(f"{ce('CROSS')} Videoni yuklab bo'lmadi: {err_text}")
+        except Exception as dl_err:
+            await wait_msg.edit_text(f"{ce('CROSS')} Xatolik yuz berdi: {dl_err}")
     
     # ==================== /testformats ====================
     @bot.on_message(filters.command("testformats") & filters.private)
@@ -10758,6 +10895,57 @@ def create_ytbot():
             except Exception as dl_err:
                 await wait_msg.edit_text(f"{e('ERROR')} Instagram videoni yuklab bo'lmadi: {dl_err}")
                 return
+
+        # 3. YouTube Video & Shorts havola tekshiruvi (Hisob ulash talab qilinmaydi!)
+        yt_regex = r'(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([0-9A-Za-z_-]{11})'
+        yt_m = re.search(yt_regex, user_text)
+        if yt_m:
+            vid_id = yt_m.group(1)
+            target_url = f"https://www.youtube.com/watch?v={vid_id}"
+            me = await client.get_me()
+            bot_user = me.username or "AutoReplyBot"
+            promo = t("dl_promo_caption", lang, bot_user=bot_user)
+            
+            wait_msg = await message.reply_text(
+                f"{ce('MEDIA_VIDEO_FHD')} <b>YouTube Video aniqlandi!</b>\n\n"
+                f"🎬 Video ID: <code>{vid_id}</code>\n"
+                f"⏳ <i>7 GB RAM Cloud Server (GitHub Actions) orqali yuklanmoqda...</i>"
+            )
+            
+            from config import BOT_TOKEN
+            from worker_client import dispatch_task
+            cookies_text = None
+            try:
+                from database import get_user_cookies
+                cookies_text = get_user_cookies(user_id)
+            except Exception:
+                pass
+            
+            try:
+                res = await dispatch_task(
+                    task_type="download",
+                    url=target_url,
+                    chat_id=message.chat.id,
+                    format="720",
+                    caption=f"🎬 <b>YouTube Video</b> ({vid_id}){promo}",
+                    cookies_text=cookies_text,
+                    bot_token=BOT_TOKEN
+                )
+                if res.get("ok"):
+                    if res.get("provider") == "github":
+                        await wait_msg.edit_text(
+                            f"{ce('LIGHTNING')} <b>So'rov qabul qilindi!</b>\n"
+                            f"☁️ <b>7 GB RAM Cloud Server</b> (GitHub Actions) da yuklanmoqda...\n"
+                            f"⚡ 30-45 soniyada videongiz shu yerga yuboriladi!"
+                        )
+                    else:
+                        await wait_msg.delete()
+                else:
+                    err_text = res.get("error") or "Noma'lum xato"
+                    await wait_msg.edit_text(f"{ce('CROSS')} Videoni yuklab bo'lmadi: {err_text}")
+            except Exception as dl_err:
+                await wait_msg.edit_text(f"{ce('CROSS')} Xatolik yuz berdi: {dl_err}")
+            return
             
         try:
             prompt = f"""Foydalanuvchi Telegram botga quyidagi matnni yozdi:
