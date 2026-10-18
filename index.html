@@ -775,6 +775,28 @@
             </svg>
         );
 
+        const SvgUsers = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+        );
+
+        const SvgCheck = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+        );
+
+        const SvgBriefcase = ({ size = 18, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+            </svg>
+        );
+
         const SvgFlame = ({ size = 18, color = "#ff4500" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
                 <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
@@ -785,12 +807,6 @@
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
-            </svg>
-        );
-
-        const SvgCheck = ({ size = 18, color = "#10b981" }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
-                <polyline points="20 6 9 17 4 12" />
             </svg>
         );
 
@@ -1212,6 +1228,7 @@
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'videos' | 'cases' | 'nfts'
             const [drawerOpen, setDrawerOpen] = useState(false);
+            const [showTeamworkModal, setShowTeamworkModal] = useState(false);
 
             // Telegram user context & Reactive Login
             const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false });
@@ -2088,6 +2105,22 @@
                 fetchDailyStreak();
                 setupScratchCardUI();
                 fetchUpgraderInventory();
+
+                // URL & Route Handling for /goal, /boost, /teamwork-preview
+                try {
+                    const currentPath = (window.location.pathname || '').toLowerCase();
+                    const currentHash = (window.location.hash || '').toLowerCase();
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const currentRoute = (urlParams.get('route') || urlParams.get('tab') || '').toLowerCase();
+                    if (currentPath.includes('teamwork') || currentHash.includes('teamwork') || currentRoute.includes('teamwork')) {
+                        setShowTeamworkModal(true);
+                    } else if (currentPath.includes('goal') || currentHash.includes('goal') || currentRoute.includes('goal')) {
+                        setActiveTab('analytics');
+                    } else if (currentPath.includes('boost') || currentHash.includes('boost') || currentRoute.includes('boost')) {
+                        setActiveTab('cases');
+                        setStarsSubTab('redeem');
+                    }
+                } catch(e) {}
 
                 const timer = setInterval(() => {
                     if (document.hidden) return;
@@ -3102,6 +3135,27 @@
                                         <SvgBox size={16} color={activeTab === 'nfts' ? "#00f0ff" : "#71717a"} />
                                         <span>3D Gift NFTs</span>
                                     </button>
+                                    <button
+                                        onClick={() => setShowTeamworkModal(true)}
+                                        style={{
+                                            padding: "9px 18px",
+                                            borderRadius: "999px",
+                                            border: "1px solid rgba(115, 66, 226, 0.25)",
+                                            background: "rgba(115, 66, 226, 0.08)",
+                                            color: "#7342E2",
+                                            fontSize: "13px",
+                                            fontWeight: 700,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            transition: "all 0.2s",
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        <SvgUsers size={16} color="#7342E2" />
+                                        <span>Teamwork Preview</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -3123,7 +3177,11 @@
                                             <a
                                                 key={idx}
                                                 href={`#${item.toLowerCase()}`}
-                                                onClick={(e) => { e.preventDefault(); setDrawerOpen(false); }}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    setDrawerOpen(false);
+                                                    if (item === "Team") setShowTeamworkModal(true);
+                                                }}
                                                 style={{
                                                     fontSize: "48px",
                                                     fontWeight: 500,
@@ -4296,10 +4354,10 @@
                                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                                             <div style={{ width: "44px", height: "44px", borderRadius: "50%", background: "linear-gradient(135deg, #7342E2, #00f0ff)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "16px" }}>
-                                                                {b.host_name.charAt(1).toUpperCase() || "C"}
+                                                                {(b?.host_name || "Creator").charAt(0).toUpperCase()}
                                                             </div>
                                                             <div>
-                                                                <div style={{ fontWeight: 700, fontSize: "15px", color: "var(--text)" }}>{b.host_name}</div>
+                                                                <div style={{ fontWeight: 700, fontSize: "15px", color: "var(--text)" }}>{b?.host_name || "Creator"}</div>
                                                                 <div style={{ fontSize: "12px", color: "var(--muted)" }}>Raqib kutmoqda...</div>
                                                             </div>
                                                         </div>
@@ -4366,9 +4424,9 @@
                                                     <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px" }}>
                                                         Siz Tikayotgan Sovg'a:
                                                     </div>
-                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderItem.icon} name={upgraderItem.name} size="48px" /></div>
-                                                    <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderItem.name}</div>
-                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderItem.stars} Stars</span><SvgStar size={13} color="#ffd700" /></div>
+                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderItem?.icon || "cake"} name={upgraderItem?.name || "Sovg'a"} size="48px" /></div>
+                                                    <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderItem?.name || "Sovg'a tanlang"}</div>
+                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderItem?.stars || 0} Stars</span><SvgStar size={13} color="#ffd700" /></div>
                                                     
                                                     {/* Quick Select Buttons */}
                                                     <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
@@ -4380,7 +4438,7 @@
                                                             <button
                                                                 key={idx}
                                                                 onClick={() => setUpgraderItem(it)}
-                                                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderItem.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+                                                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderItem?.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
                                                             >
                                                                 {it.stars} Stars
                                                             </button>
@@ -4392,7 +4450,7 @@
                                                 <div style={{ textAlign: "center" }}>
                                                     <SvgArrowRight size={28} color="#7342E2" />
                                                     <div style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted)", marginTop: "4px" }}>
-                                                        {(upgraderTarget.stars / upgraderItem.stars).toFixed(1)}x
+                                                        {(((upgraderTarget?.stars || 100) / Math.max(1, upgraderItem?.stars || 15))).toFixed(1)}x
                                                     </div>
                                                 </div>
 
@@ -4407,9 +4465,9 @@
                                                             <span>Bor Sovg'a ({upgraderTarget.receiver_target === 'aiko_64' ? '@aiko_64' : 'Bot'})</span>
                                                         </div>
                                                     ) : null}
-                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderTarget.icon} name={upgraderTarget.name} size="48px" /></div>
-                                                    <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderTarget.name}</div>
-                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderTarget.stars} Stars</span><SvgStar size={13} color="#ffd700" /></div>
+                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderTarget?.icon || "champagne"} name={upgraderTarget?.name || "Sovg'a"} size="48px" /></div>
+                                                    <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderTarget?.name || "Sovg'a tanlang"}</div>
+                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderTarget?.stars || 0} Stars</span><SvgStar size={13} color="#ffd700" /></div>
 
                                                     {/* Target Quick Select - Real Bor Sovg'alar */}
                                                     <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
@@ -4422,7 +4480,7 @@
                                                             <button
                                                                 key={idx}
                                                                 onClick={() => setUpgraderTarget(it)}
-                                                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderTarget.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+                                                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderTarget?.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
                                                                 title={it.receiver_target ? `Bor sovg'a: ${it.receiver_target}` : ""}
                                                             >
                                                                 {it.stars} Stars
@@ -4767,11 +4825,11 @@
                                                 <div style={{
                                                     padding: "14px",
                                                     borderRadius: "16px",
-                                                    background: scratchData.won ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.12)",
-                                                    border: `1px solid ${scratchData.won ? '#22c55e' : '#eab308'}`,
+                                                    background: scratchData?.won ? "rgba(34,197,94,0.12)" : "rgba(234,179,8,0.12)",
+                                                    border: `1px solid ${scratchData?.won ? '#22c55e' : '#eab308'}`,
                                                     fontSize: "14px",
                                                     fontWeight: 700,
-                                                    color: scratchData.won ? "#15803d" : "#854d0e"
+                                                    color: scratchData?.won ? "#15803d" : "#854d0e"
                                                 }}>
                                                     {scratchData?.won
                                                         ? `Tabriklaymiz! Siz ${scratchData?.prize ? (scratchData.prize.title || scratchData.prize.name || "Sovg'a") : "Sovg'a"} yutib oldingiz!`
@@ -4906,20 +4964,20 @@
                                                 {/* Player 1 (Host) */}
                                                 <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "24px", padding: "20px", border: "1px solid rgba(255,255,255,0.1)" }}>
                                                     <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "#7342E2", margin: "0 auto 10px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
-                                                        {activeBattle.host_name.charAt(1).toUpperCase() || "H"}
+                                                        {(activeBattle?.host_name || "Host").charAt(0).toUpperCase()}
                                                     </div>
-                                                    <div style={{ fontWeight: 700, fontSize: "14px" }}>{activeBattle.host_name}</div>
+                                                    <div style={{ fontWeight: 700, fontSize: "14px" }}>{activeBattle?.host_name || "Host"}</div>
                                                     <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", margin: "16px 0" }} className={isBattleRolling ? "duel-box-shake" : ""}>
                                                         <TelegramGiftMedia
-                                                            icon={isBattleRolling ? activeBattle.case_icon : (activeBattle.host_roll ? activeBattle.host_roll.icon : activeBattle.case_icon)}
-                                                            name={activeBattle.host_roll ? activeBattle.host_roll.prize_name : activeBattle.case_name}
-                                                            fileId={activeBattle.host_roll?.file_id}
-                                                            fileType={activeBattle.host_roll?.file_type}
+                                                            icon={isBattleRolling ? (activeBattle?.case_icon || "package") : (activeBattle?.host_roll ? activeBattle.host_roll.icon : (activeBattle?.case_icon || "package"))}
+                                                            name={activeBattle?.host_roll ? activeBattle.host_roll.prize_name : (activeBattle?.case_name || "Case")}
+                                                            fileId={activeBattle?.host_roll?.file_id}
+                                                            fileType={activeBattle?.host_roll?.file_type}
                                                             size="64px"
                                                         />
                                                     </div>
                                                     <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
-                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle.host_roll ? `${activeBattle.host_roll.prize_name} (${activeBattle.host_roll.prize_stars} Stars)` : "Tayyor")}
+                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle?.host_roll ? `${activeBattle.host_roll.prize_name || "Sovg'a"} (${activeBattle.host_roll.prize_stars || 0} Stars)` : "Tayyor")}
                                                     </div>
                                                 </div>
 
@@ -4933,20 +4991,20 @@
                                                 {/* Player 2 (Guest) */}
                                                 <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "24px", padding: "20px", border: "1px solid rgba(255,255,255,0.1)" }}>
                                                     <div style={{ width: "48px", height: "48px", borderRadius: "50%", background: "#00f0ff", color: "#000", margin: "0 auto 10px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
-                                                        {activeBattle.guest_name ? activeBattle.guest_name.charAt(1).toUpperCase() : "G"}
+                                                        {(activeBattle?.guest_name || "Guest").charAt(0).toUpperCase()}
                                                     </div>
-                                                    <div style={{ fontWeight: 700, fontSize: "14px" }}>{activeBattle.guest_name || "Raqib"}</div>
+                                                    <div style={{ fontWeight: 700, fontSize: "14px" }}>{activeBattle?.guest_name || "Raqib"}</div>
                                                     <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", margin: "16px 0" }} className={isBattleRolling ? "duel-box-shake" : ""}>
                                                         <TelegramGiftMedia
-                                                            icon={isBattleRolling ? activeBattle.case_icon : (activeBattle.guest_roll ? activeBattle.guest_roll.icon : activeBattle.case_icon)}
-                                                            name={activeBattle.guest_roll ? activeBattle.guest_roll.prize_name : activeBattle.case_name}
-                                                            fileId={activeBattle.guest_roll?.file_id}
-                                                            fileType={activeBattle.guest_roll?.file_type}
+                                                            icon={isBattleRolling ? (activeBattle?.case_icon || "package") : (activeBattle?.guest_roll ? activeBattle.guest_roll.icon : (activeBattle?.case_icon || "package"))}
+                                                            name={activeBattle?.guest_roll ? activeBattle.guest_roll.prize_name : (activeBattle?.case_name || "Case")}
+                                                            fileId={activeBattle?.guest_roll?.file_id}
+                                                            fileType={activeBattle?.guest_roll?.file_type}
                                                             size="64px"
                                                         />
                                                     </div>
                                                     <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
-                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle.guest_roll ? `${activeBattle.guest_roll.prize_name} (${activeBattle.guest_roll.prize_stars} Stars)` : "Tayyor")}
+                                                        {isBattleRolling ? "Ochilyapti..." : (activeBattle?.guest_roll ? `${activeBattle.guest_roll.prize_name || "Sovg'a"} (${activeBattle.guest_roll.prize_stars || 0} Stars)` : "Tayyor")}
                                                     </div>
                                                 </div>
                                             </div>
@@ -5751,6 +5809,159 @@
                                                 </div>
                                             </form>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Teamwork Preview Modal */}
+                            {showTeamworkModal && (
+                                <div
+                                    onClick={(e) => { if (e.target === e.currentTarget) setShowTeamworkModal(false); }}
+                                    style={{
+                                        position: "fixed",
+                                        inset: 0,
+                                        zIndex: 1000,
+                                        background: "rgba(0, 0, 0, 0.7)",
+                                        backdropFilter: "blur(12px)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        padding: "20px"
+                                    }}
+                                >
+                                    <div style={{
+                                        background: "#12141c",
+                                        borderRadius: "24px",
+                                        padding: "32px",
+                                        maxWidth: "680px",
+                                        width: "100%",
+                                        maxHeight: "90vh",
+                                        overflowY: "auto",
+                                        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.6)",
+                                        border: "1px solid rgba(255, 255, 255, 0.1)",
+                                        color: "#f4f4f5"
+                                    }}>
+                                        {/* Header */}
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                                <div style={{ width: "42px", height: "42px", borderRadius: "12px", background: "rgba(115, 66, 226, 0.2)", border: "1px solid rgba(115, 66, 226, 0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgUsers size={22} color="#a78bfa" />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", color: "#a78bfa", textTransform: "uppercase" }}>Jamoaviy Hamkorlik</div>
+                                                    <h3 style={{ fontSize: "20px", fontWeight: 700, color: "#ffffff", margin: "2px 0 0" }}>CreatorFlow Teamwork Preview</h3>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowTeamworkModal(false)}
+                                                style={{ border: "none", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#a1a1aa" }}
+                                            >
+                                                <XIcon size={18} color="#a1a1aa" />
+                                            </button>
+                                        </div>
+
+                                        <p style={{ fontSize: "13px", color: "#a1a1aa", lineHeight: 1.6, marginBottom: "24px" }}>
+                                            YouTube kanallaringizni professional jamoa — administratorlar, montajchilar, dizaynerlar va SMM menejerlar bilan birgalikda boshqaring. Har bir a'zo uchun xavfsiz va aniq belgilangan vakolatlar.
+                                        </p>
+
+                                        {/* Roles Grid */}
+                                        <div style={{ marginBottom: "24px" }}>
+                                            <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                                                <SvgShield size={14} color="#71717a" />
+                                                <span>Jamoaviy Rollar va Ruxsatlar</span>
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "10px" }}>
+                                                {[
+                                                    { role: "Kanal Egasi (Owner)", desc: "Moliyaviy nazorat, to'lovlar, Stars balansi va to'liq egalik", tag: "Full Access", color: "#eab308" },
+                                                    { role: "Boshqaruvchi (Admin)", desc: "Autopost jadvali, SEO optimizatsiya, tahlillar va kampaniyalar", tag: "Management", color: "#8b5cf6" },
+                                                    { role: "Montajchi (Editor)", desc: "4K yuklash, Short Factory avto-montaj va rendering", tag: "Content", color: "#06b6d4" },
+                                                    { role: "Dizayner (Artist)", desc: "Thumbnail, kanal banneri va 3D Gift NFT yaratish", tag: "Creative", color: "#ec4899" },
+                                                    { role: "SMM Menejer", desc: "Izohlar moderatsiyasi, auditoriya tahlili va e'lonlar", tag: "Community", color: "#10b981" }
+                                                ].map((r, idx) => (
+                                                    <div key={idx} style={{ background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "14px", padding: "14px 16px" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                                                            <div style={{ fontWeight: 700, fontSize: "14px", color: "#ffffff", display: "flex", alignItems: "center", gap: "8px" }}>
+                                                                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: r.color, display: "inline-block" }}></span>
+                                                                {r.role}
+                                                            </div>
+                                                            <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "999px", background: "rgba(255,255,255,0.06)", color: r.color, border: `1px solid ${r.color}33` }}>
+                                                                {r.tag}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: "12px", color: "#a1a1aa", lineHeight: 1.4 }}>{r.desc}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Connected Workflows */}
+                                        <div style={{ marginBottom: "28px" }}>
+                                            <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
+                                                <SvgBriefcase size={14} color="#71717a" />
+                                                <span>Integratsiyalashgan Jamoaviy Asboblar</span>
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
+                                                {[
+                                                    { name: "Linear", desc: "Sprint & Tasks", status: "Active" },
+                                                    { name: "Miro", desc: "Visual Ideas", status: "Active" },
+                                                    { name: "Supercut", desc: "Cloud Render", status: "Active" },
+                                                    { name: "Jam Team", desc: "1-Click QA", status: "Active" }
+                                                ].map((t, idx) => (
+                                                    <div key={idx} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "12px", textAlign: "center" }}>
+                                                        <div style={{ fontWeight: 700, fontSize: "13px", color: "#ffffff" }}>{t.name}</div>
+                                                        <div style={{ fontSize: "11px", color: "#71717a", margin: "2px 0 6px" }}>{t.desc}</div>
+                                                        <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "#10b981", fontWeight: 600 }}>
+                                                            <SvgCheck size={12} color="#10b981" />
+                                                            <span>{t.status}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Footer Actions */}
+                                        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap" }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowTeamworkModal(false)}
+                                                style={{
+                                                    padding: "12px 20px",
+                                                    borderRadius: "12px",
+                                                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                                                    background: "rgba(255, 255, 255, 0.05)",
+                                                    color: "#e4e4e7",
+                                                    fontSize: "13px",
+                                                    fontWeight: 600,
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                Yopish
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.origin + '/teamwork-preview')}&text=${encodeURIComponent("CreatorFlow jamoaviy boshqaruviga taklif!")}`;
+                                                    window.open(shareUrl, '_blank');
+                                                }}
+                                                style={{
+                                                    padding: "12px 22px",
+                                                    borderRadius: "12px",
+                                                    border: "none",
+                                                    background: "linear-gradient(135deg, #7342E2 0%, #9333ea 100%)",
+                                                    color: "#ffffff",
+                                                    fontSize: "13px",
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "8px",
+                                                    boxShadow: "0 4px 16px rgba(115, 66, 226, 0.35)"
+                                                }}
+                                            >
+                                                <SvgUsers size={16} color="#ffffff" />
+                                                <span>A'zolarni Taklif Qilish</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}

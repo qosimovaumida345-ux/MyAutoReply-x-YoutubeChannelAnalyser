@@ -2595,34 +2595,20 @@ async def handle_api_auth_verify_token(request):
                 finally:
                     conn.close()
 
-            # If user is owner or valid user and token is not an explicit fake test token:
-            if not session and (is_owner_user or not (token and "fake" in token)):
-                user_exists = is_owner_user
-                if not user_exists:
-                    try:
-                        conn = database.get_db()
-                        if conn:
-                            cur = conn.cursor()
-                            cur.execute("SELECT 1 FROM bot_users WHERE tg_user_id = %s LIMIT 1", (tg_user_id,))
-                            if cur.fetchone():
-                                user_exists = True
-                            conn.close()
-                    except Exception:
-                        pass
-
-                if user_exists and not database.is_user_banned(tg_user_id):
-                    import secrets
-                    if not token or "fake" in token:
-                        token = f"tok_{secrets.token_hex(24)}"
-                    session = {
-                        "tg_user_id": tg_user_id,
-                        "created_at": time.time()
-                    }
-                    _AUTH_TOKENS[token] = session
-                    try:
-                        database.save_web_session(token, tg_user_id, fingerprint=fingerprint)
-                    except Exception:
-                        pass
+            # Owner session recovery (owner is always recognized and re-authenticated)
+            if not session and is_owner_user and not database.is_user_banned(tg_user_id):
+                import secrets
+                if not token or "fake" in token:
+                    token = f"tok_{secrets.token_hex(24)}"
+                session = {
+                    "tg_user_id": tg_user_id,
+                    "created_at": time.time()
+                }
+                _AUTH_TOKENS[token] = session
+                try:
+                    database.save_web_session(token, tg_user_id, fingerprint=fingerprint)
+                except Exception:
+                    pass
 
         if not token or not tg_user_id or not session:
             return web.json_response({"ok": False, "error": "Sessiya yaroqsiz yoki muddati o'tgan"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
@@ -2680,6 +2666,12 @@ async def start_web_server(port):
     """aiohttp web serverni ishga tushirish"""
     app = web.Application()
     app.router.add_get("/", handle_health)
+    # Client-side SPA routes for /goal, /boost, /teamwork-preview
+    app.router.add_get("/goal", handle_health)
+    app.router.add_get("/boost", handle_health)
+    app.router.add_get("/teamwork-preview", handle_health)
+    app.router.add_get("/teamwork_preview", handle_health)
+    app.router.add_get("/teamwork", handle_health)
     # Secure Web Dashboard Authentication (OTP + WebApp HMAC)
     app.router.add_post("/api/auth/request-otp", handle_api_auth_request_otp)
     app.router.add_post("/api/auth/request_otp", handle_api_auth_request_otp)
@@ -2703,7 +2695,7 @@ async def start_web_server(port):
     app.router.add_get("/api/health-score", handle_api_health_score)
     app.router.add_get("/api/best-time", handle_api_best_time)
     app.router.add_post("/api/autopost-create", handle_api_autopost_create)
-    app.router.add_video_formats = app.router.add_get("/api/video-formats", handle_api_video_formats)
+    app.router.add_get("/api/video-formats", handle_api_video_formats)
     app.router.add_get("/api/video_formats", handle_api_video_formats)
     app.router.add_get("/api/download-file", handle_api_download_file)
     app.router.add_get("/api/download_file", handle_api_download_file)
@@ -3049,6 +3041,9 @@ async def main():
                         BotCommand("engagement", "Auditoriya faolligi (like/comment)"),
                         BotCommand("earnings", "Daromad (tahminiy)"),
                         BotCommand("milestone", "Maqsadlarga yetish vaqti"),
+                        BotCommand("goal", "Kanal maqsadlari & milestone (/goal)"),
+                        BotCommand("boost", "Kanal va postlarni tezlashtirish (/boost)"),
+                        BotCommand("teamwork", "Jamoaviy hamkorlik & rollar (/teamwork)"),
                         BotCommand("report", "Kanalning to'liq hisoboti"),
                         BotCommand("compare", "Raqobatchi bilan solishtirish"),
                         BotCommand("comments", "Videodagi oxirgi izohlar"),

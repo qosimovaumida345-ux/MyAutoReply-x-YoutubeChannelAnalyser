@@ -5283,43 +5283,88 @@ def create_ytbot():
     # ==================== /milestone & /goal ====================
     @bot.on_message(filters.command(["milestone", "goal", "target"]))
     async def milestone_cmd(client, message):
-        args = message.text.split(maxsplit=1)
-        if len(args) < 2:
-            await message.reply_text(f"{ce('TOOL_GOAL')} Foydalanish: `/goal <kanal>` yoki `/milestone <kanal>`", parse_mode=ParseMode.MARKDOWN)
-            return
-        ch = get_channel(extract_channel_id(args[1]))
-        if not ch:
-            await message.reply_text("Kanal topilmadi.")
-            return
-        subs = int(ch["statistics"].get("subscriberCount", 0))
-        milestones = [100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 50000000, 100000000]
-        next_m = None
-        for m in milestones:
-            if subs < m:
-                next_m = m
-                break
-        
-        text = f"{ce('TOOL_GOAL')} <b>{ch['snippet']['title']}</b> - Maqsad & Milestone\n\n{'='*28}\n\n"
-        text += f"Hozirgi obunachilar: <b>{fmt_full(subs)}</b>\n\n"
-        if next_m:
-            remaining = next_m - subs
-            progress = (subs / next_m) * 100
-            bar_len = 20
-            filled = int(bar_len * progress / 100)
-            bar = "█" * filled + "░" * (bar_len - filled)
-            text += f"Keyingi nishon (Milestone): <b>{fmt(next_m)}</b>\n"
-            text += f"Qoldi: <b>{fmt_full(remaining)}</b> obunachi\n"
-            text += f"Progress: <code>[{bar}]</code> {progress:.1f}%\n"
-        else:
-            text += f"{ce('STATUS_SUCCESS')} Barcha asosiy milestonelarni qo'lga kiritgan!"
-        
-        # O'tilgan milestonlar
-        passed = [m for m in milestones if subs >= m]
-        if passed:
-            text += f"\n\nO'tilgan marralar: "
-            text += ", ".join([f"<code>{fmt(m)}</code>" for m in passed])
-        
-        await message.reply_text(text, reply_markup=back_main_kb())
+        try:
+            import html
+            args = message.text.split(maxsplit=1)
+            ch = None
+            if len(args) < 2:
+                # Check if user has a tracked channel
+                tracked = get_tracked_channels(message.from_user.id)
+                if tracked:
+                    first_ch = tracked[0]
+                    cid = first_ch.get("channel_id") or first_ch.get("id")
+                    if cid:
+                        ch = get_channel({"type": "id", "value": cid})
+                
+                if not ch:
+                    text = (
+                        f"{ce('TOOL_GOAL')} <b>Kanal Maqsadlari & Milestone (/goal)</b>\n\n"
+                        f"Kanal obunachilari marralari (100, 1k, 10k, 100k, 1M...) va keyingi nishongacha masofani hisoblash.\n\n"
+                        f"📌 <b>Foydalanish:</b>\n"
+                        f"• <code>/goal &lt;kanal_linki_yoki_username&gt;</code>\n"
+                        f"• <code>/milestone @MrBeast</code>\n\n"
+                        f"<i>Yoki pastdagi tugma orqali YouTube kanalingizni tahlil qiling:</i>"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(f"{e('TOOL_BOOST')} Kanalni Tezlashtirish (/boost)", callback_data="nav_boost")],
+                        [InlineKeyboardButton(f"{e('BTN_HOME')} Bosh Menyu", callback_data="back_main")]
+                    ])
+                    await message.reply_text(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+                    return
+            else:
+                ch = get_channel(extract_channel_id(args[1]))
+
+            if not ch:
+                await message.reply_text("❌ Kanal topilmadi. Havola yoki username to'g'riligini tekshiring.")
+                return
+
+            stats = ch.get("statistics", {}) or {}
+            snippet = ch.get("snippet", {}) or {}
+            raw_subs = stats.get("subscriberCount")
+            try:
+                subs = int(raw_subs or 0)
+            except (ValueError, TypeError):
+                subs = 0
+
+            ch_title = html.escape(snippet.get("title", "Kanal"))
+            milestones = [100, 500, 1000, 5000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000, 50000000, 100000000]
+            next_m = None
+            for m in milestones:
+                if subs < m:
+                    next_m = m
+                    break
+            
+            text = f"{ce('TOOL_GOAL')} <b>{ch_title}</b> — Maqsad & Milestone\n\n{'='*28}\n\n"
+            text += f"Hozirgi obunachilar: <b>{fmt_full(subs)}</b>\n\n"
+            if next_m:
+                remaining = next_m - subs
+                progress = (subs / next_m) * 100 if next_m > 0 else 0
+                bar_len = 16
+                filled = max(0, min(bar_len, int(bar_len * progress / 100)))
+                bar = "█" * filled + "░" * (bar_len - filled)
+                text += f"Keyingi nishon (Milestone): <b>{fmt(next_m)}</b>\n"
+                text += f"Qoldi: <b>{fmt_full(remaining)}</b> obunachi\n"
+                text += f"Progress: <code>[{bar}]</code> {progress:.1f}%\n"
+            else:
+                text += f"{ce('STATUS_SUCCESS')} Barcha asosiy milestonelarni qo'lga kiritgan!\n"
+            
+            # O'tilgan milestonlar
+            passed = [m for m in milestones if subs >= m]
+            if passed:
+                text += f"\n🏆 <b>O'tilgan marralar:</b> "
+                text += ", ".join([f"<code>{fmt(m)}</code>" for m in passed[-6:]])
+
+            text += f"\n\n⚡ <i>Kanal o'sishini tezlashtirish uchun: <code>/boost</code></i>"
+
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{e('TOOL_BOOST')} Tezlashtirish (/boost)", callback_data="nav_boost"),
+                 InlineKeyboardButton(f"{e('BRAND_JAM')} Jamoaviy Hamkorlik", callback_data="nav_teamwork")],
+                [InlineKeyboardButton(f"{e('BTN_HOME')} Bosh Menyu", callback_data="back_main")]
+            ])
+            await message.reply_text(text, reply_markup=kb, parse_mode=ParseMode.HTML)
+        except Exception as e:
+            logger.error(f"milestone_cmd error: {e}", exc_info=True)
+            await message.reply_text(f"❌ Xatolik yuz berdi: {html.escape(str(e))}")
 
     # ==================== /boost ====================
     @bot.on_message(filters.command(["boost", "raketa", "tezlashtirish"]))
@@ -5335,13 +5380,54 @@ def create_ytbot():
             f"<i>Kerakli xizmat turini tanlang:</i>"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{ce('TOOL_LIKES')} Layk sotib olish", callback_data="mkt_order_like"),
-             InlineKeyboardButton(f"{ce('TOOL_SUBS')} Obunachi sotib olish", callback_data="mkt_order_subscribe")],
-            [InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} Izoh sotib olish", callback_data="mkt_order_comment")],
-            [InlineKeyboardButton(f"{ce('BTN_SERVICES')} Barcha Xizmatlar", callback_data="menu_marketplace"),
-             InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh Menyu", callback_data="back_main")]
+            [InlineKeyboardButton(f"{e('TOOL_LIKES')} Layk sotib olish", callback_data="mkt_order_like"),
+             InlineKeyboardButton(f"{e('TOOL_SUBS')} Obunachi sotib olish", callback_data="mkt_order_subscribe")],
+            [InlineKeyboardButton(f"{e('TOOL_COMMENTS')} Izoh sotib olish", callback_data="mkt_order_comment"),
+             InlineKeyboardButton(f"{e('BRAND_JAM')} Jamoaviy Hamkorlik", callback_data="nav_teamwork")],
+            [InlineKeyboardButton(f"{e('BTN_SERVICES')} Barcha Xizmatlar", callback_data="menu_marketplace"),
+             InlineKeyboardButton(f"{e('BTN_HOME')} Bosh Menyu", callback_data="back_main")]
         ])
-        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True, parse_mode=ParseMode.HTML)
+
+    # ==================== /teamwork & /teamwork-preview ====================
+    @bot.on_message(filters.command(["teamwork", "teamwork_preview", "teamwork-preview", "jamoa", "hamkorlik"]))
+    async def teamwork_preview_cmd(client, message):
+        user_id = message.from_user.id
+        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        text = (
+            f"{ce('BRAND_JAM')} <b>CreatorFlow Jamoaviy Hamkorlik & Teamwork Preview</b>\n\n"
+            f"YouTube kanal va media-loyihalarni professional jamoa bilan birgalikda boshqaring:\n\n"
+            f"👥 <b>Jamoaviy Rollar & Vakolatlar:</b>\n"
+            f"• 👑 <b>Kanal Egasi (Owner):</b> Moliyaviy nazorat, to'lovlar va to'liq egalik\n"
+            f"• 🛠️ <b>Boshqaruvchi (Admin):</b> Autopost, SEO, tahlillar va kampaniyalar\n"
+            f"• 🎬 <b>Montajchi (Editor):</b> 4K yuklash, Short Factory va rendering\n"
+            f"• 🎨 <b>Dizayner (Artist):</b> Thumbnail, banner va 3D Gift NFT yaratish\n"
+            f"• 💬 <b>SMM Menejer:</b> Izohlar, auditoriya muloqoti va jonli efir\n\n"
+            f"⚡ <b>Integratsiyalashgan Jamoaviy Asboblar:</b>\n"
+            f"• {ce('BRAND_LINEAR')} <b>Linear:</b> Jamoaviy loyiha va vazifalar boshqaruvi\n"
+            f"• {ce('BRAND_MIRO')} <b>Miro:</b> Jamoaviy fikr almashish va visual doska\n"
+            f"• {ce('BRAND_SUPERCUT')} <b>Supercut:</b> Jamoaviy tezkor video montaj\n"
+            f"• {ce('BRAND_JAM')} <b>Jam Team:</b> 1 marta bosishda xatoliklar (QA) nazorati\n\n"
+            f"<i>Barcha funksiyalarni veb paneldan jonli boshqaring:</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{e('WEB')} WebApp Teamwork Paneli", web_app=WebAppInfo(url=f"{web_url}/teamwork-preview?user_id={user_id}"))],
+            [InlineKeyboardButton(f"{e('TOOL_GOAL')} Jamoa Maqsadlari (/goal)", callback_data="nav_goal"),
+             InlineKeyboardButton(f"{e('TOOL_BOOST')} Jamoa Raketasi (/boost)", callback_data="nav_boost")],
+            [InlineKeyboardButton(f"{e('BTN_HOME')} Bosh Menyu", callback_data="back_main")]
+        ])
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True, parse_mode=ParseMode.HTML)
+
+    @bot.on_callback_query(filters.regex(r"^nav_(goal|boost|teamwork)$"))
+    async def cb_nav_shortcuts(client, cb: CallbackQuery):
+        target = cb.matches[0].group(1)
+        if target == "goal":
+            await milestone_cmd(client, cb.message)
+        elif target == "boost":
+            await boost_cmd(client, cb.message)
+        elif target == "teamwork":
+            await teamwork_preview_cmd(client, cb.message)
+        await cb.answer()
 
     
     # ==================== /report ====================
