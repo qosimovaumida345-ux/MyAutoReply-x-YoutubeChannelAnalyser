@@ -107,7 +107,6 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
         "extractor_args": {
             "youtube": {
                 "player_client": ["android_vr", "android", "tv_embedded"],
-                "player_skip": ["webpage"],
             }
         },
         "retries": 5,
@@ -134,7 +133,6 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
             ydl_opts["extractor_args"] = {
                 "youtube": {
                     "player_client": ["android_vr", "android", "tv_embedded"],
-                    "player_skip": ["webpage"],
                 }
             }
         except Exception as ce:
@@ -144,12 +142,11 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
         ydl_opts["extractor_args"] = {
             "youtube": {
                 "player_client": ["android_vr", "android", "tv_embedded"],
-                "player_skip": ["webpage"],
             }
         }
 
     if client_preset:
-        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset, "player_skip": ["webpage"]}}
+        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset}}
 
     if proxy:
         ydl_opts["proxy"] = proxy

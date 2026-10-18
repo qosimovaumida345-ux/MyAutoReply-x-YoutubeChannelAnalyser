@@ -11,7 +11,20 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger("worker_client")
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "").strip()
+def _resolve_gh_token() -> str:
+    env_t = os.getenv("GITHUB_TOKEN", "").strip()
+    if env_t:
+        return env_t
+    try:
+        from database import get_config
+        db_t = get_config("GITHUB_TOKEN")
+        if db_t:
+            return str(db_t).strip()
+    except Exception:
+        pass
+    return ""
+
+GITHUB_TOKEN = _resolve_gh_token()
 GITHUB_REPO = os.getenv("GITHUB_REPO", "qosimovaumida345-ux/MyAutoReply-x-YoutubeChannelAnalyser").strip()
 WORKER_API_URL = os.getenv("WORKER_API_URL", "").strip().rstrip("/")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
@@ -58,7 +71,7 @@ async def dispatch_task(
             logger.warning(f"HTTP Worker ga ulanib bo'lmadi ({http_err}), GitHub Actions'ga o'tilmoqda...")
 
     # 2. GitHub Actions 24/7 Serverless Runner (7 GB RAM)
-    gh_token = GITHUB_TOKEN
+    gh_token = os.getenv("GITHUB_TOKEN", "").strip() or GITHUB_TOKEN or _resolve_gh_token()
     if not gh_token:
         return {"ok": False, "error": "GITHUB_TOKEN yoki Worker server topilmadi."}
 

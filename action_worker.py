@@ -111,12 +111,11 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
 
     has_cookies = bool(ydl_opts.get("cookiefile"))
     if client_preset:
-        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset, "player_skip": ["webpage"]}}
+        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset}}
     else:
         ydl_opts["extractor_args"] = {
             "youtube": {
-                "player_client": ["android_vr", "android", "tv_embedded"],
-                "player_skip": ["webpage"],
+                "player_client": ["tv_embedded", "web", "android"],
             }
         }
 
@@ -136,40 +135,39 @@ def _build_ydl_opts(out_path, fmt="720", proxy=None, task_id="action", client_pr
 def _extract_with_fallback(url, out_path, fmt, proxy, task_id):
     import yt_dlp
 
-    # 1-urinish: Format bo'yicha yuklash (cookies bilan)
+    # 1-urinish: So'ralgan format bo'yicha yuklash (POT & cookies bilan)
     try:
         logger.info(f"1-urinish: Format {fmt}...")
         opts1 = _build_ydl_opts(out_path, fmt, proxy, task_id)
         with yt_dlp.YoutubeDL(opts1) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e1:
-        logger.warning(f"1-urinishda xatolik ({e1}), moslashuvchan 'b/best' formatiga o'tilmoqda...")
+        logger.warning(f"1-urinishda xatolik ({e1}), tv_embedded 'b/best' ga o'tilmoqda...")
 
-    # 2-urinish: Moslashuvchan b/best (cookies saqlanadi!)
+    # 2-urinish: tv_embedded client (bot tekshiruvidan toza o'tadi)
     try:
-        logger.info("2-urinish: b/best formati...")
-        opts2 = _build_ydl_opts(out_path, "best", proxy, task_id)
+        logger.info("2-urinish: tv_embedded client...")
+        opts2 = _build_ydl_opts(out_path, "best", proxy, task_id, client_preset=["tv_embedded"], skip_cookies=True)
         opts2["format"] = "b/best"
         with yt_dlp.YoutubeDL(opts2) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e2:
-        logger.warning(f"2-urinishda xatolik ({e2}), muqobil [android_vr, android, tv_embedded] clientlarga o'tilmoqda...")
+        logger.warning(f"2-urinishda xatolik ({e2}), android 'b/best' ga o'tilmoqda...")
 
-    # 3-urinish: YouTube bot bypass (android_vr, android, tv_embedded & skip_cookies=True, PO Token)
+    # 3-urinish: android client (skip_cookies=True)
     try:
-        logger.info("3-urinish: Mobil bypass [android_vr, android, tv_embedded] (skip_cookies=True, PO Token)...")
-        opts3 = _build_ydl_opts(out_path, "best", proxy, task_id, client_preset=["android_vr", "android", "tv_embedded"], skip_cookies=True)
+        logger.info("3-urinish: android client...")
+        opts3 = _build_ydl_opts(out_path, "best", proxy, task_id, client_preset=["android", "android_vr"], skip_cookies=True)
         opts3["format"] = "b/best"
-        opts3.setdefault("extractor_args", {}).setdefault("youtubepot-bgutilhttp", {})["base_url"] = "http://127.0.0.1:4416"
         with yt_dlp.YoutubeDL(opts3) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e3:
-        logger.warning(f"3-urinishda xatolik ({e3}), muqobil 18/22/b/best formatiga o'tilmoqda...")
+        logger.warning(f"3-urinishda xatolik ({e3}), 18/22 formatiga o'tilmoqda...")
 
     # 4-urinish: Format 18/22/b/best fallback
     try:
         logger.info("4-urinish: 18/22/b/best fallback...")
-        opts4 = _build_ydl_opts(out_path, "best", proxy, task_id, client_preset=["android_vr", "android", "tv_embedded"])
+        opts4 = _build_ydl_opts(out_path, "best", proxy, task_id, client_preset=["tv_embedded", "android"])
         opts4["format"] = "18/22/b/best"
         with yt_dlp.YoutubeDL(opts4) as ydl:
             return ydl.extract_info(url, download=True)

@@ -1143,81 +1143,58 @@ async def handle_api_video_formats(request):
     thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
 
     try:
-        import yt_dlp
         import asyncio
         import os
+        import httpx
         
+        # Use fast, official YouTube oEmbed API for metadata (ZERO bot detection & NO cookies needed!)
+        try:
+            async with httpx.AsyncClient(timeout=3.5) as http_client:
+                oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+                oe_resp = await http_client.get(oembed_url)
+                if oe_resp.status_code == 200:
+                    oe_data = oe_resp.json()
+                    title = oe_data.get("title") or title
+                    thumbnail = oe_data.get("thumbnail_url") or thumbnail
+        except Exception as oe_err:
+            pass
+
+        # If oEmbed succeeded, return formats immediately without invoking yt_dlp on Render
+        if title != f"YouTube Video ({video_id})":
+            return web.json_response({
+                "ok": True,
+                "title": title,
+                "duration": duration,
+                "thumbnail": thumbnail,
+                "formats": all_resolutions,
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
+        # Fallback: Agar oEmbed o'xshamasa (masalan, cheklangan video), yengil metadata qidirish
+        import yt_dlp
         url = f"https://www.youtube.com/watch?v={video_id}"
-        
-        # Priority 1: Toza mobil/VR mijozlar (android_vr, android, tv_embedded) - Cookies talab qilmaydi
-        # Bu Render datacenter IP larida bot cheklovini va cookie rotation xatolarini aylanib o'tadi
         ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'skip_download': True,
-            'socket_timeout': 6,
+            'socket_timeout': 5,
             'extractor_args': {
                 'youtube': {
                     'player_client': ['android_vr', 'android', 'tv_embedded'],
-                    'player_skip': ['webpage'],
                 }
             }
         }
-        
         def _extract():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
         
         try:
-            info = await asyncio.wait_for(asyncio.to_thread(_extract), timeout=6.0)
+            info = await asyncio.wait_for(asyncio.to_thread(_extract), timeout=4.0)
             if info:
                 title = info.get("title") or title
                 duration = info.get("duration") or 0
                 thumbnail = info.get("thumbnail") or thumbnail
-        except Exception as ex_clean:
-            # Priority 2: Agar toza mobil ekstraksiya o'xshamasa va userda cookies bo'lsa
-            if tg_user_id:
-                cookie_path = None
-                try:
-                    from database import get_user_cookies
-                    cookies_text = get_user_cookies(int(tg_user_id), fallback_to_any=False)
-                    if cookies_text:
-                        os.makedirs("downloads", exist_ok=True)
-                        cookie_path = f"downloads/cookies_fmt_{tg_user_id}.txt"
-                        with open(cookie_path, "w", encoding="utf-8") as f:
-                            f.write(cookies_text)
-                        ydl_opts_ck = {
-                            'quiet': True,
-                            'no_warnings': True,
-                            'skip_download': True,
-                            'cookiefile': cookie_path,
-                            'socket_timeout': 6,
-                            'extractor_args': {
-                                'youtube': {
-                                    'player_client': ['android_vr', 'android', 'tv_embedded'],
-                                    'player_skip': ['webpage'],
-                                }
-                            }
-                        }
-                        def _extract_ck():
-                            with yt_dlp.YoutubeDL(ydl_opts_ck) as ydl:
-                                return ydl.extract_info(url, download=False)
-                        try:
-                            info = await asyncio.wait_for(asyncio.to_thread(_extract_ck), timeout=6.0)
-                            if info:
-                                title = info.get("title") or title
-                                duration = info.get("duration") or 0
-                                thumbnail = info.get("thumbnail") or thumbnail
-                        except Exception as ex_ck:
-                            print(f"handle_api_video_formats cookie extraction notice: {ex_ck}")
-                        finally:
-                            if cookie_path and os.path.exists(cookie_path):
-                                try:
-                                    os.remove(cookie_path)
-                                except Exception:
-                                    pass
-                except Exception:
-                    pass
+        except Exception:
+            pass
 
         return web.json_response({
             "ok": True,
@@ -1320,6 +1297,79 @@ async def handle_api_download_file(request):
         import yt_dlp
 
         # =========================================================================
+        # TIER 0: Full Cloud Offload to 24/7 GitHub Actions 7GB RAM Runner
+        # When tg_user_id is provided, dispatch full download to GitHub Actions
+        # so user receives the file directly in Telegram without Render 512MB RAM issues.
+        # Render never attempts local yt-dlp download when user is identified!
+        # =========================================================================
+        if tg_user_id and str(tg_user_id).isdigit() and int(tg_user_id) > 1000:
+            target_chat_id = int(tg_user_id)
+            from worker_client import dispatch_task
+            from config import BOT_TOKEN
+
+            # 1. Inform user in Telegram chat immediately
+            try:
+                import httpx
+                async def _notify_tg():
+                    try:
+                        async with httpx.AsyncClient(timeout=4.0) as cl:
+                            await cl.post(
+                                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                                json={
+                                    "chat_id": target_chat_id,
+                                    "text": (
+                                        f"⏳ <b>Video yuklab olinmoqda...</b>\n\n"
+                                        f"🎬 Video ID: <code>{video_id}</code>\n"
+                                        f"📐 Sifat: <b>{resolution}</b>\n"
+                                        f"☁️ <b>7 GB RAM Cloud Runner (GitHub Actions)</b> orqali tayyorlanmoqda va bir necha soniyada shu yerga yuboriladi!"
+                                    ),
+                                    "parse_mode": "HTML"
+                                }
+                            )
+                    except Exception:
+                        pass
+                asyncio.create_task(_notify_tg())
+            except Exception:
+                pass
+
+            # 2. Dispatch to GitHub Actions
+            try:
+                asyncio.create_task(dispatch_task(
+                    task_type="download",
+                    url=url,
+                    chat_id=target_chat_id,
+                    format=resolution,
+                    caption=f"🎬 <b>Yuklab olingan video</b> ({video_id})\n📐 Sifat: {resolution}\n⚡ <i>7 GB RAM Cloud Runner</i>",
+                    bot_token=BOT_TOKEN
+                ))
+            except Exception as gh_err:
+                print(f"GitHub Actions dispatch notice for user {tg_user_id}: {gh_err}")
+
+            # 3. Return immediate friendly response to WebApp iframe
+            html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Video Yuklanmoqda</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090a0f; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }}
+        .card {{ background: #131722; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 20px; padding: 32px 24px; max-width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }}
+        h2 {{ margin: 0 0 12px; font-size: 20px; color: #10b981; }}
+        p {{ color: #a1a1aa; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🚀 Video Yuklanmoqda!</h2>
+        <p>Video <b>7 GB RAM Cloud Runner (GitHub Actions)</b> orqali yuklanmoqda va to'g'ridan-to'g'ri Telegram botingizga yuboriladi!</p>
+        <p style="font-size: 12px; color: #71717a;">Telegram bot chatini tekshiring.</p>
+    </div>
+</body>
+</html>"""
+            return web.Response(text=html, content_type="text/html", status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+        # =========================================================================
         # TIER 1: Clean High-Speed VR/Mobile Bypass (NO COOKIES!)
         # player_client: ['android_vr', 'android', 'tv_embedded']
         # =========================================================================
@@ -1334,7 +1384,6 @@ async def handle_api_download_file(request):
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android_vr', 'android', 'tv_embedded'],
-                        'player_skip': ['webpage'],
                     }
                 }
             }
@@ -1366,7 +1415,6 @@ async def handle_api_download_file(request):
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android_vr', 'android', 'tv_embedded'],
-                        'player_skip': ['webpage'],
                     }
                 }
             }
@@ -1409,7 +1457,6 @@ async def handle_api_download_file(request):
                         'extractor_args': {
                             'youtube': {
                                 'player_client': ['android_vr', 'android', 'tv_embedded'],
-                                'player_skip': ['webpage'],
                             }
                         }
                     }
@@ -1449,7 +1496,6 @@ async def handle_api_download_file(request):
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android_vr', 'android', 'tv_embedded'],
-                        'player_skip': ['webpage'],
                     }
                 }
             }
@@ -1758,12 +1804,22 @@ async def handle_kyc_page(request):
             if not phone:
                 phone = get_telegram_phone(user_id)
         html = get_kyc_html(user_id=user_id, is_verified=is_verified, kyc_data=kyc_data, phone=phone)
-        return web.Response(text=html, content_type="text/html")
+        headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        return web.Response(text=html, content_type="text/html", headers=headers)
     except Exception as e:
         print(f"handle_kyc_page error: {e}")
         try:
             fallback_html = get_kyc_html(user_id=user_id, is_verified=False, kyc_data=None, phone=phone)
-            return web.Response(text=fallback_html, content_type="text/html")
+            headers = {
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+            return web.Response(text=fallback_html, content_type="text/html", headers=headers)
         except Exception as _fe:
             return web.Response(
                 text="<!DOCTYPE html><html><body style='background:#080c14;color:#fff;font-family:sans-serif;text-align:center;padding:50px;'>"
