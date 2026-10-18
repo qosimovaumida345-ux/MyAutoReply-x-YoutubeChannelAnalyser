@@ -471,6 +471,21 @@ async def handle_google_verification(request):
     return web.Response(status=404, text="404 Not Found", content_type="text/plain")
 
 
+async def handle_robots(request):
+    """robots.txt handler for search engines and Googlebot"""
+    content = """User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /privacy-policy
+Allow: /terms
+Allow: /terms-of-service
+Disallow: /api/
+Disallow: /oauth/
+Disallow: /admin/
+"""
+    return web.Response(text=content, content_type="text/plain", charset="utf-8")
+
+
 # ==================== STATS CACHE (YouTube API quota tejash uchun) ====================
 import time as _time
 _stats_cache = {}  # {tg_user_id: {"data": ..., "ts": time}}
@@ -3041,6 +3056,7 @@ async def start_web_server(port):
     app.router.add_get("/terms", handle_terms_page)
     app.router.add_get("/terms-of-service", handle_terms_page)
     app.router.add_get("/terms.html", handle_terms_page)
+    app.router.add_get("/robots.txt", handle_robots)
     # Google Search Console Domain Verification File Handler
     app.router.add_get(r"/{filename:google[a-zA-Z0-9_\-]+\.html}", handle_google_verification)
     # Client-side SPA routes for /goal, /boost, /teamwork-preview
