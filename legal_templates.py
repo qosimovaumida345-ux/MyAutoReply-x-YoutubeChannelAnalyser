@@ -13,6 +13,8 @@ def get_privacy_html():
     <title>Privacy Policy | Bot Client</title>
     <meta name="description" content="Privacy Policy for Bot Client (CreatorFlow Studio), detailing Google OAuth 2.0, YouTube Data API usage, data protection, and Google API Services User Data Policy compliance.">
     <meta name="google-site-verification" content="EW0VY9fhYQ7yzwrd8oqani_iNoDbRELBOsbpy4c2xUU">
+    <meta name="google-site-verification" content="XSrhQq7tmTEbP4JLXAoPNIHfK3gZkuoZWCQi-_51dYk">
+    <script async src="https://www.googletagmanager.com/gtag/js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -671,6 +673,8 @@ def get_terms_html():
     <title>Terms of Service | Bot Client</title>
     <meta name="description" content="Terms of Service for Bot Client (CreatorFlow Studio), governing platform usage, YouTube API compliance, and creator automation tools.">
     <meta name="google-site-verification" content="EW0VY9fhYQ7yzwrd8oqani_iNoDbRELBOsbpy4c2xUU">
+    <meta name="google-site-verification" content="XSrhQq7tmTEbP4JLXAoPNIHfK3gZkuoZWCQi-_51dYk">
+    <script async src="https://www.googletagmanager.com/gtag/js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
