@@ -1169,33 +1169,6 @@ async def handle_api_video_formats(request):
                 "formats": all_resolutions,
             }, headers={"Access-Control-Allow-Origin": "*"})
 
-        # Fallback: Agar oEmbed o'xshamasa (masalan, cheklangan video), yengil metadata qidirish
-        import yt_dlp
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'socket_timeout': 5,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android_vr', 'android', 'tv_embedded'],
-                }
-            }
-        }
-        def _extract():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                return ydl.extract_info(url, download=False)
-        
-        try:
-            info = await asyncio.wait_for(asyncio.to_thread(_extract), timeout=4.0)
-            if info:
-                title = info.get("title") or title
-                duration = info.get("duration") or 0
-                thumbnail = info.get("thumbnail") or thumbnail
-        except Exception:
-            pass
-
         return web.json_response({
             "ok": True,
             "title": title,
@@ -1297,56 +1270,54 @@ async def handle_api_download_file(request):
         import yt_dlp
 
         # =========================================================================
-        # TIER 0: Full Cloud Offload to 24/7 GitHub Actions 7GB RAM Runner
-        # When tg_user_id is provided, dispatch full download to GitHub Actions
-        # so user receives the file directly in Telegram without Render 512MB RAM issues.
-        # Render never attempts local yt-dlp download when user is identified!
+        # MANDATORY CLOUD OFFLOAD: 24/7 GitHub Actions 7GB RAM Runner
+        # Downloads MUST run on GitHub Actions runner with PO Token Provider,
+        # NEVER locally on Render (512MB RAM & datacenter IP blocked by YouTube).
         # =========================================================================
-        if tg_user_id and str(tg_user_id).isdigit() and int(tg_user_id) > 1000:
-            target_chat_id = int(tg_user_id)
-            from worker_client import dispatch_task
-            from config import BOT_TOKEN
+        target_chat_id = int(tg_user_id) if (tg_user_id and str(tg_user_id).isdigit() and int(tg_user_id) > 1000) else int(os.getenv("OWNER_ID", "6735799833"))
+        from worker_client import dispatch_task
+        from config import BOT_TOKEN
 
-            # 1. Inform user in Telegram chat immediately
-            try:
-                import httpx
-                async def _notify_tg():
-                    try:
-                        async with httpx.AsyncClient(timeout=4.0) as cl:
-                            await cl.post(
-                                f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                                json={
-                                    "chat_id": target_chat_id,
-                                    "text": (
-                                        f"⏳ <b>Video yuklab olinmoqda...</b>\n\n"
-                                        f"🎬 Video ID: <code>{video_id}</code>\n"
-                                        f"📐 Sifat: <b>{resolution}</b>\n"
-                                        f"☁️ <b>7 GB RAM Cloud Runner (GitHub Actions)</b> orqali tayyorlanmoqda va bir necha soniyada shu yerga yuboriladi!"
-                                    ),
-                                    "parse_mode": "HTML"
-                                }
-                            )
-                    except Exception:
-                        pass
-                asyncio.create_task(_notify_tg())
-            except Exception:
-                pass
+        # 1. Inform user in Telegram chat immediately
+        try:
+            import httpx
+            async def _notify_tg():
+                try:
+                    async with httpx.AsyncClient(timeout=4.0) as cl:
+                        await cl.post(
+                            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                            json={
+                                "chat_id": target_chat_id,
+                                "text": (
+                                    f"⏳ <b>Video yuklab olinmoqda...</b>\n\n"
+                                    f"🎬 Video ID: <code>{video_id}</code>\n"
+                                    f"📐 Sifat: <b>{resolution}</b>\n"
+                                    f"☁️ <b>7 GB RAM Cloud Runner (GitHub Actions)</b> orqali tayyorlanmoqda va bir necha soniyada shu yerga yuboriladi!"
+                                ),
+                                "parse_mode": "HTML"
+                            }
+                        )
+                except Exception:
+                    pass
+            asyncio.create_task(_notify_tg())
+        except Exception:
+            pass
 
-            # 2. Dispatch to GitHub Actions
-            try:
-                asyncio.create_task(dispatch_task(
-                    task_type="download",
-                    url=url,
-                    chat_id=target_chat_id,
-                    format=resolution,
-                    caption=f"🎬 <b>Yuklab olingan video</b> ({video_id})\n📐 Sifat: {resolution}\n⚡ <i>7 GB RAM Cloud Runner</i>",
-                    bot_token=BOT_TOKEN
-                ))
-            except Exception as gh_err:
-                print(f"GitHub Actions dispatch notice for user {tg_user_id}: {gh_err}")
+        # 2. Dispatch to GitHub Actions
+        try:
+            asyncio.create_task(dispatch_task(
+                task_type="download",
+                url=url,
+                chat_id=target_chat_id,
+                format=resolution,
+                caption=f"🎬 <b>Yuklab olingan video</b> ({video_id})\n📐 Sifat: {resolution}\n⚡ <i>7 GB RAM Cloud Runner</i>",
+                bot_token=BOT_TOKEN
+            ))
+        except Exception as gh_err:
+            print(f"GitHub Actions dispatch notice for user {target_chat_id}: {gh_err}")
 
-            # 3. Return immediate friendly response to WebApp iframe
-            html = f"""<!DOCTYPE html>
+        # 3. Return immediate friendly response to WebApp iframe
+        html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -1367,7 +1338,7 @@ async def handle_api_download_file(request):
     </div>
 </body>
 </html>"""
-            return web.Response(text=html, content_type="text/html", status=200, headers={"Access-Control-Allow-Origin": "*"})
+        return web.Response(text=html, content_type="text/html", status=200, headers={"Access-Control-Allow-Origin": "*"})
 
         # =========================================================================
         # TIER 1: Clean High-Speed VR/Mobile Bypass (NO COOKIES!)
