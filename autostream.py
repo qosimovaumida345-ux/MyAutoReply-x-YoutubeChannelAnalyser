@@ -96,8 +96,8 @@ async def download_videos(search_query, chat_id, tg_user_id=None, limit=6):
         'max_filesize': 50 * 1024 * 1024,  # 50MB
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'android', 'mweb', 'web'],
-                'player_skip': ['webpage', 'configs'],
+                'player_client': ['android_vr', 'android', 'tv_embedded'],
+                'player_skip': ['webpage'],
             }
         },
         'retries': 5,

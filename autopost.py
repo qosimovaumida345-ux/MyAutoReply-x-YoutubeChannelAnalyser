@@ -180,8 +180,8 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
         }],
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'android', 'mweb', 'web'],
-                'player_skip': ['webpage', 'configs'],
+                'player_client': ['android_vr', 'android', 'tv_embedded'],
+                'player_skip': ['webpage'],
             }
         },
         'source_address': '0.0.0.0',
@@ -219,7 +219,7 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
             fallback_opts = dict(ydl_opts)
             fallback_opts['extractor_args'] = {
                 'youtube': {
-                    'player_client': ['android', 'ios', 'web_creator', 'mweb'],
+                    'player_client': ['android_vr', 'android', 'tv_embedded'],
                     'player_skip': ['webpage'],
                 }
             }

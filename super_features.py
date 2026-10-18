@@ -112,7 +112,7 @@ def load_super_features(bot: Client):
             'quiet': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'web', 'android', 'mweb'],
+                    'player_client': ['android_vr', 'android', 'tv_embedded'],
                     'player_skip': ['webpage'],
                 }
             }
@@ -313,8 +313,8 @@ def load_super_features(bot: Client):
             'quiet': False,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['ios', 'android', 'mweb', 'web'],
-                    'player_skip': ['webpage', 'configs']
+                    'player_client': ['android_vr', 'android', 'tv_embedded'],
+                    'player_skip': ['webpage'],
                 }
             },
             'compat_opts': ['no-youtube-unavailable-videos'],

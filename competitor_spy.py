@@ -62,7 +62,7 @@ def extract_competitor_metadata(video_url: str) -> dict:
         "skip_download": True,
         "extractor_args": {
             "youtube": {
-                "player_client": ["ios", "android", "mweb", "web"],
+                "player_client": ["android_vr", "android", "tv_embedded"],
                 "player_skip": ["webpage"],
             }
         },

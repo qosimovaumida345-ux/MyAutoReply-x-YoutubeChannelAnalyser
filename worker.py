@@ -87,15 +87,15 @@ def _get_ffmpeg_binary():
 def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id="worker", client_preset=None, skip_cookies=False):
     """yt-dlp parametrlarini tuzish"""
     format_map = {
-        "mp3":  "ba/b",
-        "360":  "bv*[height<=360]+ba/b[height<=360]/b",
-        "480":  "bv*[height<=480]+ba/b[height<=480]/b",
-        "720":  "bv*[height<=720]+ba/b[height<=720]/b",
-        "1080": "bv*[height<=1080]+ba/b[height<=1080]/b",
-        "1440": "bv*[height<=1440]+ba/b[height<=1440]/b",
-        "4k":   "bv*[height<=2160]+ba/b[height<=2160]/b",
-        "8k":   "bv*[height<=4320]+ba/b[height<=4320]/b",
-        "best": "bv*+ba/b/best",
+        "mp3":  "b/best",
+        "360":  "bv*[height<=360]+ba/b[height<=360]/b/best",
+        "480":  "bv*[height<=480]+ba/b[height<=480]/b/best",
+        "720":  "bv*[height<=720]+ba/b[height<=720]/b/best",
+        "1080": "bv*[height<=1080]+ba/b[height<=1080]/b/best",
+        "1440": "bv*[height<=1440]+ba/b[height<=1440]/b/best",
+        "4k":   "bv*[height<=2160]+ba/b[height<=2160]/b/best",
+        "8k":   "bv*[height<=4320]+ba/b[height<=4320]/b/best",
+        "best": "b/bv*+ba/best",
     }
 
     ydl_opts = {
@@ -106,7 +106,7 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
         "no_warnings": True,
         "extractor_args": {
             "youtube": {
-                "player_client": ["ios", "android", "mweb", "web"],
+                "player_client": ["android_vr", "android", "tv_embedded"],
                 "player_skip": ["webpage"],
             }
         },
@@ -133,7 +133,8 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
             ydl_opts["cookiefile"] = cookie_path
             ydl_opts["extractor_args"] = {
                 "youtube": {
-                    "player_client": ["web_safari", "web", "mweb"],
+                    "player_client": ["android_vr", "android", "tv_embedded"],
+                    "player_skip": ["webpage"],
                 }
             }
         except Exception as ce:
@@ -142,12 +143,13 @@ def _build_ydl_opts(out_path, fmt="720", cookies_text=None, proxy=None, user_id=
         ydl_opts["cookiefile"] = "cookies.txt"
         ydl_opts["extractor_args"] = {
             "youtube": {
-                "player_client": ["web_safari", "web", "mweb"],
+                "player_client": ["android_vr", "android", "tv_embedded"],
+                "player_skip": ["webpage"],
             }
         }
 
     if client_preset:
-        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset}}
+        ydl_opts["extractor_args"] = {"youtube": {"player_client": client_preset, "player_skip": ["webpage"]}}
 
     if proxy:
         ydl_opts["proxy"] = proxy
@@ -186,32 +188,32 @@ def _extract_with_fallback(url, out_path, fmt="720", cookies_text=None, proxy=No
         with yt_dlp.YoutubeDL(ydl_opts1) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e1:
-        logger.warning(f"1-urinishda xatolik ({e1}), moslashuvchan 'bv*+ba/b/best' formatiga o'tilmoqda...")
+        logger.warning(f"1-urinishda xatolik ({e1}), moslashuvchan 'b/best' formatiga o'tilmoqda...")
 
-    # 2-urinish: Moslashuvchan bv*+ba/b/best (cookies saqlanadi!)
+    # 2-urinish: Moslashuvchan b/best (cookies saqlanadi!)
     try:
         ydl_opts2 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
-        ydl_opts2["format"] = "bv*+ba/b/best"
+        ydl_opts2["format"] = "b/best"
         with yt_dlp.YoutubeDL(ydl_opts2) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e2:
-        logger.warning(f"2-urinishda xatolik ({e2}), muqobil [ios, web_safari, web] clientlarga o'tilmoqda...")
+        logger.warning(f"2-urinishda xatolik ({e2}), muqobil [android_vr, android, tv_embedded] clientlarga o'tilmoqda...")
 
-    # 3-urinish: YouTube "Sign in to confirm you're not a bot" bypass (mobil clientlar & cookies-siz)
+    # 3-urinish: YouTube 'Sign in to confirm you are not a bot' bypass (android_vr, android, tv_embedded & skip_cookies=True)
     try:
-        logger.info("3-urinish: Mobil bypass [android, ios] (skip_cookies=True, PO Token)...")
-        ydl_opts3 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id, client_preset=["android", "ios"], skip_cookies=True)
-        ydl_opts3["format"] = "bv*+ba/b/best"
+        logger.info("3-urinish: Mobil bypass [android_vr, android, tv_embedded] (skip_cookies=True, PO Token)...")
+        ydl_opts3 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id, client_preset=["android_vr", "android", "tv_embedded"], skip_cookies=True)
+        ydl_opts3["format"] = "b/best"
         ydl_opts3.setdefault("extractor_args", {}).setdefault("youtubepot-bgutilhttp", {})["base_url"] = "http://127.0.0.1:4416"
         with yt_dlp.YoutubeDL(ydl_opts3) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e3:
-        logger.warning(f"3-urinish (mobil bypass) xatolik ({e3}), muqobil [ios, web_safari, web] clientlarga o'tilmoqda...")
+        logger.warning(f"3-urinish (mobil bypass) xatolik ({e3}), muqobil 18/22/b/best formatiga o'tilmoqda...")
 
-    # 4-urinish: iOS va Web_safari clientlar (cookies bilan, 'tv' siz)
+    # 4-urinish: Format 18/22/b/best fallback
     try:
-        ydl_opts4 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id, client_preset=["ios", "web_safari", "web"])
-        ydl_opts4["format"] = "bv*+ba/b/best"
+        ydl_opts4 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id, client_preset=["android_vr", "android", "tv_embedded"])
+        ydl_opts4["format"] = "18/22/b/best"
         with yt_dlp.YoutubeDL(ydl_opts4) as ydl:
             return ydl.extract_info(url, download=True)
     except Exception as e4:
@@ -219,8 +221,7 @@ def _extract_with_fallback(url, out_path, fmt="720", cookies_text=None, proxy=No
 
     # 5-urinish: Standart yt-dlp sozlamalari
     ydl_opts5 = _build_ydl_opts(out_path, "best", cookies_text, proxy, task_id)
-    ydl_opts5.pop("extractor_args", None)
-    ydl_opts5["format"] = "bv*+ba/b/best"
+    ydl_opts5["format"] = "b/best"
     with yt_dlp.YoutubeDL(ydl_opts5) as ydl:
         return ydl.extract_info(url, download=True)
 

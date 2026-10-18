@@ -1149,7 +1149,7 @@ async def handle_api_video_formats(request):
         
         url = f"https://www.youtube.com/watch?v={video_id}"
         
-        # Priority 1: Toza mobil/VR mijozlar (android_vr, web_safari, ios, android) - Cookies talab qilmaydi
+        # Priority 1: Toza mobil/VR mijozlar (android_vr, android, tv_embedded) - Cookies talab qilmaydi
         # Bu Render datacenter IP larida bot cheklovini va cookie rotation xatolarini aylanib o'tadi
         ydl_opts = {
             'quiet': True,
@@ -1158,7 +1158,7 @@ async def handle_api_video_formats(request):
             'socket_timeout': 6,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android_vr', 'web_safari', 'ios', 'android'],
+                    'player_client': ['android_vr', 'android', 'tv_embedded'],
                     'player_skip': ['webpage'],
                 }
             }
@@ -1179,7 +1179,7 @@ async def handle_api_video_formats(request):
             if tg_user_id:
                 cookie_path = None
                 try:
-                    from database import get_user_cookies, clear_user_cookies
+                    from database import get_user_cookies
                     cookies_text = get_user_cookies(int(tg_user_id), fallback_to_any=False)
                     if cookies_text:
                         os.makedirs("downloads", exist_ok=True)
@@ -1192,7 +1192,12 @@ async def handle_api_video_formats(request):
                             'skip_download': True,
                             'cookiefile': cookie_path,
                             'socket_timeout': 6,
-                            'extractor_args': {'youtube': {'player_client': ['web_safari', 'web']}}
+                            'extractor_args': {
+                                'youtube': {
+                                    'player_client': ['android_vr', 'android', 'tv_embedded'],
+                                    'player_skip': ['webpage'],
+                                }
+                            }
                         }
                         def _extract_ck():
                             with yt_dlp.YoutubeDL(ydl_opts_ck) as ydl:
@@ -1204,9 +1209,7 @@ async def handle_api_video_formats(request):
                                 duration = info.get("duration") or 0
                                 thumbnail = info.get("thumbnail") or thumbnail
                         except Exception as ex_ck:
-                            err_msg = str(ex_ck).lower()
-                            if "no longer valid" in err_msg or "rotated" in err_msg or "confirm you're not a bot" in err_msg or "bot" in err_msg or "sign in" in err_msg or "login" in err_msg:
-                                clear_user_cookies(int(tg_user_id))
+                            print(f"handle_api_video_formats cookie extraction notice: {ex_ck}")
                         finally:
                             if cookie_path and os.path.exists(cookie_path):
                                 try:
@@ -1267,25 +1270,26 @@ async def handle_api_download_file(request):
 
         # Determine format specifier
         if resolution == "mp3":
-            fmt_spec = '140/bestaudio[ext=m4a]/bestaudio/best'
+            fmt_spec = 'b/best/18/140'
             postprocessors = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
         elif resolution in ["best", "max"]:
-            fmt_spec = 'bestvideo+140/bestvideo+bestaudio/18/b/best'
+            fmt_spec = 'bestvideo+140/bestvideo+bestaudio/18/22/b/best'
             postprocessors = []
         else:
             try:
                 h = int(resolution.replace("p", ""))
-                fmt_spec = f'bestvideo[height<={h}]+140/bestvideo[height<={h}]+bestaudio/best[height<={h}]/18/b/best'
+                fmt_spec = f'bestvideo[height<={h}]+140/bestvideo[height<={h}]+bestaudio/best[height<={h}]/18/22/b/best'
             except (ValueError, TypeError):
-                fmt_spec = 'bestvideo+140/bestvideo+bestaudio/18/b/best'
+                fmt_spec = 'bestvideo+140/bestvideo+bestaudio/18/22/b/best'
             postprocessors = []
 
         # Helper function to find downloaded file
         def _find_file(base_prefix):
             base_name = os.path.basename(base_prefix)
+            base_clean = os.path.splitext(base_name)[0]
             if os.path.exists("downloads"):
                 for f in os.listdir("downloads"):
-                    if f.startswith(base_name) and not f.endswith(".part") and not f.endswith(".ytdl"):
+                    if f.startswith(base_clean) and not f.endswith(".part") and not f.endswith(".ytdl"):
                         cand = os.path.join("downloads", f)
                         if os.path.exists(cand) and os.path.getsize(cand) > 0:
                             return cand
@@ -1317,9 +1321,7 @@ async def handle_api_download_file(request):
 
         # =========================================================================
         # TIER 1: Clean High-Speed VR/Mobile Bypass (NO COOKIES!)
-        # player_client: ['android_vr', 'web_safari']
-        # Does NOT trigger cookie invalidation/rotation, does not skip clients,
-        # and format 140/18 downloads cleanly on datacenter IPs without GVS PO token.
+        # player_client: ['android_vr', 'android', 'tv_embedded']
         # =========================================================================
         try:
             ydl_opts_clean = {
@@ -1331,7 +1333,8 @@ async def handle_api_download_file(request):
                 'retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web_safari'],
+                        'player_client': ['android_vr', 'android', 'tv_embedded'],
+                        'player_skip': ['webpage'],
                     }
                 }
             }
@@ -1357,12 +1360,13 @@ async def handle_api_download_file(request):
                 'outtmpl': filename + '_flex.%(ext)s',
                 'quiet': True,
                 'no_warnings': True,
-                'format': '140/bestaudio/best' if resolution == "mp3" else '18/b/best/bv*+ba',
+                'format': 'b/best' if resolution == "mp3" else '18/22/b/best',
                 'socket_timeout': 15,
                 'retries': 2,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web_safari', 'ios', 'android'],
+                        'player_client': ['android_vr', 'android', 'tv_embedded'],
+                        'player_skip': ['webpage'],
                     }
                 }
             }
@@ -1382,12 +1386,12 @@ async def handle_api_download_file(request):
 
         # =========================================================================
         # TIER 3: Authenticated User Cookies (Only if User Has Cookies in DB)
-        # If cookies fail with rotation/expiration or bot check, automatically purge from DB.
+        # Never wipe user cookies on bot error!
         # =========================================================================
         cookie_path = None
         if tg_user_id:
             try:
-                from database import get_user_cookies, clear_user_cookies
+                from database import get_user_cookies
                 user_cookies = get_user_cookies(int(tg_user_id), fallback_to_any=False)
                 if user_cookies:
                     cookie_path = f"downloads/cookies_dl_{tg_user_id}.txt"
@@ -1398,13 +1402,14 @@ async def handle_api_download_file(request):
                         'outtmpl': filename + '_cookie.%(ext)s',
                         'quiet': True,
                         'no_warnings': True,
-                        'format': fmt_spec,
+                        'format': fmt_spec if resolution != "mp3" else 'b/best',
                         'cookiefile': cookie_path,
                         'socket_timeout': 15,
                         'retries': 2,
                         'extractor_args': {
                             'youtube': {
-                                'player_client': ['web_safari', 'web', 'mweb'],
+                                'player_client': ['android_vr', 'android', 'tv_embedded'],
+                                'player_skip': ['webpage'],
                             }
                         }
                     }
@@ -1421,10 +1426,7 @@ async def handle_api_download_file(request):
                         if found:
                             return _make_file_response(found)
                     except Exception as e_ck:
-                        err_str = str(e_ck).lower()
-                        if "no longer valid" in err_str or "rotated" in err_str or "confirm you're not a bot" in err_str or "bot" in err_str or "sign in" in err_str:
-                            print(f"Purging invalid/rotated cookies for user {tg_user_id}")
-                            clear_user_cookies(int(tg_user_id))
+                        print(f"Tier 3 cookie download notice for user {tg_user_id}: {e_ck}")
             except Exception as e_cookie_tier:
                 print(f"Tier 3 (User Cookies) notice for {video_id}: {e_cookie_tier}")
             finally:
@@ -1446,7 +1448,8 @@ async def handle_api_download_file(request):
                 'socket_timeout': 8,
                 'extractor_args': {
                     'youtube': {
-                        'player_client': ['android_vr', 'web_safari'],
+                        'player_client': ['android_vr', 'android', 'tv_embedded'],
+                        'player_skip': ['webpage'],
                     }
                 }
             }
