@@ -465,10 +465,10 @@ async def handle_google_verification(request):
     """Google Search Console Site Verification file handler"""
     filename = request.match_info.get("filename", "")
     import os
-    if os.path.exists(filename):
+    if filename and os.path.isfile(filename):
         with open(filename, "r", encoding="utf-8") as f:
-            return web.Response(text=f.read(), content_type="text/html")
-    return web.Response(text=f"google-site-verification: {filename}", content_type="text/html")
+            return web.Response(text=f.read().strip(), content_type="text/html", charset="utf-8")
+    return web.Response(status=404, text="404 Not Found", content_type="text/plain")
 
 
 # ==================== STATS CACHE (YouTube API quota tejash uchun) ====================
