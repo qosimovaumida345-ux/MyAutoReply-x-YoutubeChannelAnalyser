@@ -1887,7 +1887,8 @@ def set_user_cookies(user_id, cookies_text):
         conn.close()
 
 def clear_user_cookies(user_id=None):
-    """Yaroqsiz yoki eskirgan YouTube cookie larini tozalash"""
+    """Yaroqsiz yoki eskirgan YouTube cookie larini tozalash (DB va diskdan)"""
+    import os, glob
     conn = get_db()
     if not conn:
         return False
@@ -1895,8 +1896,20 @@ def clear_user_cookies(user_id=None):
     try:
         if user_id:
             cur.execute("UPDATE user_settings SET yt_cookies = NULL WHERE tg_user_id = %s", (user_id,))
+            for p in [f"downloads/cookies_dl_{user_id}.txt", f"downloads/cookies_fmt_{user_id}.txt"]:
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except Exception:
+                        pass
         else:
             cur.execute("UPDATE user_settings SET yt_cookies = NULL")
+            for p in glob.glob("downloads/cookies_*.txt") + ["cookies.txt", "downloads/cookies.txt"]:
+                if os.path.exists(p):
+                    try:
+                        os.remove(p)
+                    except Exception:
+                        pass
         conn.commit()
         return True
     except Exception as e:

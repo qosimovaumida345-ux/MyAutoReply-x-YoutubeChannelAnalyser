@@ -1149,7 +1149,7 @@ async def handle_api_video_formats(request):
         
         url = f"https://www.youtube.com/watch?v={video_id}"
         
-        # Priority 1: Toza mobil mijozlar (android, tv_embedded, ios) - Cookies talab qilmaydi
+        # Priority 1: Toza mobil/VR mijozlar (android_vr, web_safari, ios, android) - Cookies talab qilmaydi
         # Bu Render datacenter IP larida bot cheklovini va cookie rotation xatolarini aylanib o'tadi
         ydl_opts = {
             'quiet': True,
@@ -1158,7 +1158,7 @@ async def handle_api_video_formats(request):
             'socket_timeout': 6,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'tv_embedded', 'ios'],
+                    'player_client': ['android_vr', 'web_safari', 'ios', 'android'],
                     'player_skip': ['webpage'],
                 }
             }
@@ -1205,7 +1205,7 @@ async def handle_api_video_formats(request):
                                 thumbnail = info.get("thumbnail") or thumbnail
                         except Exception as ex_ck:
                             err_msg = str(ex_ck).lower()
-                            if "no longer valid" in err_msg or "rotated" in err_msg or "confirm you're not a bot" in err_msg:
+                            if "no longer valid" in err_msg or "rotated" in err_msg or "confirm you're not a bot" in err_msg or "bot" in err_msg or "sign in" in err_msg or "login" in err_msg:
                                 clear_user_cookies(int(tg_user_id))
                         finally:
                             if cookie_path and os.path.exists(cookie_path):
@@ -1235,7 +1235,7 @@ async def handle_api_video_formats(request):
         }, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_download_file(request):
-    """Video yuklab olish va stream qilish (Multi-tier bypass, mobile client priority, safe 200 fallback)"""
+    """Video yuklab olish va stream qilish (Multi-tier bypass, mobile/VR client priority, safe 200 fallback)"""
     import json
     import asyncio
     import glob
@@ -1245,281 +1245,331 @@ async def handle_api_download_file(request):
     import re
     from aiohttp import web
 
-    raw_video_id = request.query.get("video_id", "").strip()
-    resolution = str(request.query.get("resolution", "720")).lower().strip()
-    tg_user_id = request.query.get("tg_user_id", "").strip()
+    try:
+        raw_video_id = request.query.get("video_id", "").strip()
+        resolution = str(request.query.get("resolution", "720")).lower().strip()
+        tg_user_id = request.query.get("tg_user_id", "").strip()
 
-    if not raw_video_id:
-        return web.json_response({"ok": False, "error": "video_id kerak"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        if not raw_video_id:
+            return web.json_response({"ok": False, "error": "video_id kerak"}, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
-    # Extract clean 11-char video ID if full URL was passed
-    video_id = raw_video_id
-    if "youtu" in raw_video_id:
-        m = re.search(r'(?:v=|\/|youtu\.be\/|embed\/|shorts\/)([0-9A-Za-z_-]{11})', raw_video_id)
-        if m:
-            video_id = m.group(1)
+        # Extract clean 11-char video ID if full URL was passed
+        video_id = raw_video_id
+        if "youtu" in raw_video_id:
+            m = re.search(r'(?:v=|\/|youtu\.be\/|embed\/|shorts\/)([0-9A-Za-z_-]{11})', raw_video_id)
+            if m:
+                video_id = m.group(1)
 
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    os.makedirs("downloads", exist_ok=True)
-    rnd_suffix = f"{int(time.time())}_{random.randint(1000, 9999)}"
-    filename = f"downloads/webdl_{video_id}_{rnd_suffix}"
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        os.makedirs("downloads", exist_ok=True)
+        rnd_suffix = f"{int(time.time())}_{random.randint(1000, 9999)}"
+        filename = f"downloads/webdl_{video_id}_{rnd_suffix}"
 
-    # Determine format specifier
-    if resolution == "mp3":
-        fmt_spec = 'bestaudio/best'
-        postprocessors = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
-    elif resolution in ["best", "max"]:
-        fmt_spec = 'bestvideo+bestaudio/best'
-        postprocessors = []
-    else:
-        try:
-            h = int(resolution.replace("p", ""))
-            fmt_spec = f'bestvideo[height<={h}]+bestaudio/best[height<={h}]/bv*[height<={h}]+ba/best'
-        except (ValueError, TypeError):
-            fmt_spec = 'bestvideo+bestaudio/best'
-        postprocessors = []
-
-    # Helper function to find downloaded file
-    def _find_file(base_prefix):
-        base_name = os.path.basename(base_prefix)
-        if os.path.exists("downloads"):
-            for f in os.listdir("downloads"):
-                if f.startswith(base_name):
-                    cand = os.path.join("downloads", f)
-                    if os.path.exists(cand) and os.path.getsize(cand) > 0:
-                        return cand
-        return None
-
-    # Helper function to return file response
-    def _make_file_response(found_path):
-        ext = os.path.splitext(found_path)[1].lstrip(".").lower() or ("mp3" if resolution == "mp3" else "mp4")
-        content_type = "audio/mpeg" if ext == "mp3" else "video/mp4"
-        dl_name = f"video_{video_id}_{resolution}.{ext}"
-
-        response = web.FileResponse(found_path, headers={
-            "Content-Disposition": f'attachment; filename="{dl_name}"',
-            "Content-Type": content_type,
-            "Access-Control-Allow-Origin": "*",
-        })
-
-        async def cleanup_later():
-            await asyncio.sleep(60)
+        # Determine format specifier
+        if resolution == "mp3":
+            fmt_spec = '140/bestaudio[ext=m4a]/bestaudio/best'
+            postprocessors = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}]
+        elif resolution in ["best", "max"]:
+            fmt_spec = 'bestvideo+140/bestvideo+bestaudio/18/b/best'
+            postprocessors = []
+        else:
             try:
-                if os.path.exists(found_path):
-                    os.remove(found_path)
-            except Exception:
-                pass
-        asyncio.create_task(cleanup_later())
-        return response
+                h = int(resolution.replace("p", ""))
+                fmt_spec = f'bestvideo[height<={h}]+140/bestvideo[height<={h}]+bestaudio/best[height<={h}]/18/b/best'
+            except (ValueError, TypeError):
+                fmt_spec = 'bestvideo+140/bestvideo+bestaudio/18/b/best'
+            postprocessors = []
 
-    import yt_dlp
+        # Helper function to find downloaded file
+        def _find_file(base_prefix):
+            base_name = os.path.basename(base_prefix)
+            if os.path.exists("downloads"):
+                for f in os.listdir("downloads"):
+                    if f.startswith(base_name) and not f.endswith(".part") and not f.endswith(".ytdl"):
+                        cand = os.path.join("downloads", f)
+                        if os.path.exists(cand) and os.path.getsize(cand) > 0:
+                            return cand
+            return None
 
-    # =========================================================================
-    # TIER 1: Clean Mobile Clients Bypass (NO COOKIES!)
-    # player_client: ['android', 'tv_embedded']
-    # YouTube does not require bot confirmation for android client on datacenter IPs,
-    # and yt-dlp won't skip android since cookies are NOT provided.
-    # =========================================================================
-    try:
-        ydl_opts_clean = {
-            'outtmpl': filename + '.%(ext)s',
-            'quiet': True,
-            'no_warnings': True,
-            'format': fmt_spec,
-            'socket_timeout': 15,
-            'retries': 3,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'tv_embedded'],
-                    'player_skip': ['webpage'],
-                }
-            }
-        }
-        if postprocessors:
-            ydl_opts_clean['postprocessors'] = postprocessors
+        # Helper function to return file response
+        def _make_file_response(found_path):
+            ext = os.path.splitext(found_path)[1].lstrip(".").lower() or ("mp3" if resolution == "mp3" else "mp4")
+            content_type = "audio/mpeg" if ext == "mp3" else ("audio/mp4" if ext == "m4a" else "video/mp4")
+            dl_name = f"video_{video_id}_{resolution}.{ext}"
 
-        def _download_clean():
-            with yt_dlp.YoutubeDL(ydl_opts_clean) as ydl:
-                ydl.download([url])
+            response = web.FileResponse(found_path, headers={
+                "Content-Disposition": f'attachment; filename="{dl_name}"',
+                "Content-Type": content_type,
+                "Access-Control-Allow-Origin": "*",
+            })
 
-        await asyncio.to_thread(_download_clean)
-        found = _find_file(filename)
-        if found:
-            return _make_file_response(found)
-    except Exception as e_clean:
-        print(f"Tier 1 (Mobile Clean) download notice for {video_id}: {e_clean}")
-
-    # =========================================================================
-    # TIER 2: Fallback to Flexible bv*+ba/b/best (Clean No Cookies)
-    # If the specific resolution combination failed to mux, try flexible format
-    # =========================================================================
-    try:
-        ydl_opts_flex = {
-            'outtmpl': filename + '_flex.%(ext)s',
-            'quiet': True,
-            'no_warnings': True,
-            'format': 'bestaudio/best' if resolution == "mp3" else 'bv*+ba/b/best',
-            'socket_timeout': 15,
-            'retries': 2,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'tv_embedded'],
-                    'player_skip': ['webpage'],
-                }
-            }
-        }
-        if postprocessors:
-            ydl_opts_flex['postprocessors'] = postprocessors
-
-        def _download_flex():
-            with yt_dlp.YoutubeDL(ydl_opts_flex) as ydl:
-                ydl.download([url])
-
-        await asyncio.to_thread(_download_flex)
-        found = _find_file(filename + '_flex')
-        if found:
-            return _make_file_response(found)
-    except Exception as e_flex:
-        print(f"Tier 2 (Flexible Clean) download notice for {video_id}: {e_flex}")
-
-    # =========================================================================
-    # TIER 3: Authenticated User Cookies (Only if User Has Cookies in DB)
-    # Used if video is private or age-restricted. If cookies are expired/rotated,
-    # automatically purge them from DB so they don't break future calls.
-    # =========================================================================
-    cookie_path = None
-    if tg_user_id:
-        try:
-            from database import get_user_cookies, clear_user_cookies
-            user_cookies = get_user_cookies(int(tg_user_id), fallback_to_any=False)
-            if user_cookies:
-                cookie_path = f"downloads/cookies_dl_{tg_user_id}.txt"
-                with open(cookie_path, "w", encoding="utf-8") as f:
-                    f.write(user_cookies)
-
-                ydl_opts_cookies = {
-                    'outtmpl': filename + '_cookie.%(ext)s',
-                    'quiet': True,
-                    'no_warnings': True,
-                    'format': fmt_spec,
-                    'cookiefile': cookie_path,
-                    'socket_timeout': 15,
-                    'retries': 2,
-                    'extractor_args': {
-                        'youtube': {
-                            'player_client': ['web_safari', 'web', 'mweb'],
-                        }
-                    }
-                }
-                if postprocessors:
-                    ydl_opts_cookies['postprocessors'] = postprocessors
-
-                def _download_cookie():
-                    with yt_dlp.YoutubeDL(ydl_opts_cookies) as ydl:
-                        ydl.download([url])
-
+            async def cleanup_later():
+                await asyncio.sleep(90)
                 try:
-                    await asyncio.to_thread(_download_cookie)
-                    found = _find_file(filename + '_cookie')
-                    if found:
-                        return _make_file_response(found)
-                except Exception as e_ck:
-                    err_str = str(e_ck).lower()
-                    if "no longer valid" in err_str or "rotated" in err_str or "confirm you're not a bot" in err_str:
-                        print(f"Purging invalid/rotated cookies for user {tg_user_id}")
-                        clear_user_cookies(int(tg_user_id))
-        except Exception as e_cookie_tier:
-            print(f"Tier 3 (User Cookies) notice for {video_id}: {e_cookie_tier}")
-        finally:
-            if cookie_path and os.path.exists(cookie_path):
-                try:
-                    os.remove(cookie_path)
+                    if os.path.exists(found_path):
+                        os.remove(found_path)
                 except Exception:
                     pass
+            asyncio.create_task(cleanup_later())
+            return response
 
-    # =========================================================================
-    # TIER 4: Direct Format Stream URL Extraction (No Merging / Redirect)
-    # Extract direct googlevideo CDN stream URL via mobile client and redirect browser
-    # =========================================================================
-    try:
-        ydl_opts_info = {
-            'quiet': True,
-            'no_warnings': True,
-            'skip_download': True,
-            'socket_timeout': 8,
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'tv_embedded'],
-                    'player_skip': ['webpage'],
+        import yt_dlp
+
+        # =========================================================================
+        # TIER 1: Clean High-Speed VR/Mobile Bypass (NO COOKIES!)
+        # player_client: ['android_vr', 'web_safari']
+        # Does NOT trigger cookie invalidation/rotation, does not skip clients,
+        # and format 140/18 downloads cleanly on datacenter IPs without GVS PO token.
+        # =========================================================================
+        try:
+            ydl_opts_clean = {
+                'outtmpl': filename + '.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+                'format': fmt_spec,
+                'socket_timeout': 15,
+                'retries': 2,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr', 'web_safari'],
+                    }
                 }
             }
-        }
-        def _extract_direct():
-            with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-                return ydl.extract_info(url, download=False)
+            if postprocessors:
+                ydl_opts_clean['postprocessors'] = postprocessors
 
-        info = await asyncio.to_thread(_extract_direct)
-        formats = info.get("formats", []) if info else []
+            def _download_clean():
+                with yt_dlp.YoutubeDL(ydl_opts_clean) as ydl:
+                    ydl.download([url])
 
-        direct_url = None
-        if resolution == "mp3":
-            # Best audio format
-            audio_fmts = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
-            if audio_fmts:
-                audio_fmts.sort(key=lambda x: x.get("abr") or 0, reverse=True)
-                direct_url = audio_fmts[0].get("url")
-        else:
-            # Progressive combined mp4 stream (contains both video and audio)
-            progressive = [f for f in formats if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("url")]
-            if progressive:
-                direct_url = progressive[-1].get("url")
-            elif formats:
-                video_fmts = [f for f in formats if f.get("url")]
-                if video_fmts:
-                    direct_url = video_fmts[-1].get("url")
+            await asyncio.to_thread(_download_clean)
+            found = _find_file(filename)
+            if found:
+                return _make_file_response(found)
+        except Exception as e_clean:
+            print(f"Tier 1 (Clean VR/Mobile) notice for {video_id}: {e_clean}")
 
-        if direct_url:
-            raise web.HTTPFound(direct_url)
-    except web.HTTPFound:
-        raise
-    except Exception as e_direct:
-        print(f"Tier 4 (Direct Stream Extraction) notice for {video_id}: {e_direct}")
+        # =========================================================================
+        # TIER 2: Fallback to Flexible Format (Clean No Cookies)
+        # =========================================================================
+        try:
+            ydl_opts_flex = {
+                'outtmpl': filename + '_flex.%(ext)s',
+                'quiet': True,
+                'no_warnings': True,
+                'format': '140/bestaudio/best' if resolution == "mp3" else '18/b/best/bv*+ba',
+                'socket_timeout': 15,
+                'retries': 2,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr', 'web_safari', 'ios', 'android'],
+                    }
+                }
+            }
+            if postprocessors:
+                ydl_opts_flex['postprocessors'] = postprocessors
 
-    # =========================================================================
-    # TIER 5: Fallback Public APIs (Invidious / Piped / Cobalt)
-    # =========================================================================
-    try:
-        import httpx
-        invidious_endpoints = [
-            f"https://iv.ggtyler.dev/api/v1/videos/{video_id}",
-            f"https://invidious.nerdvpn.de/api/v1/videos/{video_id}",
-            f"https://inv.nadeko.net/api/v1/videos/{video_id}",
-        ]
-        async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
-            for ep in invidious_endpoints:
-                try:
-                    resp = await client.get(ep)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        streams = data.get("formatStreams", [])
-                        if streams and len(streams) > 0 and streams[0].get("url"):
-                            stream_url = streams[0]["url"]
-                            raise web.HTTPFound(stream_url)
-                except web.HTTPFound:
-                    raise
-                except Exception:
-                    continue
-    except web.HTTPFound:
-        raise
-    except Exception as e_fallback_api:
-        print(f"Tier 5 (Public APIs) notice for {video_id}: {e_fallback_api}")
+            def _download_flex():
+                with yt_dlp.YoutubeDL(ydl_opts_flex) as ydl:
+                    ydl.download([url])
 
-    # =========================================================================
-    # TIER 6: Safe Graceful Fallback (NEVER 500 INTERNAL SERVER ERROR!)
-    # =========================================================================
-    accept = request.headers.get("Accept", "")
-    if "text/html" in accept:
-        html = f"""<!DOCTYPE html>
+            await asyncio.to_thread(_download_flex)
+            found = _find_file(filename + '_flex')
+            if found:
+                return _make_file_response(found)
+        except Exception as e_flex:
+            print(f"Tier 2 (Flexible Clean) notice for {video_id}: {e_flex}")
+
+        # =========================================================================
+        # TIER 3: Authenticated User Cookies (Only if User Has Cookies in DB)
+        # If cookies fail with rotation/expiration or bot check, automatically purge from DB.
+        # =========================================================================
+        cookie_path = None
+        if tg_user_id:
+            try:
+                from database import get_user_cookies, clear_user_cookies
+                user_cookies = get_user_cookies(int(tg_user_id), fallback_to_any=False)
+                if user_cookies:
+                    cookie_path = f"downloads/cookies_dl_{tg_user_id}.txt"
+                    with open(cookie_path, "w", encoding="utf-8") as f:
+                        f.write(user_cookies)
+
+                    ydl_opts_cookies = {
+                        'outtmpl': filename + '_cookie.%(ext)s',
+                        'quiet': True,
+                        'no_warnings': True,
+                        'format': fmt_spec,
+                        'cookiefile': cookie_path,
+                        'socket_timeout': 15,
+                        'retries': 2,
+                        'extractor_args': {
+                            'youtube': {
+                                'player_client': ['web_safari', 'web', 'mweb'],
+                            }
+                        }
+                    }
+                    if postprocessors:
+                        ydl_opts_cookies['postprocessors'] = postprocessors
+
+                    def _download_cookie():
+                        with yt_dlp.YoutubeDL(ydl_opts_cookies) as ydl:
+                            ydl.download([url])
+
+                    try:
+                        await asyncio.to_thread(_download_cookie)
+                        found = _find_file(filename + '_cookie')
+                        if found:
+                            return _make_file_response(found)
+                    except Exception as e_ck:
+                        err_str = str(e_ck).lower()
+                        if "no longer valid" in err_str or "rotated" in err_str or "confirm you're not a bot" in err_str or "bot" in err_str or "sign in" in err_str:
+                            print(f"Purging invalid/rotated cookies for user {tg_user_id}")
+                            clear_user_cookies(int(tg_user_id))
+            except Exception as e_cookie_tier:
+                print(f"Tier 3 (User Cookies) notice for {video_id}: {e_cookie_tier}")
+            finally:
+                if cookie_path and os.path.exists(cookie_path):
+                    try:
+                        os.remove(cookie_path)
+                    except Exception:
+                        pass
+
+        # =========================================================================
+        # TIER 4: Direct Format Stream Proxy (From Google CDN via StreamResponse)
+        # Guarantees file download header (Content-Disposition: attachment)
+        # =========================================================================
+        try:
+            ydl_opts_info = {
+                'quiet': True,
+                'no_warnings': True,
+                'skip_download': True,
+                'socket_timeout': 8,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android_vr', 'web_safari'],
+                    }
+                }
+            }
+            def _extract_direct():
+                with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
+                    return ydl.extract_info(url, download=False)
+
+            info = await asyncio.to_thread(_extract_direct)
+            formats = info.get("formats", []) if info else []
+
+            direct_url = None
+            stream_ext = "mp4"
+            if resolution == "mp3":
+                audio_fmts = [f for f in formats if f.get("acodec") != "none" and f.get("url")]
+                if audio_fmts:
+                    # Prefer format 140 (m4a/aac) or highest abr
+                    f140 = next((f for f in audio_fmts if f.get("format_id") == "140"), None)
+                    chosen = f140 or sorted(audio_fmts, key=lambda x: x.get("abr") or 0, reverse=True)[0]
+                    direct_url = chosen.get("url")
+                    stream_ext = chosen.get("ext") or "m4a"
+            else:
+                # Progressive combined mp4 stream (contains both video and audio, e.g. format 18)
+                progressive = [f for f in formats if f.get("vcodec") != "none" and f.get("acodec") != "none" and f.get("url")]
+                if progressive:
+                    direct_url = progressive[-1].get("url")
+                    stream_ext = progressive[-1].get("ext") or "mp4"
+                elif formats:
+                    video_fmts = [f for f in formats if f.get("url")]
+                    if video_fmts:
+                        direct_url = video_fmts[-1].get("url")
+                        stream_ext = video_fmts[-1].get("ext") or "mp4"
+
+            if direct_url:
+                import aiohttp
+                dl_name = f"video_{video_id}_{resolution}.{stream_ext}"
+                content_type = "audio/mpeg" if stream_ext == "mp3" else ("audio/mp4" if stream_ext == "m4a" else "video/mp4")
+
+                # Stream directly to browser with attachment Content-Disposition header
+                stream_response = web.StreamResponse(
+                    status=200,
+                    headers={
+                        "Content-Type": content_type,
+                        "Content-Disposition": f'attachment; filename="{dl_name}"',
+                        "Access-Control-Allow-Origin": "*",
+                    }
+                )
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=300)) as session:
+                    async with session.get(direct_url) as upstream:
+                        if upstream.status == 200:
+                            if upstream.content_length:
+                                stream_response.content_length = upstream.content_length
+                            await stream_response.prepare(request)
+                            async for chunk in upstream.content.iter_chunked(65536):
+                                await stream_response.write(chunk)
+                            return stream_response
+                        else:
+                            # If direct stream returned redirect or forbidden, raise HTTPFound to let browser handle
+                            raise web.HTTPFound(direct_url)
+        except web.HTTPFound:
+            raise
+        except Exception as e_direct:
+            print(f"Tier 4 (Direct Stream Proxy) notice for {video_id}: {e_direct}")
+
+        # =========================================================================
+        # TIER 5: Fallback Public APIs (Cobalt / Invidious / Piped)
+        # =========================================================================
+        try:
+            import httpx
+            # 1. Cobalt API instances
+            cobalt_payload = {"url": url, "videoQuality": "720"}
+            cobalt_endpoints = [
+                "https://api.cobalt.tools",
+                "https://cobalt.api.scidsg.org",
+                "https://co.wuk.sh"
+            ]
+            async with httpx.AsyncClient(timeout=3.5, follow_redirects=True) as client:
+                for cb_host in cobalt_endpoints:
+                    try:
+                        cb_resp = await client.post(
+                            f"{cb_host}/",
+                            json=cobalt_payload,
+                            headers={"Accept": "application/json", "Content-Type": "application/json"}
+                        )
+                        if cb_resp.status_code == 200:
+                            cb_data = cb_resp.json()
+                            if cb_data.get("url"):
+                                raise web.HTTPFound(cb_data["url"])
+                    except web.HTTPFound:
+                        raise
+                    except Exception:
+                        pass
+
+            # 2. Invidious instances
+            invidious_endpoints = [
+                f"https://invidious.f5.si/api/v1/videos/{video_id}",
+                f"https://invidious.private.coffee/api/v1/videos/{video_id}",
+                f"https://iv.ggtyler.dev/api/v1/videos/{video_id}",
+            ]
+            async with httpx.AsyncClient(timeout=3.0, follow_redirects=True) as client:
+                for ep in invidious_endpoints:
+                    try:
+                        resp = await client.get(ep)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            streams = data.get("formatStreams", [])
+                            if streams and len(streams) > 0 and streams[0].get("url"):
+                                stream_url = streams[0]["url"]
+                                raise web.HTTPFound(stream_url)
+                    except web.HTTPFound:
+                        raise
+                    except Exception:
+                        continue
+        except web.HTTPFound:
+            raise
+        except Exception as e_fallback_api:
+            print(f"Tier 5 (Public APIs) notice for {video_id}: {e_fallback_api}")
+
+        # =========================================================================
+        # TIER 6: Safe Graceful Fallback (NEVER 500 INTERNAL SERVER ERROR!)
+        # =========================================================================
+        accept = request.headers.get("Accept", "")
+        if "text/html" in accept:
+            html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -1541,15 +1591,27 @@ async def handle_api_download_file(request):
     </div>
 </body>
 </html>"""
-        return web.Response(text=html, content_type="text/html", status=200, headers={"Access-Control-Allow-Origin": "*"})
+            return web.Response(text=html, content_type="text/html", status=200, headers={"Access-Control-Allow-Origin": "*"})
 
-    return web.json_response({
-        "ok": True,
-        "status": "fallback",
-        "video_id": video_id,
-        "download_url": f"https://www.youtube.com/watch?v={video_id}",
-        "message": "Video to'g'ridan-to'g'ri yuklab olinmadi. Telegram botimiz orqali yuqori sifatda yuklab olishingiz mumkin."
-    }, status=200, headers={"Access-Control-Allow-Origin": "*"})
+        return web.json_response({
+            "ok": True,
+            "status": "fallback",
+            "video_id": video_id,
+            "download_url": f"https://www.youtube.com/watch?v={video_id}",
+            "message": "Video to'g'ridan-to'g'ri yuklab olinmadi. Telegram botimiz orqali yuqori sifatda yuklab olishingiz mumkin."
+        }, status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+    except web.HTTPFound:
+        raise
+    except BaseException as fatal_err:
+        print(f"Top-level handle_api_download_file safe guard: {fatal_err}")
+        return web.json_response({
+            "ok": True,
+            "status": "fallback",
+            "video_id": request.query.get("video_id", ""),
+            "download_url": f"https://www.youtube.com/watch?v={request.query.get('video_id', '')}",
+            "message": "Video tayyorlanmoqda. Telegram bot orqali yuklab olishingiz mumkin."
+        }, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_autopost_create(request):
     """Tanlangan videolarni autopost_tasks ga qo'shish"""

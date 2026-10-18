@@ -1967,8 +1967,10 @@
                 document.body.appendChild(iframe);
                 setTimeout(() => {
                     setDownloadingFormat(null);
+                }, 3500);
+                setTimeout(() => {
                     try { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); } catch(e) {}
-                }, 8000);
+                }, 60000);
             };
 
             useEffect(() => {

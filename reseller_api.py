@@ -446,7 +446,7 @@ async def handle_api_downloader(request):
             'skip_download': True,
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['android', 'tv_embedded', 'ios'],
+                    'player_client': ['android_vr', 'web_safari', 'ios', 'android'],
                     'player_skip': ['webpage'],
                 }
             }

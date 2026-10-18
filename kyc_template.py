@@ -980,27 +980,10 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             ctx.fill();
             ctx.restore();
 
-            // 3. Vertical Sweeping Volumetric Laser Beam Wave (Smooth Downward Cyclical Sweep)
+            // 3. Apple TrueDepth 940nm Structured Infrared Dot Wave Sweep (Strictly ZERO line strokes or bars!)
             const scanPeriod = 1500; // ms per sweep cycle
             const scanProgress = (Date.now() % scanPeriod) / scanPeriod;
             const sweepY = (minY - 25) + scanProgress * (faceH + 50);
-
-            ctx.save();
-            const beamHeight = 44;
-            const beamGrad = ctx.createLinearGradient(0, sweepY - beamHeight, 0, sweepY + beamHeight);
-            if (isDone) {{
-                beamGrad.addColorStop(0.0, "rgba(16, 185, 129, 0)");
-                beamGrad.addColorStop(0.5, "rgba(52, 211, 153, 0.35)");
-                beamGrad.addColorStop(1.0, "rgba(16, 185, 129, 0)");
-            }} else {{
-                beamGrad.addColorStop(0.0, "rgba(255, 0, 85, 0)");
-                beamGrad.addColorStop(0.5, "rgba(255, 42, 95, 0.38)");
-                beamGrad.addColorStop(1.0, "rgba(255, 0, 85, 0)");
-            }}
-            ctx.fillStyle = beamGrad;
-            ctx.fillRect(minX - 35, sweepY - beamHeight, faceW + 70, beamHeight * 2);
-
-            ctx.restore();
 
             // 4. Apple TrueDepth 468 Luminous Glowing Crimson/Infrared Micro-Dots Projection
             // Strictly 468 TrueDepth dots! Absolute zero line strokes/bars!
