@@ -963,7 +963,7 @@ def load_mega_features(bot: Client):
             return
 
         text = (
-            f"{ce('CROWN')} <b>Sizning CapCut Pro Obunangiz:</b>\n\n"
+            f"{ce('BRAND_CAPCUT')} <b>Sizning CapCut Pro Obunangiz:</b>\n\n"
             f"• <b>Holat:</b> {ce('VERIFIED')} Faol\n"
             f"• <b>Amal qilish muddati:</b> <code>{sub.get('expires_at')}</code> gacha\n"
             f"• <b>Litsenziya kaliti:</b> <code>{sub.get('license_key', 'Faol')}</code>\n\n"
@@ -1311,7 +1311,7 @@ def load_mega_features(bot: Client):
                 f"{ce('LIKE')} <b>Layklar:</b> <code>{meta['like_count']:,} ta</code>\n\n"
                 f"{ce('SEO_TAG')} <b>YASHIRIN TEGLAR (Keywords):</b>\n<code>{tags_str}</code>\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"{ce('BRAIN')} <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
+                f"{ce('BRAND_GEMINI')} <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
                 f"{res['ai_analysis']}"
             )
             await wait_m.delete()
@@ -2441,7 +2441,7 @@ def load_mega_features(bot: Client):
                         f"{ce('LIKE')} <b>Layklar:</b> <code>{meta['like_count']:,} ta</code>\n\n"
                         f"{ce('SEO_TAG')} <b>YASHIRIN TEGLAR (Keywords):</b>\n<code>{tags_str}</code>\n\n"
                         f"━━━━━━━━━━━━━━━━━━━━\n"
-                        f"{ce('BRAIN')} <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
+                        f"{ce('BRAND_GEMINI')} <b>GEMINI AI SEO TAVSIYALARI:</b>\n\n"
                         f"{res['ai_analysis']}\n\n"
                         f"{ce('WARN')} <i>Eslatma: Tahlil ommaviy ma'lumotlar asosida taqdim etiladi.</i>"
                     )

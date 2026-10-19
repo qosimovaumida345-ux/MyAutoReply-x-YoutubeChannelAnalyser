@@ -62,26 +62,26 @@ def get_capcut_menu_text(user_id: int, lang: str = "uz") -> str:
     sub = db.get_user_capcut_subscription(user_id)
     
     sub_status = (
-        f"{ce('CROWN')} <b>Sizda faol CapCut Pro mavjud!</b>\n"
+        f"{ce('BRAND_CAPCUT')} <b>Sizda faol CapCut Pro mavjud!</b>\n"
         f"{ce('CALENDAR')} Tugash muddati: <code>{sub.get('expires_at')}</code>\n"
-        f"{ce('KEY')} Litsenziya: <code>{sub.get('license_key', 'Faol')}</code>\n\n"
+        f"{ce('DEV_API_KEY')} Litsenziya: <code>{sub.get('license_key', 'Faol')}</code>\n\n"
     ) if sub else ""
 
     text = (
-        f"{ce('CAPCUT_LOGO')} <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n"
+        f"{ce('BRAND_CAPCUT')} <b>CapCut Pro — Rasmiy Pullik Litsenziya Markazi</b>\n\n"
         f"{sub_status}"
         f"CapCut Pro bilan kompyuter va telefoningizda professional darajada video montaj qiling:\n\n"
-        f"{ce('GEMINI')} <b>Pro Imkoniyatlar:</b>\n"
-        f"• {ce('FLUX')} 10,000+ VIP effektlar, animatsiyalar va filtrlar\n"
-        f"• {ce('AUDIO')} Litsenziyalangan mualliflik huquqisiz audio kutubxona\n"
-        f"• {ce('BOT')} AI Avtomatik Subtitrlar va Avto-Kesish\n"
-        f"• {ce('VIDEO')} 4K 60FPS eksport va Suv belgisiz (No Watermark)\n"
-        f"• {ce('LIGHTNING')} Cloud Storage va Tezkor renderlash\n\n"
-        f"{ce('TON')} <b>Rasmiy Tariflar:</b>\n"
-        f"• {ce('CALENDAR')} <b>1 Oylik:</b> <code>99,000 so'm</code> ($8) yoki {ce('STAR')} 400 Stars <i>(NO REFUNDS)</i>\n"
-        f"• {ce('CALENDAR')} <b>3 Oylik:</b> <code>249,000 so'm</code> ($19) yoki {ce('STAR')} 1,000 Stars <i>(16% tejash, NO REFUNDS)</i>\n"
-        f"• {ce('CALENDAR')} <b>1 Yillik:</b> <code>799,000 so'm</code> ($62) yoki {ce('STAR')} 3,000 Stars <i>(33% tejash, NO REFUNDS)</i>\n\n"
-        f"{ce('MONEY')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+        f"{ce('BRAND_CAPCUT')} <b>Pro Imkoniyatlar:</b>\n"
+        f"• {ce('STATUS_LIGHTNING')} 10,000+ VIP effektlar, animatsiyalar va filtrlar\n"
+        f"• {ce('MEDIA_AUDIO_MP3')} Litsenziyalangan mualliflik huquqisiz audio kutubxona\n"
+        f"• {ce('MEDIA_AUTOPILOT')} AI Avtomatik Subtitrlar va Avto-Kesish\n"
+        f"• {ce('MEDIA_VIDEO_FHD')} 4K 60FPS eksport va Suv belgisiz (No Watermark)\n"
+        f"• {ce('STATUS_LIGHTNING')} Cloud Storage va Tezkor renderlash\n\n"
+        f"{ce('TOOL_PRICE_TAG')} <b>Rasmiy Tariflar:</b>\n"
+        f"• {ce('CALENDAR')} <b>1 Oylik:</b> <code>99,000 so'm</code> ($8) yoki {ce('PAY_STARS')} 400 Stars <i>(NO REFUNDS)</i>\n"
+        f"• {ce('CALENDAR')} <b>3 Oylik:</b> <code>249,000 so'm</code> ($19) yoki {ce('PAY_STARS')} 1,000 Stars <i>(16% tejash, NO REFUNDS)</i>\n"
+        f"• {ce('CALENDAR')} <b>1 Yillik:</b> <code>799,000 so'm</code> ($62) yoki {ce('PAY_STARS')} 3,000 Stars <i>(33% tejash, NO REFUNDS)</i>\n\n"
+        f"{ce('BTN_WALLET')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
         f"<i>Xarid qilganingizdan so'ng hisobingizga darhol litsenziya kaliti taqdim etiladi!</i>\n\n"
         f"{LEGAL_DISCLAIMER_WARNING}"
     )
@@ -91,23 +91,23 @@ def get_capcut_pro_keyboard(user_id: int, lang: str = "uz") -> InlineKeyboardMar
     """CapCut Pro sotish menyusi tugmalari"""
     buttons = [
         [
-            InlineKeyboardButton("💳 1 Oylik (99,000 so'm)", callback_data="capcut_buy_30"),
-            InlineKeyboardButton("⭐ 400 Stars", callback_data="capcut_stars_30")
+            InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} 1 Oylik (99,000 so'm)", callback_data="capcut_buy_30"),
+            InlineKeyboardButton(f"{ce('PAY_STARS')} 400 Stars", callback_data="capcut_stars_30")
         ],
         [
-            InlineKeyboardButton("💳 3 Oylik (249,000 so'm)", callback_data="capcut_buy_90"),
-            InlineKeyboardButton("⭐ 1,000 Stars", callback_data="capcut_stars_90")
+            InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} 3 Oylik (249,000 so'm)", callback_data="capcut_buy_90"),
+            InlineKeyboardButton(f"{ce('PAY_STARS')} 1,000 Stars", callback_data="capcut_stars_90")
         ],
         [
-            InlineKeyboardButton("💳 1 Yillik (799,000 so'm)", callback_data="capcut_buy_365"),
-            InlineKeyboardButton("⭐ 3,000 Stars", callback_data="capcut_stars_365")
+            InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} 1 Yillik (799,000 so'm)", callback_data="capcut_buy_365"),
+            InlineKeyboardButton(f"{ce('PAY_STARS')} 3,000 Stars", callback_data="capcut_stars_365")
         ],
         [
-            InlineKeyboardButton("🔑 Mening Obunam", callback_data="capcut_my_status"),
-            InlineKeyboardButton("💰 Hisobni To'ldirish", callback_data="menu_wallet")
+            InlineKeyboardButton(f"{ce('DEV_API_KEY')} Mening Obunam", callback_data="capcut_my_status"),
+            InlineKeyboardButton(f"{ce('BTN_WALLET')} Hisobni To'ldirish", callback_data="menu_wallet")
         ],
         [
-            InlineKeyboardButton("⬅️ Bosh Menyu", callback_data="back_main")
+            InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh Menyu", callback_data="back_main")
         ]
     ]
     return InlineKeyboardMarkup(buttons)

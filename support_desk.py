@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 SUPPORT_ROLES = {
     "developer": {
         "title": {
-            "uz": f"{e('ADMIN')} Dasturchi / API Integrator",
-            "ru": f"{e('ADMIN')} Разработчик / API",
-            "en": f"{e('ADMIN')} Developer / API Integrator",
-            "es": f"{e('ADMIN')} Desarrollador / API",
-            "tr": f"{e('ADMIN')} Geliştirici / API Entegratörü"
+            "uz": f"{e('DEV_API_KEY')} Dasturchi / API Integrator",
+            "ru": f"{e('DEV_API_KEY')} Разработчик / API",
+            "en": f"{e('DEV_API_KEY')} Developer / API Integrator",
+            "es": f"{e('DEV_API_KEY')} Desarrollador / API",
+            "tr": f"{e('DEV_API_KEY')} Geliştirici / API Entegratörü"
         },
         "desc": {
             "uz": "API kalitlar, Reseller API, webhooklar va bot avtomatizatsiyasi.",
@@ -32,11 +32,11 @@ SUPPORT_ROLES = {
     },
     "buyer": {
         "title": {
-            "uz": f"{e('CARD')} Xaridor / Mijoz",
-            "ru": f"{e('CARD')} Покупатель / Клиент",
-            "en": f"{e('CARD')} Buyer / Customer",
-            "es": f"{e('CARD')} Comprador / Cliente",
-            "tr": f"{e('CARD')} Alıcı / Müşteri"
+            "uz": f"{ce('PAY_HUMO_UZCARD')} Xaridor / Mijoz",
+            "ru": f"{ce('PAY_HUMO_UZCARD')} Покупатель / Клиент",
+            "en": f"{ce('PAY_HUMO_UZCARD')} Buyer / Customer",
+            "es": f"{ce('PAY_HUMO_UZCARD')} Comprador / Cliente",
+            "tr": f"{ce('PAY_HUMO_UZCARD')} Alıcı / Müşteri"
         },
         "desc": {
             "uz": "Balans to'ldirish, TON/Stars to'lovlari, xizmatlar va cheklar.",
@@ -49,11 +49,11 @@ SUPPORT_ROLES = {
     },
     "new_user": {
         "title": {
-            "uz": f"{e('IDEA')} Yangi Boshlovchi",
-            "ru": f"{e('IDEA')} Новичок",
-            "en": f"{e('IDEA')} Beginner",
-            "es": f"{e('IDEA')} Principiante",
-            "tr": f"{e('IDEA')} Yeni Başlayan"
+            "uz": f"{ce('TOOL_PROMPT_PACK')} Yangi Boshlovchi",
+            "ru": f"{ce('TOOL_PROMPT_PACK')} Новичок",
+            "en": f"{ce('TOOL_PROMPT_PACK')} Beginner",
+            "es": f"{ce('TOOL_PROMPT_PACK')} Principiante",
+            "tr": f"{ce('TOOL_PROMPT_PACK')} Yeni Başlayan"
         },
         "desc": {
             "uz": "Bot qanday ishlaydi, YouTube ulash, Instagram klonlash bo'yicha ko'rsatma.",
@@ -66,11 +66,11 @@ SUPPORT_ROLES = {
     },
     "faq": {
         "title": {
-            "uz": f"{e('HELP')} Ko'p So'raladigan Savollar",
-            "ru": f"{e('HELP')} Часто Задаваемые Вопросы",
-            "en": f"{e('HELP')} Frequently Asked Questions",
-            "es": f"{e('HELP')} Preguntas Frecuentes",
-            "tr": f"{e('HELP')} Sıkça Sorulan Sorular"
+            "uz": f"{ce('BTN_SUPPORT')} Ko'p So'raladigan Savollar",
+            "ru": f"{ce('BTN_SUPPORT')} Часто Задаваемые Вопросы",
+            "en": f"{ce('BTN_SUPPORT')} Frequently Asked Questions",
+            "es": f"{ce('BTN_SUPPORT')} Preguntas Frecuentes",
+            "tr": f"{ce('BTN_SUPPORT')} Sıkça Sorulan Sorular"
         },
         "desc": {
             "uz": "Tezkor javoblar, qoidalar va umumiy xavfsizlik.",
@@ -98,24 +98,24 @@ def get_support_menu_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
         title = data["title"].get(lang, data["title"]["uz"])
         rows.append([InlineKeyboardButton(title, callback_data=f"supp_role_{role_key}")])
     
-    back_text = "⬅️ Orqaga" if lang == "uz" else ("⬅️ Назад" if lang == "ru" else "⬅️ Back")
+    back_text = f"{ce('BTN_BACK')} Orqaga" if lang == "uz" else (f"{ce('BTN_BACK')} Назад" if lang == "ru" else f"{ce('BTN_BACK')} Back")
     rows.append([InlineKeyboardButton(back_text, callback_data="back_main")])
     return InlineKeyboardMarkup(rows)
 
 def get_role_view_keyboard(role_key: str, lang: str = "uz") -> InlineKeyboardMarkup:
     """Tanlangan rol bo'yicha savol berish yoki Adminga bog'lanish tugmalari"""
     admin_call_txt = {
-        "uz": "👤 Admin bilan jonli bog'lanish",
-        "ru": "👤 Живая связь с админом",
-        "en": "👤 Live Chat with Admin",
-        "es": "👤 Chatear con Administrador",
-        "tr": "👤 Yönetici ile Canlı Sohbet"
-    }.get(lang, "👤 Admin bilan jonli bog'lanish")
+        "uz": f"{ce('BTN_SETTINGS')} Admin bilan jonli bog'lanish",
+        "ru": f"{ce('BTN_SETTINGS')} Живая связь с админом",
+        "en": f"{ce('BTN_SETTINGS')} Live Chat with Admin",
+        "es": f"{ce('BTN_SETTINGS')} Chatear con Administrador",
+        "tr": f"{ce('BTN_SETTINGS')} Yönetici ile Canlı Sohbet"
+    }.get(lang, f"{ce('BTN_SETTINGS')} Admin bilan jonli bog'lanish")
 
-    back_txt = "⬅️ Bo'limlar" if lang == "uz" else ("⬅️ Разделы" if lang == "ru" else "⬅️ Categories")
+    back_txt = f"{ce('BTN_BACK')} Bo'limlar" if lang == "uz" else (f"{ce('BTN_BACK')} Разделы" if lang == "ru" else f"{ce('BTN_BACK')} Categories")
 
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"✍️ Savol berish (AI)", callback_data=f"supp_ask_{role_key}")],
+        [InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Savol berish (AI)", callback_data=f"supp_ask_{role_key}")],
         [InlineKeyboardButton(admin_call_txt, callback_data=f"supp_live_{role_key}")],
         [InlineKeyboardButton(back_txt, callback_data="support_desk_root")]
     ])

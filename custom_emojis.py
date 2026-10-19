@@ -26,6 +26,9 @@ ALIASES = {
     "ALARM": "STATUS_LOADING",
     "ANTIFRAUD_SIREN": "STATUS_SECURITY",
     "API": "DEV_API_KEY",
+    "API_DOCS": "DEV_API_DOCS",
+    "API_KEY": "DEV_API_KEY",
+    "API_KEYS": "DEV_API_KEY",
     "APPLE": "BRAND_APPLE",
     "APPLE_BAD": "GAME_APPLE_BAD",
     "APPLE_BITTEN": "GAME_APPLE_BAD",
@@ -38,6 +41,7 @@ ALIASES = {
     "AUTOPOST": "TOOL_AUTOPOST",
     "BACK": "BTN_BACK",
     "BALANCE": "BTN_WALLET",
+    "BALANS": "BTN_WALLET",
     "BAN": "STATUS_WARNING",
     "BANK": "PAY_HUMO_UZCARD",
     "BELL": "BTN_SUPPORT",
@@ -79,10 +83,12 @@ ALIASES = {
     "CHECK": "STATUS_SUCCESS",
     "CLAUDE": "BRAND_CLAUDE",
     "CLAUDE_CODE": "BRAND_CLAUDE",
+    "CLAUDECODE": "BRAND_CLAUDE",
     "CLIPPER": "MEDIA_SCISSORS",
     "CLIPPERS": "MEDIA_SCISSORS",
     "CLONER": "TOOL_IG_CLONER",
     "CODE": "DEV_CODE_SNIPPET",
+    "CODEX": "BRAND_CODEX",
     "COIN": "GAME_COINFLIP",
     "COINFLIP": "GAME_COINFLIP",
     "COMMENTS": "TOOL_COMMENTS",
@@ -118,7 +124,9 @@ ALIASES = {
     "GLOBE": "TOOL_WEB",
     "GOAL": "TOOL_GOAL",
     "GRAPH": "TOOL_CHART_GROWTH",
+    "GROK": "BRAND_GROK",
     "GROQ": "BRAND_GROQ",
+    "HAMYON": "BTN_WALLET",
     "HANDSHAKE": "BTN_REFERRAL",
     "HEART": "GIFT_HEART",
     "HELP": "BTN_SUPPORT",
@@ -221,6 +229,7 @@ ALIASES = {
     "STOP": "STATUS_WARNING",
     "STORE": "BTN_SERVICES",
     "STREAM": "TOOL_LIVE_STREAM",
+    "STREAMING": "BRAND_NETFLIX",
     "SUBS": "TOOL_SUBS",
     "SUCCESS": "STATUS_SUCCESS",
     "SUPPORT": "BTN_SUPPORT",
@@ -258,6 +267,7 @@ ALIASES = {
     "VIP": "PAY_VIP_CROWN",
     "VIP_STAR": "PAY_VIP_CROWN",
     "VOICE": "BRAND_ELEVENLABS",
+    "VPN_SECURITY": "BRAND_NORDVPN",
     "WAIT": "STATUS_LOADING",
     "WALLET": "BTN_WALLET",
     "WALLET_CONNECT": "PAY_TON_CRYPTO",
@@ -268,6 +278,11 @@ ALIASES = {
     "WHEEL": "GAME_WHEEL_SPIN",
     "WINDOWS": "BRAND_WINDOWS",
     "YOUTUBE": "MEDIA_YOUTUBE",
+    "OFFICE": "BRAND_OFFICE365",
+    "OFFICE_EDU": "BRAND_OFFICE365",
+    "DESIGN_VIDEO": "BRAND_CAPCUT",
+    "DEV_TOOLS": "DEV_CODE_SNIPPET",
+    "MEDIA_STREAMING": "BRAND_NETFLIX",
 }
 
 # ==============================================================================
@@ -1841,6 +1856,11 @@ BRAND_TO_REGISTRY_KEY = {
     "openai": "BRAND_CHATGPT",
     "gpt": "BRAND_CHATGPT",
     "claude": "BRAND_CLAUDE",
+    "claude code": "BRAND_CLAUDE",
+    "claudecode": "BRAND_CLAUDE",
+    "claude 3.5": "BRAND_CLAUDE",
+    "claude opus": "BRAND_CLAUDE",
+    "claude pro": "BRAND_CLAUDE",
     "anthropic": "BRAND_CLAUDE",
     "gemini": "BRAND_GEMINI",
     "google ai": "BRAND_GEMINI",
@@ -1848,6 +1868,11 @@ BRAND_TO_REGISTRY_KEY = {
     "xai": "BRAND_GROK",
     "codex": "BRAND_CODEX",
     "cursor": "BRAND_CURSOR",
+    "developer api": "DEV_API_KEY",
+    "reseller api": "DEV_API_KEY",
+    "api docs": "DEV_API_DOCS",
+    "api keys": "DEV_API_KEY",
+    "api kalit": "DEV_API_KEY",
     "manus": "BRAND_MANUS",
     "factory": "BRAND_FACTORY",
     "lovable": "BRAND_LOVABLE",
@@ -1949,6 +1974,49 @@ BRAND_TO_REGISTRY_KEY = {
     "ton": "PAY_TON_CRYPTO",
     "humo": "PAY_HUMO_UZCARD",
     "uzcard": "PAY_HUMO_UZCARD",
+    "autostream": "TOOL_LIVE_STREAM",
+    "prompt pack": "TOOL_PROMPT_PACK",
+    "prompts": "TOOL_PROMPT_PACK",
+    "deeplink": "TOOL_QR_CODE",
+    "smart qr": "TOOL_QR_CODE",
+    "qr code": "TOOL_QR_CODE",
+    "qr": "TOOL_QR_CODE",
+    "unikal": "MEDIA_UNIKAL",
+    "unikalizatsiya": "MEDIA_UNIKAL",
+    "clipper": "MEDIA_SCISSORS",
+    "shorts kesish": "MEDIA_SCISSORS",
+    "layk": "TOOL_LIKES",
+    "like": "TOOL_LIKES",
+    "obuna": "TOOL_SUBS",
+    "obunachi": "TOOL_SUBS",
+    "subscribe": "TOOL_SUBS",
+    "izoh": "TOOL_COMMENTS",
+    "comment": "TOOL_COMMENTS",
+    "views": "TOOL_VIEWS",
+    "ko'rish": "TOOL_VIEWS",
+    "vip": "PAY_VIP_CROWN",
+    "mystery box": "GIFT_CASE_BOX",
+    "super to'plam": "GIFT_CASE_BOX",
+    "bundle": "GIFT_CASE_BOX",
+    "starter pack": "GIFT_CASE_BOX",
+    "ai master pack": "BRAND_CHATGPT",
+    "bolt.new": "DEV_CODE_SNIPPET",
+    "bolt": "DEV_CODE_SNIPPET",
+    "muse ai": "BRAND_CHATGPT",
+    "muse": "BRAND_CHATGPT",
+    "arize": "DEV_CODE_SNIPPET",
+    "pangram": "BRAND_CANVA",
+    "speechify": "BRAND_ELEVENLABS",
+    "airtable": "BRAND_NOTION",
+    "runway": "MEDIA_AI_VIDEO",
+    "higgsfield": "MEDIA_AI_VIDEO",
+    "mercury": "PAY_HUMO_UZCARD",
+    "stripe atlas": "PAY_HUMO_UZCARD",
+    "stripe": "PAY_HUMO_UZCARD",
+    "waking up": "BRAND_BRAINFM",
+    "crunchyroll": "BRAND_NETFLIX",
+    "ᴄʀᴜɴᴄʜʏʀᴏʟʟ": "BRAND_NETFLIX",
+    "autodesk": "BRAND_AUTODESK",
 }
 
 class BrandEmojisMap(dict):
@@ -2068,19 +2136,48 @@ def get_random_custom_emoji_id() -> int:
         return int(random.choice(CUSTOM_EMOJI_POOL))
     return 0
 
+SMALL_CAPS_TRANS = str.maketrans(
+    'ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ',
+    'abcdefghijklmnopqrstuvwxyz'
+)
+
 def get_brand_registry_key(name: str) -> str:
     """Mahsulot nomiga qarab mos keluvchi brand registry kalitini aniqlaydi."""
-    name_lower = str(name).lower()
+    raw_str = str(name).lower()
+    name_lower = raw_str.translate(SMALL_CAPS_TRANS)
+    
     matches = []
     for brand, reg_key in BRAND_TO_REGISTRY_KEY.items():
-        if brand in name_lower:
-            is_word = bool(re.search(r"\b" + re.escape(brand) + r"\b", name_lower))
-            pos = name_lower.find(brand)
-            matches.append((not is_word, pos, -len(brand), reg_key))
-    if not matches:
-        return "GIFT_CASE_BOX"
-    matches.sort(key=lambda x: (x[0], x[1], x[2]))
-    return matches[0][3]
+        brand_norm = brand.lower().translate(SMALL_CAPS_TRANS)
+        if brand_norm in name_lower:
+            is_word = bool(re.search(r"\b" + re.escape(brand_norm) + r"\b", name_lower))
+            # Qisqa so'zlar (<= 3 belgi: hbo, fin, gpt, ton, vip, qr) faqat mustaqil so'z sifatida mos kelsin
+            if len(brand_norm) <= 3 and not is_word:
+                continue
+            pos = name_lower.find(brand_norm)
+            matches.append((not is_word, pos, -len(brand_norm), reg_key))
+            
+    if matches:
+        matches.sort(key=lambda x: (x[0], x[1], x[2]))
+        return matches[0][3]
+
+    # Umumiy sohalar bo'yicha aqlli moslashtirish (fallbackdan oldin)
+    if any(k in name_lower for k in ["video", "clip", "shorts", "movie", "kino"]):
+        return "MEDIA_VIDEO_FHD"
+    if any(k in name_lower for k in ["audio", "voice", "musiqa", "sound", "mp3", "speech"]):
+        return "BRAND_ELEVENLABS"
+    if any(k in name_lower for k in ["ai", "agent", "gpt", "model", "prompt"]):
+        return "BRAND_CHATGPT"
+    if any(k in name_lower for k in ["vpn", "proxy", "security"]):
+        return "BRAND_NORDVPN"
+    if any(k in name_lower for k in ["code", "dev", "script", "terminal", "ide"]):
+        return "DEV_CODE_SNIPPET"
+    if any(k in name_lower for k in ["stream", "live", "efir"]):
+        return "TOOL_LIVE_STREAM"
+    if any(k in name_lower for k in ["design", "art", "photo", "rasm"]):
+        return "BRAND_CANVA"
+        
+    return "GIFT_CASE_BOX"
 
 def get_brand_emoji(name: str) -> str:
     """Mahsulot nomi bo'yicha formatlangan custom emoji yoki chiroyli fallback ikonkasi."""

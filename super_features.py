@@ -7,6 +7,7 @@ from config import get_gemini_key
 import random
 import asyncio
 import uuid
+from custom_emojis import ce, e
 
 DL_URL_MAP = {}
 
@@ -17,17 +18,19 @@ def load_super_features(bot: Client):
     @bot.on_message(filters.command("addrival") & filters.private)
     async def add_rival(client, message):
         if len(message.command) < 2:
-            await message.reply_text("❌ Kanal URL/ID bering: `/addrival @channel`")
+            await message.reply_text(f"{ce('STATUS_ERROR')} Kanal URL/ID bering: <code>/addrival @channel</code>")
             return
-        await message.reply_text(f"✅ Raqobatchi qabul qilindi. Bot endi bu kanalni poylab turadi va yangi zo'r videolarini sizga tashlab beradi (Poyloqchi rejim yoqildi) 🥷")
+        await message.reply_text(f"{ce('STATUS_SUCCESS')} Raqobatchi qabul qilindi. Bot endi bu kanalni poylab turadi va yangi zo'r videolarini sizga tashlab beradi (Poyloqchi rejim yoqildi) {ce('TOOL_SPY')}")
 
     @bot.on_message(filters.command("myrivals") & filters.private)
     async def get_rivals(client, message):
-        await message.reply_text("🕵️‍♂️ **Raqobatchilar:**\n\nHozircha raqobatchilar ro'yxati poylanmoqda. /addrival orqali qo'shing.")    # 1. Advanced /dl command with multiple qualities and MP3
+        await message.reply_text(f"{ce('TOOL_SPY')} <b>Raqobatchilar:</b>\n\nHozircha raqobatchilar ro'yxati poylanmoqda. /addrival orqali qo'shing.")
+
+    # 1. Advanced /dl command with multiple qualities and MP3
     @bot.on_message(filters.command("dl") & filters.private)
     async def dl_advanced(client, message):
         if len(message.command) < 2:
-            await message.reply_text("❌ URL bering: `/dl https://youtube.com/...`")
+            await message.reply_text(f"{ce('STATUS_ERROR')} URL bering: <code>/dl https://youtube.com/...</code>")
             return
             
         url = message.text.split(maxsplit=1)[1].strip()
@@ -35,17 +38,17 @@ def load_super_features(bot: Client):
         DL_URL_MAP[short_id] = url
         
         buttons = [
-            [InlineKeyboardButton("🎵 MP3 (Audio)", callback_data=f"down_mp3|{short_id}")],
-            [InlineKeyboardButton("🎥 8K (4320p)", callback_data=f"down_8k|{short_id}"),
-             InlineKeyboardButton("🎥 4K (2160p)", callback_data=f"down_4k|{short_id}")],
-            [InlineKeyboardButton("🎥 1440p (2K)", callback_data=f"down_1440|{short_id}"),
-             InlineKeyboardButton("🎬 1080p (FHD)", callback_data=f"down_1080|{short_id}")],
-            [InlineKeyboardButton("🎬 720p (HD)", callback_data=f"down_720|{short_id}"),
-             InlineKeyboardButton("🎬 480p", callback_data=f"down_480|{short_id}")],
-            [InlineKeyboardButton("🎬 360p", callback_data=f"down_360|{short_id}"),
-             InlineKeyboardButton("🚀 Eng yaxshisi", callback_data=f"down_best|{short_id}")]
+            [InlineKeyboardButton(f"{ce('MEDIA_AUDIO_MP3')} MP3 (Audio)", callback_data=f"down_mp3|{short_id}")],
+            [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_FHD')} 8K (4320p)", callback_data=f"down_8k|{short_id}"),
+             InlineKeyboardButton(f"{ce('MEDIA_VIDEO_FHD')} 4K (2160p)", callback_data=f"down_4k|{short_id}")],
+            [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_FHD')} 1440p (2K)", callback_data=f"down_1440|{short_id}"),
+             InlineKeyboardButton(f"{ce('MEDIA_VIDEO_FHD')} 1080p (FHD)", callback_data=f"down_1080|{short_id}")],
+            [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} 720p (HD)", callback_data=f"down_720|{short_id}"),
+             InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} 480p", callback_data=f"down_480|{short_id}")],
+            [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} 360p", callback_data=f"down_360|{short_id}"),
+             InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} Eng yaxshisi", callback_data=f"down_best|{short_id}")]
         ]
-        await message.reply_text(f"🎬 <b>Video tanlandi:</b>\n<code>{url[:70]}</code>\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
+        await message.reply_text(f"{ce('MEDIA_VIDEO_FHD')} <b>Video tanlandi:</b>\n<code>{url[:70]}</code>\n\nQaysi formatda yuklab olamiz?", reply_markup=InlineKeyboardMarkup(buttons))
 
     # Callback for downloads
     @bot.on_callback_query(filters.regex(r"^down_"))

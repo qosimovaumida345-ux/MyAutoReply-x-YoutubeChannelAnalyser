@@ -1,4 +1,5 @@
 import os
+import re
 import time
 import uuid
 import asyncio
@@ -143,70 +144,62 @@ class VenteBotClient:
     @staticmethod
     def categorize_product(p: Dict[str, Any]) -> str:
         """92+ ta tovarning har birini 6 ta qulay toifaga ajratadi (nomi bo'yicha birinchi navbatda)"""
-        name = (p.get("name") or "").lower()
+        raw_name = (p.get("name") or "")
         desc = (p.get("description") or "").lower()
+
+        small_caps = str.maketrans('ᴀʙᴄᴅᴇғɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ', 'abcdefghijklmnopqrstuvwxyz')
+        name = raw_name.lower().translate(small_caps)
 
         if "test product" in name:
             return "test"
 
-        # 1. Kino, Musiqa & Striming (nomida qidirish birinchi navbatda)
-        if any(k in name for k in [
-            "youtube", "spotify", "netflix", "amazon", "prime video", "apple tv", "apple music", "hbo", "peacock", "wink"
-        ]):
-            return "media_streaming"
+        rules = [
+            ("media_streaming", [
+                "youtube", "spotify", "netflix", "prime video", "apple tv", "apple music",
+                "hbo max", "hbomax", "peacock", "wink", "crunchyroll"
+            ]),
+            ("ai", [
+                "chatgpt", "chat gpt", "openai", "gpt", "claude", "gemini", "google ai",
+                "grok", "xai", "cursor", "manus", "factory", "lovable", "replit", "kiro",
+                "codex", "openrouter", "groq", "flux", "midjourney", "fin ia", "fin ai", "fin",
+                "muse ai", "bolt.new", "bolt", "arize"
+            ]),
+            ("design_video", [
+                "capcut", "supercut", "descript", "elevenlabs", "eleven labs", "brain.fm",
+                "wispr", "gamma", "figma", "framer", "canva", "adobe", "magic patterns",
+                "mobbin", "miro", "autodesk", "speechify", "runway", "higgsfield", "pangram"
+            ]),
+            ("dev_tools", [
+                "supabase", "resend", "railway", "warp", "n8n", "linear", "jetbrains",
+                "ilovepdf", "wordwall", "quizlet", "quillbot", "posthog", "jam team",
+                "gumloop", "customer.io"
+            ]),
+            ("vpn_security", [
+                "nordvpn", "nord vpn", "nord", "proton vpn", "protonvpn", "proton", "hma", "proxy", "vpn",
+                "zoom", "snapchat"
+            ]),
+            ("office_edu", [
+                "duolingo", "coursera", "cousera", "notion", "readwise", "granola", "microsoft",
+                "office 365", "office", "windows", "gmail", "google drive", "trading view",
+                "tradingview", "scribd", "airtable", "waking up", "mercury", "stripe"
+            ])
+        ]
 
-        # 2. AI & LLM modellar
-        if any(k in name for k in [
-            "chatgpt", "chat gpt", "openai", "gpt", "claude", "gemini", "grok", "xai",
-            "cursor", "manus", "factory", "lovable", "lovalbe", "replit", "kiro",
-            "codex", "openrouter", "groq", "flux", "midjourney", "google ai", "fin ia"
-        ]):
-            return "ai"
-
-        # 3. Video, Ovoz & Dizayn
-        if any(k in name for k in [
-            "capcut", "supercut", "descript", "elevenlabs", "eleven labs", "brain.fm",
-            "wispr", "gamma", "figma", "framer", "canva", "adobe", "magic patterns",
-            "mobbin", "miro"
-        ]):
-            return "design_video"
-
-        # 4. Developer, Server & Avtomatlashtirish vositalari
-        if any(k in name for k in [
-            "supabase", "resend", "railway", "warp", "n8n", "linear", "jetbrains", "autodesk",
-            "ilovepdf", "wordwall", "quizlet", "quillbot", "posthog", "jam team", "gumloop", "customer.io"
-        ]):
-            return "dev_tools"
-
-        # 5. VPN, Proxy & Xavfsiz Tarmoq
-        if any(k in name for k in [
-            "nord", "proton", "hma", "proxy", "vpn", "zoom", "snapchat"
-        ]):
-            return "vpn_security"
-
-        # 6. Ofis, Ta'lim & Dasturlar
-        if any(k in name for k in [
-            "duolingo", "coursera", "cousera", "notion", "readwise", "granola", "microsoft", "office",
-            "windows", "gmail", "google drive", "trading view", "tradingview", "scribd"
-        ]):
-            return "office_edu"
+        for cat, keywords in rules:
+            for kw in keywords:
+                pattern = r'\b' + re.escape(kw) + r'\b'
+                if re.search(pattern, name) or (len(kw) > 4 and kw in name):
+                    return cat
 
         # Tavsif bo'yicha fallback (agar nomida topilmasa)
         combined = name + " " + desc
-        if any(k in combined for k in ["chatgpt", "openai", "claude", "gemini", "grok", "cursor", "replit"]):
-            return "ai"
-        if any(k in combined for k in ["capcut", "elevenlabs", "canva", "figma", "gamma"]):
-            return "design_video"
-        if any(k in combined for k in ["spotify", "netflix", "prime video", "apple tv", "apple music"]):
-            return "media_streaming"
-        if any(k in combined for k in ["railway", "n8n", "supabase", "posthog"]):
-            return "dev_tools"
-        if any(k in combined for k in ["nordvpn", "protonvpn", "proxy"]):
-            return "vpn_security"
-        if any(k in combined for k in ["duolingo", "coursera", "notion"]):
-            return "office_edu"
+        for cat, keywords in rules:
+            for kw in keywords:
+                pattern = r'\b' + re.escape(kw) + r'\b'
+                if re.search(pattern, combined):
+                    return cat
 
-        return "other"
+        return "ai"
 
     # -------------------------------------------------------------
     # 1. ACCOUNT & WALLET (/api/reseller/me)

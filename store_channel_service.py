@@ -20,7 +20,7 @@ from pyrogram.enums import ParseMode
 
 
 from config import STORE_CHANNEL, VIP_PRICE_UZS
-from custom_emojis import ce, e
+from custom_emojis import ce, e, get_brand_emoji
 from database import (
     create_channel_contest,
     get_active_contests,
@@ -113,7 +113,7 @@ async def broadcast_channel_purchase(
         text = (
             f"{ce('CART')} <b>YANGI XARID AMALGA OSHIRILDI!</b>\n\n"
             f"{ce('USER')} <b>Xaridor:</b> <code>{masked_name}</code>\n"
-            f"{ce('GIFT')} <b>Mahsulot:</b> <b>{product_name}</b>\n"
+            f"{get_brand_emoji(product_name)} <b>Mahsulot:</b> <b>{product_name}</b>\n"
             f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
             f"{ce('KEY')} <b>Buyurtma ID:</b> <code>{order_str}</code>\n"
             f"{ce('SUCCESS')} <b>Holat:</b> Muvaffaqiyatli yetkazildi\n\n"
@@ -121,8 +121,8 @@ async def broadcast_channel_purchase(
         )
 
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"Xarid qilish", url=f"https://t.me/{bot_username}?start=store")],
-            [InlineKeyboardButton(f"Botga o'tish", url=f"https://t.me/{bot_username}")]
+            [InlineKeyboardButton(f"{ce('BTN_SERVICES')} Xarid qilish", url=f"https://t.me/{bot_username}?start=store")],
+            [InlineKeyboardButton(f"{ce('MEDIA_AUTOPILOT')} Botga o'tish", url=f"https://t.me/{bot_username}")]
         ])
 
         await _send_channel_message(client, text, reply_markup=kb)
@@ -148,7 +148,7 @@ async def send_channel_restock_alert(client: Client, items_summary: Optional[str
 
         if not items_summary:
             items_summary = (
-                f"• {ce('CROWN')} <b>CapCut Pro (1-12 oylik)</b> — Zaxira to'liq to'ldirildi!\n"
+                f"• {ce('BRAND_CAPCUT')} <b>CapCut Pro (1-12 oylik)</b> — Zaxira to'liq to'ldirildi!\n"
                 f"• {ce('CHATGPT')} <b>ChatGPT Plus / OpenAI API</b> — Yangi kalitlar keldi!\n"
                 f"• {ce('GEMINI')} <b>Gemini 1.5/2.0 Flash & Pro</b> — Cheksiz tokenlar!\n"
                 f"• {ce('STAR')} <b>Telegram Stars & Sovg'alar</b> — Eng arzon narxlarda!\n"
@@ -164,8 +164,8 @@ async def send_channel_restock_alert(client: Client, items_summary: Optional[str
         )
 
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"Do'konga kirish", url=f"https://t.me/{bot_username}?start=store")],
-            [InlineKeyboardButton(f"VIP Tarif (69,000 UZS)", url=f"https://t.me/{bot_username}?start=vip")]
+            [InlineKeyboardButton(f"{ce('BTN_SERVICES')} Do'konga kirish", url=f"https://t.me/{bot_username}?start=store")],
+            [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} VIP Tarif (69,000 UZS)", url=f"https://t.me/{bot_username}?start=vip")]
         ])
 
         await _send_channel_message(client, text, reply_markup=kb)
@@ -244,8 +244,8 @@ async def send_channel_promo(client: Client, promo_index: Optional[int] = None) 
         )
 
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{promo['btn_text']}", url=f"https://t.me/{bot_username}?start={promo['start_param']}")],
-            [InlineKeyboardButton("Bosh Menyu", url=f"https://t.me/{bot_username}")]
+            [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} {promo['btn_text']}", url=f"https://t.me/{bot_username}?start={promo['start_param']}")],
+            [InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh Menyu", url=f"https://t.me/{bot_username}")]
         ])
 
         await _send_channel_message(client, text, reply_markup=kb)
@@ -296,8 +296,8 @@ async def create_and_post_contest(
         )
 
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Konkursda ishtirok etish", url=f"https://t.me/{bot_username}?start=contest_{contest_id}")],
-            [InlineKeyboardButton("Botga o'tish", url=f"https://t.me/{bot_username}")]
+            [InlineKeyboardButton(f"{ce('GIFT_TROPHY')} Konkursda ishtirok etish", url=f"https://t.me/{bot_username}?start=contest_{contest_id}")],
+            [InlineKeyboardButton(f"{ce('MEDIA_AUTOPILOT')} Botga o'tish", url=f"https://t.me/{bot_username}")]
         ])
 
         await _send_channel_message(client, text, reply_markup=kb)
