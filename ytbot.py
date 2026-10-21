@@ -1181,7 +1181,8 @@ def wallet_menu_kb(user_id=None, lang=None):
         [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")],
     ])
 
-def humo_packages_kb():
+def humo_packages_kb(lang="uz"):
+    lang = _resolve_lang(lang)
     buttons = [
         [
             InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} 10,000 so'm", callback_data="humo_pkg_10000"),
@@ -1196,10 +1197,10 @@ def humo_packages_kb():
             InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} 500,000 so'm", callback_data="humo_pkg_500000"),
         ],
         [
-            InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Boshqa summa kiritish", callback_data="humo_custom_amount"),
+            InlineKeyboardButton(f"{ce('DEV_API_DOCS')} {t('btn_custom_amount', lang)}", callback_data="humo_custom_amount"),
         ],
         [
-            InlineKeyboardButton(f"{ce('BTN_BACK')} Balans Menyusi", callback_data="menu_wallet"),
+            InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_wallet_menu', lang)}", callback_data="menu_wallet"),
         ]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -1270,53 +1271,54 @@ def marketplace_menu_kb(lang="uz"):
     lang = _resolve_lang(lang)
     return InlineKeyboardMarkup([
         # 1. Yangi Monopol To'plamlar & AI Maslahatchi
-        [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Super To'plamlar (Bundles)", callback_data="vb_bundles"),
-         InlineKeyboardButton(f"{ce('MEDIA_AUTOPILOT')} Aiko AI Maslahatchi", callback_data="store_ai_advisor")],
+        [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_mkt_bundles', lang)}", callback_data="vb_bundles"),
+         InlineKeyboardButton(f"{ce('MEDIA_AUTOPILOT')} {t('btn_mkt_advisor', lang)}", callback_data="store_ai_advisor")],
 
-        # 2. 6 ta Asosiy Raqamli Xizmatlar Toifasi (Barcha 88 ta mahsulot)
-        [InlineKeyboardButton(f"{ce('BRAND_CHATGPT')} AI & LLM Modellar", callback_data="vb_cat_ai"),
-         InlineKeyboardButton(f"{ce('BRAND_CAPCUT')} Video & Ovoz Dizayn", callback_data="vb_cat_design_video")],
-        [InlineKeyboardButton(f"{ce('BRAND_NETFLIX')} Kino & Musiqa Striming", callback_data="vb_cat_media_streaming"),
-         InlineKeyboardButton(f"{ce('BRAND_NORDVPN')} VPN & Xavfsiz Tarmoq", callback_data="vb_cat_vpn_security")],
-        [InlineKeyboardButton(f"{ce('BRAND_OFFICE365')} Ofis & Ta'lim Dasturlari", callback_data="vb_cat_office_edu"),
-         InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Developer Vositalari", callback_data="vb_cat_dev_tools")],
+        # 2. 6 ta Asosiy Raqamli Xizmatlar Toifasi
+        [InlineKeyboardButton(f"{ce('BRAND_CHATGPT')} {t('btn_cat_ai', lang)}", callback_data="vb_cat_ai"),
+         InlineKeyboardButton(f"{ce('BRAND_CAPCUT')} {t('btn_cat_design', lang)}", callback_data="vb_cat_design_video")],
+        [InlineKeyboardButton(f"{ce('BRAND_NETFLIX')} {t('btn_cat_streaming', lang)}", callback_data="vb_cat_media_streaming"),
+         InlineKeyboardButton(f"{ce('BRAND_NORDVPN')} {t('btn_cat_vpn', lang)}", callback_data="vb_cat_vpn_security")],
+        [InlineKeyboardButton(f"{ce('BRAND_OFFICE365')} {t('btn_cat_office', lang)}", callback_data="vb_cat_office_edu"),
+         InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} {t('btn_cat_dev', lang)}", callback_data="vb_cat_dev_tools")],
         
-        # 3. Maxsus Bot Xizmatlari (Pasaytirilgan so'm narxlar, $ yo'q!)
-        [InlineKeyboardButton(f"{ce('BRAND_CLAUDE')} Claude Code / Codex Tekinga Ishlatish (15,000 so'm)", callback_data="mkt_view_coding_agent")],
-        [InlineKeyboardButton(f"{ce('BRAND_PROXY_IPV4')} Private Proxy (18,000 so'm)", callback_data="mkt_view_proxy"),
-         InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} VIP Cheksiz Pro (69,000 so'm)", callback_data="mkt_view_vip")],
-        [InlineKeyboardButton(f"{ce('TOOL_LIVE_STREAM')} Autostream Cloud (2,500 so'm)", callback_data="mkt_view_autostream"),
-         InlineKeyboardButton(f"{ce('TOOL_PROMPT_PACK')} 500+ Prompt Pack (25,000 so'm)", callback_data="mkt_view_prompts")],
-        [InlineKeyboardButton(f"{ce('BRAND_OPENROUTER')} OpenRouter API (25,000 so'm)", callback_data="mkt_view_openrouter"),
-         InlineKeyboardButton(f"{ce('BRAND_GEMINI')} Gemini API (25,000 so'm)", callback_data="mkt_view_gemini")],
-        [InlineKeyboardButton(f"{ce('BRAND_GROQ')} Groq Cloud API (18,000 so'm)", callback_data="mkt_view_groq"),
-         InlineKeyboardButton(f"{ce('BRAND_CREATORFLOW')} Flux.1 AI Rasm (18,000 so'm)", callback_data="mkt_view_flux")],
-        [InlineKeyboardButton(f"{ce('MEDIA_SCISSORS')} Shorts Kesish (5,000 so'm)", callback_data="mkt_view_clipper"),
-         InlineKeyboardButton(f"{ce('MEDIA_UNIKAL')} Video Unikal (500 so'm)", callback_data="mkt_view_unikal")],
-        [InlineKeyboardButton(f"{ce('TOOL_QR_CODE')} DeepLink & QR (1,000 so'm)", callback_data="mkt_view_deeplink"),
-         InlineKeyboardButton(f"{ce('BTN_REFERRAL')} Referal & Keshbek (10%)", callback_data="mkt_view_ref")],
+        # 3. Maxsus Bot Xizmatlari
+        [InlineKeyboardButton(f"{ce('BRAND_CLAUDE')} {t('btn_mkt_claudecode', lang)}", callback_data="mkt_view_coding_agent")],
+        [InlineKeyboardButton(f"{ce('BRAND_PROXY_IPV4')} {t('btn_mkt_proxy', lang)}", callback_data="mkt_view_proxy"),
+         InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} {t('btn_mkt_vip', lang)}", callback_data="mkt_view_vip")],
+        [InlineKeyboardButton(f"{ce('TOOL_LIVE_STREAM')} {t('btn_mkt_autostream', lang)}", callback_data="mkt_view_autostream"),
+         InlineKeyboardButton(f"{ce('TOOL_PROMPT_PACK')} {t('btn_mkt_prompts', lang)}", callback_data="mkt_view_prompts")],
+        [InlineKeyboardButton(f"{ce('BRAND_OPENROUTER')} {t('btn_mkt_openrouter', lang)}", callback_data="mkt_view_openrouter"),
+         InlineKeyboardButton(f"{ce('BRAND_GEMINI')} {t('btn_mkt_gemini', lang)}", callback_data="mkt_view_gemini")],
+        [InlineKeyboardButton(f"{ce('BRAND_GROQ')} {t('btn_mkt_groq', lang)}", callback_data="mkt_view_groq"),
+         InlineKeyboardButton(f"{ce('BRAND_CREATORFLOW')} {t('btn_mkt_flux', lang)}", callback_data="mkt_view_flux")],
+        [InlineKeyboardButton(f"{ce('MEDIA_SCISSORS')} {t('btn_mkt_clipper', lang)}", callback_data="mkt_view_clipper"),
+         InlineKeyboardButton(f"{ce('MEDIA_UNIKAL')} {t('btn_mkt_unikal', lang)}", callback_data="mkt_view_unikal")],
+        [InlineKeyboardButton(f"{ce('TOOL_QR_CODE')} {t('btn_mkt_deeplink', lang)}", callback_data="mkt_view_deeplink"),
+         InlineKeyboardButton(f"{ce('BTN_REFERRAL')} {t('btn_mkt_referral', lang)}", callback_data="mkt_view_ref")],
         
-        # 4. Kanal & O'sish Xizmatlari (Layk 500, Obuna 1,000, Izoh 300)
-        [InlineKeyboardButton(f"{ce('TOOL_LIKES')} Layk (500 so'm)", callback_data="mkt_order_like"),
-         InlineKeyboardButton(f"{ce('TOOL_SUBS')} Obuna (1,000 so'm)", callback_data="mkt_order_subscribe"),
-         InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} Izoh (300 so'm)", callback_data="mkt_order_comment")],
+        # 4. Kanal & O'sish Xizmatlari
+        [InlineKeyboardButton(f"{ce('TOOL_LIKES')} {t('btn_mkt_like', lang)}", callback_data="mkt_order_like"),
+         InlineKeyboardButton(f"{ce('TOOL_SUBS')} {t('btn_mkt_sub', lang)}", callback_data="mkt_order_subscribe"),
+         InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} {t('btn_mkt_comment', lang)}", callback_data="mkt_order_comment")],
         
         # 5. Navigatsiya & Xaridlar
-        [InlineKeyboardButton(f"{ce('BTN_ORDERS')} Mening xaridlarim", callback_data="vb_my_orders"),
-         InlineKeyboardButton(f"{ce('BTN_WALLET')} Balansni to'ldirish", callback_data="menu_wallet")],
+        [InlineKeyboardButton(f"{ce('BTN_ORDERS')} {t('btn_my_orders', lang)}", callback_data="vb_my_orders"),
+         InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_top_up_balance', lang)}", callback_data="menu_wallet")],
         [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")],
     ])
 
-def order_quantity_kb(action_type):
+def order_quantity_kb(action_type, lang="uz"):
+    lang = _resolve_lang(lang)
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("1 ta (Test)", callback_data=f"mkt_qty_{action_type}_1"),
-         InlineKeyboardButton("3 ta", callback_data=f"mkt_qty_{action_type}_3"),
-         InlineKeyboardButton("5 ta", callback_data=f"mkt_qty_{action_type}_5")],
-        [InlineKeyboardButton("10 ta", callback_data=f"mkt_qty_{action_type}_10"),
-         InlineKeyboardButton("25 ta", callback_data=f"mkt_qty_{action_type}_25"),
-         InlineKeyboardButton("50 ta", callback_data=f"mkt_qty_{action_type}_50")],
-        [InlineKeyboardButton("100 ta", callback_data=f"mkt_qty_{action_type}_100")],
-        [InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="mkt_cancel")],
+        [InlineKeyboardButton(t("btn_test_qty_1", lang), callback_data=f"mkt_qty_{action_type}_1"),
+         InlineKeyboardButton(t("btn_test_qty_3", lang), callback_data=f"mkt_qty_{action_type}_3"),
+         InlineKeyboardButton(t("btn_test_qty_5", lang), callback_data=f"mkt_qty_{action_type}_5")],
+        [InlineKeyboardButton(t("btn_test_qty_10", lang), callback_data=f"mkt_qty_{action_type}_10"),
+         InlineKeyboardButton(t("btn_test_qty_25", lang), callback_data=f"mkt_qty_{action_type}_25"),
+         InlineKeyboardButton(t("btn_test_qty_50", lang), callback_data=f"mkt_qty_{action_type}_50")],
+        [InlineKeyboardButton(t("btn_test_qty_100", lang), callback_data=f"mkt_qty_{action_type}_100")],
+        [InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_mkt_cancel', lang)}", callback_data="mkt_cancel")],
     ])
 
 def order_confirm_kb(action_type, qty, total_cost):
@@ -1445,7 +1447,8 @@ def tools_menu_kb(lang="uz"):
         [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back', lang)}", callback_data="back_main")],
     ])
 
-def trending_menu_kb():
+def trending_menu_kb(lang="uz"):
+    lang = _resolve_lang(lang)
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("US", callback_data="trend_US"),
          InlineKeyboardButton("UZ", callback_data="trend_UZ"),
@@ -1456,29 +1459,31 @@ def trending_menu_kb():
         [InlineKeyboardButton("TR", callback_data="trend_TR"),
          InlineKeyboardButton("IN", callback_data="trend_IN"),
          InlineKeyboardButton("DE", callback_data="trend_DE")],
-        [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="back_main")],
+        [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back', lang)}", callback_data="back_main")],
     ])
 
-def channel_action_kb(channel_id):
+def channel_action_kb(channel_id, lang="uz"):
+    lang = _resolve_lang(lang)
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} So'nggi videolar", callback_data=f"cact_recent_{channel_id}"),
-         InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} Ommabop", callback_data=f"cact_popular_{channel_id}")],
-        [InlineKeyboardButton(f"{ce('TOOL_SERVICES')} Pleylistlar", callback_data=f"cact_playlists_{channel_id}"),
-         InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} O'sish", callback_data=f"cact_growth_{channel_id}")],
-        [InlineKeyboardButton(f"{ce('DEV_API_DOCS')} To'liq hisobot", callback_data=f"cact_report_{channel_id}"),
-         InlineKeyboardButton(f"{ce('BTN_WALLET')} Daromad", callback_data=f"cact_earn_{channel_id}")],
-        [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} Kuzatishga olish", callback_data=f"cact_track_{channel_id}"),
-         InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} Yangilash", callback_data=f"cact_refresh_{channel_id}")],
+        [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} {t('btn_recent_videos', lang)}", callback_data=f"cact_recent_{channel_id}"),
+         InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} {t('btn_popular_videos', lang)}", callback_data=f"cact_popular_{channel_id}")],
+        [InlineKeyboardButton(f"{ce('TOOL_SERVICES')} {t('btn_playlists', lang)}", callback_data=f"cact_playlists_{channel_id}"),
+         InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} {t('btn_growth', lang)}", callback_data=f"cact_growth_{channel_id}")],
+        [InlineKeyboardButton(f"{ce('DEV_API_DOCS')} {t('btn_report', lang)}", callback_data=f"cact_report_{channel_id}"),
+         InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_earnings', lang)}", callback_data=f"cact_earn_{channel_id}")],
+        [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {t('btn_track_channel', lang)}", callback_data=f"cact_track_{channel_id}"),
+         InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} {t('btn_refresh', lang)}", callback_data=f"cact_refresh_{channel_id}")],
     ])
 
-def video_action_kb(video_id):
+def video_action_kb(video_id, lang="uz"):
+    lang = _resolve_lang(lang)
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_FHD')} Videoni Yuklab Olish", callback_data=f"dl_yt_{video_id}")],
-        [InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} Izohlar", callback_data=f"vact_comments_{video_id}"),
-         InlineKeyboardButton(f"{ce('TOOL_SEO_TAGS')} Teglar", callback_data=f"vact_tags_{video_id}")],
-        [InlineKeyboardButton(f"{ce('BRAND_CANVA')} Thumbnail", callback_data=f"vact_thumb_{video_id}"),
-         InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} Engagement", callback_data=f"vact_engage_{video_id}")],
-        [InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} Yangilash", callback_data=f"vact_refresh_{video_id}")],
+        [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_FHD')} {t('btn_download_video', lang)}", callback_data=f"dl_yt_{video_id}")],
+        [InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} {t('btn_comments', lang)}", callback_data=f"vact_comments_{video_id}"),
+         InlineKeyboardButton(f"{ce('TOOL_SEO_TAGS')} {t('btn_tags', lang)}", callback_data=f"vact_tags_{video_id}")],
+        [InlineKeyboardButton(f"{ce('BRAND_CANVA')} {t('btn_thumbnail', lang)}", callback_data=f"vact_thumb_{video_id}"),
+         InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} {t('btn_engagement', lang)}", callback_data=f"vact_engage_{video_id}")],
+        [InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} {t('btn_refresh', lang)}", callback_data=f"vact_refresh_{video_id}")],
     ])
 
 def back_main_kb(lang="uz"):
@@ -2492,15 +2497,10 @@ def create_ytbot():
                     ch_clean = target_ch.replace("@", "").strip()
                     ch_url = f"https://t.me/{ch_clean}"
                     kb = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"{ce('MEDIA_YOUTUBE')} Kanalga a'zo bo'lish", url=ch_url)],
-                        [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} Obunani tekshirish", callback_data="sub_check")]
+                        [InlineKeyboardButton(f"{ce('MEDIA_YOUTUBE')} {t('btn_join_channel', lang)}", url=ch_url)],
+                        [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} {t('btn_verify_sub', lang)}", callback_data="sub_check")]
                     ])
-                    forcesub_text = (
-                        f"{ce('CHANNEL')} <b>CreatorFlow Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\n"
-                        f"Bot xizmatlaridan to'liq foydalanish, restock yangiliklarini kuzatish va "
-                        f"sovrinli konkurslarda ishtirok etish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n"
-                        f"{ce('WARN')} <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>"
-                    )
+                    forcesub_text = t("forcesub_prompt", lang, ch_clean=ch_clean)
                     await message.reply_text(forcesub_text, reply_markup=kb)
                     return
                 else:
@@ -2511,15 +2511,10 @@ def create_ytbot():
                     ch_clean = target_ch.replace("@", "").strip()
                     ch_url = f"https://t.me/{ch_clean}"
                     kb = InlineKeyboardMarkup([
-                        [InlineKeyboardButton(f"{ce('MEDIA_YOUTUBE')} Kanalga a'zo bo'lish", url=ch_url)],
-                        [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} Obunani tekshirish", callback_data="sub_check")]
+                        [InlineKeyboardButton(f"{ce('MEDIA_YOUTUBE')} {t('btn_join_channel', lang)}", url=ch_url)],
+                        [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} {t('btn_verify_sub', lang)}", callback_data="sub_check")]
                     ])
-                    forcesub_text = (
-                        f"{ce('CHANNEL')} <b>CreatorFlow Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\n"
-                        f"Bot xizmatlaridan to'liq foydalanish, restock yangiliklarini kuzatish va "
-                        f"sovrinli konkurslarda ishtirok etish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n"
-                        f"{ce('WARN')} <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>"
-                    )
+                    forcesub_text = t("forcesub_prompt", lang, ch_clean=ch_clean)
                     await message.reply_text(forcesub_text, reply_markup=kb)
                     return
                 else:
@@ -2529,18 +2524,11 @@ def create_ytbot():
         ph = get_telegram_phone(user_id)
         if not is_admin and not ph:
             reply_kb = ReplyKeyboardMarkup(
-                [[KeyboardButton("📱 Telefon raqamimni ulashish", request_contact=True)]],
+                [[KeyboardButton(t("btn_share_contact", lang), request_contact=True)]],
                 resize_keyboard=True,
                 one_time_keyboard=True
             )
-            txt = (
-                f"{ce('SHIELD')} <b>Xavfsizlik & Kirish Verifikatsiyasi</b>\n\n"
-                f"Hurmatli foydalanuvchi, firibgarlik (fake va soxta akkauntlar)ning oldini olish "
-                f"hamda hisobingiz xavfsizligini ta'minlash uchun botdan foydalanishdan avval "
-                f"telefon raqamingizni tasdiqlang!\n\n"
-                f"{ce('WARN')} <b>Qo'lda telefon raqam yozish qabul qilinmaydi (aldovning oldini olish uchun).</b>\n"
-                f"Iltimos, pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasi orqali o'z akkauntingizga ulangan raqamni yuboring:"
-            )
+            txt = t("phone_req_prompt", lang)
             await message.reply_text(txt, reply_markup=reply_kb)
             return
 
@@ -2912,55 +2900,32 @@ def create_ytbot():
         await message.reply_text(text, reply_markup=kb)
 
     # ==================== TARIFLAR & VIP MENYU (69,000 UZS) ====================
-    async def get_tariffs_menu(user_id: int):
+    async def get_tariffs_menu(user_id: int, lang=None):
         from database import get_user_verification_tier, get_user_vip_info, get_telegram_phone
         tier_info = get_user_verification_tier(user_id)
         vip_info = get_user_vip_info(user_id)
         web_url = os.environ.get("WEB_URL", WEB_APP_URL)
         ph = get_telegram_phone(user_id)
+        lang = lang or get_user_language(user_id)
         raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
         target_ch = "" if raw_target_ch.lower() in ("@creatorflow_store", "creatorflow_store", "none", "off", "") else raw_target_ch
 
         if tier_info["is_vip"]:
             exp = vip_info.get("vip_expires_at")
-            exp_str = str(exp)[:16] if exp else "Faol"
-            status_line = f"{ce('CROWN')} <b>Joriy statusingiz:</b> <b>CREATORFLOW VIP</b> (Amal qilish muddati: <code>{exp_str}</code>)"
+            exp_str = str(exp)[:16] if exp else "Active"
+            status_line = t("status_vip", lang, exp=exp_str)
         elif tier_info["is_face_verified"]:
-            status_line = f"{ce('SHIELD')} <b>Joriy statusingiz:</b> <b>To'liq Tasdiqlangan (3D Biometrik)</b>"
+            status_line = t("status_face", lang)
         elif tier_info["has_phone"]:
-            status_line = f"{ce('CHECK')} <b>Joriy statusingiz:</b> <b>Yarim Tasdiqlangan (Baza)</b>"
+            status_line = t("status_phone", lang)
         else:
-            status_line = f"{ce('WARN')} <b>Joriy statusingiz:</b> <b>Tasdiqlanmagan</b>"
+            status_line = t("status_unverified", lang)
 
-        text = (
-            f"{ce('CROWN')} <b>CreatorFlow Studio — Foydalanuvchi Darajalari & Tariflar</b>\n\n"
-            f"{status_line}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"{ce('BTN_LEADERBOARD')} <b>1. YARIM VERIFIED (BAZA / BEPUL)</b>\n"
-            f"• Sharti: {target_ch} kanaliga a'zolik + Telefon raqam ulashilgan\n"
-            f"• Kunlik limit: 15 ta bepul so'rov (video yuklash, audio ajratish)\n"
-            f"• Do'kon: Barcha mahsulot va API kalitlarni sotib olish\n"
-            f"• O'yinlar: Lucky Wheel (kunlik bepul) va Mystery Box\n\n"
-            f"{ce('STATUS_SECURITY')} <b>2. TO'LIQ VERIFIED (FULL 3D BIOMETRIK / BEPUL)</b>\n"
-            f"• Sharti: 3D Face ID skaneri (MediaPipe 468 mesh) dan o'tish\n"
-            f"• Kunlik limit: 25 ta kengaytirilgan so'rov\n"
-            f"• Ishonchli nishon: {ce('SHIELD')} Rasmiy tasdiqlangan foydalanuvchi\n"
-            f"• Barcha bot funksiyalarida yuqori ishonch reytingi\n\n"
-            f"{ce('PAY_VIP_CROWN')} <b>3. CREATORFLOW VIP STATUS ({VIP_PRICE_UZS:,} UZS / OY)</b>\n"
-            f"• Narxi: <b>{VIP_PRICE_UZS:,} so'm / 30 kun</b> (yoki {VIP_PRICE_STARS} ⭐ Stars)\n"
-            f"• {ce('CHECK')} <b>Cheksiz limitlar:</b> Kunlik barcha amallar to'liq cheklovlarsiz!\n"
-            f"• {ce('ROCKET')} <b>24/7 Ustuvor navbat:</b> Priority Worker va Streamer kuchi\n"
-            f"• {ce('FIRE')} <b>Restock imtiyozi:</b> Yangi mahsulotlarni birinchilardan bo'lib xarid qilish\n"
-            f"• {ce('CASHBACK')} <b>Keshbek:</b> Har bir xariddan 10% keshbek\n"
-            f"• {ce('TICKET')} <b>VIP Konkurslar:</b> Yopiq sovrinli konkurslarda avtomatik ishtirok\n"
-            f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"👇 <i>Kerakli amalni tanlang:</i>"
-        )
+        text = t("tariffs_title", lang, status_line=status_line, target_ch=target_ch, vip_price=f"{VIP_PRICE_UZS:,}", vip_stars=VIP_PRICE_STARS)
 
-        lang = get_user_language(user_id)
         btns = [
             [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} {t('btn_tariffs_vip', lang)} (69,000 UZS)", callback_data="vip_buy_69k")],
-            [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} 3D KYC (Full)", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={ph}"))],
+            [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {t('btn_kyc_3d', lang)}", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={ph}"))],
             [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
         ]
         return text, InlineKeyboardMarkup(btns)
@@ -3828,24 +3793,17 @@ def create_ytbot():
         base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://creatorflow-studio.onrender.com"
         web_app_url = base_domain if base_domain.startswith("http") else "https://creatorflow-studio.onrender.com"
 
-        text = (
-            f"🎁 <b>Omadli Quti & Mystery Cases (Stars & UZS So'm)</b>\n\n"
-            f"Keyslarni <b>Telegram Stars</b> yoki <b>UZS (so'm) balansingiz</b> orqali ochishingiz mumkin!\n"
-            f"Har bir keysdan haqiqiy Telegram sovg'alari yoki Telegram Premium yutib olishingiz mumkin!\n\n"
-            f"💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>"
-            f"{recent_text}\n\n"
-            f"👇 <i>Ochmoqchi bo'lgan keysingizni tanlang:</i>"
-        )
+        text = t("box_menu_text", lang, bal=bal, recent_text=recent_text)
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Bronze Mini (25 ⭐ / 10,000 so'm)", callback_data="box_tier_tier_1")],
             [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Silver Creator (75 ⭐ / 30,000 so'm)", callback_data="box_tier_tier_2")],
             [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Gold Pro Studio (250 ⭐ / 100,000 so'm)", callback_data="box_tier_tier_3")],
             [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Platinum VIP (750 ⭐ / 300,000 so'm)", callback_data="box_tier_tier_4")],
             [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Diamond Galaxy (2,500 ⭐ / 1,000,000 so'm)", callback_data="box_tier_tier_5")],
-            [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Oddiy Quti (6,000 so'm)", callback_data="box_open")],
+            [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_normal_box', lang)}", callback_data="box_open")],
             [InlineKeyboardButton(f"{e('STAR')} Stars NFT Cases (Web App 3D)", web_app=WebAppInfo(url=web_app_url))],
-            [InlineKeyboardButton(f"{ce('BTN_BACK')} O'yinlar menyusi", callback_data="menu_games"),
-             InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh menyu", callback_data="back_main")]
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_games_menu', lang)}", callback_data="menu_games"),
+             InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
         ])
         await callback_query.message.edit_text(text, reply_markup=kb)
         await callback_query.answer()
@@ -4222,20 +4180,21 @@ def create_ytbot():
         can_free = can_user_free_spin(user_id)
         bal = get_user_balance(user_id)
         
-        status_text = "🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"
-        text = (
-            f"🎯 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
-            f"Har kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n"
-            f"{status_text}\n"
-            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"🎁 <b>Sovg'alar:</b> 200 so'm, 500 so'm, 1,000 so'm, 2,500 so'm, Groq Cloud API!"
-        )
+        status_text_map = {
+            "uz": ("🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"),
+            "ru": ("🟢 <b>У вас есть бесплатное вращение!</b>" if can_free else "⏳ <b>Бесплатное вращение использовано.</b> (Доп. спин: 3,000 сум)"),
+            "en": ("🟢 <b>Your daily free spin is available!</b>" if can_free else "⏳ <b>Daily free spin used.</b> (Extra spin: 3,000 UZS)"),
+            "es": ("🟢 <b>¡Tienes un giro gratis hoy!</b>" if can_free else "⏳ <b>Giro gratis usado.</b> (Giro extra: 3,000 UZS)"),
+            "tr": ("🟢 <b>Bugünkü ücretsiz çevirmeniz hazır!</b>" if can_free else "⏳ <b>Ücretsiz çevirme kullanıldı.</b> (Ekstra çevirme: 3,000 UZS)")
+        }
+        status_text = status_text_map.get(lang, status_text_map["en"])
+        text = t("wheel_menu_text", lang, status_text=status_text, bal=bal)
         buttons = []
         if can_free:
-            buttons.append([InlineKeyboardButton(f"{ce('TOOL_GOAL')} Bepul aylantirish (Spin)", callback_data="spin_free")])
-        buttons.append([InlineKeyboardButton(f"{ce('GAME_WHEEL_SPIN')} Pullik aylantirish (3,000 so'm)", callback_data="spin_paid")])
-        buttons.append([InlineKeyboardButton(f"{ce('BTN_BACK')} O'yinlar menyusi", callback_data="menu_games"),
-                        InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh menyu", callback_data="back_main")])
+            buttons.append([InlineKeyboardButton(f"{ce('TOOL_GOAL')} {t('btn_free_spin', lang)}", callback_data="spin_free")])
+        buttons.append([InlineKeyboardButton(f"{ce('GAME_WHEEL_SPIN')} {t('btn_paid_spin', lang)}", callback_data="spin_paid")])
+        buttons.append([InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_games_menu', lang)}", callback_data="menu_games"),
+                        InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")])
         
         await message.reply_text(text, reply_markup=InlineKeyboardMarkup(buttons))
 
@@ -4243,26 +4202,26 @@ def create_ytbot():
     async def spin_wheel_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
-        lang = get_user_language(user_id)
         if not await check_service_available("wheel_spin", callback_query, lang):
             return
         can_free = can_user_free_spin(user_id)
         bal = get_user_balance(user_id)
         
-        status_text = "🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"
-        text = (
-            f"🎯 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\n"
-            f"Har kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n"
-            f"{status_text}\n"
-            f"💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"🎁 <b>Sovg'alar:</b> 200 so'm, 500 so'm, 1,000 so'm, 2,500 so'm, Groq Cloud API!"
-        )
+        status_text_map = {
+            "uz": ("🟢 <b>Bugungi bepul spiningiz mavjud!</b>" if can_free else "⏳ <b>Bugungi bepul spin ishlatilgan.</b> (Qo'shimcha spin: 3,000 so'm)"),
+            "ru": ("🟢 <b>У вас есть бесплатное вращение!</b>" if can_free else "⏳ <b>Бесплатное вращение использовано.</b> (Доп. спин: 3,000 сум)"),
+            "en": ("🟢 <b>Your daily free spin is available!</b>" if can_free else "⏳ <b>Daily free spin used.</b> (Extra spin: 3,000 UZS)"),
+            "es": ("🟢 <b>¡Tienes un giro gratis hoy!</b>" if can_free else "⏳ <b>Giro gratis usado.</b> (Giro extra: 3,000 UZS)"),
+            "tr": ("🟢 <b>Bugünkü ücretsiz çevirmeniz hazır!</b>" if can_free else "⏳ <b>Ücretsiz çevirme kullanıldı.</b> (Ekstra çevirme: 3,000 UZS)")
+        }
+        status_text = status_text_map.get(lang, status_text_map["en"])
+        text = t("wheel_menu_text", lang, status_text=status_text, bal=bal)
         buttons = []
         if can_free:
-            buttons.append([InlineKeyboardButton(f"{ce('TOOL_GOAL')} Bepul aylantirish (Spin)", callback_data="spin_free")])
-        buttons.append([InlineKeyboardButton(f"{ce('GAME_WHEEL_SPIN')} Pullik aylantirish (3,000 so'm)", callback_data="spin_paid")])
-        buttons.append([InlineKeyboardButton(f"{ce('BTN_BACK')} O'yinlar menyusi", callback_data="menu_games"),
-                        InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh menyu", callback_data="back_main")])
+            buttons.append([InlineKeyboardButton(f"{ce('TOOL_GOAL')} {t('btn_free_spin', lang)}", callback_data="spin_free")])
+        buttons.append([InlineKeyboardButton(f"{ce('GAME_WHEEL_SPIN')} {t('btn_paid_spin', lang)}", callback_data="spin_paid")])
+        buttons.append([InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_games_menu', lang)}", callback_data="menu_games"),
+                        InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")])
         
         await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons))
         await callback_query.answer()
@@ -4476,20 +4435,14 @@ def create_ytbot():
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
         bal = get_user_balance(user_id)
-        text = (
-            f"🎟 <b>Jekpot Mega Lotereya (Tiraj #{info['pool_id']})</b>\n\n"
-            f"🎫 <b>1 ta bilet narxi:</b> <code>3,000 so'm</code>\n"
-            f"📊 <b>Sotilgan biletlar:</b> <code>{info['tickets_sold']} ta</code>\n"
-            f"🏆 <b>G'olibga Jekpot:</b> <code>{info['prize_fund']:,} so'm</code>\n"
-            f"💳 <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
-        )
+        text = t("lottery_menu_text", lang, pool_id=info['pool_id'], tickets_sold=info['tickets_sold'], prize_fund=info['prize_fund'], bal=bal)
         kb = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton(f"{ce('PAY_PROMOCODE')} 1 ta bilet (3,000 so'm)", callback_data="lottery_buy_1"),
-                InlineKeyboardButton(f"{ce('PAY_PROMOCODE')} 5 ta bilet (15,000 so'm)", callback_data="lottery_buy_5")
+                InlineKeyboardButton(f"{ce('PAY_PROMOCODE')} {t('btn_buy_tickets_1', lang)}", callback_data="lottery_buy_1"),
+                InlineKeyboardButton(f"{ce('PAY_PROMOCODE')} {t('btn_buy_tickets_5', lang)}", callback_data="lottery_buy_5")
             ],
-            [InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} Yangilash", callback_data="lottery_refresh"),
-             InlineKeyboardButton(f"{ce('BTN_BACK')} O'yinlar menyusi", callback_data="menu_games")],
+            [InlineKeyboardButton(f"{ce('DEV_ROTATE_KEY')} {t('btn_refresh', lang)}", callback_data="lottery_refresh"),
+             InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_games_menu', lang)}", callback_data="menu_games")],
             [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
         ])
         await callback_query.message.edit_text(text, reply_markup=kb)
@@ -4725,16 +4678,9 @@ def create_ytbot():
         duels_text = ""
         if open_duels:
             duels_text = "\n\n⚔️ <b>Hozirgi faol duellar:</b>\n" + "\n".join([f"• Duel #{d['id']}: <code>{d['amount_uzs']:,} so'm</code> ({d['choice'].upper()})" for d in open_duels])
-        text = (
-            f"⚔️ <b>PvP Tanga Tashlash (Coin Flip)</b>\n\n"
-            f"Boshqa o'yinchilar bilan garov boylab o'ynang! G'olib jami bankning 90%ini oladi (10% kassa xizmati).\n\n"
-            f"ℹ️ <b>Qanday o'ynash kerak:</b>\n"
-            f"Chatda <code>/duel &lt;summa&gt; [burgut|panja]</code> buyrug'ini yuboring.\n\n"
-            f"<b>Masalan:</b> <code>/duel 5000 burgut</code>"
-            f"{duels_text}"
-        )
+        text = t("duel_menu_text", lang, duels_text=duels_text)
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{ce('BTN_BACK')} O'yinlar menyusi", callback_data="menu_games")],
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_games_menu', lang)}", callback_data="menu_games")],
             [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
         ])
         await callback_query.message.edit_text(text, reply_markup=kb)
@@ -6772,34 +6718,7 @@ def create_ytbot():
             if not await check_service_available("marketplace", cb, lang):
                 return
             bal = get_user_balance(user_id)
-            from database import get_api_keys_stock_count, get_proxies_stock_count
-            stock = get_api_keys_stock_count()
-            op_stock = stock.get("openrouter", 0)
-            gm_stock = stock.get("gemini", 0)
-            gq_stock = stock.get("groq", 0)
-            pr_stock = get_proxies_stock_count()
-            text = (
-                f"{ce('STORE')} <b>CreatorFlow Raqamli Xizmatlar & Marketplace</b>\n\n"
-                f"{ce('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
-                f"<b>{ce('GLOBE')} Proxy & Server Quvvati:</b>\n"
-                f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> 18,000 so'm — <i>Zaxirada: {pr_stock} ta</i>\n"
-                f"• {ce('STREAM')} <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n"
-                f"<b>{ce('AI')} AI Modellar & Developer Vositalar:</b>\n"
-                f"• {ce('CLAUDE_CODE')} <b>Claude Code / Codex:</b> 15,000 so'm — <i>Terminalda tekinga ishlatish</i>\n"
-                f"• {ce('OPENROUTER')} <b>OpenRouter API:</b> 25,000 so'm — <i>Zaxirada: {op_stock} ta</i>\n"
-                f"• {ce('GEMINI')} <b>Google Gemini API:</b> 25,000 so'm — <i>Zaxirada: {gm_stock} ta</i>\n"
-                f"• {ce('GROQ')} <b>Groq Cloud API:</b> 18,000 so'm — <i>Zaxirada: {gq_stock} ta</i>\n\n"
-                f"<b>{ce('DESIGN')} Kreativ & Kontent:</b>\n"
-                f"• {ce('FLUX')} <b>Flux.1 AI Rasm Generatsiya:</b> 18,000 so'm (25 ta rasm)\n"
-                f"• {ce('IDEA')} <b>500+ Viral Prompt & SEO Tag Pack:</b> 25,000 so'm\n"
-                f"• {ce('CLIPPER')} <b>Vertical Shorts Kesish:</b> 5,000 so'm / video\n\n"
-                f"<b>{ce('ROCKET')} Kanal Rivojlantirish & DeepLink:</b>\n"
-                f"• {ce('QR_DEEPLINK')} <b>YouTube DeepLink & Smart QR:</b> 1,000 so'm\n"
-                f"• {ce('LIGHTNING')} <b>Video Unikalizatsiya:</b> 500 so'm\n"
-                f"• {ce('VIP')} <b>VIP Cheksiz Pro Obuna:</b> 69,000 so'm / oy\n"
-                f"• {ce('STARS')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
-                f"{ce('PIN')} Kerakli mahsulot yoki toifani tanlang:"
-            )
+            text = t("marketplace_header_text", lang, bal=bal)
             await cb.message.edit_text(text, reply_markup=marketplace_menu_kb(lang))
             await cb.answer()
             return

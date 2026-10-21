@@ -1040,3 +1040,172 @@ def t(key: str, lang: str = "en", **kwargs) -> str:
 
 # Extra menu & navigation keys
 TRANSLATIONS.update({'menu_channel_header': {'uz': '**Kanal tahlili**\n\nKanal nomini yoki URL ni buyruq bilan yuboring:', 'ru': '**Анализ канала**\n\nОтправьте название или URL канала с командой:', 'en': '**Channel Analytics**\n\nSend channel name or URL with a command:', 'es': '**Análisis del Canal**\n\nEnvía el nombre o URL del canal con un comando:', 'tr': "**Kanal Analizi**\n\nKomutla birlikte kanal adını veya URL'sini gönderin:"}, 'menu_video_header': {'uz': '**Video tahlili**\n\nVideo URL ni buyruq bilan yuboring:', 'ru': '**Анализ видео**\n\nОтправьте URL видео с командой:', 'en': '**Video Analytics**\n\nSend video URL with a command:', 'es': '**Análisis de Video**\n\nEnvía la URL del video con un comando:', 'tr': "**Video Analizi**\n\nKomutla birlikte video URL'sini gönderin:"}, 'menu_analytics_header': {'uz': "**Analitika va O'sish**\n\nKanal nomini buyruq bilan yuboring:", 'ru': '**Аналитика и Рост**\n\nОтправьте название канала с командой:', 'en': '**Analytics & Growth**\n\nSend channel name with a command:', 'es': '**Analítica y Crecimiento**\n\nEnvía el nombre del canal con un comando:', 'tr': '**Analitik ve Büyüme**\n\nKomutla birlikte kanal adını gönderin:'}, 'menu_search_header': {'uz': "**Qidiruv**\n\nQidiruv so'zini buyruq bilan yuboring:", 'ru': '**Поиск**\n\nОтправьте поисковый запрос с командой:', 'en': '**Search**\n\nSend search keyword with a command:', 'es': '**Búsqueda**\n\nEnvía la palabra de búsqueda con un comando:', 'tr': '**Arama**\n\nArama terimini bir komutla gönderin:'}, 'menu_tracking_header': {'uz': '**Kanal kuzatuvi**\n\nKanallarni kuzatib boring:', 'ru': '**Отслеживание каналов**\n\nОтслеживайте выбранные каналы:', 'en': '**Channel Tracking**\n\nTrack selected channels:', 'es': '**Seguimiento de Canales**\n\nSigue los canales seleccionados:', 'tr': '**Kanal Takibi**\n\nSeçilen kanalları takip edin:'}, 'menu_tools_header': {'uz': '**Asboblar**\n\nTurli foydali vositalar:', 'ru': '**Инструменты**\n\nРазличные полезные утилиты:', 'en': '**Tools**\n\nUseful utility tools:', 'es': '**Herramientas**\n\nUtilidades y herramientas útiles:', 'tr': '**Araçlar**\n\nFaydalı araçlar ve yardımcı programlar:'}, 'menu_trending_header': {'uz': '**Trending**\n\nDavlatni tanlang:', 'ru': '**Тренды**\n\nВыберите страну:', 'en': '**Trending**\n\nSelect a country:', 'es': '**Tendencias**\n\nSelecciona un país:', 'tr': '**Trendler**\n\nBir ülke seçin:'}, 'menu_help_header': {'uz': '**Yordam**\n\nKategoriyani tanlang:', 'ru': '**Помощь**\n\nВыберите категорию:', 'en': '**Help**\n\nSelect a category:', 'es': '**Ayuda**\n\nSelecciona una categoría:', 'tr': '**Yardım**\n\nBir kategori seçin:'}, 'btn_search_video': {'uz': 'Video qidirish', 'ru': 'Поиск видео', 'en': 'Search Video', 'es': 'Buscar Video', 'tr': 'Video Ara'}, 'btn_search_channel': {'uz': 'Kanal qidirish', 'ru': 'Поиск канала', 'en': 'Search Channel', 'es': 'Buscar Canal', 'tr': 'Kanal Ara'}, 'btn_search_playlist': {'uz': 'Pleylist qidirish', 'ru': 'Поиск плейлистов', 'en': 'Search Playlist', 'es': 'Buscar Playlist', 'tr': 'Oynatma Listesi Ara'}, 'btn_milestone': {'uz': 'Milestone', 'ru': 'Вехи (Milestone)', 'en': 'Milestones', 'es': 'Hitos', 'tr': 'Kilometre Taşları'}, 'btn_nft_market': {'uz': 'NFT Kolleksiya (Bozor)', 'ru': 'Коллекция NFT (Рынок)', 'en': 'NFT Collection (Market)', 'es': 'Colección NFT (Mercado)', 'tr': 'NFT Koleksiyonu (Pazar)'}, 'btn_nft_my': {'uz': 'Mening NFT larim', 'ru': 'Мои NFT', 'en': 'My NFTs', 'es': 'Mis NFTs', 'tr': "NFT'lerim"}, 'btn_cashout_stars': {'uz': 'Telegram Stars orqali', 'ru': 'Через Telegram Stars', 'en': 'Via Telegram Stars', 'es': 'Vía Telegram Stars', 'tr': 'Telegram Stars ile'}, 'btn_cashout_ton': {'uz': 'TON Kriptovalyuta orqali', 'ru': 'Через криптовалюту TON', 'en': 'Via TON Cryptocurrency', 'es': 'Vía Criptomoneda TON', 'tr': 'TON Kripto ile'}, 'cashout_menu_text': {'uz': 'Hisobdan Pul Yechish (Cashout)\n\nPul yechish usulini tanlang:', 'ru': 'Вывод средств (Cashout)\n\nВыберите способ вывода средств:', 'en': 'Funds Withdrawal (Cashout)\n\nSelect a withdrawal method:', 'es': 'Retiro de Fondos (Cashout)\n\nSelecciona el método de retiro:', 'tr': 'Para Çekme (Cashout)\n\nÇekim yöntemini seçin:'}})
+
+
+# ==================== COMPREHENSIVE MULTILINGUAL ADDITIONS ====================
+EXTRA_I18N = {
+    # Marketplace Category Buttons
+    "btn_mkt_bundles": {"uz": "Super To'plamlar (Bundles)", "ru": "Супер Наборы (Bundles)", "en": "Super Bundles", "es": "Súper Paquetes", "tr": "Süper Paketler"},
+    "btn_mkt_advisor": {"uz": "Aiko AI Maslahatchi", "ru": "Aiko AI Советник", "en": "Aiko AI Advisor", "es": "Asesor Aiko AI", "tr": "Aiko AI Danışmanı"},
+    "btn_cat_ai": {"uz": "AI & LLM Modellar", "ru": "AI & LLM Модели", "en": "AI & LLM Models", "es": "Modelos AI & LLM", "tr": "AI & LLM Modelleri"},
+    "btn_cat_design": {"uz": "Video & Ovoz Dizayn", "ru": "Видео и Звуковой Дизайн", "en": "Video & Audio Design", "es": "Diseño de Video y Audio", "tr": "Video & Ses Tasarımı"},
+    "btn_cat_streaming": {"uz": "Kino & Musiqa Striming", "ru": "Кино и Музыка Стриминг", "en": "Movies & Music Streaming", "es": "Streaming de Películas y Música", "tr": "Film ve Müzik Yayını"},
+    "btn_cat_vpn": {"uz": "VPN & Xavfsiz Tarmoq", "ru": "VPN и Безопасная Сеть", "en": "VPN & Security", "es": "VPN y Red Segura", "tr": "VPN ve Güvenli Ağ"},
+    "btn_cat_office": {"uz": "Ofis & Ta'lim Dasturlari", "ru": "Офис и Обучение", "en": "Office & Education", "es": "Oficina y Educación", "tr": "Ofis ve Eğitim"},
+    "btn_cat_dev": {"uz": "Developer Vositalari", "ru": "Инструменты Разработчика", "en": "Developer Tools", "es": "Herramientas de Desarrollador", "tr": "Geliştirici Araçları"},
+
+    # Marketplace Service Buttons
+    "btn_mkt_claudecode": {"uz": "Claude Code / Codex Tekin (15k UZS)", "ru": "Claude Code / Codex Бесплатно (15k UZS)", "en": "Claude Code / Codex Free (15k UZS)", "es": "Claude Code / Codex Gratis (15k UZS)", "tr": "Claude Code / Codex Ücretsiz (15k UZS)"},
+    "btn_mkt_proxy": {"uz": "Private Proxy (18k UZS)", "ru": "Приватный Прокси (18k UZS)", "en": "Private Proxy (18k UZS)", "es": "Proxy Privado (18k UZS)", "tr": "Özel Proxy (18k UZS)"},
+    "btn_mkt_vip": {"uz": "VIP Cheksiz Pro (69k UZS)", "ru": "VIP Безлимитный Pro (69k UZS)", "en": "VIP Unlimited Pro (69k UZS)", "es": "VIP Ilimitado Pro (69k UZS)", "tr": "VIP Sınırsız Pro (69k UZS)"},
+    "btn_mkt_autostream": {"uz": "Autostream Cloud (2.5k/soat)", "ru": "Автострим Облако (2.5k/час)", "en": "Autostream Cloud (2.5k/hr)", "es": "Autostream Cloud (2.5k/h)", "tr": "Autostream Bulut (2.5k/saat)"},
+    "btn_mkt_prompts": {"uz": "500+ Prompt Pack (25k UZS)", "ru": "500+ Промпт Пак (25k UZS)", "en": "500+ Prompt Pack (25k UZS)", "es": "Pack 500+ Prompts (25k UZS)", "tr": "500+ Prompt Paketi (25k UZS)"},
+    "btn_mkt_openrouter": {"uz": "OpenRouter API (25k UZS)", "ru": "OpenRouter API (25k UZS)", "en": "OpenRouter API (25k UZS)", "es": "OpenRouter API (25k UZS)", "tr": "OpenRouter API (25k UZS)"},
+    "btn_mkt_gemini": {"uz": "Gemini API (25k UZS)", "ru": "Gemini API (25k UZS)", "en": "Gemini API (25k UZS)", "es": "Gemini API (25k UZS)", "tr": "Gemini API (25k UZS)"},
+    "btn_mkt_groq": {"uz": "Groq Cloud API (18k UZS)", "ru": "Groq Cloud API (18k UZS)", "en": "Groq Cloud API (18k UZS)", "es": "Groq Cloud API (18k UZS)", "tr": "Groq Cloud API (18k UZS)"},
+    "btn_mkt_flux": {"uz": "Flux.1 AI Rasm (18k UZS)", "ru": "Flux.1 AI Картинки (18k UZS)", "en": "Flux.1 AI Images (18k UZS)", "es": "Imágenes Flux.1 AI (18k UZS)", "tr": "Flux.1 AI Görsel (18k UZS)"},
+    "btn_mkt_clipper": {"uz": "Shorts Kesish (5k UZS)", "ru": "Нарезка Shorts (5k UZS)", "en": "Shorts Clipper (5k UZS)", "es": "Clipper de Shorts (5k UZS)", "tr": "Shorts Kırpıcı (5k UZS)"},
+    "btn_mkt_unikal": {"uz": "Video Unikal (500 UZS)", "ru": "Уникализация Видео (500 UZS)", "en": "Video Uniquifier (500 UZS)", "es": "Unificador de Video (500 UZS)", "tr": "Video Özgünleştirici (500 UZS)"},
+    "btn_mkt_deeplink": {"uz": "DeepLink & QR (1k UZS)", "ru": "DeepLink и QR (1k UZS)", "en": "DeepLink & QR (1k UZS)", "es": "DeepLink y QR (1k UZS)", "tr": "DeepLink ve QR (1k UZS)"},
+    "btn_mkt_referral": {"uz": "Referal & Keshbek (10%)", "ru": "Реферал и Кэшбэк (10%)", "en": "Referral & Cashback (10%)", "es": "Referidos y Cashback (10%)", "tr": "Referans ve Geri Ödeme (%10)"},
+    "btn_mkt_like": {"uz": "Layk (500 UZS)", "ru": "Лайк (500 UZS)", "en": "Likes (500 UZS)", "es": "Me gusta (500 UZS)", "tr": "Beğeni (500 UZS)"},
+    "btn_mkt_sub": {"uz": "Obuna (1,000 UZS)", "ru": "Подписка (1,000 UZS)", "en": "Subscribe (1,000 UZS)", "es": "Suscripción (1,000 UZS)", "tr": "Abone (1,000 UZS)"},
+    "btn_mkt_comment": {"uz": "Izoh (300 UZS)", "ru": "Комментарий (300 UZS)", "en": "Comment (300 UZS)", "es": "Comentario (300 UZS)", "tr": "Yorum (300 UZS)"},
+    "btn_top_up_balance": {"uz": "Balansni to'ldirish", "ru": "Пополнить баланс", "en": "Top-up Balance", "es": "Recargar Saldo", "tr": "Bakiye Yükle"},
+    "btn_my_orders": {"uz": "Mening xaridlarim", "ru": "Мои покупки", "en": "My Purchases", "es": "Mis compras", "tr": "Satın Alımlarım"},
+    "btn_mkt_cancel": {"uz": "Bekor qilish", "ru": "Отмена", "en": "Cancel", "es": "Cancelar", "tr": "İptal"},
+
+    # Action Keyboards
+    "btn_recent_videos": {"uz": "So'nggi videolar", "ru": "Последние видео", "en": "Recent Videos", "es": "Videos recientes", "tr": "Son Videolar"},
+    "btn_popular_videos": {"uz": "Ommabop", "ru": "Популярные", "en": "Popular Videos", "es": "Videos populares", "tr": "Popüler Videolar"},
+    "btn_growth": {"uz": "O'sish", "ru": "Рост", "en": "Growth", "es": "Crecimiento", "tr": "Büyüme"},
+    "btn_report": {"uz": "To'liq hisobot", "ru": "Полный отчёт", "en": "Full Report", "es": "Informe completo", "tr": "Tam Rapor"},
+    "btn_earnings": {"uz": "Daromad", "ru": "Доход", "en": "Earnings", "es": "Ingresos", "tr": "Kazanç"},
+    "btn_track_channel": {"uz": "Kuzatishga olish", "ru": "Отслеживать", "en": "Track Channel", "es": "Seguir Canal", "tr": "Kanalı Takip Et"},
+    "btn_refresh": {"uz": "Yangilash", "ru": "Обновить", "en": "Refresh", "es": "Actualizar", "tr": "Yenile"},
+    "btn_download_video": {"uz": "Videoni Yuklab Olish", "ru": "Скачать видео", "en": "Download Video", "es": "Descargar video", "tr": "Videoyu İndir"},
+
+    # Games Keyboards
+    "btn_games_menu": {"uz": "O'yinlar menyusi", "ru": "Меню игр", "en": "Games Menu", "es": "Menú de Juegos", "tr": "Oyun Menüsü"},
+    "btn_free_spin": {"uz": "Bepul aylantirish (Spin)", "ru": "Бесплатное вращение", "en": "Free Spin", "es": "Giro Gratis", "tr": "Ücretsiz Çevirme"},
+    "btn_paid_spin": {"uz": "Pullik aylantirish (3,000 so'm)", "ru": "Платное вращение (3,000 сум)", "en": "Paid Spin (3,000 UZS)", "es": "Giro de pago (3,000 UZS)", "tr": "Ücretli Çevirme (3,000 UZS)"},
+    "btn_spin_again": {"uz": "Yana aylantirish (3,000 so'm)", "ru": "Крутить снова (3,000 сум)", "en": "Spin Again (3,000 UZS)", "es": "Girar de nuevo (3,000 UZS)", "tr": "Tekrar Çevir (3,000 UZS)"},
+    "btn_buy_tickets_1": {"uz": "1 ta bilet (3,000 so'm)", "ru": "1 билет (3,000 сум)", "en": "1 Ticket (3,000 UZS)", "es": "1 Boleto (3,000 UZS)", "tr": "1 Bilet (3,000 UZS)"},
+    "btn_buy_tickets_5": {"uz": "5 ta bilet (15,000 so'm)", "ru": "5 билетов (15,000 сум)", "en": "5 Tickets (15,000 UZS)", "es": "5 Boletos (15,000 UZS)", "tr": "5 Bilet (15,000 UZS)"},
+    "btn_pick_other_box": {"uz": "Boshqa keys tanlash", "ru": "Выбрать другой кейс", "en": "Choose Another Case", "es": "Elegir otro caso", "tr": "Başka Kasa Seç"},
+    "btn_normal_box": {"uz": "Oddiy Quti (6,000 so'm)", "ru": "Обычный кейс (6,000 сум)", "en": "Regular Case (6,000 UZS)", "es": "Caja regular (6,000 UZS)", "tr": "Standart Kasa (6,000 UZS)"},
+    "btn_share_contact": {"uz": "📱 Telefon raqamimni ulashish", "ru": "📱 Поделиться номером телефона", "en": "📱 Share My Phone Number", "es": "📱 Compartir mi número", "tr": "📱 Telefon Numaramı Paylaş"},
+    "btn_custom_amount": {"uz": "Boshqa summa kiritish", "ru": "Ввести другую сумму", "en": "Enter Custom Amount", "es": "Ingresar otra cantidad", "tr": "Başka Miktar Gir"},
+    "btn_wallet_menu": {"uz": "Balans Menyusi", "ru": "Меню баланса", "en": "Wallet Menu", "es": "Menú de Saldo", "tr": "Bakiye Menüsü"},
+
+    # Quantities
+    "btn_test_qty_1": {"uz": "1 ta (Test)", "ru": "1 шт (Тест)", "en": "1 item (Test)", "es": "1 ud (Prueba)", "tr": "1 adet (Test)"},
+    "btn_test_qty_3": {"uz": "3 ta", "ru": "3 шт", "en": "3 items", "es": "3 uds", "tr": "3 adet"},
+    "btn_test_qty_5": {"uz": "5 ta", "ru": "5 шт", "en": "5 items", "es": "5 uds", "tr": "5 adet"},
+    "btn_test_qty_10": {"uz": "10 ta", "ru": "10 шт", "en": "10 items", "es": "10 uds", "tr": "10 adet"},
+    "btn_test_qty_25": {"uz": "25 ta", "ru": "25 шт", "en": "25 items", "es": "25 uds", "tr": "25 adet"},
+    "btn_test_qty_50": {"uz": "50 ta", "ru": "50 шт", "en": "50 items", "es": "50 uds", "tr": "50 adet"},
+    "btn_test_qty_100": {"uz": "100 ta", "ru": "100 шт", "en": "100 items", "es": "100 uds", "tr": "100 adet"},
+
+    # Menu texts
+    "tariffs_title": {
+        "uz": "👑 <b>CreatorFlow Studio — Foydalanuvchi Darajalari & Tariflar</b>\n\n{status_line}\n\n• Sharti: {target_ch} kanaliga a'zolik + Telefon raqam ulashilgan\n• Kunlik limit: 15 ta bepul so'rov (video yuklash, audio ajratish)\n• Do'kon: Barcha mahsulot va API kalitlarni sotib olish\n• O'yinlar: Lucky Wheel (kunlik bepul) va Mystery Box\n\n🛡 <b>2. TO'LIQ VERIFIED (FULL 3D BIOMETRIK / BEPUL)</b>\n• Sharti: 3D Face ID skaneri dan o'tish\n• Kunlik limit: 25 ta kengaytirilgan so'rov\n• Ishonchli nishon: Rasmiy tasdiqlangan foydalanuvchi\n\n👑 <b>3. CREATORFLOW VIP STATUS ({vip_price} UZS / OY)</b>\n• Narxi: {vip_price} so'm / 30 kun (yoki {vip_stars} ⭐ Stars)\n• Cheksiz limitlar: Kunlik barcha amallar cheklovlarsiz!\n• 24/7 Ustuvor navbat: Priority Worker va Streamer kuchi\n• Keshbek: Har bir xariddan 10% keshbek\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Kerakli amalni tanlang:</i>",
+        "ru": "👑 <b>CreatorFlow Studio — Уровни пользователей и Тарифы</b>\n\n{status_line}\n\n• Условие: подписка на канал {target_ch} + привязанный номер\n• Дневной лимит: 15 бесплатных запросов (скачивание, аудио)\n• Магазин: Покупка всех сервисов и API ключей\n• Игры: Колесо фортуны и Mystery Box\n\n🛡 <b>2. ПОЛНАЯ ВЕРИФИКАЦИЯ (3D BIOMETRICS / БЕСПЛАТНО)</b>\n• Условие: Прохождение 3D Face ID сканера\n• Дневной лимит: 25 расширенных запросов\n• Значок доверия: Официально подтвержденный пользователь\n\n👑 <b>3. CREATORFLOW VIP СТАТУС ({vip_price} UZS / МЕСЯЦ)</b>\n• Цена: {vip_price} сум / 30 дней (или {vip_stars} ⭐ Stars)\n• Безлимит: Все функции без ограничений!\n• 24/7 Приоритетная очередь обработки\n• Кэшбэк: 10% с каждой покупки\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Выберите действие:</i>",
+        "en": "👑 <b>CreatorFlow Studio — User Tiers & Plans</b>\n\n{status_line}\n\n• Condition: Subscribed to {target_ch} + verified phone\n• Daily limit: 15 free requests (downloads, audio extraction)\n• Marketplace: Buy all digital tools and API keys\n• Games: Daily Lucky Wheel & Mystery Cases\n\n🛡 <b>2. FULLY VERIFIED (3D BIOMETRIC / FREE)</b>\n• Condition: Pass 3D Face ID scan (MediaPipe)\n• Daily limit: 25 enhanced requests\n• Verified badge: Trusted Creator Badge\n\n👑 <b>3. CREATORFLOW VIP STATUS ({vip_price} UZS / MO)</b>\n• Price: {vip_price} UZS / 30 days (or {vip_stars} ⭐ Stars)\n• Unlimited limits: All daily bot actions fully unlimited!\n• 24/7 Priority Queue: Priority worker & fast stream\n• 10% Cashback: On every marketplace purchase\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Select an action below:</i>",
+        "es": "👑 <b>CreatorFlow Studio — Niveles de Usuario y Planes</b>\n\n{status_line}\n\n• Requisito: Suscrito al canal {target_ch} + teléfono verificado\n• Límite diario: 15 solicitudes gratuitas\n• Tienda: Compra de todas las herramientas y claves API\n• Juegos: Ruleta de la Suerte y Mystery Cases\n\n🛡 <b>2. TOTALMENTE VERIFICADO (BIOMÉTRICO 3D / GRATIS)</b>\n• Requisito: Escaneo 3D Face ID\n• Límite diario: 25 solicitudes avanzadas\n\n👑 <b>3. ESTADO CREATORFLOW VIP ({vip_price} UZS / MES)</b>\n• Precio: {vip_price} UZS / 30 días (o {vip_stars} ⭐ Stars)\n• Sin límites: ¡Acciones ilimitadas todos los días!\n• Cola prioritaria 24/7 y 10% de reembolso\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Selecciona una acción:</i>",
+        "tr": "👑 <b>CreatorFlow Studio — Kullanıcı Seviyeleri ve Tarifeler</b>\n\n{status_line}\n\n• Şart: {target_ch} kanalına abonelik + doğrulanmış telefon\n• Günlük limit: 15 ücretsiz istek (video indirme, ses)\n• Mağaza: Tüm dijital araçlar ve API anahtarları\n• Oyunlar: Şans Çarkı ve Gizemli Kasalar\n\n🛡 <b>2. TAM DOĞRULANMIŞ (3D BİYOMETRİK / ÜCRETSİZ)</b>\n• Şart: 3D Face ID taraması\n• Günlük limit: 25 gelişmiş istek\n\n👑 <b>3. CREATORFLOW VIP STATÜSÜ ({vip_price} UZS / AY)</b>\n• Fiyat: {vip_price} UZS / 30 gün (veya {vip_stars} ⭐ Stars)\n• Sınırsız: Tüm günlük işlemler tamamen sınırsız!\n• 24/7 Öncelikli sıra ve %10 geri ödeme\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Aşağıdan bir işlem seçin:</i>"
+    },
+    "status_vip": {
+        "uz": "👑 <b>Joriy statusingiz:</b> <b>CREATORFLOW VIP</b> (Tugash: <code>{exp}</code>)",
+        "ru": "👑 <b>Ваш статус:</b> <b>CREATORFLOW VIP</b> (Истекает: <code>{exp}</code>)",
+        "en": "👑 <b>Your status:</b> <b>CREATORFLOW VIP</b> (Expires: <code>{exp}</code>)",
+        "es": "👑 <b>Su estado:</b> <b>CREATORFLOW VIP</b> (Vence: <code>{exp}</code>)",
+        "tr": "👑 <b>Mevcut statünüz:</b> <b>CREATORFLOW VIP</b> (Bitiş: <code>{exp}</code>)"
+    },
+    "status_face": {
+        "uz": "🛡 <b>Joriy statusingiz:</b> <b>To'liq Tasdiqlangan (3D Biometrik)</b>",
+        "ru": "🛡 <b>Ваш статус:</b> <b>Полностью подтвержден (3D Биометрия)</b>",
+        "en": "🛡 <b>Your status:</b> <b>Fully Verified (3D Biometric)</b>",
+        "es": "🛡 <b>Su estado:</b> <b>Totalmente verificado (Biometría 3D)</b>",
+        "tr": "🛡 <b>Mevcut statünüz:</b> <b>Tam Doğrulanmış (3D Biyometrik)</b>"
+    },
+    "status_phone": {
+        "uz": "✅ <b>Joriy statusingiz:</b> <b>Yarim Tasdiqlangan (Baza)</b>",
+        "ru": "✅ <b>Ваш статус:</b> <b>Базовый (Телефон подтвержден)</b>",
+        "en": "✅ <b>Your status:</b> <b>Partially Verified (Base)</b>",
+        "es": "✅ <b>Su estado:</b> <b>Parcialmente verificado (Base)</b>",
+        "tr": "✅ <b>Mevcut statünüz:</b> <b>Temel Doğrulanmış (Telefon)</b>"
+    },
+    "status_unverified": {
+        "uz": "⚠️ <b>Joriy statusingiz:</b> <b>Tasdiqlanmagan</b>",
+        "ru": "⚠️ <b>Ваш статус:</b> <b>Не подтвержден</b>",
+        "en": "⚠️ <b>Your status:</b> <b>Unverified</b>",
+        "es": "⚠️ <b>Su estado:</b> <b>No verificado</b>",
+        "tr": "⚠️ <b>Mevcut statünüz:</b> <b>Doğrulanmamış</b>"
+    },
+    "btn_vip_buy": {
+        "uz": "VIP Tarifni Faollashtirish (69,000 UZS)",
+        "ru": "Активировать VIP (69,000 UZS)",
+        "en": "Activate VIP Tier (69,000 UZS)",
+        "es": "Activar Plan VIP (69,000 UZS)",
+        "tr": "VIP Planı Aktifleştir (69,000 UZS)"
+    },
+    "btn_kyc_3d": {
+        "uz": "3D KYC (Full Biometrik)",
+        "ru": "3D KYC (Полная биометрия)",
+        "en": "3D KYC (Full Biometric)",
+        "es": "3D KYC (Biometría completa)",
+        "tr": "3D KYC (Tam Biyometrik)"
+    },
+    "forcesub_prompt": {
+        "uz": "📢 <b>CreatorFlow Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\nBot xizmatlaridan to'liq foydalanish va yangiliklarni kuzatish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n⚠️ <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>",
+        "ru": "📢 <b>CreatorFlow Studio — Подпишитесь на официальный канал!</b>\n\nЧтобы полноценно использовать функции бота, подпишитесь на наш официальный канал <b>@{ch_clean}</b>:\n\n⚠️ <i>После подписки нажмите кнопку «✅ Проверить подписку» ниже.</i>",
+        "en": "📢 <b>CreatorFlow Studio — Join Our Official Channel!</b>\n\nTo access all bot features, please join our official <b>@{ch_clean}</b> channel:\n\n⚠️ <i>After joining, tap «✅ Check Subscription» below.</i>",
+        "es": "📢 <b>CreatorFlow Studio — ¡Únete a nuestro canal oficial!</b>\n\nPara acceder a todas las funciones, suscríbete a nuestro canal <b>@{ch_clean}</b>:\n\n⚠️ <i>Luego presiona «✅ Verificar suscripción» abajo.</i>",
+        "tr": "📢 <b>CreatorFlow Studio — Resmi Kanalımıza Katılın!</b>\n\nTüm bot özelliklerine erişmek için resmi <b>@{ch_clean}</b> kanalımıza abone olun:\n\n⚠️ <i>Katıldıktan sonra aşağıdaki «✅ Aboneliği Kontrol Et» butonuna dokunun.</i>"
+    },
+    "phone_req_prompt": {
+        "uz": "🛡 <b>Xavfsizlik & Kirish Verifikatsiyasi</b>\n\nHurmatli foydalanuvchi, firibgarlikning oldini olish hamda hisobingiz xavfsizligini ta'minlash uchun botdan foydalanishdan avval telefon raqamingizni tasdiqlang!\n\n⚠️ <b>Qo'lda yozilgan raqam qabul qilinmaydi.</b>\nIltimos, pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasini bosing:",
+        "ru": "🛡 <b>Безопасность и Входная Верификация</b>\n\nУважаемый пользователь, для предотвращения мошенничества и защиты аккаунта, подтвердите свой номер телефона перед началом работы!\n\n⚠️ <b>Ввод номера вручную не принимается.</b>\nПожалуйста, нажмите кнопку <b>«📱 Поделиться номером»</b> ниже:",
+        "en": "🛡 <b>Security & Login Verification</b>\n\nDear user, to prevent fraud and secure your account, please verify your phone number before using the bot!\n\n⚠️ <b>Manual typing is not accepted.</b>\nPlease tap the <b>«📱 Share My Phone Number»</b> button below:",
+        "es": "🛡 <b>Seguridad y Verificación de Acceso</b>\n\nEstimado usuario, para prevenir fraudes y proteger su cuenta, verifique su número de teléfono antes de comenzar:\n\n⚠️ <b>No se acepta escribir el número manualmente.</b>\nPresione el botón <b>«📱 Compartir mi teléfono»</b> abajo:",
+        "tr": "🛡 <b>Güvenlik ve Giriş Doğrulaması</b>\n\nDeğerli kullanıcı, dolandırıcılığı önlemek ve hesabınızı korumak için lütfen başlamadan önce telefon numaranızı doğrulayın!\n\n⚠️ <b>Numaranın manuel yazılması kabul edilmez.</b>\nLütfen aşağıdaki <b>«📱 Telefon Numaramı Paylaş»</b> butonuna dokunun:"
+    },
+    "box_menu_text": {
+        "uz": "🎁 <b>Omadli Quti & Mystery Cases (Stars & UZS So'm)</b>\n\nKeyslarni <b>Telegram Stars</b> yoki <b>UZS (so'm) balansingiz</b> orqali ochishingiz mumkin!\nHar bir keysdan haqiqiy Telegram sovg'alari yoki Telegram Premium yutib olishingiz mumkin!\n\n💳 <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>{recent_text}\n\n👇 <i>Ochmoqchi bo'lgan keysingizni tanlang:</i>",
+        "ru": "🎁 <b>Таинственные Кейсы и Mystery Boxes (Stars и UZS)</b>\n\nОткрывайте кейсы за <b>Telegram Stars</b> или <b>баланс UZS (сум)</b>!\nИз каждого кейса можно выиграть настоящие Telegram подарки или Telegram Premium!\n\n💳 <b>Ваш баланс:</b> <code>{bal:,} сум</code>{recent_text}\n\n👇 <i>Выберите кейс для открытия:</i>",
+        "en": "🎁 <b>Mystery Boxes & Cases (Stars & UZS)</b>\n\nOpen cases using <b>Telegram Stars</b> or your <b>UZS balance</b>!\nEvery case offers real Telegram profile gifts or Telegram Premium subscriptions!\n\n💳 <b>Your balance:</b> <code>{bal:,} UZS</code>{recent_text}\n\n👇 <i>Select a case to open:</i>",
+        "es": "🎁 <b>Cajas Misteriosas y Mystery Cases (Stars y UZS)</b>\n\n¡Abre cajas usando <b>Telegram Stars</b> o tu saldo en <b>UZS</b>!\n¡Cada caja incluye regalos reales de perfil de Telegram o Telegram Premium!\n\n💳 <b>Tu saldo:</b> <code>{bal:,} UZS</code>{recent_text}\n\n👇 <i>Selecciona un caso para abrir:</i>",
+        "tr": "🎁 <b>Gizemli Kasalar (Stars ve UZS)</b>\n\nKasaları <b>Telegram Stars</b> veya <b>UZS bakiyeniz</b> ile açın!\nHer kasadan gerçek Telegram hediyeleri veya Telegram Premium kazanabilirsiniz!\n\n💳 <b>Bakiyeniz:</b> <code>{bal:,} UZS</code>{recent_text}\n\n👇 <i>Açmak için bir kasa seçin:</i>"
+    },
+    "wheel_menu_text": {
+        "uz": "🎯 <b>Omad G'ildiragi (Wheel of Fortune)</b>\n\nHar kuni 1 marta bepul aylantiring va pul mukofotlari yoki API kalitlarni yutib oling!\n\n{status_text}\n💰 <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n\n🎁 <b>Sovg'alar:</b> 200 so'm, 500 so'm, 1,000 so'm, 2,500 so'm, Groq Cloud API!",
+        "ru": "🎯 <b>Колесо Фортуны (Wheel of Fortune)</b>\n\nКрутите бесплатно 1 раз в день и выигрывайте денежные призы или API ключи!\n\n{status_text}\n💰 <b>Ваш баланс:</b> <code>{bal:,} сум</code>\n\n🎁 <b>Призы:</b> 200 сум, 500 сум, 1,000 сум, 2,500 сум, Groq Cloud API!",
+        "en": "🎯 <b>Wheel of Fortune</b>\n\nSpin free once every day and win real cash rewards or API keys!\n\n{status_text}\n💰 <b>Your balance:</b> <code>{bal:,} UZS</code>\n\n🎁 <b>Prizes:</b> 200 UZS, 500 UZS, 1,000 UZS, 2,500 UZS, Groq Cloud API!",
+        "es": "🎯 <b>Ruleta de la Fortuna (Wheel of Fortune)</b>\n\n¡Gira gratis una vez al día y gana premios en efectivo o claves API!\n\n{status_text}\n💰 <b>Tu saldo:</b> <code>{bal:,} UZS</code>\n\n🎁 <b>Premios:</b> 200 UZS, 500 UZS, 1,000 UZS, 2,500 UZS, Groq Cloud API!",
+        "tr": "🎯 <b>Şans Çarkı (Wheel of Fortune)</b>\n\nHer gün 1 kez ücretsiz çevirin ve nakit ödüller veya API anahtarları kazanın!\n\n{status_text}\n💰 <b>Bakiyeniz:</b> <code>{bal:,} UZS</code>\n\n🎁 <b>Ödüller:</b> 200 UZS, 500 UZS, 1,000 UZS, 2,500 UZS, Groq Cloud API!"
+    },
+    "lottery_menu_text": {
+        "uz": "🎟 <b>Jekpot Mega Lotereya (Tiraj #{pool_id})</b>\n\n🎫 <b>1 ta bilet narxi:</b> <code>3,000 so'm</code>\n📊 <b>Sotilgan biletlar:</b> <code>{tickets_sold} ta</code>\n🏆 <b>G'olibga Jekpot:</b> <code>{prize_fund:,} so'm</code>\n💳 <b>Balansingiz:</b> <code>{bal:,} so'm</code>",
+        "ru": "🎟 <b>Джекпот Мега Лотерея (Тираж #{pool_id})</b>\n\n🎫 <b>Цена 1 билета:</b> <code>3,000 сум</code>\n📊 <b>Продано билетов:</b> <code>{tickets_sold} шт</code>\n🏆 <b>Джекпот победителю:</b> <code>{prize_fund:,} сум</code>\n💳 <b>Ваш баланс:</b> <code>{bal:,} сум</code>",
+        "en": "🎟 <b>Jackpot Mega Lottery (Draw #{pool_id})</b>\n\n🎫 <b>1 Ticket Price:</b> <code>3,000 UZS</code>\n📊 <b>Tickets Sold:</b> <code>{tickets_sold}</code>\n🏆 <b>Winner's Jackpot:</b> <code>{prize_fund:,} UZS</code>\n💳 <b>Your balance:</b> <code>{bal:,} UZS</code>",
+        "es": "🎟 <b>Mega Lotería Jackpot (Sorteo #{pool_id})</b>\n\n🎫 <b>Precio por boleto:</b> <code>3,000 UZS</code>\n📊 <b>Boletos vendidos:</b> <code>{tickets_sold}</code>\n🏆 <b>Bote al ganador:</b> <code>{prize_fund:,} UZS</code>\n💳 <b>Tu saldo:</b> <code>{bal:,} UZS</code>",
+        "tr": "🎟 <b>Büyük İkramiye Mega Piyango (Çekiliş #{pool_id})</b>\n\n🎫 <b>1 Bilet Fiyatı:</b> <code>3,000 UZS</code>\n📊 <b>Satılan Biletler:</b> <code>{tickets_sold}</code>\n🏆 <b>Büyük İkramiye:</b> <code>{prize_fund:,} UZS</code>\n💳 <b>Bakiyeniz:</b> <code>{bal:,} UZS</code>"
+    },
+    "duel_menu_text": {
+        "uz": "⚔️ <b>PvP Tanga Tashlash (Coin Flip)</b>\n\nBoshqa o'yinchilar bilan garov boylab o'ynang! G'olib jami bankning 90%ini oladi (10% kassa xizmati).\n\nℹ️ <b>Qanday o'ynash kerak:</b>\nChatda <code>/duel &lt;summa&gt; [burgut|panja]</code> buyrug'ini yuboring.\n\n<b>Masalan:</b> <code>/duel 5000 burgut</code>{duels_text}",
+        "ru": "⚔️ <b>PvP Бросок Монеты (Coin Flip)</b>\n\nИграйте против других игроков! Победитель забирает 90% банка (10% комиссия сервиса).\n\nℹ️ <b>Как играть:</b>\nОтправьте команду <code>/duel &lt;сумма&gt; [burgut|panja]</code> в чат.\n\n<b>Например:</b> <code>/duel 5000 burgut</code>{duels_text}",
+        "en": "⚔️ <b>PvP Coin Flip Duel</b>\n\nBet and play against other real players! Winner takes 90% of the pot (10% fee).\n\nℹ️ <b>How to play:</b>\nSend <code>/duel &lt;amount&gt; [burgut|panja]</code> in the chat.\n\n<b>Example:</b> <code>/duel 5000 burgut</code>{duels_text}",
+        "es": "⚔️ <b>Duelo PvP Cara o Cruz (Coin Flip)</b>\n\n¡Apuesta y juega contra otros jugadores! El ganador se lleva el 90% del bote.\n\nℹ️ <b>Cómo jugar:</b>\nEnvía <code>/duel &lt;monto&gt; [burgut|panja]</code> en el chat.\n\n<b>Ejemplo:</b> <code>/duel 5000 burgut</code>{duels_text}",
+        "tr": "⚔️ <b>PvP Yazı Tura Düellosu (Coin Flip)</b>\n\nDiğer oyunculara karşı bahis yapın ve oynayın! Kazanan kasanın %90'ını alır.\n\nℹ️ <b>Nasıl oynanır:</b>\nSohbete <code>/duel &lt;miktar&gt; [burgut|panja]</code> komutunu gönderin.\n\n<b>Örnek:</b> <code>/duel 5000 burgut</code>{duels_text}"
+    },
+    "marketplace_header_text": {
+        "uz": "🏪 <b>CreatorFlow Raqamli Xizmatlar & Marketplace</b>\n\n💰 <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n🌐 <b>Proxy & Server Quvvati:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 so'm\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n🤖 <b>AI Modellar & Developer Vositalar:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 so'm\n• ⚡ <b>OpenRouter API:</b> 25,000 so'm\n• 💎 <b>Google Gemini API:</b> 25,000 so'm\n• 🚀 <b>Groq Cloud API:</b> 18,000 so'm\n\n🎨 <b>Kreativ & Kontent:</b>\n• 🖼 <b>Flux.1 AI Rasm:</b> 18,000 so'm\n• 💡 <b>500+ Viral Prompt Pack:</b> 25,000 so'm\n• 🎬 <b>Vertical Shorts Kesish:</b> 5,000 so'm\n\n🚀 <b>Kanal O'sishi:</b> Layk 500 so'm, Obuna 1,000 so'm, Izoh 300 so'm\n\n📌 <i>Kerakli xizmat yoki toifani tanlang:</i>",
+        "ru": "🏪 <b>Цифровые Сервисы и Маркетплейс CreatorFlow</b>\n\n💰 <b>Текущий баланс:</b> <code>{bal:,} сум</code>\n\n🌐 <b>Прокси и Серверы:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 сум\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 сум / час\n\n🤖 <b>AI Модели и Инструменты Разработчика:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 сум\n• ⚡ <b>OpenRouter API:</b> 25,000 сум\n• 💎 <b>Google Gemini API:</b> 25,000 сум\n• 🚀 <b>Groq Cloud API:</b> 18,000 сум\n\n🎨 <b>Креатив и Контент:</b>\n• 🖼 <b>Flux.1 AI Генерация изображений:</b> 18,000 сум\n• 💡 <b>500+ Вирусных Промптов:</b> 25,000 сум\n• 🎬 <b>Нарезка Shorts:</b> 5,000 сум\n\n🚀 <b>Продвижение каналов:</b> Лайк 500 сум, Подписка 1,000 сум, Комментарий 300 сум\n\n📌 <i>Выберите услугу или категорию ниже:</i>",
+        "en": "🏪 <b>CreatorFlow Digital Services & Marketplace</b>\n\n💰 <b>Current Balance:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy & Cloud Power:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 UZS / hour\n\n🤖 <b>AI Models & Developer Tools:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Creative & Media:</b>\n• 🖼 <b>Flux.1 AI Image Generation:</b> 18,000 UZS\n• 💡 <b>500+ Viral Prompt Pack:</b> 25,000 UZS\n• 🎬 <b>Vertical Shorts Clipper:</b> 5,000 UZS\n\n🚀 <b>Channel Growth:</b> Likes 500 UZS, Subs 1,000 UZS, Comments 300 UZS\n\n📌 <i>Choose a product or category below:</i>",
+        "es": "🏪 <b>Servicios Digitales y Mercado CreatorFlow</b>\n\n💰 <b>Saldo actual:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy y Nube:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Cloud:</b> 2,500 UZS / hora\n\n🤖 <b>Modelos AI y Herramientas:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Creatividad y Contenido:</b>\n• 🖼 <b>Flux.1 AI Imágenes:</b> 18,000 UZS\n• 💡 <b>500+ Pack de Prompts Virales:</b> 25,000 UZS\n• 🎬 <b>Recorte de Shorts:</b> 5,000 UZS\n\n🚀 <b>Crecimiento del Canal:</b> Likes 500 UZS, Subs 1,000 UZS, Comentarios 300 UZS\n\n📌 <i>Selecciona un producto o categoría abajo:</i>",
+        "tr": "🏪 <b>CreatorFlow Dijital Hizmetler ve Mağaza</b>\n\n💰 <b>Mevcut Bakiye:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy ve Bulut Gücü:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Bulut Slotu:</b> 2,500 UZS / saat\n\n🤖 <b>Yapay Zeka Modelleri ve Geliştirici Araçları:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Yaratıcılık ve Medya:</b>\n• 🖼 <b>Flux.1 Yapay Zeka Görsel:</b> 18,000 UZS\n• 💡 <b>500+ Viral Prompt Paketi:</b> 25,000 UZS\n• 🎬 <b>Shorts Kırpıcı:</b> 5,000 UZS\n\n🚀 <b>Kanal Büyütme:</b> Beğeni 500 UZS, Abone 1,000 UZS, Yorum 300 UZS\n\n📌 <i>Aşağıdan bir ürün veya kategori seçin:</i>"
+    }
+}
+
+TRANSLATIONS.update(EXTRA_I18N)
