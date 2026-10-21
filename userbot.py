@@ -4,6 +4,14 @@ import json
 import re
 import tempfile
 import os
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+import pyrogram_patch
+# Pyrogram patches applied via pyrogram_patch module
+
 import google.generativeai as genai
 from pyrogram import Client, filters
 from pyrogram.enums import ChatAction, MessageEntityType
@@ -50,6 +58,8 @@ MUHIM QOIDALAR:
 8. Agar salom yozsalar, iliq va samimiy javob ber
 9. Agar savol so'rashsa, foydali va qisqa javob ber
 10. Ba'zan GIF yuborish kerakligini ko'rsat
+11. HECH QACHON begona kanal, guruh, bot havolalarini (URL / link) to'qib chiqarma yoki yuborma!
+12. HECH QACHON 'botdan foydalanish uchun kanalga a'zo bo'ling' deb soxta talab yoki link yozma! Sen shaxsiy do'stona profilsan.
 
 Suhbatdosh bilan gaplashayotganda uning kayfiyatini his qil va unga mos javob ber.
 
@@ -530,6 +540,18 @@ FAQAT JSON formatida javob ber:"""
             user_text = message.text
             
             print(f"Xabar: {user_name} (ID: {user_id}): {user_text}")
+
+            # /start yoki boshqa bot komandalari kelganda AI ga yubormaslik (begona havolalarni to'qib chiqarmaslik uchun)
+            stripped_text = (user_text or "").strip()
+            if stripped_text.startswith("/"):
+                if stripped_text.startswith("/start"):
+                    await message.reply_text(
+                        f"Salom, {user_name}! Bu mening shaxsiy Telegram profilim.\n\n"
+                        "Agar bizning **CreatorFlow AI** botimizdan foydalanmoqchi bo'lsangiz, "
+                        "rasmiy botimizga kiring:\n@creatorflow_aibot\n\n"
+                        "Web Dashboard: https://botclient-d1jn.onrender.com"
+                    )
+                return
             
             # Xabar sanagichini oshirish
             if user_id not in message_counter:

@@ -15,6 +15,10 @@ try:
 except RuntimeError:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
+# Pyrogram 64-bit channel ID fix (ValueError: Peer id invalid: -1004493034300)
+import pyrogram_patch
+# Pyrogram patches applied via pyrogram_patch module
+
 from aiohttp import web
 from config import SESSION_STRING, BOT_TOKEN, API_ID, API_HASH
 from autopost import exchange_code_with_redirect, pending_oauth
@@ -503,9 +507,11 @@ async def handle_api_stats(request):
             headers={"Access-Control-Allow-Origin": "*"}
         )
     
+    channel_id = request.query.get("channel_id")
     # Cache tekshirish — agar refresh talab qilinmagan va 10 daqiqa ichida so'ralgan bo'lsa, qayta API chaqirmaslik
     force_refresh = request.query.get("refresh") == "1" or request.query.get("force") == "1"
-    cached = _stats_cache.get(tg_user_id)
+    cache_key = f"{tg_user_id}_{channel_id or 'default'}"
+    cached = _stats_cache.get(cache_key)
     if not force_refresh and cached and (_time.time() - cached["ts"]) < _CACHE_TTL:
         return web.Response(
             text=json.dumps(cached["data"], default=str),
@@ -519,7 +525,7 @@ async def handle_api_stats(request):
         from config import YT_CLIENT_ID, YT_CLIENT_SECRET
         from google.oauth2.credentials import Credentials
 
-        conn_data = get_yt_connection(int(tg_user_id))
+        conn_data = get_yt_connection(int(tg_user_id), channel_id=channel_id)
         if not conn_data or not conn_data.get("access_token"):
             return web.Response(
                 text=json.dumps({"error": "not_logged_in"}),
@@ -662,8 +668,9 @@ async def handle_api_stats(request):
             "is_owner":         is_owner,
         }
         
+        response_data["channel_id"] = conn_data.get("yt_channel_id", "")
         # Cache'ga saqlash
-        _stats_cache[tg_user_id] = {
+        _stats_cache[cache_key] = {
             "data": response_data,
             "ts": _time.time()
         }
@@ -854,6 +861,42 @@ async def handle_api_sync_profile(request):
     except Exception as e:
         return web.Response(text=json.dumps({"ok": False, "error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
+async def handle_api_channel_select(request):
+    """Foydalanuvchi faol YouTube kanalini tanlashi (Single-Account Selection)"""
+    import json
+    global _stats_cache
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    tg_user_id = data.get("tg_user_id") or request.query.get("tg_user_id")
+    channel_id = data.get("channel_id") or request.query.get("channel_id")
+    if not tg_user_id or not channel_id:
+        return web.Response(
+            text=json.dumps({"ok": False, "error": "tg_user_id va channel_id kerak"}),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    try:
+        from database import set_default_account
+        uid = int(tg_user_id)
+        ok = set_default_account(uid, str(channel_id))
+        # Yangi tanlangan kanalning yangi statistikasi ko'rinishi uchun keshni tozalash
+        for k in list(_stats_cache.keys()):
+            if str(k).startswith(str(uid)):
+                _stats_cache.pop(k, None)
+        return web.Response(
+            text=json.dumps({"ok": ok, "selected_channel_id": channel_id}),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+    except Exception as e:
+        return web.Response(
+            text=json.dumps({"ok": False, "error": str(e)}),
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
 async def handle_api_channels(request):
     """Foydalanuvchining barcha ulangan kanallari"""
     import json
@@ -868,12 +911,14 @@ async def handle_api_channels(request):
         
         channels = []
         for c in connections:
+            ch_id = c.get("yt_channel_id", "")
             channels.append({
-                "channel_id": c.get("yt_channel_id", ""),
+                "channel_id": ch_id,
                 "channel_title": c.get("yt_channel_title", "Unknown"),
                 "channel_username": c.get("yt_channel_username", ""),
                 "thumbnail_url": c.get("channel_thumbnail_url", ""),
                 "subscriber_count": c.get("subscriber_count", 0),
+                "is_default": bool(default_ch_id and default_ch_id == ch_id)
             })
         return web.Response(text=json.dumps({"channels": channels, "default_channel_id": default_ch_id}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
@@ -3082,6 +3127,7 @@ async def start_web_server(port):
     app.router.add_get("/api/user/sync-profile", handle_api_sync_profile)
     app.router.add_post("/api/user/sync-profile", handle_api_sync_profile)
     app.router.add_get("/api/channels", handle_api_channels)
+    app.router.add_post("/api/channels/select", handle_api_channel_select)
     app.router.add_get("/api/autopost-tasks", handle_api_autopost_tasks)
     app.router.add_get("/api/videos", handle_api_videos)
     app.router.add_get("/api/trending", handle_api_trending)

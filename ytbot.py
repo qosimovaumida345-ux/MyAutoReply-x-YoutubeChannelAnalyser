@@ -16,6 +16,10 @@ try:
 except RuntimeError:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
+# Pyrogram 64-bit channel ID fix (ValueError: Peer id invalid: -1004493034300)
+import pyrogram_patch
+# Pyrogram patches applied via pyrogram_patch module
+
 from pyrogram import Client, filters, StopPropagation
 from pyrogram.errors import MessageNotModified, QueryIdInvalid
 from pyrogram.enums import ParseMode, ChatAction
@@ -1320,9 +1324,49 @@ def order_confirm_kb(action_type, qty, total_cost):
         [InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="mkt_cancel")],
     ])
 
-def channel_menu_kb(lang="uz"):
+def channel_menu_kb(lang="uz", user_id=None):
+    import os
     lang = _resolve_lang(lang)
-    return InlineKeyboardMarkup([
+    rows = []
+    
+    # Connected channels selector
+    if user_id:
+        try:
+            from database import get_all_yt_connections, get_default_account
+            connections = get_all_yt_connections(user_id) or []
+            default_ch = get_default_account(user_id)
+            
+            if connections:
+                # If only 1 channel and no default set, that channel is active
+                active_id = default_ch or connections[0].get("yt_channel_id")
+                
+                header_title = {
+                    "uz": f"{ce('MEDIA_YOUTUBE')} Kanallar (Bosing va tanlang):",
+                    "ru": f"{ce('MEDIA_YOUTUBE')} Ваши каналы (Нажмите для выбора):",
+                    "en": f"{ce('MEDIA_YOUTUBE')} Connected Channels (Click to switch):",
+                    "es": f"{ce('MEDIA_YOUTUBE')} Canales conectados (Haga clic para cambiar):",
+                    "tr": f"{ce('MEDIA_YOUTUBE')} Bağlı Kanallar (Değiştirmek için tıklayın):"
+                }.get(lang, f"{ce('MEDIA_YOUTUBE')} Kanallar:")
+                rows.append([InlineKeyboardButton(header_title, callback_data="yt_ch_active_noop")])
+                
+                for c in connections:
+                    cid = c.get("yt_channel_id", "")
+                    title = (c.get("yt_channel_title") or "YouTube")[:22]
+                    subs = c.get("subscriber_count", 0)
+                    is_active = (cid == active_id)
+                    
+                    if is_active:
+                        btn_txt = f"{ce('STATUS_SUCCESS')} {title} ({subs:,})"
+                        rows.append([InlineKeyboardButton(btn_txt, callback_data="yt_ch_active_noop")])
+                    else:
+                        btn_txt = f"{ce('DEV_ROTATE_KEY')} {title} ({subs:,})"
+                        rows.append([InlineKeyboardButton(btn_txt, callback_data=f"yt_ch_select_{cid}")])
+        except Exception as e:
+            print(f"[channel_menu_kb] Xato: {e}")
+            
+    web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+    uid_val = user_id or 0
+    rows.extend([
         [InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} {t('btn_full_stats', lang)}", callback_data="ch_full"),
          InlineKeyboardButton(f"{ce('TOOL_SUBS')} {t('btn_subs', lang)}", callback_data="ch_subs")],
         [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} {t('btn_recent_videos', lang)}", callback_data="ch_recent"),
@@ -1333,8 +1377,10 @@ def channel_menu_kb(lang="uz"):
          InlineKeyboardButton(f"{ce('TOOL_SEO_TAGS')} {t('btn_keywords', lang)}", callback_data="ch_keywords")],
         [InlineKeyboardButton(f"{ce('CALENDAR')} {t('btn_upload_freq', lang)}", callback_data="ch_frequency"),
          InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_earnings_est', lang)}", callback_data="ch_earnings")],
+        [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Web Dashboard", web_app=WebAppInfo(url=f"{web_url}/?tg_user_id={uid_val}"))],
         [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back', lang)}", callback_data="back_main")],
     ])
+    return InlineKeyboardMarkup(rows)
 
 def video_menu_kb(lang="uz"):
     lang = _resolve_lang(lang)
@@ -6493,15 +6539,39 @@ def create_ytbot():
         if menu == "vouchers":
             bal = get_user_balance(user_id)
             from vouchers_engine import RED_ANTIFRAUD_WARNING
+            v_title = {
+                "uz": "P2P Shartli Cheklar Tizimi (@wallet uslubida)",
+                "ru": "Система условных чеков P2P (в стиле @wallet)",
+                "en": "P2P Conditional Checks System (@wallet style)",
+                "es": "Sistema de cheques condicionales P2P (estilo @wallet)",
+                "tr": "P2P Koşullu Çek Sistemi (@wallet tarzı)"
+            }.get(lang, "P2P Shartli Cheklar Tizimi")
+            v_bal_lbl = {
+                "uz": "Sizning balansingiz",
+                "ru": "Ваш баланс",
+                "en": "Your balance",
+                "es": "Su saldo",
+                "tr": "Bakiyeniz"
+            }.get(lang, "Sizning balansingiz")
+            v_desc = {
+                "uz": "Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!",
+                "ru": "Создавайте чеки для друзей или подписчиков. Средства смогут получить только те, кто подписался на указанный спонсорский канал!",
+                "en": "Create conditional checks for your friends or channel subscribers. Only users subscribed to your sponsored channel can activate it!",
+                "es": "Cree cheques condicionales para sus amigos o suscriptores. ¡Solo los usuarios suscritos a su canal patrocinado pueden activarlo!",
+                "tr": "Arkadaşlarınız veya kanal aboneleriniz için koşullu çekler oluşturun. Yalnızca sponsorlu kanalınıza abone olanlar aktifleştirebilir!"
+            }.get(lang, "Do'stlaringiz uchun shartli chek yarating.")
+            v_f_lbl = {"uz": "Imkoniyatlar:", "ru": "Возможности:", "en": "Features:", "es": "Características:", "tr": "Özellikler:"}.get(lang, "Imkoniyatlar:")
+            v_f1 = {"uz": "Homiy kanalga majburiy a'zolik sharti", "ru": "Обязательная подписка на спонсорский канал", "en": "Mandatory sponsored channel subscription condition", "es": "Condición obligatoria de suscripción al canal", "tr": "Sponsorlu kanala zorunlu abonelik koşulu"}.get(lang, "Homiy kanalga a'zolik sharti")
+            v_f2 = {"uz": "Bir nechta qabul qiluvchi o'rtasida teng taqsimlash", "ru": "Равное распределение между несколькими получателями", "en": "Equal distribution among multiple recipients", "es": "Distribución equitativa entre múltiples receptores", "tr": "Birden fazla alıcı arasında eşit dağıtım"}.get(lang, "Teng taqsimlash")
+            v_f3 = {"uz": "Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash", "ru": "Автоматическое выявление отписок и штрафы", "en": "Automatic detection of unsubscribers and penalties", "es": "Detección automática de bajas y penalización", "tr": "Abonelikten çıkanları otomatik tespit ve ceza"}.get(lang, "Jazolash")
             text = (
-                f'{ce("CASH")} <b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n'
-                f'{ce("MONEY")} <b>Sizning balansingiz:</b> <code>{bal:,} so\'m</code>\n\n'
-                f"Do'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. "
-                f"Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!\n\n"
-                f"{ce('LIGHTNING')} <b>Imkoniyatlar:</b>\n"
-                f"• {ce('TARGET')} Homiy kanalga majburiy a'zolik sharti\n"
-                f"• {ce('FRIENDS')} Bir nechta qabul qiluvchi o'rtasida teng taqsimlash\n"
-                f"• {ce('SHIELD')} Kanaldan chiqqanlarni avtomatik aniqlash va qat'iy jazolash\n\n"
+                f'{ce("CASH")} <b>{v_title}</b>\n\n'
+                f'{ce("MONEY")} <b>{v_bal_lbl}:</b> <code>{bal:,} so\'m</code>\n\n'
+                f"{v_desc}\n\n"
+                f"{ce('LIGHTNING')} <b>{v_f_lbl}</b>\n"
+                f"• {ce('TARGET')} {v_f1}\n"
+                f"• {ce('FRIENDS')} {v_f2}\n"
+                f"• {ce('SHIELD')} {v_f3}\n\n"
                 f"{RED_ANTIFRAUD_WARNING}"
             )
             kb = InlineKeyboardMarkup([
@@ -6516,12 +6586,26 @@ def create_ytbot():
         if menu == "ig_cloner":
             from instagram_cloner import get_instagram_targets
             targets = get_instagram_targets(user_id)
-            ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else "Hozircha kuzatilayotgan profillar yo'q."
+            no_prof = {
+                "uz": "Hozircha kuzatilayotgan profillar yo'q.",
+                "ru": "Пока нет отслеживаемых профилей.",
+                "en": "No monitored profiles yet.",
+                "es": "No hay perfiles monitoreados aún.",
+                "tr": "Henüz izlenen profil yok."
+            }.get(lang, "Hozircha profillar yo'q.")
+            ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else no_prof
+            ig_desc = {
+                "uz": "Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.",
+                "ru": "Reels из указанных профилей Instagram с 8-слойной уникализацией копируются прямо в YouTube Shorts.",
+                "en": "Reels from specified Instagram profiles are automatically cloned directly to YouTube Shorts with 8-layer anti-copyright uniquification.",
+                "es": "Los Reels de los perfiles de Instagram indicados se clonan automáticamente en YouTube Shorts con unificación de 8 capas.",
+                "tr": "Belirtilen Instagram profillerindeki Reels videoları 8 katmanlı özgünleştirme ile doğrudan YouTube Shorts'a kopyalanır."
+            }.get(lang, "Instagram Reels to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.")
+            prof_lbl = {"uz": "Kuzatilayotgan profillar:", "ru": "Отслеживаемые профили:", "en": "Monitored profiles:", "es": "Perfiles monitoreados:", "tr": "İzlenen profiller:"}.get(lang, "Kuzatilayotgan profillar:")
             text = (
                 f'{ce("INSTAGRAM_LOGO")} <b>Instagram Account Auto-Cloner</b>\n\n'
-                f"Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan "
-                f"to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n"
-                f"{ce('LIST')} <b>Kuzatilayotgan profillar:</b>\n{ch_list}"
+                f"{ig_desc}\n\n"
+                f"{ce('LIST')} <b>{prof_lbl}</b>\n{ch_list}"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('MEDIA_INSTAGRAM')} {t('btn_add_ig_profile', lang)}", callback_data="ig_add_profile")],
@@ -6601,10 +6685,13 @@ def create_ytbot():
                 [InlineKeyboardButton(f"{ce('TOOL_TON_NFT')} {t('btn_nft_my', lang)}", callback_data="nft_my_items")],
                 [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
             ])
+            nft_title = {"uz": "3D NFT Marketplace", "ru": "3D NFT Маркетплейс", "en": "3D NFT Marketplace", "es": "Mercado 3D NFT", "tr": "3D NFT Pazaryeri"}.get(lang, "3D NFT Marketplace")
+            nft_line1 = {"uz": "Eksklyuziv 3D NFT kolleksiyamizdan tanlang!", "ru": "Выбирайте из нашей эксклюзивной коллекции 3D NFT!", "en": "Choose from our exclusive 3D NFT collection!", "es": "¡Elija de nuestra exclusiva colección 3D NFT!", "tr": "Özel 3D NFT koleksiyonumuzdan seçin!"}.get(lang, "Eksklyuziv 3D NFT kolleksiyasidan tanlang!")
+            nft_line2 = {"uz": "Xarid qilingan NFT TON blockchainga mint qilinadi.", "ru": "Купленные NFT чеканятся в блокчейне TON.", "en": "Purchased NFTs are minted to the TON blockchain.", "es": "Los NFTs comprados se acuñan en la blockchain TON.", "tr": "Satın alınan NFT'ler TON blokzincirine mint edilir."}.get(lang, "NFT TON blockchainga mint qilinadi.")
             text = (
-                f"{ce('NFT')} <b>3D NFT Marketplace</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                f"{ce('GALLERY')} Eksklyuziv 3D NFT kolleksiyamizdan tanlang!\n"
-                f"{ce('TONKEEPER')} Xarid qilingan NFT TON blockchainga mint qilinadi."
+                f"{ce('NFT')} <b>{nft_title}</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                f"{ce('GALLERY')} {nft_line1}\n"
+                f"{ce('TONKEEPER')} {nft_line2}"
             )
             try:
                 await cb.message.edit_text(text, reply_markup=kb)
@@ -6615,11 +6702,21 @@ def create_ytbot():
         if menu == "cashout":
             bal = get_user_balance(user_id)
             from cashout import MIN_CASHOUT_UZS
+            co_title = {
+                "uz": "Hisobdan Pul Yechish (Cashout)",
+                "ru": "Вывод средств (Cashout)",
+                "en": "Withdraw Funds (Cashout)",
+                "es": "Retiro de fondos (Cashout)",
+                "tr": "Para Çekme (Cashout)"
+            }.get(lang, "Hisobdan Pul Yechish")
+            co_bal = {"uz": "Mavjud balansingiz:", "ru": "Текущий баланс:", "en": "Current balance:", "es": "Saldo disponible:", "tr": "Mevcut bakiye:"}.get(lang, "Balans:")
+            co_min = {"uz": "Minimal yechish summasi:", "ru": "Минимальная сумма вывода:", "en": "Minimum withdrawal amount:", "es": "Monto mínimo de retiro:", "tr": "Minimum çekim tutarı:"}.get(lang, "Minimal summa:")
+            co_choose = {"uz": "Pul yechish usulini tanlang:", "ru": "Выберите способ вывода:", "en": "Choose withdrawal method:", "es": "Seleccione el método de retiro:", "tr": "Çekim yöntemini seçin:"}.get(lang, "Usulni tanlang:")
             text = (
-                f'{ce("CASH")} <b>Hisobdan Pul Yechish (Cashout)</b>\n\n'
-                f'{ce("MONEY")} <b>Mavjud balansingiz:</b> <code>{bal:,} so\'m</code>\n'
-                f'{ce("WARN")} <b>Minimal yechish summasi:</b> <code>{MIN_CASHOUT_UZS:,} so\'m</code>\n\n'
-                f"Pul yechish usulini tanlang:"
+                f'{ce("CASH")} <b>{co_title}</b>\n\n'
+                f'{ce("MONEY")} <b>{co_bal}</b> <code>{bal:,} so\'m</code>\n'
+                f'{ce("WARN")} <b>{co_min}</b> <code>{MIN_CASHOUT_UZS:,} so\'m</code>\n\n'
+                f"{co_choose}"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('PAY_STARS')} {t('btn_cashout_stars', lang)}", callback_data="co_method_stars")],
@@ -6680,7 +6777,7 @@ def create_ytbot():
             return
 
         menus = {
-            "channel": (t("menu_channel_header", lang), channel_menu_kb(lang)),
+            "channel": (t("menu_channel_header", lang), channel_menu_kb(lang, user_id=user_id)),
             "video": (t("menu_video_header", lang), video_menu_kb(lang)),
             "analytics": (t("menu_analytics_header", lang), analytics_menu_kb(lang)),
             "search": (t("menu_search_header", lang), search_menu_kb(lang)),
@@ -9012,6 +9109,56 @@ def create_ytbot():
         except Exception as pub_err:
             await cb.message.edit_text(f"{e('ERROR')} Xatolik: {pub_err}", reply_markup=main_menu_kb(user_id))
     
+    # ==================== YOUTUBE SINGLE-ACCOUNT SWITCHER ====================
+    @bot.on_callback_query(filters.regex(r"^yt_ch_select_([a-zA-Z0-9_-]+)$"))
+    async def cb_yt_channel_select(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        ch_id = cb.matches[0].group(1)
+        from database import set_default_account, get_all_yt_connections
+        set_default_account(user_id, ch_id)
+        
+        # Clear main stats cache
+        try:
+            import main
+            if hasattr(main, "_stats_cache"):
+                for k in list(main._stats_cache.keys()):
+                    if str(k).startswith(str(user_id)):
+                        main._stats_cache.pop(k, None)
+        except Exception:
+            pass
+
+        channels = get_all_yt_connections(user_id)
+        active_title = ch_id
+        for c in channels:
+            if c.get("yt_channel_id") == ch_id:
+                active_title = c.get("yt_channel_title", ch_id)
+                break
+                
+        confirm_text = {
+            "uz": f"{ce('STATUS_SUCCESS')} Faol kanal tanlandi: {active_title}\nEndi faqat shu kanal statistikasi ko'rsatiladi.",
+            "ru": f"{ce('STATUS_SUCCESS')} Выбран активный канал: {active_title}\nТеперь отображается статистика только этого канала.",
+            "en": f"{ce('STATUS_SUCCESS')} Active channel selected: {active_title}\nNow displaying stats for this channel only.",
+            "es": f"{ce('STATUS_SUCCESS')} Canal activo seleccionado: {active_title}\nAhora se muestran estadísticas solo de este canal.",
+            "tr": f"{ce('STATUS_SUCCESS')} Aktif kanal seçildi: {active_title}\nArtık yalnızca bu kanalın istatistikleri gösteriliyor."
+        }.get(lang, f"{ce('STATUS_SUCCESS')} Tanlandi: {active_title}")
+        
+        await cb.answer(confirm_text, show_alert=True)
+        text = t("menu_channel_header", lang)
+        await cb.message.edit_text(text, reply_markup=channel_menu_kb(lang, user_id=user_id), parse_mode=ParseMode.MARKDOWN)
+
+    @bot.on_callback_query(filters.regex(r"^yt_ch_active_noop$"))
+    async def cb_yt_channel_active_noop(client, cb: CallbackQuery):
+        lang = get_user_language(cb.from_user.id)
+        msg = {
+            "uz": f"{ce('STATUS_SUCCESS')} Bu kanal allaqachon faol tanlangan!",
+            "ru": f"{ce('STATUS_SUCCESS')} Этот канал уже выбран как активный!",
+            "en": f"{ce('STATUS_SUCCESS')} This channel is already selected and active!",
+            "es": f"{ce('STATUS_SUCCESS')} ¡Este canal ya está seleccionado y activo!",
+            "tr": f"{ce('STATUS_SUCCESS')} Bu kanal zaten seçili ve aktif!"
+        }.get(lang, f"{ce('STATUS_SUCCESS')} Bu kanal faol!")
+        await cb.answer(msg)
+
     # Channel menu callbacks
     @bot.on_callback_query(filters.regex("^ch_"))
     async def cb_channel_menu(client, cb: CallbackQuery):

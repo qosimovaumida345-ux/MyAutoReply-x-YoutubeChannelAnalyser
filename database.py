@@ -1632,13 +1632,20 @@ def update_yt_channel_metadata(tg_user_id, yt_channel_id, channel_title=None, ch
         conn.close()
 
 
-def get_yt_connection(tg_user_id):
+def get_yt_connection(tg_user_id, channel_id=None):
     conn = get_db()
     if not conn: return None
     try:
         cur = conn.cursor()
         
-        # Default account ni tekshiramiz
+        # 1. Agar aniq channel_id so'ralgan bo'lsa
+        if channel_id:
+            cur.execute("SELECT * FROM yt_connections WHERE tg_user_id = %s AND yt_channel_id = %s", (tg_user_id, channel_id))
+            conn_data = cur.fetchone()
+            if conn_data:
+                return conn_data
+
+        # 2. Aks holda default account ni tekshiramiz
         cur.execute("SELECT default_yt_channel_id FROM user_settings WHERE tg_user_id = %s", (tg_user_id,))
         row = cur.fetchone()
         default_ch_id = row["default_yt_channel_id"] if row else None
