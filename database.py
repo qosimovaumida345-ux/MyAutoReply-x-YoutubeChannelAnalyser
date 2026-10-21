@@ -1225,6 +1225,11 @@ def init_db():
     except Exception as e:
         print(f"Migration error: {e}")
         
+    try:
+        init_captcha_tables()
+    except Exception as e:
+        print(f"init_captcha_tables error: {e}")
+
     print("PostgreSQL database tayyor!")
 
 
@@ -7677,3 +7682,357 @@ def record_api_metered_usage(tg_user_id: int, endpoint: str, cost_uzs: int, stat
 
 
 
+
+# ==================== BOTSHIELD CAPTCHA DATABASE ENGINE ====================
+
+def init_captcha_tables(conn=None):
+    """BotShield Captcha xizmati uchun jadvallarni yaratish"""
+    should_close = False
+    if conn is None:
+        conn = get_db()
+        should_close = True
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS captcha_site_keys (
+                id SERIAL PRIMARY KEY,
+                tg_user_id BIGINT NOT NULL,
+                site_key VARCHAR(128) UNIQUE NOT NULL,
+                secret_key VARCHAR(128) UNIQUE NOT NULL,
+                name VARCHAR(128) DEFAULT 'Default Site',
+                domain VARCHAR(255) DEFAULT '*',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW(),
+                total_verifications BIGINT DEFAULT 0,
+                last_used_at TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_captcha_site_keys_user ON captcha_site_keys(tg_user_id);
+            CREATE INDEX IF NOT EXISTS idx_captcha_site_keys_site_key ON captcha_site_keys(site_key);
+            CREATE INDEX IF NOT EXISTS idx_captcha_site_keys_secret_key ON captcha_site_keys(secret_key);
+
+            CREATE TABLE IF NOT EXISTS captcha_verification_logs (
+                id SERIAL PRIMARY KEY,
+                tg_user_id BIGINT,
+                site_key VARCHAR(128) NOT NULL,
+                challenge_id VARCHAR(64) NOT NULL,
+                score NUMERIC(4,2) DEFAULT 1.0,
+                cost_uzs BIGINT DEFAULT 10,
+                ip_address VARCHAR(64),
+                user_agent TEXT,
+                success BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_captcha_logs_site_key ON captcha_verification_logs(site_key);
+            CREATE INDEX IF NOT EXISTS idx_captcha_logs_created ON captcha_verification_logs(created_at);
+            CREATE INDEX IF NOT EXISTS idx_captcha_logs_cid ON captcha_verification_logs(challenge_id);
+        """)
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"init_captcha_tables error: {e}")
+        return False
+    finally:
+        if should_close:
+            conn.close()
+
+
+def get_or_create_captcha_keys(tg_user_id: int, name: str = "Default Site") -> dict:
+    """Foydalanuvchi uchun BotShield sitekey va secretkey olish yoki yangi yaratish"""
+    import secrets
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza bilan aloqa yo'q"}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT site_key, secret_key, name, domain, is_active, total_verifications, created_at
+            FROM captcha_site_keys
+            WHERE tg_user_id = %s
+            ORDER BY id ASC
+            LIMIT 1
+        """, (tg_user_id,))
+        row = cur.fetchone()
+        if row:
+            if isinstance(row, dict):
+                return {
+                    "ok": True,
+                    "site_key": row["site_key"],
+                    "secret_key": row["secret_key"],
+                    "name": row["name"],
+                    "domain": row["domain"],
+                    "is_active": row["is_active"],
+                    "total_verifications": row["total_verifications"],
+                    "created_at": str(row["created_at"])
+                }
+            else:
+                return {
+                    "ok": True,
+                    "site_key": row[0],
+                    "secret_key": row[1],
+                    "name": row[2],
+                    "domain": row[3],
+                    "is_active": row[4],
+                    "total_verifications": row[5],
+                    "created_at": str(row[6])
+                }
+
+        # Yangi kalitlar yaratish
+        site_key = "bsh_live_" + secrets.token_hex(16)
+        secret_key = "bsh_sec_" + secrets.token_hex(20)
+        cur.execute("""
+            INSERT INTO captcha_site_keys (tg_user_id, site_key, secret_key, name, domain)
+            VALUES (%s, %s, %s, %s, '*')
+            RETURNING site_key, secret_key, name, domain, is_active, total_verifications, created_at
+        """, (tg_user_id, site_key, secret_key, name))
+        new_row = cur.fetchone()
+        conn.commit()
+        if isinstance(new_row, dict):
+            return {
+                "ok": True,
+                "site_key": new_row["site_key"],
+                "secret_key": new_row["secret_key"],
+                "name": new_row["name"],
+                "domain": new_row["domain"],
+                "is_active": new_row["is_active"],
+                "total_verifications": 0,
+                "created_at": str(new_row["created_at"])
+            }
+        else:
+            return {
+                "ok": True,
+                "site_key": new_row[0],
+                "secret_key": new_row[1],
+                "name": new_row[2],
+                "domain": new_row[3],
+                "is_active": new_row[4],
+                "total_verifications": 0,
+                "created_at": str(new_row[6])
+            }
+    except Exception as e:
+        conn.rollback()
+        print(f"get_or_create_captcha_keys error: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def get_captcha_key_by_sitekey(site_key: str):
+    """Site key orqali captcha sozlamalarini olish"""
+    site_key = str(site_key or "").strip()
+    if not site_key:
+        return None
+    if site_key in ("demo_key", "demo_sitekey"):
+        return {
+            "tg_user_id": 0,
+            "site_key": site_key,
+            "secret_key": "demo_secret",
+            "name": "Demo Showcase",
+            "domain": "*",
+            "is_active": True,
+            "is_demo": True
+        }
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT tg_user_id, site_key, secret_key, name, domain, is_active, total_verifications
+            FROM captcha_site_keys
+            WHERE site_key = %s
+        """, (site_key,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        if isinstance(row, dict):
+            return {
+                "tg_user_id": row["tg_user_id"],
+                "site_key": row["site_key"],
+                "secret_key": row["secret_key"],
+                "name": row["name"],
+                "domain": row["domain"],
+                "is_active": row["is_active"],
+                "total_verifications": row["total_verifications"],
+                "is_demo": False
+            }
+        else:
+            return {
+                "tg_user_id": row[0],
+                "site_key": row[1],
+                "secret_key": row[2],
+                "name": row[3],
+                "domain": row[4],
+                "is_active": row[5],
+                "total_verifications": row[6],
+                "is_demo": False
+            }
+    except Exception as e:
+        print(f"get_captcha_key_by_sitekey error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_captcha_key_by_secret(secret_key: str):
+    """Secret key orqali captcha sozlamalarini olish"""
+    secret_key = str(secret_key or "").strip()
+    if not secret_key:
+        return None
+    if secret_key in ("demo_secret", "demo_sec"):
+        return {
+            "tg_user_id": 0,
+            "site_key": "demo_key",
+            "secret_key": secret_key,
+            "name": "Demo Showcase",
+            "domain": "*",
+            "is_active": True,
+            "is_demo": True
+        }
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT tg_user_id, site_key, secret_key, name, domain, is_active, total_verifications
+            FROM captcha_site_keys
+            WHERE secret_key = %s
+        """, (secret_key,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        if isinstance(row, dict):
+            return {
+                "tg_user_id": row["tg_user_id"],
+                "site_key": row["site_key"],
+                "secret_key": row["secret_key"],
+                "name": row["name"],
+                "domain": row["domain"],
+                "is_active": row["is_active"],
+                "total_verifications": row["total_verifications"],
+                "is_demo": False
+            }
+        else:
+            return {
+                "tg_user_id": row[0],
+                "site_key": row[1],
+                "secret_key": row[2],
+                "name": row[3],
+                "domain": row[4],
+                "is_active": row[5],
+                "total_verifications": row[6],
+                "is_demo": False
+            }
+    except Exception as e:
+        print(f"get_captcha_key_by_secret error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def record_captcha_verification(
+    tg_user_id: int,
+    site_key: str,
+    challenge_id: str,
+    score: float,
+    cost_uzs: int = 10,
+    ip: str = "",
+    user_agent: str = "",
+    success: bool = True
+) -> bool:
+    """Captcha tekshiruvi logini saqlash va hisoblagichni yangilash"""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO captcha_verification_logs (tg_user_id, site_key, challenge_id, score, cost_uzs, ip_address, user_agent, success, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        """, (tg_user_id, site_key, challenge_id, score, cost_uzs, ip, user_agent[:500] if user_agent else "", success))
+
+        cur.execute("""
+            UPDATE captcha_site_keys
+            SET total_verifications = total_verifications + 1, last_used_at = NOW()
+            WHERE site_key = %s
+        """, (site_key,))
+
+        conn.commit()
+
+        if tg_user_id and tg_user_id > 0 and success and cost_uzs > 0:
+            record_api_metered_usage(tg_user_id, "captcha_siteverify", cost_uzs, status="success")
+
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"record_captcha_verification error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def get_captcha_stats(tg_user_id: int) -> dict:
+    """Foydalanuvchining Captcha xizmatidan foydalanish statistikasi"""
+    conn = get_db()
+    if not conn:
+        return {"total_verifications": 0, "total_spent_uzs": 0, "keys_count": 0, "last_24h": 0}
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*) as keys_count, COALESCE(SUM(total_verifications), 0) as total_verifications
+            FROM captcha_site_keys
+            WHERE tg_user_id = %s
+        """, (tg_user_id,))
+        k_row = cur.fetchone()
+        keys_count = (k_row["keys_count"] if isinstance(k_row, dict) else k_row[0]) if k_row else 0
+        total_verifs = (k_row["total_verifications"] if isinstance(k_row, dict) else k_row[1]) if k_row else 0
+
+        cur.execute("""
+            SELECT COUNT(*) as last_24h, COALESCE(SUM(cost_uzs), 0) as total_spent
+            FROM captcha_verification_logs
+            WHERE tg_user_id = %s AND success = TRUE AND created_at >= NOW() - INTERVAL '24 hours'
+        """, (tg_user_id,))
+        l_row = cur.fetchone()
+        last_24h = (l_row["last_24h"] if isinstance(l_row, dict) else l_row[0]) if l_row else 0
+        total_spent = (l_row["total_spent"] if isinstance(l_row, dict) else l_row[1]) if l_row else 0
+
+        return {
+            "total_verifications": int(total_verifs),
+            "total_spent_uzs": int(total_spent),
+            "keys_count": int(keys_count),
+            "last_24h": int(last_24h)
+        }
+    except Exception as e:
+        print(f"get_captcha_stats error: {e}")
+        return {"total_verifications": 0, "total_spent_uzs": 0, "keys_count": 0, "last_24h": 0}
+    finally:
+        conn.close()
+
+
+def is_captcha_challenge_used(challenge_id: str) -> bool:
+    """Challenge ID allaqachon muvaffaqiyatli tekshirilganmi (persistent replay defense)"""
+    challenge_id = str(challenge_id or "").strip()
+    if not challenge_id:
+        return False
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT 1 FROM captcha_verification_logs
+            WHERE challenge_id = %s AND success = TRUE
+            LIMIT 1
+        """, (challenge_id,))
+        row = cur.fetchone()
+        return bool(row)
+    except Exception as e:
+        print(f"is_captcha_challenge_used error: {e}")
+        return False
+    finally:
+        conn.close()
+
+

@@ -2869,6 +2869,244 @@ async def handle_dashboard_webapp(request):
     return web.Response(text=html, content_type="text/html")
 
 
+
+# ==================== BOTSHIELD CAPTCHA AS A SERVICE ====================
+
+from captcha_engine import CaptchaManager
+from database import (
+    get_or_create_captcha_keys,
+    get_captcha_key_by_sitekey,
+    get_captcha_key_by_secret,
+    record_captcha_verification,
+    get_captcha_stats
+)
+
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-API-Key"
+}
+
+def cors_json_response(data: dict, status: int = 200) -> web.Response:
+    """CORS ruxsatlari bilan JSON javob qaytarish"""
+    return web.json_response(data, status=status, headers=CORS_HEADERS)
+
+async def handle_captcha_options(request):
+    """CORS Preflight (OPTIONS) so'rovlariga tezkor 204 javobi"""
+    return web.Response(status=204, headers=CORS_HEADERS)
+
+async def handle_captcha_widget_js(request):
+    """GET /captcha/widget.js - BotShield brauzer SDK si"""
+    widget_path = os.path.join(os.path.dirname(__file__), "captcha_widget.js")
+    if os.path.exists(widget_path):
+        with open(widget_path, "r", encoding="utf-8") as f:
+            js_content = f.read()
+    else:
+        js_content = "// BotShield widget not found"
+        
+    return web.Response(
+        text=js_content,
+        content_type="application/javascript",
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=3600"
+        }
+    )
+
+async def handle_captcha_demo_page(request):
+    """GET /captcha/demo - BotShield jonli interaktiv sinov va vitrina sahifasi"""
+    demo_path = os.path.join(os.path.dirname(__file__), "captcha_demo.html")
+    if os.path.exists(demo_path):
+        with open(demo_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+    else:
+        html_content = "<h1>BotShield Demo Page Not Found</h1>"
+        
+    return web.Response(text=html_content, content_type="text/html")
+
+async def handle_api_captcha_create(request):
+    """POST /api/v1/captcha/create - Yangi captcha challenge yaratish"""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+        
+    sitekey = str(body.get("sitekey", "demo_key")).strip()
+    c_type = str(body.get("type", "auto")).strip()
+    
+    # Sitekey tekshiruvi
+    key_info = get_captcha_key_by_sitekey(sitekey)
+    if not key_info:
+        return cors_json_response({
+            "ok": False,
+            "error": "invalid_sitekey",
+            "message": "Yaroqsiz yoki topilmagan sitekey!"
+        }, status=400)
+        
+    if not key_info.get("is_active", True):
+        return cors_json_response({
+            "ok": False,
+            "error": "sitekey_inactive",
+            "message": "Ushbu sitekey faolsizlantirilgan!"
+        }, status=403)
+        
+    challenge = CaptchaManager.create_challenge(challenge_type=c_type, sitekey=sitekey)
+    return cors_json_response(challenge)
+
+async def handle_api_captcha_verify(request):
+    """POST /api/v1/captcha/verify - Widget orqali yechim va telemetriyani tasdiqlash"""
+    try:
+        body = await request.json()
+    except Exception:
+        return cors_json_response({"ok": False, "error": "invalid_json"}, status=400)
+        
+    challenge_id = str(body.get("challenge_id", "")).strip()
+    solution = body.get("solution")
+    telemetry = body.get("telemetry", {})
+    
+    if not challenge_id or solution is None:
+        return cors_json_response({
+            "ok": False,
+            "error": "missing_fields",
+            "message": "challenge_id va solution maydonlari talab qilinadi"
+        }, status=400)
+        
+    result = CaptchaManager.verify_challenge(challenge_id, solution, telemetry)
+    status_code = 200 if result.get("ok") else 400
+    return cors_json_response(result, status=status_code)
+
+async def handle_api_captcha_siteverify(request):
+    """
+    POST /api/v1/captcha/siteverify - Server-to-Server yakuniy tasdiqlash
+    Har bir muvaffaqiyatli tekshiruv uchun foydalanuvchi hisobidan 10 UZS yechiladi.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        post_data = await request.post()
+        body = dict(post_data)
+        
+    secret = str(body.get("secret", "") or request.query.get("secret", "")).strip()
+    token = str(body.get("token", "") or request.query.get("token", "")).strip()
+    sitekey = str(body.get("sitekey", "") or request.query.get("sitekey", "")).strip() or None
+    
+    if not secret:
+        return cors_json_response({
+            "success": False,
+            "error": "missing_secret",
+            "message": "secret kaliti talab qilinadi"
+        }, status=400)
+        
+    if not token:
+        return cors_json_response({
+            "success": False,
+            "error": "missing_token",
+            "message": "token parametri talab qilinadi"
+        }, status=400)
+        
+    key_info = get_captcha_key_by_secret(secret)
+    if not key_info:
+        return cors_json_response({
+            "success": False,
+            "error": "invalid_secret_key",
+            "message": "Yaroqsiz yoki topilmagan secret key!"
+        }, status=401)
+        
+    if not key_info.get("is_active", True):
+        return cors_json_response({
+            "success": False,
+            "error": "secret_key_inactive",
+            "message": "Ushbu secret key faolsizlantirilgan!"
+        }, status=403)
+        
+    expected_sitekey = key_info.get("site_key")
+    if sitekey and sitekey != expected_sitekey:
+        return cors_json_response({
+            "success": False,
+            "error": "invalid_sitekey",
+            "message": "Berilgan sitekey ushbu secret keyga tegishli emas!"
+        }, status=400)
+        
+    verify_res = CaptchaManager.siteverify_token(token, secret, sitekey=expected_sitekey)
+    if not verify_res.get("success"):
+        return cors_json_response({
+            "success": False,
+            "error": verify_res.get("error", "verification_failed"),
+            "message": verify_res.get("message", "Token tekshiruvdan o'tmadi")
+        }, status=400)
+        
+    tg_user_id = key_info.get("tg_user_id", 0)
+    is_demo = key_info.get("is_demo", False)
+    cost_uzs = 10 if not is_demo else 0
+    
+    if not is_demo and tg_user_id > 0:
+        current_bal = get_user_balance(tg_user_id)
+        if current_bal < cost_uzs:
+            return cors_json_response({
+                "success": False,
+                "error": "insufficient_balance",
+                "message": f"Hisobingizda mablag' yetarli emas. Kerak: {cost_uzs} UZS, mavjud: {current_bal} UZS."
+            }, status=402)
+            
+        deducted = deduct_user_balance(tg_user_id, cost_uzs)
+        if not deducted:
+            return cors_json_response({
+                "success": False,
+                "error": "billing_deduction_failed",
+                "message": "Balansdan yechishda xatolik yuz berdi"
+            }, status=500)
+            
+    client_ip = request.headers.get("X-Forwarded-For", request.remote or "").split(",")[0].strip()
+    user_agent = request.headers.get("User-Agent", "")
+    
+    record_captcha_verification(
+        tg_user_id=tg_user_id,
+        site_key=key_info.get("site_key", ""),
+        challenge_id=verify_res.get("challenge_id", ""),
+        score=verify_res.get("score", 1.0),
+        cost_uzs=cost_uzs,
+        ip=client_ip,
+        user_agent=user_agent,
+        success=True
+    )
+    
+    remaining_balance = get_user_balance(tg_user_id) if tg_user_id > 0 else 0
+    
+    return cors_json_response({
+        "success": True,
+        "challenge_ts": verify_res.get("timestamp"),
+        "hostname": key_info.get("domain", "*"),
+        "score": verify_res.get("score", 1.0),
+        "action": "solve",
+        "cost_uzs": cost_uzs,
+        "remaining_balance_uzs": remaining_balance,
+        "demo": is_demo
+    })
+
+async def handle_api_captcha_get_or_create_keys(request):
+    """POST /api/v1/captcha/keys - Foydalanuvchi shaxsiy BotShield kalitlarini olish/yaratish"""
+    user, err = authenticate_request(request)
+    if err: return err
+    
+    tg_user_id = user["tg_user_id"]
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    name = str(body.get("name", "Default Site")).strip()
+    
+    keys = get_or_create_captcha_keys(tg_user_id, name=name)
+    return cors_json_response(keys)
+
+async def handle_api_captcha_stats(request):
+    """GET /api/v1/captcha/stats - Captcha foydalanish statistikasi"""
+    user, err = authenticate_request(request)
+    if err: return err
+    
+    stats = get_captcha_stats(user["tg_user_id"])
+    return cors_json_response({"ok": True, "stats": stats})
+
+
 def setup_reseller_api_routes(app: web.Application):
     """Barcha Reseller & Pay-As-You-Go API yo'nalishlarini ro'yxatga olish"""
     # 1. Asosiy Hisob & Mahsulotlar
@@ -2917,6 +3155,22 @@ def setup_reseller_api_routes(app: web.Application):
     # 7. Documentation & Dashboard
     app.router.add_get("/api/v1/docs", handle_api_docs_html)
     app.router.add_get("/dashboard", handle_dashboard_webapp)
+    # 8. BotShield Captcha as a Service Endpoints
+    app.router.add_get("/captcha/widget.js", handle_captcha_widget_js)
+    app.router.add_get("/captcha/demo", handle_captcha_demo_page)
+    app.router.add_post("/api/v1/captcha/create", handle_api_captcha_create)
+    app.router.add_post("/api/v1/captcha/verify", handle_api_captcha_verify)
+    app.router.add_post("/api/v1/captcha/siteverify", handle_api_captcha_siteverify)
+    app.router.add_post("/api/v1/captcha/keys", handle_api_captcha_get_or_create_keys)
+    app.router.add_get("/api/v1/captcha/stats", handle_api_captcha_stats)
+
+    # CORS Preflight OPTIONS
+    app.router.add_options("/api/v1/captcha/create", handle_captcha_options)
+    app.router.add_options("/api/v1/captcha/verify", handle_captcha_options)
+    app.router.add_options("/api/v1/captcha/siteverify", handle_captcha_options)
+    app.router.add_options("/api/v1/captcha/keys", handle_captcha_options)
+    app.router.add_options("/api/v1/captcha/stats", handle_captcha_options)
+
     print("[Reseller API] Barcha 25 ta REST API yo'nalishlari muvaffaqiyatli ulandi (/api/v1/... va /dashboard)")
 
 
