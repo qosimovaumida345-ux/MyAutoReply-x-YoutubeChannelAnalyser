@@ -1938,6 +1938,8 @@ BRAND_TO_REGISTRY_KEY = {
     "youtube": "MEDIA_YOUTUBE",
     "hbo max": "BRAND_HBOMAX",
     "hbo": "BRAND_HBOMAX",
+    "surfshark": CUSTOM_EMOJI_REGISTRY.get("BRAND_NORDVPN", {}).get("id", "5346134750417403743"),
+    "surfshark": "BRAND_NORDVPN",
     "nordvpn": "BRAND_NORDVPN",
     "nord vpn": "BRAND_NORDVPN",
     "nord": "BRAND_NORDVPN",

@@ -521,8 +521,508 @@ TRANSLATIONS = {
             "• 🎟️ <b>Mega Piyango</b> — Büyük ikramiye çekilişi"
         )
     }
-}
+,
+    # ==================== MAIN MENU EXTENSIONS ====================
+    "btn_tariffs_vip": {
+        "uz": "Tariflar & VIP (69,000 UZS)",
+        "ru": "Тарифы и VIP (69,000 UZS)",
+        "en": "Plans & VIP (69,000 UZS)",
+        "es": "Planes y VIP (69,000 UZS)",
+        "tr": "Planlar ve VIP (69,000 UZS)"
+    },
+    "btn_channel_video": {
+        "uz": "Kanal & Video",
+        "ru": "Канал и Видео",
+        "en": "Channel & Video",
+        "es": "Canal y Video",
+        "tr": "Kanal ve Video"
+    },
+    "btn_analytics": {
+        "uz": "Analitika",
+        "ru": "Аналитика",
+        "en": "Analytics",
+        "es": "Analítica",
+        "tr": "Analitik"
+    },
+    "btn_bundles": {
+        "uz": "Super To'plamlar (Bundles)",
+        "ru": "Супер Наборы (Bundles)",
+        "en": "Super Bundles",
+        "es": "Súper Paquetes",
+        "tr": "Süper Paketler"
+    },
+    "kyc_vip_status": {
+        "uz": "VIP Foydalanuvchi",
+        "ru": "VIP Пользователь",
+        "en": "VIP User",
+        "es": "Usuario VIP",
+        "tr": "VIP Kullanıcı"
+    },
+    "kyc_3d_status": {
+        "uz": "3D KYC Verified",
+        "ru": "3D KYC Проверен",
+        "en": "3D KYC Verified",
+        "es": "3D KYC Verificado",
+        "tr": "3D KYC Doğrulandı"
+    },
+    "kyc_half_status": {
+        "uz": "Yarim Verified",
+        "ru": "Частично Проверен",
+        "en": "Half Verified",
+        "es": "Semi Verificado",
+        "tr": "Yarı Doğrulanmış"
+    },
 
+    # ==================== WALLET & PAYMENTS ====================
+    "btn_pay_humo": {
+        "uz": "HUMO / Uzcard orqali to'ldirish (UZS)",
+        "ru": "Пополнить через HUMO / Uzcard (UZS)",
+        "en": "Deposit via HUMO / Uzcard (UZS)",
+        "es": "Depositar con HUMO / Uzcard (UZS)",
+        "tr": "HUMO / Uzcard ile Yükle (UZS)"
+    },
+    "btn_pay_stars": {
+        "uz": "Telegram Stars orqali to'ldirish",
+        "ru": "Пополнить через Telegram Stars",
+        "en": "Deposit via Telegram Stars",
+        "es": "Depositar con Telegram Stars",
+        "tr": "Telegram Stars ile Yükle"
+    },
+    "btn_pay_ton": {
+        "uz": "TON (The Open Network) orqali",
+        "ru": "Через TON (The Open Network)",
+        "en": "Via TON (The Open Network)",
+        "es": "Vía TON (The Open Network)",
+        "tr": "TON (The Open Network) ile"
+    },
+    "btn_ton_wallet_connect": {
+        "uz": "TON Hamyonni Ulash",
+        "ru": "Подключить TON Кошелек",
+        "en": "Connect TON Wallet",
+        "es": "Conectar Billetera TON",
+        "tr": "TON Cüzdanı Bağla"
+    },
+    "btn_ton_wallet_connected": {
+        "uz": "TON Hamyon ({masked})",
+        "ru": "TON Кошелек ({masked})",
+        "en": "TON Wallet ({masked})",
+        "es": "Billetera TON ({masked})",
+        "tr": "TON Cüzdan ({masked})"
+    },
+    "btn_redeem_promo": {
+        "uz": "Promokod kiritish (/redeem)",
+        "ru": "Ввести промокод (/redeem)",
+        "en": "Enter Promo Code (/redeem)",
+        "es": "Ingresar código promo (/redeem)",
+        "tr": "Promosyon Kodu Gir (/redeem)"
+    },
+    "btn_pay_history": {
+        "uz": "To'lovlar tarixi",
+        "ru": "История платежей",
+        "en": "Payment History",
+        "es": "Historial de pagos",
+        "tr": "Ödeme Geçmişi"
+    },
+
+    # ==================== GAMES MENU ====================
+    "btn_spin_wheel": {
+        "uz": "Omad G'ildiragi (Daily Spin)",
+        "ru": "Колесо Фортуны (Daily Spin)",
+        "en": "Lucky Wheel (Daily Spin)",
+        "es": "Rueda de la Suerte (Daily Spin)",
+        "tr": "Çarkıfelek (Daily Spin)"
+    },
+    "btn_mystery_box": {
+        "uz": "Omadli Quti (Mystery Box)",
+        "ru": "Коробка Удачи (Mystery Box)",
+        "en": "Mystery Box",
+        "es": "Caja Misteriosa (Mystery Box)",
+        "tr": "Gizemli Kutu (Mystery Box)"
+    },
+    "btn_coin_flip": {
+        "uz": "Tanga Tashlash (Coin Flip)",
+        "ru": "Бросок монеты (Coin Flip)",
+        "en": "Coin Flip (PvP)",
+        "es": "Lanzamiento de Moneda (Coin Flip)",
+        "tr": "Yazı Tura (Coin Flip)"
+    },
+    "btn_lottery": {
+        "uz": "Sovg'ali Lotereya",
+        "ru": "Призовая Лотерея",
+        "en": "Prize Lottery",
+        "es": "Lotería con Premios",
+        "tr": "Ödüllü Piyango"
+    },
+
+    # ==================== CHANNEL & VIDEO SUITE ====================
+    "btn_full_stats": {
+        "uz": "To'liq statistika",
+        "ru": "Полная статистика",
+        "en": "Full Statistics",
+        "es": "Estadísticas completas",
+        "tr": "Tam İstatistikler"
+    },
+    "btn_subs": {
+        "uz": "Obunachilar",
+        "ru": "Подписчики",
+        "en": "Subscribers",
+        "es": "Suscriptores",
+        "tr": "Aboneler"
+    },
+    "btn_recent_videos": {
+        "uz": "So'nggi videolar",
+        "ru": "Последние видео",
+        "en": "Recent Videos",
+        "es": "Videos recientes",
+        "tr": "Son Videolar"
+    },
+    "btn_popular_videos": {
+        "uz": "Ommabop videolar",
+        "ru": "Популярные видео",
+        "en": "Popular Videos",
+        "es": "Videos populares",
+        "tr": "Popüler Videolar"
+    },
+    "btn_playlists": {
+        "uz": "Pleylistlar",
+        "ru": "Плейлисты",
+        "en": "Playlists",
+        "es": "Listas de reproducción",
+        "tr": "Oynatma Listeleri"
+    },
+    "btn_about_channel": {
+        "uz": "Kanal haqida",
+        "ru": "О канале",
+        "en": "About Channel",
+        "es": "Sobre el canal",
+        "tr": "Kanal Hakkında"
+    },
+    "btn_banner_avatar": {
+        "uz": "Banner/Avatar",
+        "ru": "Баннер/Аватар",
+        "en": "Banner/Avatar",
+        "es": "Banner/Avatar",
+        "tr": "Afiş/Profil"
+    },
+    "btn_keywords": {
+        "uz": "Kalit so'zlar",
+        "ru": "Ключевые слова",
+        "en": "Keywords & Tags",
+        "es": "Palabras clave",
+        "tr": "Anahtar Kelimeler"
+    },
+    "btn_upload_freq": {
+        "uz": "Upload chastotasi",
+        "ru": "Частота загрузок",
+        "en": "Upload Frequency",
+        "es": "Frecuencia de subida",
+        "tr": "Yükleme Sıklığı"
+    },
+    "btn_earnings_est": {
+        "uz": "Daromad taxmini",
+        "ru": "Оценка дохода",
+        "en": "Estimated Earnings",
+        "es": "Ingresos estimados",
+        "tr": "Tahmini Gelir"
+    },
+    "btn_likes": {
+        "uz": "Likelar",
+        "ru": "Лайки",
+        "en": "Likes",
+        "es": "Me gusta",
+        "tr": "Beğeniler"
+    },
+    "btn_comments": {
+        "uz": "Izohlar",
+        "ru": "Комментарии",
+        "en": "Comments",
+        "es": "Comentarios",
+        "tr": "Yorumlar"
+    },
+    "btn_tags": {
+        "uz": "Teglar",
+        "ru": "Теги",
+        "en": "Tags",
+        "es": "Etiquetas",
+        "tr": "Etiketler"
+    },
+    "btn_thumbnail": {
+        "uz": "Thumbnail",
+        "ru": "Миниатюра",
+        "en": "Thumbnail",
+        "es": "Miniatura",
+        "tr": "Küçük Resim"
+    },
+    "btn_description": {
+        "uz": "Tavsif",
+        "ru": "Описание",
+        "en": "Description",
+        "es": "Descripción",
+        "tr": "Açıklama"
+    },
+    "btn_engagement": {
+        "uz": "Engagement",
+        "ru": "Вовлеченность",
+        "en": "Engagement",
+        "es": "Compromiso",
+        "tr": "Etkileşim"
+    },
+    "btn_duration": {
+        "uz": "Davomiyligi",
+        "ru": "Длительность",
+        "en": "Duration",
+        "es": "Duración",
+        "tr": "Süre"
+    },
+    "btn_growth_analysis": {
+        "uz": "O'sish tahlili",
+        "ru": "Анализ роста",
+        "en": "Growth Analysis",
+        "es": "Análisis de crecimiento",
+        "tr": "Büyüme Analizi"
+    },
+    "btn_compare": {
+        "uz": "Solishtirish",
+        "ru": "Сравнение",
+        "en": "Compare",
+        "es": "Comparar",
+        "tr": "Karşılaştır"
+    },
+    "btn_avg_views": {
+        "uz": "O'rtacha ko'rishlar",
+        "ru": "Средние просмотры",
+        "en": "Average Views",
+        "es": "Vistas promedio",
+        "tr": "Ortalama İzlenme"
+    },
+    "btn_top_videos": {
+        "uz": "Top videolar",
+        "ru": "Топ видео",
+        "en": "Top Videos",
+        "es": "Mejores videos",
+        "tr": "En İyi Videolar"
+    },
+    "btn_bottom_videos": {
+        "uz": "Eng kam ko'rilgan",
+        "ru": "Меньше всего просмотров",
+        "en": "Least Viewed",
+        "es": "Menos vistos",
+        "tr": "En Az İzlenen"
+    },
+    "btn_report": {
+        "uz": "To'liq hisobot",
+        "ru": "Полный отчет",
+        "en": "Full Report",
+        "es": "Informe completo",
+        "tr": "Tam Rapor"
+    },
+    "btn_upload_rate": {
+        "uz": "Upload tezligi",
+        "ru": "Скорость загрузки",
+        "en": "Upload Velocity",
+        "es": "Velocidad de subida",
+        "tr": "Yükleme Hızı"
+    },
+    "btn_secret_coin": {
+        "uz": "Yashirin Oltin Tanga",
+        "ru": "Секретная Монета",
+        "en": "Secret Golden Coin",
+        "es": "Moneda de Oro Secreta",
+        "tr": "Gizli Altın Para"
+    },
+    "btn_add_channel": {
+        "uz": "Kanal qo'shish",
+        "ru": "Добавить канал",
+        "en": "Add Channel",
+        "es": "Agregar canal",
+        "tr": "Kanal Ekle"
+    },
+    "btn_remove_channel": {
+        "uz": "Kanal o'chirish",
+        "ru": "Удалить канал",
+        "en": "Remove Channel",
+        "es": "Eliminar canal",
+        "tr": "Kanalı Kaldır"
+    },
+    "btn_my_list": {
+        "uz": "Mening ro'yxatim",
+        "ru": "Мой список",
+        "en": "My List",
+        "es": "Mi lista",
+        "tr": "Listem"
+    },
+    "btn_check_all": {
+        "uz": "Barchasini tekshirish",
+        "ru": "Проверить все",
+        "en": "Check All",
+        "es": "Verificar todo",
+        "tr": "Hepsini Kontrol Et"
+    },
+    "btn_url_to_id": {
+        "uz": "URL dan ID olish",
+        "ru": "Получить ID по URL",
+        "en": "Get ID from URL",
+        "es": "Obtener ID por URL",
+        "tr": "URL'den ID Al"
+    },
+    "btn_get_thumb": {
+        "uz": "Thumbnail olish",
+        "ru": "Скачать обложку",
+        "en": "Get Thumbnail",
+        "es": "Obtener miniatura",
+        "tr": "Küçük Resmi Al"
+    },
+    "btn_calculator": {
+        "uz": "Kalkulyator",
+        "ru": "Калькулятор",
+        "en": "Calculator",
+        "es": "Calculadora",
+        "tr": "Hesap Makinesi"
+    },
+    "btn_categories": {
+        "uz": "Kategoriyalar",
+        "ru": "Категории",
+        "en": "Categories",
+        "es": "Categorías",
+        "tr": "Kategoriler"
+    },
+    "btn_country_trending": {
+        "uz": "Davlat trending",
+        "ru": "Тренды стран",
+        "en": "Country Trending",
+        "es": "Tendencias por país",
+        "tr": "Ülke Trendleri"
+    },
+    "btn_download_video": {
+        "uz": "Videoni Yuklab Olish",
+        "ru": "Скачать видео",
+        "en": "Download Video",
+        "es": "Descargar video",
+        "tr": "Videoyu İndir"
+    },
+    "btn_refresh": {
+        "uz": "Yangilash",
+        "ru": "Обновить",
+        "en": "Refresh",
+        "es": "Actualizar",
+        "tr": "Yenile"
+    },
+    "btn_my_purchases": {
+        "uz": "Mening xaridlarim",
+        "ru": "Мои покупки",
+        "en": "My Purchases",
+        "es": "Mis compras",
+        "tr": "Satın Aldıklarım"
+    },
+    "btn_cancel": {
+        "uz": "Bekor qilish",
+        "ru": "Отмена",
+        "en": "Cancel",
+        "es": "Cancelar",
+        "tr": "İptal"
+    },
+
+    # ==================== SUBMENU INTROS & HEADERS ====================
+    "support_desk_menu_text": {
+        "uz": "<b>Yordam & Qo'llab-quvvatlash Markazi</b>\n\nKerakli bo'limni tanlang. Sun'iy intellekt yoki Jonli Admin sizga xizmat ko'rsatadi:",
+        "ru": "<b>Центр Поддержки и Помощи</b>\n\nВыберите нужный раздел. ИИ или Живой Администратор окажут вам помощь:",
+        "en": "<b>Support & Help Desk</b>\n\nSelect a topic below. AI assistant or live agent is ready to assist you:",
+        "es": "<b>Centro de Soporte y Ayuda</b>\n\nSelecciona una categoría. El asistente de IA o el Administrador te atenderán:",
+        "tr": "<b>Yardım ve Destek Merkezi</b>\n\nAşağıdan bir konu seçin. Yapay Zeka veya Canlı Destek size yardımcı olacaktır:"
+    },
+    "vouchers_menu_text": {
+        "uz": "<b>P2P Shartli Cheklar Tizimi (@wallet uslubida)</b>\n\n💰 <b>Sizning balansingiz:</b> <code>{balance:,} so'm</code>\n\nDo'stlaringiz yoki kanalingiz obunachilari uchun shartli chek yarating. Mablag'ni faqat siz belgilagan homiy kanalga a'zo bo'lganlar qabul qila oladi!",
+        "ru": "<b>Система P2P Чеков (в стиле @wallet)</b>\n\n💰 <b>Ваш баланс:</b> <code>{balance:,} сум</code>\n\nСоздавайте подарочные чеки с условием подписки для ваших друзей или подписчиков!",
+        "en": "<b>P2P Gift Vouchers (@wallet style)</b>\n\n💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\nCreate conditional gift checks for friends or channel subscribers with sponsored join requirements!",
+        "es": "<b>Vales de Regalo P2P (Estilo @wallet)</b>\n\n💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n¡Crea cheques regalo con condiciones de suscripción para tus amigos o seguidores!",
+        "tr": "<b>P2P Hediye Kuponları (@wallet tarzı)</b>\n\n💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\nKanal aboneleriniz veya arkadaşlarınız için şartlı hediye çekleri oluşturun!"
+    },
+    "btn_new_voucher": {
+        "uz": "Yangi Chek Yaratish",
+        "ru": "Создать новый чек",
+        "en": "Create New Voucher",
+        "es": "Crear nuevo vale",
+        "tr": "Yeni Çek Oluştur"
+    },
+    "btn_enter_voucher": {
+        "uz": "Chekni Faollashtirish (Kodni kiritish)",
+        "ru": "Активировать чек (Ввести код)",
+        "en": "Redeem Voucher (Enter code)",
+        "es": "Canjear vale (Ingresar código)",
+        "tr": "Çeki Etkinleştir (Kodu gir)"
+    },
+    "btn_voucher_guide": {
+        "uz": "Cheklar Qo'llanmasi",
+        "ru": "Инструкция по чекам",
+        "en": "Vouchers Guide",
+        "es": "Guía de vales",
+        "tr": "Kupon Kılavuzu"
+    },
+    "ig_cloner_menu_text": {
+        "uz": "<b>Instagram Account Auto-Cloner</b>\n\nSiz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.\n\n📋 <b>Kuzatilayotgan profillar:</b>\n{profiles}",
+        "ru": "<b>Instagram Account Auto-Cloner</b>\n\nReels из указанных профилей Instagram уникализируются в 8 слоев и клонируются в YouTube Shorts.\n\n📋 <b>Отслеживаемые профили:</b>\n{profiles}",
+        "en": "<b>Instagram Account Auto-Cloner</b>\n\nReels from specified Instagram profiles are 8-layer uniquified and automatically posted to YouTube Shorts.\n\n📋 <b>Tracked profiles:</b>\n{profiles}",
+        "es": "<b>Auto-Clonador de Instagram</b>\n\nLos Reels de los perfiles de Instagram se unifican y se publican automáticamente en YouTube Shorts.\n\n📋 <b>Perfiles seguidos:</b>\n{profiles}",
+        "tr": "<b>Instagram Otomatik Klonlayıcı</b>\n\nBelirtilen Instagram hesaplarındaki Reels videoları 8 katmanlı özgünleştirme ile doğrudan YouTube Shorts'a aktarılır.\n\n📋 <b>Takip edilen profiller:</b>\n{profiles}"
+    },
+    "btn_add_ig_profile": {
+        "uz": "Yangi Profil Qo'shish",
+        "ru": "Добавить новый профиль",
+        "en": "Add New Profile",
+        "es": "Agregar nuevo perfil",
+        "tr": "Yeni Profil Ekle"
+    },
+    "btn_sync_ig": {
+        "uz": "Tekshirish & Yuklash",
+        "ru": "Проверить и загрузить",
+        "en": "Check & Sync",
+        "es": "Verificar y sincronizar",
+        "tr": "Kontrol Et ve İndir"
+    },
+    "btn_manage_ig": {
+        "uz": "Profillarni Boshqarish",
+        "ru": "Управление профилями",
+        "en": "Manage Profiles",
+        "es": "Administrar perfiles",
+        "tr": "Profilleri Yönet"
+    },
+    "ai_video_menu_text": {
+        "uz": "<b>AI Video Studio ($20 / oy)</b>\n\nUshbu xizmat professional sun'iy intellekt orqali to'liq avtomatlashtirilgan video tayyorlash studiyasidir:\n• <b>Flux.1 Ultra AI</b> — 9:16 kinematografik 4K tasvirlar\n• <b>Neural Edge-TTS</b> — 5 ta tilda tabiiy diktor ovozi\n• <b>Ken Burns FX</b> — Dinamik kamera harakati\n• <b>1-Click Shorts Yuklash</b>\n\n💰 <b>Balansingiz:</b> <code>{balance:,} so'm</code>",
+        "ru": "<b>AI Video Studio ($20 / мес)</b>\n\nПрофессиональная студия автоматической генерации видео с помощью ИИ:\n• <b>Flux.1 Ultra AI</b> — Кинематографичные 4K кадры 9:16\n• <b>Neural Edge-TTS</b> — Естественная озвучка на 5 языках\n• <b>Ken Burns FX</b> — Динамичная камера\n• <b>Публикация в 1 клик</b>\n\n💰 <b>Ваш баланс:</b> <code>{balance:,} сум</code>",
+        "en": "<b>AI Video Studio ($20 / mo)</b>\n\nFully automated professional AI video production studio:\n• <b>Flux.1 Ultra AI</b> — 9:16 cinematic 4K visuals\n• <b>Neural Edge-TTS</b> — Natural voiceover in 5 languages\n• <b>Ken Burns FX</b> — Dynamic camera motion\n• <b>1-Click Shorts Upload</b>\n\n💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>",
+        "es": "<b>AI Video Studio ($20 / mes)</b>\n\nEstudio profesional de producción de video totalmente automatizado con IA:\n• <b>Flux.1 Ultra AI</b> — Imágenes cinemáticas 4K 9:16\n• <b>Neural Edge-TTS</b> — Locución natural en 5 idiomas\n• <b>Ken Burns FX</b> — Movimiento de cámara dinámico\n• <b>Publicación en 1 clic</b>\n\n💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>",
+        "tr": "<b>AI Video Studio ($20 / ay)</b>\n\nYapay zeka ile tam otomatik profesyonel video üretim stüdyosu:\n• <b>Flux.1 Ultra AI</b> — 9:16 sinematik 4K görseller\n• <b>Neural Edge-TTS</b> — 5 dilde doğal seslendirme\n• <b>Ken Burns FX</b> — Dinamik kamera hareketleri\n• <b>Tek Tıkla Shorts Yükleme</b>\n\n💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>"
+    },
+    "btn_ai_sub": {
+        "uz": "Oylik Obuna ($20 - 256,000 so'm)",
+        "ru": "Месячная подписка ($20 - 256,000 сум)",
+        "en": "Monthly Pass ($20 - 256,000 UZS)",
+        "es": "Suscripción mensual ($20 - 256,000 UZS)",
+        "tr": "Aylık Abonelik ($20 - 256,000 UZS)"
+    },
+    "btn_ai_single": {
+        "uz": "1 ta Video Yaratish (15,000 so'm)",
+        "ru": "Создать 1 видео (15,000 сум)",
+        "en": "Generate 1 Video (15,000 UZS)",
+        "es": "Crear 1 video (15,000 UZS)",
+        "tr": "1 Video Üret (15,000 UZS)"
+    },
+    "spy_menu_text": {
+        "uz": "<b>YouTube Competitor Spy & SEO Stealer</b>\n\nTahlil qilmoqchi bo'lgan YouTube video yoki Shorts havolasini yuboring:",
+        "ru": "<b>Шпион конкурентов YouTube и Сбор SEO</b>\n\nОтправьте ссылку на видео или Shorts конкурента для детального анализа:",
+        "en": "<b>YouTube Competitor Spy & SEO Stealer</b>\n\nSend a link to any YouTube video or Shorts you want to analyze:",
+        "es": "<b>Espía de Competidores de YouTube y SEO</b>\n\nEnvía un enlace de video o Shorts de YouTube para analizarlo:",
+        "tr": "<b>YouTube Rakip Casusu ve SEO Analizi</b>\n\nAnaliz etmek istediğiniz YouTube video veya Shorts bağlantısını gönderin:"
+    },
+    "bundles_menu_text": {
+        "uz": "<b>CreatorFlow Super To'plamlar (Bundles)</b>\n\nBir nechta premium xizmatlarni birgalikda 40% gacha chegirma bilan xarid qiling:",
+        "ru": "<b>Супер Наборы CreatorFlow (Bundles)</b>\n\nПриобретайте премиум инструменты вместе со скидкой до 40%:",
+        "en": "<b>CreatorFlow Super Bundles</b>\n\nGet all essential creator tools bundled together with up to 40% savings:",
+        "es": "<b>Súper Paquetes de CreatorFlow (Bundles)</b>\n\nObtén herramientas premium combinadas con hasta un 40% de descuento:",
+        "tr": "<b>CreatorFlow Süper Paketleri (Bundles)</b>\n\nEn iyi içerik üretici araçlarını %40'a varan indirimle paket olarak alın:"
+    }
+
+}
 
 def t(key: str, lang: str = "en", **kwargs) -> str:
     """Xabarni tanlangan tilda formatlab qaytarish (default: en)"""
@@ -537,3 +1037,6 @@ def t(key: str, lang: str = "en", **kwargs) -> str:
         except Exception:
             return text
     return text
+
+# Extra menu & navigation keys
+TRANSLATIONS.update({'menu_channel_header': {'uz': '**Kanal tahlili**\n\nKanal nomini yoki URL ni buyruq bilan yuboring:', 'ru': '**Анализ канала**\n\nОтправьте название или URL канала с командой:', 'en': '**Channel Analytics**\n\nSend channel name or URL with a command:', 'es': '**Análisis del Canal**\n\nEnvía el nombre o URL del canal con un comando:', 'tr': "**Kanal Analizi**\n\nKomutla birlikte kanal adını veya URL'sini gönderin:"}, 'menu_video_header': {'uz': '**Video tahlili**\n\nVideo URL ni buyruq bilan yuboring:', 'ru': '**Анализ видео**\n\nОтправьте URL видео с командой:', 'en': '**Video Analytics**\n\nSend video URL with a command:', 'es': '**Análisis de Video**\n\nEnvía la URL del video con un comando:', 'tr': "**Video Analizi**\n\nKomutla birlikte video URL'sini gönderin:"}, 'menu_analytics_header': {'uz': "**Analitika va O'sish**\n\nKanal nomini buyruq bilan yuboring:", 'ru': '**Аналитика и Рост**\n\nОтправьте название канала с командой:', 'en': '**Analytics & Growth**\n\nSend channel name with a command:', 'es': '**Analítica y Crecimiento**\n\nEnvía el nombre del canal con un comando:', 'tr': '**Analitik ve Büyüme**\n\nKomutla birlikte kanal adını gönderin:'}, 'menu_search_header': {'uz': "**Qidiruv**\n\nQidiruv so'zini buyruq bilan yuboring:", 'ru': '**Поиск**\n\nОтправьте поисковый запрос с командой:', 'en': '**Search**\n\nSend search keyword with a command:', 'es': '**Búsqueda**\n\nEnvía la palabra de búsqueda con un comando:', 'tr': '**Arama**\n\nArama terimini bir komutla gönderin:'}, 'menu_tracking_header': {'uz': '**Kanal kuzatuvi**\n\nKanallarni kuzatib boring:', 'ru': '**Отслеживание каналов**\n\nОтслеживайте выбранные каналы:', 'en': '**Channel Tracking**\n\nTrack selected channels:', 'es': '**Seguimiento de Canales**\n\nSigue los canales seleccionados:', 'tr': '**Kanal Takibi**\n\nSeçilen kanalları takip edin:'}, 'menu_tools_header': {'uz': '**Asboblar**\n\nTurli foydali vositalar:', 'ru': '**Инструменты**\n\nРазличные полезные утилиты:', 'en': '**Tools**\n\nUseful utility tools:', 'es': '**Herramientas**\n\nUtilidades y herramientas útiles:', 'tr': '**Araçlar**\n\nFaydalı araçlar ve yardımcı programlar:'}, 'menu_trending_header': {'uz': '**Trending**\n\nDavlatni tanlang:', 'ru': '**Тренды**\n\nВыберите страну:', 'en': '**Trending**\n\nSelect a country:', 'es': '**Tendencias**\n\nSelecciona un país:', 'tr': '**Trendler**\n\nBir ülke seçin:'}, 'menu_help_header': {'uz': '**Yordam**\n\nKategoriyani tanlang:', 'ru': '**Помощь**\n\nВыберите категорию:', 'en': '**Help**\n\nSelect a category:', 'es': '**Ayuda**\n\nSelecciona una categoría:', 'tr': '**Yardım**\n\nBir kategori seçin:'}, 'btn_search_video': {'uz': 'Video qidirish', 'ru': 'Поиск видео', 'en': 'Search Video', 'es': 'Buscar Video', 'tr': 'Video Ara'}, 'btn_search_channel': {'uz': 'Kanal qidirish', 'ru': 'Поиск канала', 'en': 'Search Channel', 'es': 'Buscar Canal', 'tr': 'Kanal Ara'}, 'btn_search_playlist': {'uz': 'Pleylist qidirish', 'ru': 'Поиск плейлистов', 'en': 'Search Playlist', 'es': 'Buscar Playlist', 'tr': 'Oynatma Listesi Ara'}, 'btn_milestone': {'uz': 'Milestone', 'ru': 'Вехи (Milestone)', 'en': 'Milestones', 'es': 'Hitos', 'tr': 'Kilometre Taşları'}, 'btn_nft_market': {'uz': 'NFT Kolleksiya (Bozor)', 'ru': 'Коллекция NFT (Рынок)', 'en': 'NFT Collection (Market)', 'es': 'Colección NFT (Mercado)', 'tr': 'NFT Koleksiyonu (Pazar)'}, 'btn_nft_my': {'uz': 'Mening NFT larim', 'ru': 'Мои NFT', 'en': 'My NFTs', 'es': 'Mis NFTs', 'tr': "NFT'lerim"}, 'btn_cashout_stars': {'uz': 'Telegram Stars orqali', 'ru': 'Через Telegram Stars', 'en': 'Via Telegram Stars', 'es': 'Vía Telegram Stars', 'tr': 'Telegram Stars ile'}, 'btn_cashout_ton': {'uz': 'TON Kriptovalyuta orqali', 'ru': 'Через криптовалюту TON', 'en': 'Via TON Cryptocurrency', 'es': 'Vía Criptomoneda TON', 'tr': 'TON Kripto ile'}, 'cashout_menu_text': {'uz': 'Hisobdan Pul Yechish (Cashout)\n\nPul yechish usulini tanlang:', 'ru': 'Вывод средств (Cashout)\n\nВыберите способ вывода средств:', 'en': 'Funds Withdrawal (Cashout)\n\nSelect a withdrawal method:', 'es': 'Retiro de Fondos (Cashout)\n\nSelecciona el método de retiro:', 'tr': 'Para Çekme (Cashout)\n\nÇekim yöntemini seçin:'}})
