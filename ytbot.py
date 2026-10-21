@@ -1266,7 +1266,8 @@ def crypto_packages_kb():
     buttons.append([InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_wallet")])
     return InlineKeyboardMarkup(buttons)
 
-def marketplace_menu_kb():
+def marketplace_menu_kb(lang="uz"):
+    lang = _resolve_lang(lang)
     return InlineKeyboardMarkup([
         # 1. Yangi Monopol To'plamlar & AI Maslahatchi
         [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Super To'plamlar (Bundles)", callback_data="vb_bundles"),
@@ -1716,7 +1717,7 @@ def create_ytbot():
         ]
         for key, name in ADMIN_SERVICES.items():
             is_off = states.get(key, False)
-            status_tag = "🔴 O'CHIK" if is_off else "🟢 FAOL"
+            status_tag = f"{ce('STATUS_ERROR')} O'CHIK" if is_off else f"{ce('STATUS_SUCCESS')} FAOL"
             toggle_action = "enable" if is_off else "disable"
             buttons.append([
                 InlineKeyboardButton(
@@ -2856,7 +2857,7 @@ def create_ytbot():
             f"• {ce('STARS')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
             f"{ce('PIN')} Kerakli mahsulot yoki toifani tanlang:"
         )
-        await message.reply_text(text, reply_markup=marketplace_menu_kb())
+        await message.reply_text(text, reply_markup=marketplace_menu_kb(lang))
 
     # ==================== /store & /ventebot ====================
     @bot.on_message(filters.command(["store", "shop", "ventebot", "raqamli"]))
@@ -6758,7 +6759,7 @@ def create_ytbot():
                 f"• {ce('STARS')} <b>Referal & 10% Keshbek Tizimi</b>\n\n"
                 f"{ce('PIN')} Kerakli mahsulot yoki toifani tanlang:"
             )
-            await cb.message.edit_text(text, reply_markup=marketplace_menu_kb())
+            await cb.message.edit_text(text, reply_markup=marketplace_menu_kb(lang))
             await cb.answer()
             return
             
