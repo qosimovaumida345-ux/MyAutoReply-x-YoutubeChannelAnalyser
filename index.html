@@ -1274,7 +1274,7 @@
                 syncing: "Sinxronlanmoqda...",
                 activeUploads: "Faol yuklanganlar",
                 recentVideos: "Oxirgi Yuklangan Videolar & Ko'rishlar",
-                noVideosNotice: "Telegram bot orqali video yuklang yoki kanalingizni ulang.",
+                noVideosNotice: "{t('uploadVideoHint')}.",
                 searchTitle: "YouTube Video Qidiruv & Yuklab Olish",
                 searchSubtitle: "Istalgan mavzudagi videolarni qidiring va eng yuqori sifatda (1080p, 720p, audio) yuklab oling",
                 searchPlaceholder: "Video qidirish yoki YouTube linki...",
@@ -1294,7 +1294,19 @@
                 activeChannelBadge: "Tanlangan & Faol",
                 selectChannelBtn: "Ushbu Kanalni Tanlash",
                 selectedAccountOnlyNotice: "Faqat tanlangan kanal statistikasi ko'rsatilmoqda. Boshqa kanal statistikasini ko'rish uchun tanlang.",
-                subsText: "obunachi"
+                subsText: "obunachi",
+                currency: "so'm",
+                refresh: "Yangilash",
+                activeUploads: "Faol yuklanganlar",
+                audienceReach: "Auditoriya qamrovi",
+                regularSubs: "Doimiy obunachi",
+                syncedChannels: "Sinxronlangan kanallar",
+                thVideo: "Video",
+                thViews: "Ko'rishlar",
+                thLikes: "Layklar",
+                thDate: "Sana",
+                noRecentVideos: "{t('noRecentVideos')}",
+                uploadVideoHint: "{t('uploadVideoHint')}"
             },
             ru: {
                 brand: "Bot Client",
@@ -1365,7 +1377,19 @@
                 activeChannelBadge: "Выбран & Активен",
                 selectChannelBtn: "Выбрать этот канал",
                 selectedAccountOnlyNotice: "Отображаются показатели только выбранного канала. Чтобы просмотреть другой канал, выберите его выше.",
-                subsText: "подписчиков"
+                subsText: "подписчиков",
+                currency: "сум",
+                refresh: "Обновить",
+                activeUploads: "Активные загрузки",
+                audienceReach: "Охват аудитории",
+                regularSubs: "Постоянные подписчики",
+                syncedChannels: "Синхронизированные каналы",
+                thVideo: "Видео",
+                thViews: "Просмотры",
+                thLikes: "Лайки",
+                thDate: "Дата",
+                noRecentVideos: "Пока нет проанализированных видео",
+                uploadVideoHint: "Загрузите видео через Telegram-бота или подключите свой канал"
             },
             en: {
                 brand: "Bot Client",
@@ -1436,7 +1460,19 @@
                 activeChannelBadge: "Selected & Active",
                 selectChannelBtn: "Select This Channel",
                 selectedAccountOnlyNotice: "Showing real-time metrics for the selected channel only. Click another channel to switch views.",
-                subsText: "subscribers"
+                subsText: "subscribers",
+                currency: "UZS",
+                refresh: "Refresh",
+                activeUploads: "Active Uploads",
+                audienceReach: "Audience Reach",
+                regularSubs: "Active Subscribers",
+                syncedChannels: "Synchronized Channels",
+                thVideo: "Video",
+                thViews: "Views",
+                thLikes: "Likes",
+                thDate: "Date",
+                noRecentVideos: "No analyzed videos available yet",
+                uploadVideoHint: "Upload a video via the Telegram bot or connect your channel"
             },
             es: {
                 brand: "Bot Client",
@@ -1507,7 +1543,19 @@
                 activeChannelBadge: "Seleccionado y Activo",
                 selectChannelBtn: "Seleccionar este canal",
                 selectedAccountOnlyNotice: "Mostrando métricas en tiempo real solo para el canal seleccionado. Haga clic en otro canal para cambiar.",
-                subsText: "suscriptores"
+                subsText: "suscriptores",
+                currency: "UZS",
+                refresh: "Actualizar",
+                activeUploads: "Subidas Activas",
+                audienceReach: "Alcance de Audiencia",
+                regularSubs: "Suscriptores Activos",
+                syncedChannels: "Canales Sincronizados",
+                thVideo: "Vídeo",
+                thViews: "Vistas",
+                thLikes: "Me gusta",
+                thDate: "Fecha",
+                noRecentVideos: "Aún no hay vídeos analizados disponibles",
+                uploadVideoHint: "Sube un vídeo a través del bot de Telegram o conecta tu canal"
             },
             tr: {
                 brand: "Bot Client",
@@ -1578,52 +1626,122 @@
                 activeChannelBadge: "Seçili & Aktif",
                 selectChannelBtn: "Bu Kanalı Seç",
                 selectedAccountOnlyNotice: "Yalnızca seçilen kanalın gerçek zamanlı metrikleri gösteriliyor. Başka bir kanala geçmek için tıklayın.",
-                subsText: "abone"
+                subsText: "abone",
+                currency: "UZS",
+                refresh: "Yenile",
+                activeUploads: "Aktif Yüklemeler",
+                audienceReach: "Kitle Erişimi",
+                regularSubs: "Aktif Aboneler",
+                syncedChannels: "Senkronize Kanallar",
+                thVideo: "Video",
+                thViews: "İzlenmeler",
+                thLikes: "Beğeniler",
+                thDate: "Tarih",
+                noRecentVideos: "Henüz analiz edilmiş video yok",
+                uploadVideoHint: "Telegram botu aracılığıyla video yükleyin veya kanalınızı bağlayın"
             }
         };
 
         const LanguageSelector = ({ currentLang, onChangeLang, isDark = true }) => {
+            const [open, setOpen] = React.useState(false);
+            const dropdownRef = React.useRef(null);
             const langs = [
-                { code: 'uz', flag: '🇺🇿' },
-                { code: 'ru', flag: '🇷🇺' },
-                { code: 'en', flag: '🇬🇧' },
-                { code: 'es', flag: '🇪🇸' },
-                { code: 'tr', flag: '🇹🇷' }
+                { code: 'uz', label: "O'zbekcha", flag: '🇺🇿' },
+                { code: 'ru', label: "Русский", flag: '🇷🇺' },
+                { code: 'en', label: "English", flag: '🇬🇧' },
+                { code: 'es', label: "Español", flag: '🇪🇸' },
+                { code: 'tr', label: "Türkçe", flag: '🇹🇷' }
             ];
+            const current = langs.find(l => l.code === currentLang) || langs[0];
+
+            React.useEffect(() => {
+                const handleClickOutside = (e) => {
+                    if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                        setOpen(false);
+                    }
+                };
+                document.addEventListener('click', handleClickOutside);
+                return () => document.removeEventListener('click', handleClickOutside);
+            }, []);
+
             return (
-                <div style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    background: isDark ? "rgba(255, 255, 255, 0.08)" : "#f4f4f5",
-                    border: isDark ? "1px solid rgba(255, 255, 255, 0.14)" : "1px solid rgba(0, 0, 0, 0.08)",
-                    borderRadius: "999px",
-                    padding: "3px 4px",
-                    gap: "2px"
-                }}>
-                    {langs.map(({ code, flag }) => {
-                        const active = currentLang === code;
-                        return (
-                            <button
-                                key={code}
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); onChangeLang(code); }}
-                                style={{
-                                    background: active ? "#7342E2" : "transparent",
-                                    color: active ? "#ffffff" : (isDark ? "rgba(255, 255, 255, 0.65)" : "#71717a"),
-                                    border: "none",
-                                    borderRadius: "999px",
-                                    padding: "4px 8px",
-                                    fontSize: "11px",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    textTransform: "uppercase",
-                                    transition: "all 0.2s"
-                                }}
-                            >
-                                {code}
-                            </button>
-                        );
-                    })}
+                <div ref={dropdownRef} style={{ position: "relative", display: "inline-block" }}>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+                        style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            background: isDark ? "rgba(255, 255, 255, 0.08)" : "#f4f4f5",
+                            border: isDark ? "1px solid rgba(255, 255, 255, 0.15)" : "1px solid #e4e4e7",
+                            borderRadius: "999px",
+                            padding: "6px 12px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            color: isDark ? "#ffffff" : "#18181b",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease"
+                        }}
+                    >
+                        <span>{current.flag}</span>
+                        <span style={{ textTransform: "uppercase" }}>{current.code}</span>
+                        <span style={{ fontSize: "9px", opacity: 0.6, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
+                    </button>
+
+                    {open && (
+                        <div style={{
+                            position: "absolute",
+                            top: "calc(100% + 6px)",
+                            right: 0,
+                            zIndex: 1000,
+                            minWidth: "140px",
+                            background: isDark ? "#18181b" : "#ffffff",
+                            border: isDark ? "1px solid rgba(255, 255, 255, 0.12)" : "1px solid #e4e4e7",
+                            borderRadius: "14px",
+                            boxShadow: "0 10px 25px rgba(0, 0, 0, 0.12)",
+                            padding: "6px",
+                            backdropFilter: "blur(12px)"
+                        }}>
+                            {langs.map(({ code, label, flag }) => {
+                                const active = currentLang === code;
+                                return (
+                                    <button
+                                        key={code}
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onChangeLang(code);
+                                            setOpen(false);
+                                        }}
+                                        style={{
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            gap: "8px",
+                                            padding: "8px 12px",
+                                            borderRadius: "10px",
+                                            border: "none",
+                                            background: active ? (isDark ? "rgba(115, 66, 226, 0.25)" : "#f5f3ff") : "transparent",
+                                            color: active ? "#7342E2" : (isDark ? "#ffffff" : "#18181b"),
+                                            fontSize: "12px",
+                                            fontWeight: active ? 700 : 500,
+                                            cursor: "pointer",
+                                            textAlign: "left",
+                                            transition: "background 0.15s"
+                                        }}
+                                    >
+                                        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                            <span>{flag}</span>
+                                            <span>{label}</span>
+                                        </span>
+                                        {active && <span style={{ color: "#7342E2", fontWeight: 800 }}>✓</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -3471,7 +3589,7 @@
                                                     </div>
                                                     <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
                                                         <span style={{ fontSize: "12px", fontWeight: 700, color: "#16a34a" }}>
-                                                            {Number(userStats.balance_uzs || 0).toLocaleString()} so'm
+                                                            {Number(userStats.balance_uzs || 0).toLocaleString()} {t('currency')}
                                                         </span>
                                                         {tgUser.username && (
                                                             <span style={{ fontSize: "11px", color: "#71717a" }}>
@@ -3527,7 +3645,7 @@
                                                 {/* Logout */}
                                                 <button
                                                     onClick={handleLogout}
-                                                    title="Chiqish"
+                                                    title={t('logout')}
                                                     style={{
                                                         background: "#fef2f2",
                                                         border: "1px solid #fecaca",
@@ -3543,7 +3661,7 @@
                                                     }}
                                                 >
                                                     <SvgLogOut size={13} color="#dc2626" />
-                                                    <span>Chiqish</span>
+                                                    <span>{t('logout')}</span>
                                                 </button>
                                             </div>
                                         ) : (
@@ -3772,10 +3890,10 @@
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px", marginBottom: "32px" }}>
                                         <div>
                                             <h2 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", color: "#18181b", marginBottom: "6px" }}>
-                                                YouTube Kanal Statistikasi & Tahlil
+                                                {t('analyticsTitle')}
                                             </h2>
                                             <p style={{ color: "#71717a", fontSize: "14px" }}>
-                                                Real vaqt rejimidagi ko'rishlar, obunachilar va oxirgi yuklangan videolar statistikasi
+                                                {t('analyticsSubtitle')}
                                             </p>
                                         </div>
                                         <button
@@ -3794,7 +3912,7 @@
                                                 gap: "6px"
                                             }}
                                         >
-                                            <span>Yangilash</span>
+                                            <span>{t('refresh')}</span>
                                         </button>
                                     </div>
 
@@ -3822,7 +3940,7 @@
                                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
                                         <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Jami Videolar</span>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>{t('totalVideos')}</span>
                                                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f5f3ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                     <SvgVideo size={18} color="#7342E2" />
                                                 </div>
@@ -3830,12 +3948,12 @@
                                             <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
                                                 {(studioStats.total_videos || 0).toLocaleString()}
                                             </div>
-                                            <div style={{ fontSize: "12px", color: "#10b981", marginTop: "4px", fontWeight: 600 }}>Faol yuklanganlar</div>
+                                            <div style={{ fontSize: "12px", color: "#10b981", marginTop: "4px", fontWeight: 600 }}>{t('activeUploads')}</div>
                                         </div>
 
                                         <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Jami Ko'rishlar (Views)</span>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>{t('totalViews')}</span>
                                                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                     <SvgEye size={18} color="#3b82f6" />
                                                 </div>
@@ -3843,12 +3961,12 @@
                                             <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
                                                 {(studioStats.total_views || 0).toLocaleString()}
                                             </div>
-                                            <div style={{ fontSize: "12px", color: "#3b82f6", marginTop: "4px", fontWeight: 600 }}>Auditoriya qamrovi</div>
+                                            <div style={{ fontSize: "12px", color: "#3b82f6", marginTop: "4px", fontWeight: 600 }}>{t('audienceReach')}</div>
                                         </div>
 
                                         <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Obunachilar Soni</span>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>{t('subscribers')}</span>
                                                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                     <SvgUser size={18} color="#16a34a" />
                                                 </div>
@@ -3856,12 +3974,12 @@
                                             <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
                                                 {(studioStats.total_subscribers || 0).toLocaleString()}
                                             </div>
-                                            <div style={{ fontSize: "12px", color: "#16a34a", marginTop: "4px", fontWeight: 600 }}>Doimiy obunachi</div>
+                                            <div style={{ fontSize: "12px", color: "#16a34a", marginTop: "4px", fontWeight: 600 }}>{t('regularSubs')}</div>
                                         </div>
 
                                         <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "20px", padding: "24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>Ulangan Kanallar</span>
+                                                <span style={{ fontSize: "13px", fontWeight: 600, color: "#71717a" }}>{t('connectedChannels')}</span>
                                                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                     <SvgShield size={18} color="#d97706" />
                                                 </div>
@@ -3869,7 +3987,7 @@
                                             <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
                                                 {channels.length}
                                             </div>
-                                            <div style={{ fontSize: "12px", color: "#d97706", marginTop: "4px", fontWeight: 600 }}>Sinxronlangan kanallar</div>
+                                            <div style={{ fontSize: "12px", color: "#d97706", marginTop: "4px", fontWeight: 600 }}>{t('syncedChannels')}</div>
                                         </div>
                                     </div>
 
@@ -3979,10 +4097,10 @@
                                                 <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
                                                     <thead>
                                                         <tr style={{ borderBottom: "1px solid #e4e4e7" }}>
-                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Video</th>
-                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Ko'rishlar</th>
-                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Layklar</th>
-                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Sana</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thVideo')}</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thViews')}</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thLikes')}</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thDate')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -4013,8 +4131,8 @@
                                         ) : (
                                             <div style={{ textAlign: "center", padding: "48px 20px", color: "#a1a1aa" }}>
                                                 <SvgVideo size={40} color="#d4d4d8" />
-                                                <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>Hozircha tahlil qilingan videolar mavjud emas</div>
-                                                <div style={{ fontSize: "12px", marginTop: "4px" }}>Telegram bot orqali video yuklang yoki kanalingizni ulang</div>
+                                                <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>{t('noRecentVideos')}</div>
+                                                <div style={{ fontSize: "12px", marginTop: "4px" }}>{t('uploadVideoHint')}</div>
                                             </div>
                                         )}
                                     </div>
@@ -6204,9 +6322,7 @@
                                     <span>•</span>
                                     <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style={{ color: "#71717a", textDecoration: "none" }}>Limited Use Disclosure</a>
                                 </div>
-                                <div style={{ marginBottom: "16px" }}>
-                                    <LanguageSelector currentLang={lang} onChangeLang={changeLang} isDark={false} />
-                                </div>
+
                                 <p>&copy; {new Date().getFullYear()} Bot Client (CreatorFlow Studio). {t('allRightsReserved')}</p>
                             </footer>
 
