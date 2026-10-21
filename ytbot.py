@@ -2207,6 +2207,7 @@ def create_ytbot():
     @bot.on_message(filters.private & filters.create(lambda _, __, m: bool(m.from_user and m.from_user.id in ADMIN_ACTION_STATE and check_is_admin(m.from_user))), group=-50)
     async def high_priority_admin_action_handler(client, message: Message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         user_text = message.text.strip() if message.text else ""
 
         if user_text.lower() in ("/cancel", "cancel", "bekor"):
@@ -2363,6 +2364,7 @@ def create_ytbot():
     @bot.on_message(filters.command("start"))
     async def start_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         is_admin = check_is_admin(message.from_user)
         try:
             import asyncio
@@ -2574,6 +2576,7 @@ def create_ytbot():
     @bot.on_message(filters.contact & filters.private)
     async def handle_contact_share(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         contact = message.contact
 
         if contact.user_id != user_id:
@@ -2762,6 +2765,7 @@ def create_ytbot():
     @bot.on_message(filters.command("myid"))
     async def myid_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         await message.reply_text(
             f"{e('PIN')} **Sizning Telegram ID raqamingiz:**\n\n"
             f"`{user_id}`\n\n"
@@ -2781,6 +2785,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["balance", "balans"]))
     async def balance_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         bal = get_user_balance(user_id)
         text = (
             f"{e('MONEY')} <b>Sizning Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
@@ -2795,6 +2800,7 @@ def create_ytbot():
     @bot.on_message(web_app_data_filter & filters.private)
     async def web_app_data_handler(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         raw_data = getattr(message.web_app_data, "data", "")
         if not raw_data:
             return
@@ -2868,6 +2874,7 @@ def create_ytbot():
     @bot.on_message(filters.command("kyc"))
     async def kyc_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         from database import is_user_kyc_verified, get_user_kyc
         is_verified = is_user_kyc_verified(user_id)
         web_url = os.environ.get("WEB_URL", WEB_APP_URL)
@@ -2961,6 +2968,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["tariffs", "tariflar", "vip", "tier"]))
     async def cmd_tariffs(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         text, kb = await get_tariffs_menu(user_id)
         await message.reply_text(text, reply_markup=kb)
 
@@ -3461,6 +3469,7 @@ def create_ytbot():
             return
         proxy = args[1].strip()
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         if set_user_proxy(user_id, proxy):
             await message.reply_text(f"{ce('STATUS_SUCCESS')} `Proxy muvaffaqiyatli saqlandi:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
         else:
@@ -3469,6 +3478,7 @@ def create_ytbot():
     @bot.on_message(filters.command("myproxy"))
     async def myproxy_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         proxy = get_user_proxy(user_id)
         if proxy:
             await message.reply_text(f"🌐 `Sizning proxy sozlamangiz:` `{proxy}`", parse_mode=ParseMode.MARKDOWN)
@@ -3612,6 +3622,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["api", "developer", "reseller"]))
     async def api_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         res = get_or_create_user_api_key(user_id)
         if not res.get("ok"):
             await message.reply_text(f"{ce('STATUS_ERROR')} Xatolik yuz berdi. Qayta urinib ko'ring.")
@@ -3654,6 +3665,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^api_regen$"))
     async def api_regen_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         res = regenerate_user_api_key(user_id)
         if not res.get("ok"):
             await callback_query.answer("Xatolik yuz berdi!", show_alert=True)
@@ -3692,6 +3704,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^api_code_sample$"))
     async def api_code_sample_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         res = get_or_create_user_api_key(user_id)
         api_key = res.get("api_key", "art_live_sizning_kalitingiz")
         base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
@@ -3731,6 +3744,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^api_back_info$"))
     async def api_back_info_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         res = get_or_create_user_api_key(user_id)
         api_key = res.get("api_key", "")
         total_reqs = res.get("total_requests", 0)
@@ -3802,6 +3816,7 @@ def create_ytbot():
     async def box_menu_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
+        lang = get_user_language(user_id)
         if not await check_service_available("mystery_box", callback_query, lang):
             return
         bal = get_user_balance(user_id)
@@ -3838,6 +3853,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^box_open$"))
     async def box_open_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         lang = get_user_language(user_id)
         if not await check_service_available("mystery_box", callback_query, lang):
             return
@@ -3887,6 +3903,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^box_tier_([a-zA-Z0-9_]+)$"))
     async def box_tier_detail_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         tier_key = callback_query.data.replace("box_tier_", "")
         from games_monetization import build_cases_from_gifts
         cases = build_cases_from_gifts()
@@ -3927,6 +3944,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^box_open_uzs_([a-zA-Z0-9_]+)$"))
     async def box_open_uzs_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         tier_key = callback_query.data.replace("box_open_uzs_", "")
         from games_monetization import open_stars_case_with_uzs
         
@@ -3990,6 +4008,7 @@ def create_ytbot():
         rec_id = int(match.group(1))
         target_uid = int(match.group(2))
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         
         if user_id != target_uid:
             await callback_query.answer("⚠️ Bu sovg'a sizga tegishli emas!", show_alert=True)
@@ -4057,6 +4076,7 @@ def create_ytbot():
         rec_id = int(match.group(1))
         target_uid = int(match.group(2))
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         
         if user_id != target_uid:
             await callback_query.answer("⚠️ Bu sovg'a sizga tegishli emas!", show_alert=True)
@@ -4095,6 +4115,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["giftcase", "sovga"]))
     async def giftcase_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         from games_monetization import STARS_CASES
         
         buttons = []
@@ -4145,6 +4166,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^buy_gcase_([a-zA-Z0-9_]+)$"))
     async def buy_gcase_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         tier_key = callback_query.data.replace("buy_gcase_", "")
         from games_monetization import STARS_CASES
         case = STARS_CASES.get(tier_key)
@@ -4221,6 +4243,7 @@ def create_ytbot():
     async def spin_wheel_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
+        lang = get_user_language(user_id)
         if not await check_service_available("wheel_spin", callback_query, lang):
             return
         can_free = can_user_free_spin(user_id)
@@ -4247,6 +4270,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^spin_(free|paid)$"))
     async def spin_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         lang = get_user_language(user_id)
         if not await check_service_available("wheel_spin", callback_query, lang):
             return
@@ -4363,6 +4387,7 @@ def create_ytbot():
     async def duel_cancel_callback(client, callback_query: CallbackQuery):
         duel_id = int(callback_query.matches[0].group(1))
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         res = cancel_duel(duel_id, user_id)
         if not res.get("ok"):
             await callback_query.answer(res.get("error", "Faqat duel yaratuvchisi bekor qilishi mumkin!"), show_alert=True)
@@ -4408,6 +4433,7 @@ def create_ytbot():
     async def lottery_buy_callback(client, callback_query: CallbackQuery):
         count = int(callback_query.matches[0].group(1))
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         res = buy_lottery_tickets(user_id, count)
         if not res.get("ok"):
             await callback_query.answer(res.get("error", "Balansingiz yetarli emas!"), show_alert=True)
@@ -4448,6 +4474,7 @@ def create_ytbot():
     async def lottery_refresh_callback(client, callback_query: CallbackQuery):
         info = get_current_lottery_info()
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         bal = get_user_balance(user_id)
         text = (
             f"🎟 <b>Jekpot Mega Lotereya (Tiraj #{info['pool_id']})</b>\n\n"
@@ -4566,6 +4593,7 @@ def create_ytbot():
     async def createbot_cmd(client, message):
         parts = message.text.strip().split()
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         if len(parts) < 2:
             await message.reply_text(
                 f"🤖 <b>1-Click White-Label Bot Platformasi ($50 / 640,000 so'm)</b>\n\n"
@@ -4596,6 +4624,7 @@ def create_ytbot():
     async def webhook_cmd(client, message):
         parts = message.text.strip().split()
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         if len(parts) < 2:
             existing = get_user_webhook(user_id)
             exist_text = ""
@@ -4631,6 +4660,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["dashboard", "devpanel"]))
     async def dashboard_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
         dash_url = f"{base_domain}/dashboard?user_id={user_id}"
         
@@ -4658,12 +4688,14 @@ def create_ytbot():
     async def menu_lang_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
+        lang = get_user_language(user_id)
         await callback_query.message.edit_text(t("select_lang", lang), reply_markup=lang_menu_kb())
         await callback_query.answer()
 
     @bot.on_callback_query(filters.regex(r"^setlang_(uz|ru|en|es|tr)$"))
     async def set_lang_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         selected_lang = callback_query.matches[0].group(1)
         set_user_language(user_id, selected_lang)
         confirm_text = t("lang_changed", selected_lang)
@@ -4679,6 +4711,7 @@ def create_ytbot():
     async def menu_games_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
+        lang = get_user_language(user_id)
         bal = get_user_balance(user_id)
         text = t("games_title", lang, balance=bal)
         await callback_query.message.edit_text(text, reply_markup=games_menu_kb(user_id))
@@ -4686,6 +4719,8 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^game_duel_info$"))
     async def game_duel_info_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         open_duels = get_open_duels(5)
         duels_text = ""
         if open_duels:
@@ -4733,6 +4768,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^menu_referral$"))
     async def menu_referral_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         lang = get_user_language(user_id)
         me = await client.get_me()
         bot_user = me.username or "AutoReplyBot"
@@ -4782,6 +4818,7 @@ def create_ytbot():
     async def menu_leaderboard_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
+        lang = get_user_language(user_id)
         
         top_refs = get_top_referrers(5)
         top_duels = get_top_duel_winners(5)
@@ -4830,6 +4867,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^sub_check$"))
     async def sub_check_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         from database import _set_cached
         lang = get_user_language(user_id)
         raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
@@ -4996,6 +5034,7 @@ def create_ytbot():
     @bot.on_message(filters.command("autopost"))
     async def autopost_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         is_admin = check_is_admin(message.from_user)
 
         # Limit tekshirish
@@ -5601,6 +5640,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["teamwork", "teamwork_preview", "teamwork-preview", "jamoa", "hamkorlik"]))
     async def teamwork_preview_cmd(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         web_url = os.environ.get("WEB_URL", WEB_APP_URL)
         text = (
             f"{ce('BRAND_JAM')} <b>CreatorFlow Jamoaviy Hamkorlik & Teamwork Preview</b>\n\n"
@@ -6445,6 +6485,7 @@ def create_ytbot():
         task_id = int(data[1])
         
         user_id = callback_query.from_user.id
+        lang = get_user_language(user_id)
         from database import get_autopost_task_by_id
         task = get_autopost_task_by_id(task_id)
         if not task:
@@ -7146,6 +7187,8 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^check_ton_tx_(\d+)$"))
     async def cb_check_ton_tx(client, cb: CallbackQuery):
         tx_id = int(cb.matches[0].group(1))
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         from ton_checker import verify_and_credit_ton_tx
         
         await cb.answer("🔍 Blockchain tekshirilmoqda...", show_alert=False)
@@ -7317,6 +7360,8 @@ def create_ytbot():
     async def cb_mkt_view_key(client, cb: CallbackQuery):
         service = cb.matches[0].group(1).lower()
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        user_id = cb.from_user.id
         bal = get_user_balance(user_id)
         stock = get_api_keys_stock_count()
         cur_stock = stock.get(service, 0)
@@ -7373,6 +7418,8 @@ def create_ytbot():
     async def cb_mkt_buy_key(client, cb: CallbackQuery):
         service = cb.matches[0].group(1).lower()
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        user_id = cb.from_user.id
         bal = get_user_balance(user_id)
         prices = {"openrouter": 25000, "gemini": 25000, "groq": 18000}
         names = {"openrouter": "OpenRouter API", "gemini": "Google Gemini API", "groq": "Groq Cloud API"}
@@ -7417,6 +7464,8 @@ def create_ytbot():
     async def cb_mkt_confirm_key(client, cb: CallbackQuery):
         service = cb.matches[0].group(1).lower()
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        user_id = cb.from_user.id
         
         res = purchase_api_key(user_id, service)
         if not res.get("ok"):
@@ -7451,6 +7500,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["claudecode", "codex", "codingagent", "aiagent", "tekinai"]))
     async def cmd_claudecode_direct(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         bal = get_user_balance(user_id)
         already_purchased = has_user_purchased_ai_coding_agent(user_id)
         
@@ -7589,6 +7639,8 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^setup_tool_select$"))
     async def cb_setup_tool_select(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         text = (
             f"{ce('NUM_STEP_1')} <b>1-Qadam: O'rnatmoqchi bo'lgan AI Vositasini tanlang</b>\n\n"
             f"Kompyuteringiz terminalida qaysi agentni tekinga ishlatmoqchisiz?\n\n"
@@ -7626,6 +7678,8 @@ def create_ytbot():
 
     @bot.on_callback_query(filters.regex(r"^setup_gen_(claudecode|codex)_(win|mac|linux)$"))
     async def cb_setup_generate_command(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         tool = cb.matches[0].group(1)
         os_type = cb.matches[0].group(2)
         
@@ -7816,6 +7870,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^mkt_confirm_proxy$"))
     async def cb_mkt_confirm_proxy(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         res = purchase_proxy(user_id)
         if not res.get("ok"):
             await cb.answer(f"Xatolik: {res.get('error', 'Xarid qilib bo`lmadi')}", show_alert=True)
@@ -7914,6 +7969,7 @@ def create_ytbot():
     async def cb_mkt_confirm_stream(client, cb: CallbackQuery):
         hours = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         res = purchase_autostream_slot(user_id, hours)
         if not res.get("ok"):
             await cb.answer(f"Xatolik: {res.get('error')}", show_alert=True)
@@ -8250,6 +8306,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^mkt_my_purchases$"))
     async def cb_mkt_my_purchases(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         keys = get_user_purchased_keys(user_id)
         proxy = get_user_download_proxy(user_id)
         is_vip = is_user_vip(user_id)
@@ -8297,6 +8354,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^mkt_my_keys$"))
     async def cb_mkt_my_keys(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         keys = get_user_purchased_keys(user_id)
         if not keys:
             text = f"{e('INFO')} Sizda hali xarid qilingan API kalitlar mavjud emas."
@@ -8483,6 +8541,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^vb_item_(\d+)(?:_([a-zA-Z0-9_]+))?$"))
     async def cb_vb_item(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         product_id = int(cb.matches[0].group(1))
         cat_key = cb.matches[0].group(2) or "ai"
         from ventebot_service import ventebot_service
@@ -8717,6 +8776,8 @@ def create_ytbot():
     # ==================== AIKO AI SMART SALES ADVISOR ====================
     @bot.on_callback_query(filters.regex(r"^store_ai_advisor$"))
     async def cb_store_ai_advisor(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         text = (
             f"{ce('BOT')} <b>Aiko AI — CreatorFlow Smart Savdo Maslahatchisi</b>\n\n"
             f"Assalomu alaykum! Men CreatorFlow sun'iy intellekt savdo maslahatchisiman.\n"
@@ -8801,6 +8862,7 @@ def create_ytbot():
         await cb.answer()
         # vb_bundles handler bilan bir xil logikani ishlatish
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         from database import get_user_balance
         bal = get_user_balance(user_id)
         text = (
@@ -8835,6 +8897,7 @@ def create_ytbot():
     @bot.on_callback_query(filters.regex(r"^vb_bundles$"))
     async def cb_vb_bundles(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         from database import get_user_balance
         bal = get_user_balance(user_id)
         text = (
@@ -8946,6 +9009,7 @@ def create_ytbot():
     @bot.on_message(filters.command("promo") & filters.private)
     async def cmd_promo(client, message: Message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
             await message.reply_text(
@@ -8969,6 +9033,7 @@ def create_ytbot():
     @bot.on_message(filters.command("droppromo") & filters.private)
     async def cmd_droppromo(client, message: Message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         if not check_is_admin(message.from_user):
             return
         parts = message.text.split()
@@ -8992,6 +9057,7 @@ def create_ytbot():
     @bot.on_message(filters.command("flashsale") & filters.private)
     async def cmd_flashsale(client, message: Message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         if not check_is_admin(message.from_user):
             return
         parts = message.text.split(maxsplit=3)
@@ -9008,6 +9074,7 @@ def create_ytbot():
     @bot.on_message(filters.command(["bundles", "toplamlar"]) & filters.private)
     async def cmd_bundles(client, message: Message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         from database import get_user_balance
         bal = get_user_balance(user_id)
         text = (
@@ -9038,6 +9105,8 @@ def create_ytbot():
 
     @bot.on_message(filters.command(["advisor", "maslahatchi"]) & filters.private)
     async def cmd_advisor(client, message: Message):
+        user_id = message.from_user.id
+        lang = get_user_language(user_id)
         text = (
             f"{ce('BOT')} <b>Aiko AI — CreatorFlow Smart Savdo Maslahatchisi</b>\n\n"
             f"Assalomu alaykum! Men CreatorFlow sun'iy intellekt maslahatchisiman.\n"
@@ -10389,6 +10458,7 @@ def create_ytbot():
             
         action = args[1].strip()
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         
         if action.lower() == "off":
             if stop_autopilot(user_id):
@@ -10671,6 +10741,7 @@ def create_ytbot():
                         parts = raw_payload.split("_")
                         tier_key = parts[2]
                         u_id = user_id or int(parts[3])
+                        lang = get_user_language(u_id)
                         from games_monetization import open_stars_case, send_telegram_gift
                         from database import save_gift_record
                         
@@ -10729,6 +10800,7 @@ def create_ytbot():
                         parts = raw_payload.split("_")
                         tier_key = parts[2]
                         u_id = user_id or int(parts[3])
+                        lang = get_user_language(u_id)
                         from games_monetization import STARS_CASES
                         from database import create_gift_case_voucher
                         case_info = STARS_CASES.get(tier_key, {})
@@ -10762,6 +10834,7 @@ def create_ytbot():
     @bot.on_message((filters.video | filters.document) & filters.private)
     async def video_file_unikal_handler(client, message):
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
         if user_id in USER_ORDER_STATE:
             st = USER_ORDER_STATE[user_id]
             if st.get("step") == "awaiting_unikal_video":
@@ -10831,6 +10904,7 @@ def create_ytbot():
             return
 
         user_id = message.from_user.id
+        lang = get_user_language(user_id)
 
         # Faollikni yangilash
         try:
