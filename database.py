@@ -2718,7 +2718,7 @@ def get_user_payment_history(tg_user_id: int, limit: int = 10):
 # ==================== HUMO P2P DEPOSIT ENGINE ====================
 
 def create_humo_deposit(tg_user_id: int, amount_uzs: int, sender_card_last4: str = None) -> dict:
-    """Humo karta orqali to'lov uchun yangi buyurtma yaratish (Micro-offset kolliziyaga qarshi himoya bilan)"""
+    """Humo karta orqali to'lov uchun yangi buyurtma yaratish (Erkin va aniq summa, ATM moslashuvchan)"""
     from config import HUMO_CARD_NUMBER
     conn = get_db()
     if not conn: return None
@@ -2731,28 +2731,8 @@ def create_humo_deposit(tg_user_id: int, amount_uzs: int, sender_card_last4: str
             WHERE tg_user_id = %s AND status = 'pending'
         """, (tg_user_id,))
         
-        # O'tgan 15 daqiqa ichida faol bo'lgan shu summadagi micro-offsetlarni olish
-        cur.execute("""
-            SELECT unique_amount_uzs - amount_uzs as offset_val
-            FROM humo_deposits
-            WHERE status = 'pending' 
-              AND amount_uzs = %s 
-              AND created_at > NOW() - INTERVAL '15 minutes'
-        """, (amount_uzs,))
-        rows = cur.fetchall()
-        used_offsets = {r["offset_val"] for r in rows if r and r["offset_val"] is not None}
-        
-        # 1 dan 99 gacha bo'sh turgan eng kichik offsetni topish
-        offset = 1
-        for i in range(1, 100):
-            if i not in used_offsets:
-                offset = i
-                break
-        else:
-            import random
-            offset = random.randint(100, 199)
-            
-        unique_amount = amount_uzs + offset
+        # Foydalanuvchi xohlagan summa: hech qanday majburiy +1 so'm qo'shilmaydi
+        unique_amount = amount_uzs
         
         cur.execute("""
             INSERT INTO humo_deposits (tg_user_id, amount_uzs, unique_amount_uzs, sender_card_last4, card_number, status, created_at)
@@ -2883,16 +2863,15 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
         cur = conn.cursor()
         matched_deposit = None
         
-        # 1-Qidiruv (Eng aniq va asosiy): Aniq unique_amount_uzs bo'yicha (masalan 1,001 yoki 50,014 so'm)
-        # Pending to'lovlar birinchi o'rinda, agar foydalanuvchi bekor qilgan bo'lsa ham so'nggi 45 daqiqadagi to'lovi inobatga olinadi
+        # 1-Qidiruv (Aniq summa): unique_amount_uzs yoki amount_uzs bo'yicha
         cur.execute("""
             SELECT * FROM humo_deposits
             WHERE status IN ('pending', 'cancelled')
-              AND unique_amount_uzs = %s
+              AND (unique_amount_uzs = %s OR amount_uzs = %s)
               AND created_at > NOW() - INTERVAL '45 minutes'
             ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
             FOR UPDATE
-        """, (amount,))
+        """, (amount, amount))
         row = cur.fetchone()
         if row:
             matched_deposit = dict(row)
@@ -2916,29 +2895,50 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
             cur.execute("""
                 SELECT * FROM humo_deposits
                 WHERE status IN ('pending', 'cancelled')
-                  AND (amount_uzs = %s OR unique_amount_uzs = %s)
                   AND sender_card_last4 = %s
                   AND created_at > NOW() - INTERVAL '45 minutes'
                 ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
                 FOR UPDATE
-            """, (amount, amount, sender_card))
+            """, (sender_card,))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)
 
-        # 4-Qidiruv (Zaxira): Agar foydalanuvchi micro-offsetsiz to'lagan bo'lsa (amount_uzs = amount)
-        # va ayni daqiqalarda shu summadagi FAQAT 1 dona pending to'lov mavjud bo'lsa (chalkashlik yo'q)
+        # 4-Qidiruv (ATM / Terminal moslashuvchan tolerant qidiruv):
+        # Masalan, foydalanuvchi 10,000 so'm tanlagan, lekin bankomat komissiya olib 9,900 yoki 9,800 so'm tushgan
         if not matched_deposit:
             cur.execute("""
                 SELECT * FROM humo_deposits
                 WHERE status = 'pending'
-                  AND amount_uzs = %s
-                  AND created_at > NOW() - INTERVAL '30 minutes'
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                  AND (
+                      ABS(amount_uzs - %s) <= 1500
+                      OR (%s BETWEEN amount_uzs * 0.90 AND amount_uzs * 1.10)
+                  )
+                ORDER BY ABS(amount_uzs - %s) ASC, created_at DESC
+                LIMIT 2
                 FOR UPDATE
-            """, (amount,))
+            """, (amount, amount, amount))
             rows = cur.fetchall()
             if len(rows) == 1:
                 matched_deposit = dict(rows[0])
+            elif len(rows) > 1:
+                diff0 = abs(rows[0]["amount_uzs"] - amount)
+                diff1 = abs(rows[1]["amount_uzs"] - amount)
+                if diff0 < diff1:
+                    matched_deposit = dict(rows[0])
+
+        # 5-Qidiruv (Zaxira): Agar ayni daqiqalarda bazada FAQAT 1 dona pending to'lov mavjud bo'lsa
+        if not matched_deposit:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status = 'pending'
+                  AND created_at > NOW() - INTERVAL '30 minutes'
+                FOR UPDATE
+            """)
+            single_rows = cur.fetchall()
+            if len(single_rows) == 1:
+                matched_deposit = dict(single_rows[0])
                 
         if not matched_deposit:
             conn.rollback()
@@ -2947,10 +2947,12 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
         deposit_id = matched_deposit["id"]
         tg_user_id = matched_deposit["tg_user_id"]
         
-        # Tranzaksiyani completed qilish
+        # Tranzaksiyani completed qilish: tushgan haqiqiy summani (amount) yozish
         cur.execute("""
             UPDATE humo_deposits
             SET status = 'completed',
+                amount_uzs = %s,
+                unique_amount_uzs = %s,
                 sms_raw_text = %s,
                 sender_name = COALESCE(%s, sender_name),
                 sender_card_last4 = COALESCE(%s, sender_card_last4),
@@ -2958,7 +2960,7 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
                 completed_at = NOW()
             WHERE id = %s
             RETURNING *
-        """, (raw_text, sender_name, sender_card, rrn_code, deposit_id))
+        """, (amount, amount, raw_text, sender_name, sender_card, rrn_code, deposit_id))
         completed_row = dict(cur.fetchone())
         
         # Balansga qo'shish

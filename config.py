@@ -162,3 +162,6 @@ RESELLER_MARKUP_PERCENT = float(os.getenv("RESELLER_MARKUP_PERCENT", "150.0"))
 STORE_CHANNEL = os.getenv("STORE_CHANNEL", "").strip()
 VIP_PRICE_UZS = int(os.getenv("VIP_PRICE_UZS", "69000"))
 VIP_PRICE_STARS = int(os.getenv("VIP_PRICE_STARS", "250"))
+
+# ==================== FEATURE TOGGLES ====================
+KYC_ENABLED = os.getenv("KYC_ENABLED", "false").lower() in ("true", "1", "yes")

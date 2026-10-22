@@ -1119,23 +1119,29 @@ def games_menu_kb(user_id=None):
 
 def main_menu_kb(user_id=None, lang=None):
     import os
+    from config import KYC_ENABLED
     lang = lang or _resolve_lang(user_id)
     uid = int(user_id) if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()) else None
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
-    tier_info = get_user_verification_tier(uid) if uid else {"is_vip": False, "is_face_verified": False, "has_phone": False}
-    if tier_info.get("is_vip"):
-        kyc_text = t("kyc_vip_status", lang)
-    elif tier_info.get("is_face_verified"):
-        kyc_text = t("kyc_3d_status", lang)
-    elif tier_info.get("has_phone"):
-        kyc_text = t("kyc_half_status", lang)
+    
+    if KYC_ENABLED:
+        tier_info = get_user_verification_tier(uid) if uid else {"is_vip": False, "is_face_verified": False, "has_phone": False}
+        if tier_info.get("is_vip"):
+            kyc_text = t("kyc_vip_status", lang)
+        elif tier_info.get("is_face_verified"):
+            kyc_text = t("kyc_3d_status", lang)
+        elif tier_info.get("has_phone"):
+            kyc_text = t("kyc_half_status", lang)
+        else:
+            kyc_text = "3D KYC"
+        second_btn = InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {kyc_text}", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}"))
     else:
-        kyc_text = "3D KYC"
+        second_btn = InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_bundles', lang)}", callback_data="menu_bundles")
         
-    return InlineKeyboardMarkup([
+    rows = [
         [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} {t('btn_tariffs_vip', lang)}", callback_data="menu_tariffs")],
         [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Web Dashboard", web_app=WebAppInfo(url=f"{web_url}/?tg_user_id={user_id or 0}")),
-         InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {kyc_text}", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id or 0}"))],
+         second_btn],
         [InlineKeyboardButton(t("btn_balance", lang), callback_data="menu_wallet"),
          InlineKeyboardButton(t("btn_games", lang), callback_data="menu_games")],
         [InlineKeyboardButton(t("btn_support", lang), callback_data="menu_support_desk"),
@@ -1152,9 +1158,11 @@ def main_menu_kb(user_id=None, lang=None):
          InlineKeyboardButton(f"{ce('MEDIA_YOUTUBE')} {t('btn_channel_video', lang)}", callback_data="menu_channel")],
         [InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} {t('btn_analytics', lang)}", callback_data="menu_analytics"),
          InlineKeyboardButton(t("btn_lang", lang), callback_data="menu_lang")],
-        [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_bundles', lang)}", callback_data="menu_bundles")],
-        [InlineKeyboardButton(t("btn_help", lang), callback_data="menu_help")],
-    ])
+    ]
+    if KYC_ENABLED:
+        rows.append([InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_bundles', lang)}", callback_data="menu_bundles")])
+    rows.append([InlineKeyboardButton(t("btn_help", lang), callback_data="menu_help")])
+    return InlineKeyboardMarkup(rows)
 
 def wallet_menu_kb(user_id=None, lang=None):
     import os
@@ -1229,15 +1237,14 @@ def render_humo_invoice(dep: dict):
         f"🏦 <b>Qabul qiluvchi karta:</b>\n"
         f"{card_display} <i>(nusxalash uchun ustiga bosing)</i>\n"
         f"👤 <b>Karta egasi:</b> <code>{holder_display}</code>\n\n"
-        f"💰 <b>O'tkazilishi shart bo'lgan ANIQ summa:</b>\n"
-        f"👉 <b><code>{unique_amt:,}</code> so'm</b> 👈\n"
-        f"<i>(Asosiy summa: {base_amt:,} so'm + {offset} so'm identifikator)</i>\n"
+        f"💰 <b>O'tkaziladigan summa:</b>\n"
+        f"👉 <b><code>{base_amt:,}</code> so'm</b> 👈\n"
         f"{extra_info}\n\n"
-        f"⚠️ <b>JUDA MUHIM:</b>\n"
-        f"To'lov tizim tomonidan 100% avtomat tarzda sizga tegishli ekanligini tasdiqlashi uchun aynan <b><code>{unique_amt:,}</code> so'm</b> o'tkazing!\n"
-        f"Hisobingizga to'liq <b>{unique_amt:,} so'm</b> qo'shiladi (+{offset} so'm bonus).\n\n"
-        f"{ce('WAIT')} <b>Amal qilish muddati:</b> 15 daqiqa\n"
-        f"{ce('LIGHTNING')} <i>Pul o'tkazilishi bilan hech qanday tugmani bosishingiz shart emas, hisobingiz 3-5 soniyada 100% avtomatik to'ldiriladi!</i>"
+        f"ℹ️ <b>To'lov bo'yicha eslatma:</b>\n"
+        f"Bank ilovasi (Click, Payme, Uzum va h.k.) yoki <b>ATM (bankomat / terminal)</b> orqali to'lov qilishingiz mumkin.\n"
+        f"Agar terminal komissiya ushlasa ham yoki summa biroz farq qilsa ham, to'lovingiz avtomatik aniqlanib, tushgan summa to'liq balansingizga qo'shiladi!\n\n"
+        f"{ce('WAIT')} <b>Amal qilish muddati:</b> 15-45 daqiqa\n"
+        f"{ce('LIGHTNING')} <i>Pul o'tkazilishi bilan hisobingiz 3-5 soniyada 100% avtomatik to'ldiriladi!</i>"
     )
 
     card_btn_text = f"💳 Karta: *{sender_card}" if sender_card else "💳 Karta 4 raqamini kiritish (Ixtiyoriy)"
@@ -1573,13 +1580,14 @@ def create_ytbot():
         if is_user_vip(user.id):
             return True
         # Kirish verifikatsiyasi: telefon raqami yoki 3D KYC bo'lishi shart
+        from config import KYC_ENABLED
         has_phone = bool(get_telegram_phone(user.id))
-        is_face = is_user_kyc_verified(user.id)
-        if not has_phone and not is_face:
+        is_face = is_user_kyc_verified(user.id) if KYC_ENABLED else True
+        if KYC_ENABLED and not has_phone and not is_face:
             return False
         daily_used = get_daily_usage(user.id)
         # To'liq (3D Face) tasdiqlanganlarga kengaytirilgan limit (25), yarim verified uchun 15
-        user_limit = 25 if is_face else DAILY_LIMIT_USER
+        user_limit = 25 if (is_face or not KYC_ENABLED) else DAILY_LIMIT_USER
         return daily_used < user_limit
 
     # ==================== /start ====================
@@ -2601,9 +2609,11 @@ def create_ytbot():
             f"• 👑 <b>CreatorFlow VIP ({VIP_PRICE_UZS:,} UZS / oy):</b> Cheksiz limitlar, 24/7 ustuvor navbat, restocklarda birinchi navbatda xarid va keshbek!\n\n"
             f"Quyidagi tugmalar orqali xizmatlarni boshqarishingiz mumkin:"
         )
+        from config import KYC_ENABLED
+        kyc_btn = [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} 3D Yuz Skaneridan O'tish (Full)", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={phone}"))] if KYC_ENABLED else [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Super To'plamlar (Bundles)", callback_data="vb_bundles")]
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} VIP Tarifni Faollashtirish (69,000 UZS)", callback_data="vip_buy_69k")],
-            [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} 3D Yuz Skaneridan O'tish (Full)", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={phone}"))],
+            kyc_btn,
             [InlineKeyboardButton(f"{ce('BTN_HOME')} Asosiy Menyu", callback_data="back_main")]
         ])
         await message.reply_text(f"{ce('CHECK')} Telefon raqamingiz muvaffaqiyatli bog'landi.", reply_markup=ReplyKeyboardRemove())
@@ -2872,8 +2882,22 @@ def create_ytbot():
     # ==================== /kyc ====================
     @bot.on_message(filters.command("kyc"))
     async def kyc_cmd(client, message):
+        from config import KYC_ENABLED
         user_id = message.from_user.id
         lang = get_user_language(user_id)
+        if not KYC_ENABLED:
+            text = (
+                f"{ce('STATUS_SECURITY')} <b>3D Yuz verifikatsiyasi (KYC)</b>\n\n"
+                f"ℹ️ <i>3D Yuz verifikatsiyasi (KYC) vaqtincha to'xtatilgan yoki majburiy emas.</i>\n\n"
+                f"Siz botning barcha xizmatlaridan hech qanday cheklovlarsiz foydalanishingiz mumkin!"
+            )
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Super To'plamlar", callback_data="vb_bundles")],
+                [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
+            ])
+            await message.reply_text(text, reply_markup=kb)
+            return
+
         from database import is_user_kyc_verified, get_user_kyc
         is_verified = is_user_kyc_verified(user_id)
         web_url = os.environ.get("WEB_URL", WEB_APP_URL)
@@ -2934,9 +2958,11 @@ def create_ytbot():
 
         text = t("tariffs_title", lang, status_line=status_line, target_ch=target_ch, vip_price=f"{VIP_PRICE_UZS:,}", vip_stars=VIP_PRICE_STARS)
 
+        from config import KYC_ENABLED
+        tariffs_kyc_btn = [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {t('btn_kyc_3d', lang)}", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={ph}"))] if KYC_ENABLED else [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_bundles', lang)} (Smart Bundles)", callback_data="vb_bundles")]
         btns = [
             [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} {t('btn_tariffs_vip', lang)} (69,000 UZS)", callback_data="vip_buy_69k")],
-            [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {t('btn_kyc_3d', lang)}", web_app=WebAppInfo(url=f"{web_url}/kyc/verify?user_id={user_id}&phone={ph}"))],
+            tariffs_kyc_btn,
             [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
         ]
         return text, InlineKeyboardMarkup(btns)

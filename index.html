@@ -1776,7 +1776,7 @@
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
             const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'videos' | 'cases' | 'nfts'
             const [drawerOpen, setDrawerOpen] = useState(false);
-            const [showTeamworkModal, setShowTeamworkModal] = useState(false);
+            
 
             // Telegram user context & Reactive Login
             const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false });
@@ -2681,15 +2681,13 @@
                 setupScratchCardUI();
                 fetchUpgraderInventory();
 
-                // URL & Route Handling for /goal, /boost, /teamwork-preview
+                // URL & Route Handling for /goal, /boost
                 try {
                     const currentPath = (window.location.pathname || '').toLowerCase();
                     const currentHash = (window.location.hash || '').toLowerCase();
                     const urlParams = new URLSearchParams(window.location.search);
                     const currentRoute = (urlParams.get('route') || urlParams.get('tab') || '').toLowerCase();
-                    if (currentPath.includes('teamwork') || currentHash.includes('teamwork') || currentRoute.includes('teamwork')) {
-                        setShowTeamworkModal(true);
-                    } else if (currentPath.includes('goal') || currentHash.includes('goal') || currentRoute.includes('goal')) {
+                    if (currentPath.includes('goal') || currentHash.includes('goal') || currentRoute.includes('goal')) {
                         setActiveTab('analytics');
                     } else if (currentPath.includes('boost') || currentHash.includes('boost') || currentRoute.includes('boost')) {
                         setActiveTab('cases');
@@ -3058,10 +3056,33 @@
                                     </span>
                                 </div>
 
-                                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                                    <a
+                                        href="/api/v1/docs"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            padding: "6px 14px",
+                                            borderRadius: "999px",
+                                            background: "rgba(0, 240, 255, 0.10)",
+                                            border: "1px solid rgba(0, 240, 255, 0.35)",
+                                            color: "#00F0FF",
+                                            fontSize: "12px",
+                                            fontWeight: 600,
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                            textDecoration: "none",
+                                            transition: "all 0.2s"
+                                        }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                        API Docs
+                                    </a>
                                     <a
                                         href="/captcha/demo"
                                         target="_blank"
+                                        rel="noopener noreferrer"
                                         style={{
                                             padding: "6px 14px",
                                             borderRadius: "999px",
@@ -3073,7 +3094,8 @@
                                             display: "inline-flex",
                                             alignItems: "center",
                                             gap: "6px",
-                                            textDecoration: "none"
+                                            textDecoration: "none",
+                                            transition: "all 0.2s"
                                         }}
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
@@ -3085,9 +3107,9 @@
                                         style={{
                                             padding: "6px 14px",
                                             borderRadius: "999px",
-                                            background: "rgba(0, 240, 255, 0.08)",
-                                            border: "1px solid rgba(0, 240, 255, 0.25)",
-                                            color: "#00F0FF",
+                                            background: "rgba(255, 255, 255, 0.08)",
+                                            border: "1px solid rgba(255, 255, 255, 0.2)",
+                                            color: "#ffffff",
                                             fontSize: "12px",
                                             fontWeight: 700,
                                             cursor: "pointer",
@@ -3097,8 +3119,8 @@
                                             transition: "all 0.2s"
                                         }}
                                     >
-                                        <SvgSparkles size={13} color="#00F0FF" />
-                                        <span>{t('demoExploreBtn')}</span>
+                                        <SvgSparkles size={13} color="#ffffff" />
+                                        <span>Dashboard</span>
                                     </button>
 
                                     {/* Language Switcher */}
@@ -3705,6 +3727,52 @@
                                                 <span>{t('signIn')}</span>
                                             </button>
                                         )}
+                                        {/* Quick Navigation Links */}
+                                        <div className="header-nav-links" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                            <a
+                                                href="/api/v1/docs"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    padding: "5px 12px",
+                                                    borderRadius: "999px",
+                                                    background: "rgba(115, 66, 226, 0.08)",
+                                                    border: "1px solid rgba(115, 66, 226, 0.2)",
+                                                    color: "#7342E2",
+                                                    fontSize: "12px",
+                                                    fontWeight: 600,
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "5px",
+                                                    textDecoration: "none"
+                                                }}
+                                            >
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                                <span>API Docs</span>
+                                            </a>
+                                            <a
+                                                href="/captcha/demo"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    padding: "5px 12px",
+                                                    borderRadius: "999px",
+                                                    background: "rgba(0, 0, 0, 0.04)",
+                                                    border: "1px solid rgba(0, 0, 0, 0.08)",
+                                                    color: "#3f3f46",
+                                                    fontSize: "12px",
+                                                    fontWeight: 600,
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "5px",
+                                                    textDecoration: "none"
+                                                }}
+                                            >
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                                <span>Captcha</span>
+                                            </a>
+                                        </div>
+
                                         {/* Dashboard Header Language Selector */}
                                         <LanguageSelector currentLang={lang} onChangeLang={changeLang} isDark={false} />
 
@@ -3833,27 +3901,7 @@
                                         <SvgBox size={16} color={activeTab === 'nfts' ? "#00f0ff" : "#71717a"} />
                                         <span>{t('tabNfts')}</span>
                                     </button>
-                                    <button
-                                        onClick={() => setShowTeamworkModal(true)}
-                                        style={{
-                                            padding: "9px 18px",
-                                            borderRadius: "999px",
-                                            border: "1px solid rgba(115, 66, 226, 0.25)",
-                                            background: "rgba(115, 66, 226, 0.08)",
-                                            color: "#7342E2",
-                                            fontSize: "13px",
-                                            fontWeight: 700,
-                                            cursor: "pointer",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                            transition: "all 0.2s",
-                                            flexShrink: 0
-                                        }}
-                                    >
-                                        <SvgUsers size={16} color="#7342E2" />
-                                        <span>Teamwork Preview</span>
-                                    </button>
+
                                 </div>
                             </div>
 
@@ -3870,28 +3918,39 @@
                                     padding: "120px 48px 48px",
                                     animation: "fadeIn 0.4s ease"
                                 }}>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "24px", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
-                                        {["Projects", "Plans", "Team", "FAQs", "Get in Touch"].map((item, idx) => (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
+                                        {[
+                                            { label: "Boshqaruv Paneli", href: "#dashboard", onClick: () => { setDrawerOpen(false); setView('dashboard'); } },
+                                            { label: "API Docs (Hujjatlar)", href: "/api/v1/docs", isExternal: true },
+                                            { label: "BotShield Captcha Demo", href: "/captcha/demo", isExternal: true },
+                                            { label: "Maxfiylik Siyosati", href: "/privacy", isExternal: true },
+                                            { label: "Foydalanish Shartlari", href: "/terms", isExternal: true }
+                                        ].map((item, idx) => (
                                             <a
                                                 key={idx}
-                                                href={`#${item.toLowerCase()}`}
+                                                href={item.href}
+                                                target={item.isExternal ? "_blank" : undefined}
+                                                rel={item.isExternal ? "noopener noreferrer" : undefined}
                                                 onClick={(e) => {
-                                                    e.preventDefault();
-                                                    setDrawerOpen(false);
-                                                    if (item === "Team") setShowTeamworkModal(true);
+                                                    if (item.onClick) {
+                                                        e.preventDefault();
+                                                        item.onClick();
+                                                    } else {
+                                                        setDrawerOpen(false);
+                                                    }
                                                 }}
                                                 style={{
-                                                    fontSize: "48px",
-                                                    fontWeight: 500,
-                                                    letterSpacing: "-0.04em",
+                                                    fontSize: "36px",
+                                                    fontWeight: 600,
+                                                    letterSpacing: "-0.03em",
                                                     color: "var(--text)",
                                                     textDecoration: "none",
                                                     transition: "color 0.2s"
                                                 }}
-                                                onMouseEnter={(e) => e.target.style.color = "var(--muted)"}
+                                                onMouseEnter={(e) => e.target.style.color = "#7342E2"}
                                                 onMouseLeave={(e) => e.target.style.color = "var(--text)"}
                                             >
-                                                {item}
+                                                {item.label}
                                             </a>
                                         ))}
                                     </div>
@@ -6566,159 +6625,6 @@
                                                 </div>
                                             </form>
                                         )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Teamwork Preview Modal */}
-                            {showTeamworkModal && (
-                                <div
-                                    onClick={(e) => { if (e.target === e.currentTarget) setShowTeamworkModal(false); }}
-                                    style={{
-                                        position: "fixed",
-                                        inset: 0,
-                                        zIndex: 1000,
-                                        background: "rgba(0, 0, 0, 0.7)",
-                                        backdropFilter: "blur(12px)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "20px"
-                                    }}
-                                >
-                                    <div style={{
-                                        background: "#12141c",
-                                        borderRadius: "24px",
-                                        padding: "32px",
-                                        maxWidth: "680px",
-                                        width: "100%",
-                                        maxHeight: "90vh",
-                                        overflowY: "auto",
-                                        boxShadow: "0 24px 64px rgba(0, 0, 0, 0.6)",
-                                        border: "1px solid rgba(255, 255, 255, 0.1)",
-                                        color: "#f4f4f5"
-                                    }}>
-                                        {/* Header */}
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                                <div style={{ width: "42px", height: "42px", borderRadius: "12px", background: "rgba(115, 66, 226, 0.2)", border: "1px solid rgba(115, 66, 226, 0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                    <SvgUsers size={22} color="#a78bfa" />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", color: "#a78bfa", textTransform: "uppercase" }}>Jamoaviy Hamkorlik</div>
-                                                    <h3 style={{ fontSize: "20px", fontWeight: 700, color: "#ffffff", margin: "2px 0 0" }}>CreatorFlow Teamwork Preview</h3>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => setShowTeamworkModal(false)}
-                                                style={{ border: "none", background: "rgba(255, 255, 255, 0.08)", borderRadius: "10px", width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#a1a1aa" }}
-                                            >
-                                                <XIcon size={18} color="#a1a1aa" />
-                                            </button>
-                                        </div>
-
-                                        <p style={{ fontSize: "13px", color: "#a1a1aa", lineHeight: 1.6, marginBottom: "24px" }}>
-                                            YouTube kanallaringizni professional jamoa — administratorlar, montajchilar, dizaynerlar va SMM menejerlar bilan birgalikda boshqaring. Har bir a'zo uchun xavfsiz va aniq belgilangan vakolatlar.
-                                        </p>
-
-                                        {/* Roles Grid */}
-                                        <div style={{ marginBottom: "24px" }}>
-                                            <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                                                <SvgShield size={14} color="#71717a" />
-                                                <span>Jamoaviy Rollar va Ruxsatlar</span>
-                                            </div>
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "10px" }}>
-                                                {[
-                                                    { role: "Kanal Egasi (Owner)", desc: "Moliyaviy nazorat, to'lovlar, Stars balansi va to'liq egalik", tag: "Full Access", color: "#eab308" },
-                                                    { role: "Boshqaruvchi (Admin)", desc: "Autopost jadvali, SEO optimizatsiya, tahlillar va kampaniyalar", tag: "Management", color: "#8b5cf6" },
-                                                    { role: "Montajchi (Editor)", desc: "4K yuklash, Short Factory avto-montaj va rendering", tag: "Content", color: "#06b6d4" },
-                                                    { role: "Dizayner (Artist)", desc: "Thumbnail, kanal banneri va 3D Gift NFT yaratish", tag: "Creative", color: "#ec4899" },
-                                                    { role: "SMM Menejer", desc: "Izohlar moderatsiyasi, auditoriya tahlili va e'lonlar", tag: "Community", color: "#10b981" }
-                                                ].map((r, idx) => (
-                                                    <div key={idx} style={{ background: "rgba(255, 255, 255, 0.03)", border: "1px solid rgba(255, 255, 255, 0.08)", borderRadius: "14px", padding: "14px 16px" }}>
-                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                                                            <div style={{ fontWeight: 700, fontSize: "14px", color: "#ffffff", display: "flex", alignItems: "center", gap: "8px" }}>
-                                                                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: r.color, display: "inline-block" }}></span>
-                                                                {r.role}
-                                                            </div>
-                                                            <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 8px", borderRadius: "999px", background: "rgba(255,255,255,0.06)", color: r.color, border: `1px solid ${r.color}33` }}>
-                                                                {r.tag}
-                                                            </span>
-                                                        </div>
-                                                        <div style={{ fontSize: "12px", color: "#a1a1aa", lineHeight: 1.4 }}>{r.desc}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Connected Workflows */}
-                                        <div style={{ marginBottom: "28px" }}>
-                                            <div style={{ fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                                                <SvgBriefcase size={14} color="#71717a" />
-                                                <span>Integratsiyalashgan Jamoaviy Asboblar</span>
-                                            </div>
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
-                                                {[
-                                                    { name: "Linear", desc: "Sprint & Tasks", status: "Active" },
-                                                    { name: "Miro", desc: "Visual Ideas", status: "Active" },
-                                                    { name: "Supercut", desc: "Cloud Render", status: "Active" },
-                                                    { name: "Jam Team", desc: "1-Click QA", status: "Active" }
-                                                ].map((t, idx) => (
-                                                    <div key={idx} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.06)", borderRadius: "12px", padding: "12px", textAlign: "center" }}>
-                                                        <div style={{ fontWeight: 700, fontSize: "13px", color: "#ffffff" }}>{t.name}</div>
-                                                        <div style={{ fontSize: "11px", color: "#71717a", margin: "2px 0 6px" }}>{t.desc}</div>
-                                                        <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "#10b981", fontWeight: 600 }}>
-                                                            <SvgCheck size={12} color="#10b981" />
-                                                            <span>{t.status}</span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Footer Actions */}
-                                        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", flexWrap: "wrap" }}>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowTeamworkModal(false)}
-                                                style={{
-                                                    padding: "12px 20px",
-                                                    borderRadius: "12px",
-                                                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                                                    background: "rgba(255, 255, 255, 0.05)",
-                                                    color: "#e4e4e7",
-                                                    fontSize: "13px",
-                                                    fontWeight: 600,
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                Yopish
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(window.location.origin + '/teamwork-preview')}&text=${encodeURIComponent("CreatorFlow jamoaviy boshqaruviga taklif!")}`;
-                                                    window.open(shareUrl, '_blank');
-                                                }}
-                                                style={{
-                                                    padding: "12px 22px",
-                                                    borderRadius: "12px",
-                                                    border: "none",
-                                                    background: "linear-gradient(135deg, #7342E2 0%, #9333ea 100%)",
-                                                    color: "#ffffff",
-                                                    fontSize: "13px",
-                                                    fontWeight: 700,
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                    boxShadow: "0 4px 16px rgba(115, 66, 226, 0.35)"
-                                                }}
-                                            >
-                                                <SvgUsers size={16} color="#ffffff" />
-                                                <span>A'zolarni Taklif Qilish</span>
-                                            </button>
-                                        </div>
                                     </div>
                                 </div>
                             )}

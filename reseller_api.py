@@ -1916,6 +1916,61 @@ async def handle_api_tariffs(request):
 
 # ==================== INTERACTIVE API DOCUMENTATION (HTML) ====================
 
+async def handle_robots(request):
+    """robots.txt handler for search engines and AI agents"""
+    content = """# Robots.txt for CreatorFlow / Bot Client
+# AI Agents and Web Crawlers Configuration
+
+User-agent: *
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+Disallow: /api/v1/admin/
+Disallow: /api/user/
+Disallow: /oauth/
+Disallow: /admin/
+
+User-agent: GPTBot
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+
+User-agent: Google-Extended
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+"""
+    return web.Response(text=content, content_type="text/plain", charset="utf-8")
+
 async def handle_api_docs_html(request):
     """GET /api/v1/docs - Zamonaviy, interaktiv REST API hujjatlari"""
     html = """<!DOCTYPE html>
@@ -3274,6 +3329,7 @@ def setup_reseller_api_routes(app: web.Application):
     app.router.add_get("/api/v1/webhooks", handle_api_webhooks_get)
 
     # 7. Documentation & Dashboard
+    app.router.add_get("/robots.txt", handle_robots)
     app.router.add_get("/api/v1/docs", handle_api_docs_html)
     app.router.add_get("/dashboard", handle_dashboard_webapp)
     # 8. BotShield Captcha as a Service Endpoints

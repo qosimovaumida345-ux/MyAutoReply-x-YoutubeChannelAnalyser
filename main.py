@@ -476,16 +476,79 @@ async def handle_google_verification(request):
 
 
 async def handle_robots(request):
-    """robots.txt handler for search engines and Googlebot"""
-    content = """User-agent: *
+    """robots.txt handler for search engines, AI agents (GPTBot, ClaudeBot, etc.) and crawlers"""
+    content = """# Robots.txt for CreatorFlow / Bot Client
+# AI Agents and Web Crawlers Configuration
+
+User-agent: *
 Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
 Allow: /privacy
 Allow: /privacy-policy
 Allow: /terms
 Allow: /terms-of-service
-Disallow: /api/
+Disallow: /dashboard
+Disallow: /api/auth/
+Disallow: /api/v1/admin/
+Disallow: /api/user/
 Disallow: /oauth/
 Disallow: /admin/
+
+# Explicit permissions for AI Agents to index public documentation & tools
+User-agent: GPTBot
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+Disallow: /api/v1/admin/
+Disallow: /api/user/
+
+User-agent: ClaudeBot
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+Disallow: /api/v1/admin/
+Disallow: /api/user/
+
+User-agent: Google-Extended
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+Disallow: /api/v1/admin/
+Disallow: /api/user/
+
+User-agent: PerplexityBot
+Allow: /
+Allow: /api/v1/docs
+Allow: /api/v1/products
+Allow: /api/v1/tariffs
+Allow: /captcha/
+Allow: /privacy
+Allow: /terms
+Disallow: /dashboard
+Disallow: /api/auth/
+Disallow: /api/v1/admin/
+Disallow: /api/user/
 """
     return web.Response(text=content, content_type="text/plain", charset="utf-8")
 
