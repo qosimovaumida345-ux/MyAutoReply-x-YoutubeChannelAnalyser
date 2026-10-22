@@ -46,6 +46,7 @@
         grid: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
         lock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>',
         undo: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>',
+        alert: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
         hand: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v7"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 0 1 4 4v4a8 8 0 0 1-8 8h-2c-2.5 0-4.5-1.5-5.5-3.5L4 16.5a2 2 0 0 1 3-2.5l1.5 1.5V11"/></svg>'
     };
 
@@ -279,6 +280,34 @@
                 background: #FFFFFF;
             }
 
+            /* Error Toast Notification */
+            .bsh-error-toast {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: #FEF2F2;
+                border: 1px solid #FCA5A5;
+                color: #B91C1C;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 6px 10px;
+                border-radius: 6px;
+                margin-bottom: 8px;
+                animation: bsh-toast-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                box-sizing: border-box;
+                width: 100%;
+                max-width: 320px;
+            }
+            .bsh-error-toast-icon {
+                display: inline-flex;
+                align-items: center;
+                flex-shrink: 0;
+            }
+            @keyframes bsh-toast-in {
+                from { opacity: 0; transform: translateY(-4px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
             /* Visual Instruction Header (Icons for target shape or steps) */
             .bsh-visual-header {
                 width: 100%;
@@ -509,18 +538,18 @@
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: 10px;
+                gap: 8px;
                 width: 100%;
                 box-sizing: border-box;
             }
             .bsh-seq-step-bar {
-                width: 100%;
-                max-width: 350px;
+                width: 320px;
+                max-width: 100%;
                 box-sizing: border-box;
                 background: #F8FAFC;
                 border: 1px solid #E2E8F0;
                 border-radius: 8px;
-                padding: 6px 8px;
+                padding: 4px 6px;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -529,7 +558,7 @@
             .bsh-seq-steps-list {
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 3px;
                 flex: 1;
                 min-width: 0;
             }
@@ -539,35 +568,40 @@
                 gap: 3px;
                 background: #FFFFFF;
                 border: 1px solid #CBD5E1;
-                padding: 2px 6px;
+                padding: 2px 5px;
                 border-radius: 6px;
-                font-size: 11px;
+                font-size: 10px;
                 font-weight: 600;
                 color: #334155;
                 white-space: nowrap;
                 box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+                min-width: 0;
             }
             .bsh-seq-step-pill svg {
-                width: 13px;
-                height: 13px;
+                width: 12px;
+                height: 12px;
                 flex-shrink: 0;
             }
+            .bsh-seq-step-name {
+                font-size: 10px;
+                white-space: nowrap;
+            }
             .bsh-seq-step-num {
-                width: 16px;
-                height: 16px;
+                width: 15px;
+                height: 15px;
                 border-radius: 50%;
                 background: #7342E2;
                 color: #FFFFFF;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 10px;
+                font-size: 9px;
                 font-weight: 700;
                 flex-shrink: 0;
             }
             .bsh-seq-arrow {
                 color: #94A3B8;
-                font-size: 10px;
+                font-size: 9px;
                 flex-shrink: 0;
             }
             .bsh-seq-reset-btn {
@@ -575,12 +609,12 @@
                 border: 1px solid #E2E8F0;
                 border-radius: 6px;
                 color: #64748B;
-                font-size: 11px;
+                font-size: 10px;
                 font-weight: 600;
                 display: inline-flex;
                 align-items: center;
-                gap: 4px;
-                padding: 3px 8px;
+                gap: 3px;
+                padding: 2px 6px;
                 cursor: pointer;
                 flex-shrink: 0;
                 white-space: nowrap;
@@ -1033,7 +1067,7 @@
                         <div class="bsh-seq-step-pill">
                             <span class="bsh-seq-step-num">${st.step}</span>
                             ${st.svg}
-                            <span>${st.uz}</span>
+                            <span class="bsh-seq-step-name">${st.uz}</span>
                         </div>
                     `;
                     if (s < p.sequence_steps.length - 1) {
@@ -1045,7 +1079,7 @@
                     stepsHtml += `
                         <div class="bsh-seq-step-pill">
                             <span class="bsh-seq-step-num">${s2 + 1}</span>
-                            <span>${p.sequence_uz[s2]}</span>
+                            <span class="bsh-seq-step-name">${p.sequence_uz[s2]}</span>
                         </div>
                     `;
                     if (s2 < p.sequence_uz.length - 1) {
@@ -1060,7 +1094,7 @@
                         <div class="bsh-seq-steps-list">
                             ${stepsHtml}
                         </div>
-                        <button type="button" class="bsh-seq-reset-btn" id="bsh-seq-reset">
+                        <button type="button" class="bsh-seq-reset-btn" id="bsh-seq-reset" title="Qaytadan bosish">
                             ${SVG_ICONS.undo}
                             <span>Tozalash</span>
                         </button>
@@ -1076,6 +1110,7 @@
             var countLabel = body.querySelector("#bsh-seq-count");
             var resetBtn = body.querySelector("#bsh-seq-reset");
             var clickSeq = [];
+            var lastClickTime = 0;
 
             function clearClicks() {
                 clickSeq = [];
@@ -1086,23 +1121,40 @@
 
             resetBtn.addEventListener("click", clearClicks);
 
-            function handleCanvasClick(e) {
+            function handleCanvasInteraction(e) {
                 if (clickSeq.length >= p.count) return;
 
-                var isTouch = e.type.indexOf("touch") !== -1;
-                if (isTouch && e.cancelable) {
-                    e.preventDefault();
+                var now = Date.now();
+                // 250ms debouncer prevents simulated double clicks from firing in touch emulation or rapid taps
+                if (now - lastClickTime < 250) {
+                    if (e.cancelable) e.preventDefault();
+                    return;
                 }
 
                 var rect = wrap.getBoundingClientRect();
                 var scaleX = 320 / (rect.width || 320);
                 var scaleY = 180 / (rect.height || 180);
-                var clientX = isTouch ? (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : e.clientX) : e.clientX;
-                var clientY = isTouch ? (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : e.clientY) : e.clientY;
+
+                var clientX = e.clientX;
+                var clientY = e.clientY;
+                if (e.changedTouches && e.changedTouches[0]) {
+                    clientX = e.changedTouches[0].clientX;
+                    clientY = e.changedTouches[0].clientY;
+                } else if (e.touches && e.touches[0]) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                }
+
+                if (clientX === undefined || clientY === undefined) return;
+
+                lastClickTime = now;
+                if (e.cancelable) {
+                    e.preventDefault();
+                }
 
                 var cx = Math.max(0, Math.min(320, Math.round((clientX - rect.left) * scaleX)));
                 var cy = Math.max(0, Math.min(180, Math.round((clientY - rect.top) * scaleY)));
-                var now = Date.now();
+
                 var clickItem = { x: cx, y: cy, t: now - self.startTime };
 
                 clickSeq.push(clickItem);
@@ -1124,8 +1176,26 @@
                 }
             }
 
-            wrap.addEventListener("click", handleCanvasClick);
-            wrap.addEventListener("touchend", handleCanvasClick, { passive: false });
+            if (window.PointerEvent) {
+                wrap.addEventListener("pointerdown", handleCanvasInteraction);
+            } else {
+                wrap.addEventListener("touchstart", handleCanvasInteraction, { passive: false });
+                wrap.addEventListener("click", handleCanvasInteraction);
+            }
+        }
+    };
+
+    BotShieldInstance.prototype.showErrorToast = function (message) {
+        var existing = this.modal.querySelector(".bsh-error-toast");
+        if (existing) existing.remove();
+
+        var toast = document.createElement("div");
+        toast.className = "bsh-error-toast";
+        toast.innerHTML = '<span class="bsh-error-toast-icon">' + SVG_ICONS.alert + '</span><span>' + message + '</span>';
+
+        var body = this.modal.querySelector(".bsh-card-body");
+        if (body) {
+            body.insertBefore(toast, body.firstChild);
         }
     };
 
@@ -1210,24 +1280,38 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (data.ok) {
+        .then(function (res) {
+            return res.json().then(function (data) {
+                return { status: res.status, ok: res.ok, data: data };
+            });
+        })
+        .then(function (result) {
+            var data = result.data;
+            if (data && data.ok) {
                 self.handleVerified(data);
             } else {
+                console.warn("[BotShield Verify Error]:", data || result);
+                var errMsg = (data && data.message) ? data.message : "Javob noto'g'ri. Belgilarni ko'rsatilgan 1-2-3 tartibda bosing!";
+                self.showErrorToast(errMsg);
                 card.classList.add("bsh-shake");
                 setTimeout(function () {
                     card.classList.remove("bsh-shake");
-                    self.fetchChallenge();
                 }, 400);
+                setTimeout(function () {
+                    self.fetchChallenge();
+                }, 1300);
             }
         })
         .catch(function (err) {
+            console.error("[BotShield Network Error]:", err);
+            self.showErrorToast("Tarmoq xatosi. Qaytadan urinib ko'ring.");
             card.classList.add("bsh-shake");
             setTimeout(function () {
                 card.classList.remove("bsh-shake");
-                self.fetchChallenge();
             }, 400);
+            setTimeout(function () {
+                self.fetchChallenge();
+            }, 1300);
         });
     };
 

@@ -854,9 +854,9 @@ class CaptchaManager:
             if duration_ms < 150:
                 return False, 0.18, "sequence_solve_too_fast"
             ts = [c.get("t", 0) for c in clicks if isinstance(c, dict) and "t" in c]
-            if len(ts) >= 3:
+            if len(ts) >= 3 and all(t > 0 for t in ts):
                 diffs = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-                if any(d < 20 for d in diffs):
+                if any(d < 15 for d in diffs):
                     return False, 0.18, "superhuman_multiclick_speed"
             score = 0.98 if duration_ms > 500 else 0.88
             return True, score, "human_sequence_verified"
@@ -883,9 +883,9 @@ class CaptchaManager:
         c_type = challenge["type"]
         expected_sol = challenge["solution"]
         
-        # Auto-heal telemetry ONLY if client did not provide 'clicks' in telemetry at all
+        # Auto-heal telemetry if client did not provide or provided empty 'clicks' in telemetry
         if telemetry is not None and isinstance(telemetry, dict):
-            if c_type == "sequence" and "clicks" not in telemetry:
+            if c_type == "sequence" and not telemetry.get("clicks"):
                 if isinstance(solution, dict) and solution.get("clicks"):
                     telemetry["clicks"] = solution["clicks"]
         elif telemetry is None and isinstance(solution, dict) and solution.get("clicks"):
@@ -943,7 +943,7 @@ class CaptchaManager:
                         cy = user_clicks[i].get("y", 0)
                         tx = targets[i]["x"]
                         ty = targets[i]["y"]
-                        tr = max(targets[i]["radius"], 52)  # Generous 52px touch hit box
+                        tr = max(targets[i]["radius"], 60)  # Generous 60px touch hit box
                         dist = math.hypot(cx - tx, cy - ty)
                         if dist > tr:
                             match_all = False
@@ -955,7 +955,7 @@ class CaptchaManager:
                 is_correct = False
 
         if not is_correct:
-            return {"ok": False, "error": "incorrect_solution", "message": "Javob noto'g'ri. Qayta urinib ko'ring."}
+            return {"ok": False, "error": "incorrect_solution", "message": "Javob noto'g'ri. Belgilarni ko'rsatilgan 1-2-3 tartibda bosing!"}
             
         challenge["is_used"] = True
         

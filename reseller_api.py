@@ -3092,6 +3092,8 @@ async def handle_api_captcha_verify(request):
         
     result = CaptchaManager.verify_challenge(challenge_id, solution, telemetry)
     status_code = 200 if result.get("ok") else 400
+    if not result.get("ok"):
+        print(f"[BotShield Verify Error] cid={challenge_id}, err={result.get('error')}, msg={result.get('message')}")
     return cors_json_response(result, status=status_code)
 
 async def handle_api_captcha_siteverify(request):
