@@ -326,6 +326,9 @@
             display: flex;
             gap: 6px;
             margin-bottom: 12px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
         }
 
         .snippet-tab-btn {
@@ -586,9 +589,10 @@
 
             <div class="snippet-tabs">
                 <button class="snippet-tab-btn active" data-tab="html">1. HTML Vidjet</button>
-                <button class="snippet-tab-btn" data-tab="python">2. Python Backend</button>
-                <button class="snippet-tab-btn" data-tab="nodejs">3. Node.js Backend</button>
-                <button class="snippet-tab-btn" data-tab="curl">4. cURL</button>
+                <button class="snippet-tab-btn" data-tab="secret_nonce">2. Maxfiy Rejim (Session Nonce)</button>
+                <button class="snippet-tab-btn" data-tab="python">3. Python Backend</button>
+                <button class="snippet-tab-btn" data-tab="nodejs">4. Node.js Backend</button>
+                <button class="snippet-tab-btn" data-tab="curl">5. cURL</button>
             </div>
 
             <div class="code-block" id="snippet-display">
@@ -764,11 +768,25 @@
 
     // Code snippets
     var snippets = {
-        html: `<!-- 1. Captcha konteyneri -->
+        html: `<!-- 1. Standart HTML Vidjet (Domen himoyasi bilan) -->
 <div id="botshield-captcha" data-sitekey="bsh_live_SIZNING_SITE_KEY"></div>
 
 <!-- 2. Standart SDK skripti -->
 <script src="https://botclient-d1jn.onrender.com/captcha/widget.js" async defer><\/script>`,
+
+        secret_nonce: `// 1. BACKEND: Saytingiz serveri bir martalik 90s session kalit oladi:
+// POST https://botclient-d1jn.onrender.com/api/v1/captcha/session/create
+const response = await fetch("https://botclient-d1jn.onrender.com/api/v1/captcha/session/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ secret: "bsh_sec_SIZNING_SECRET_KEY" })
+});
+const data = await response.json();
+// data.session_key -> "bsh_sess_9a8b7c6d5e4f..."
+
+// 2. FRONTEND: HTML sahifangizga statik sitekey o'rniga vaqtinchalik session kalit beriladi:
+// <div id="botshield-captcha" data-sitekey="bsh_sess_9a8b7c6d5e4f..."></div>
+// Foydasi: Botlar HTML dan sitekey'ni topa olmaydi, chunki kalit 90s dan so'ng eskiradi!`,
 
         python: `import requests
 
