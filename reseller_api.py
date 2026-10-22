@@ -2059,6 +2059,11 @@ async def handle_api_docs_html(request):
         <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">1. HTML Vidjet (Frontendga qo'yish):</p>
         <pre><code>&lt;div id="botshield-captcha" data-sitekey="bsh_live_SIZNING_SITE_KEY"&gt;&lt;/div&gt;
 &lt;script src="https://botclient-d1jn.onrender.com/captcha/widget.js" async defer&gt;&lt;/script&gt;</code></pre>
+        <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">1.1. Maxfiy Rejim (HTML da sitekey ko'rsatmaslik - POST /api/v1/captcha/session/create):</p>
+        <p style="font-size: 0.85rem; color: #cbd5e1;">Agar HTML kodingizda hatto ochiq sitekey ham ko'rinishini istamasangiz, serveringiz orqali 90 soniyalik bir martalik vaqtinchalik <code>bsh_sess_...</code> kaliti olib frontendga bering.</p>
+        <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/captcha/session/create" \
+     -H "Content-Type: application/json" \
+     -d '{"secret":"bsh_sec_SIZNING_SECRET_KEY"}'</code></pre>
         <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">2. Serverda tasdiqlash (POST /api/v1/captcha/siteverify):</p>
         <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/captcha/siteverify" \
      -H "Content-Type: application/json" \
@@ -2679,7 +2684,8 @@ runResellerClient();
     </div>
 
     <div class="footer">
-        © 2026 AutoReply Developer Platform • Reseller & Automation API
+        © 2026 AutoReply Developer Platform • Reseller & Automation API<br>
+        Texnik savollar va rasmiy aloqa (Admin): <a href="https://t.me/aiko_64" target="_blank" style="color: #60a5fa; text-decoration: none; font-weight: 600;">@aiko_64</a>
     </div>
 </div>
 </body>
@@ -2904,7 +2910,7 @@ async def handle_dashboard_webapp(request):
 
 # ==================== BOTSHIELD CAPTCHA AS A SERVICE ====================
 
-from captcha_engine import CaptchaManager
+from captcha_engine import CaptchaManager, create_session_nonce, resolve_session_nonce
 from database import (
     get_or_create_captcha_keys,
     get_captcha_key_by_sitekey,
@@ -2963,11 +2969,25 @@ async def handle_api_captcha_create(request):
     except Exception:
         body = {}
         
-    sitekey = str(body.get("sitekey", "demo_key")).strip()
+    raw_sitekey = str(body.get("sitekey", "demo_key")).strip()
     c_type = str(body.get("type", "auto")).strip()
     
-    # Sitekey tekshiruvi
-    key_info = get_captcha_key_by_sitekey(sitekey)
+    # 1. Ephemeral session nonce (bsh_sess_...) qo'llab-quvvatlashi
+    # Sayt egasi frontend HTML da statik sitekey qoldirmasdan, backend orqali
+    # olingan bir martalik 90 soniyalik session kalitidan foydalanishi mumkin.
+    actual_sitekey = raw_sitekey
+    if raw_sitekey.startswith("bsh_sess_"):
+        resolved = resolve_session_nonce(raw_sitekey)
+        if not resolved:
+            return cors_json_response({
+                "ok": False,
+                "error": "session_expired_or_invalid",
+                "message": "Vaqtinchalik captcha sessiyasi eskirgan yoki ishlatilgan. Sahifani yangilang!"
+            }, status=400)
+        actual_sitekey = resolved
+
+    # 2. Sitekey tekshiruvi
+    key_info = get_captcha_key_by_sitekey(actual_sitekey)
     if not key_info:
         return cors_json_response({
             "ok": False,
@@ -2982,8 +3002,75 @@ async def handle_api_captcha_create(request):
             "message": "Ushbu sitekey faolsizlantirilgan!"
         }, status=403)
         
-    challenge = CaptchaManager.create_challenge(challenge_type=c_type, sitekey=sitekey)
+    # 3. Domain Whitelisting (Domen xavfsizligi)
+    allowed_domain = str(key_info.get("domain", "*") or "*").strip()
+    if allowed_domain != "*" and not key_info.get("is_demo"):
+        origin = request.headers.get("Origin", "") or request.headers.get("Referer", "")
+        if origin:
+            from urllib.parse import urlparse
+            parsed_host = (urlparse(origin).hostname or origin).lower()
+            allowed_list = [d.strip().lower() for d in allowed_domain.split(",") if d.strip()]
+            matched = any(
+                parsed_host == d or parsed_host.endswith("." + d)
+                for d in allowed_list
+            )
+            if not matched and parsed_host not in ("localhost", "127.0.0.1"):
+                return cors_json_response({
+                    "ok": False,
+                    "error": "domain_not_allowed",
+                    "message": f"Ushbu sitekey faqat '{allowed_domain}' domenlarida ishlashi ruxsat etilgan!"
+                }, status=403)
+
+    challenge = CaptchaManager.create_challenge(challenge_type=c_type, sitekey=actual_sitekey)
     return cors_json_response(challenge)
+
+
+async def handle_api_captcha_create_session(request):
+    """
+    POST /api/v1/captcha/session/create - Enterprise Ephemeral Session Nonce
+    Mijoz backend'i o'z secret_key'i orqali frontendga berish uchun 90 soniyalik
+    bir martalik vaqtinchalik 'bsh_sess_...' kalitini oladi.
+    Botlar frontend HTML ni skaner qilgan taqdirda ham, haqiqiy sitekey ko'rinmaydi.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        post_data = await request.post()
+        body = dict(post_data)
+        
+    secret = str(body.get("secret", "") or request.query.get("secret", "")).strip()
+    if not secret:
+        return cors_json_response({
+            "ok": False,
+            "error": "missing_secret",
+            "message": "secret kaliti talab qilinadi"
+        }, status=400)
+        
+    key_info = get_captcha_key_by_secret(secret)
+    if not key_info:
+        return cors_json_response({
+            "ok": False,
+            "error": "invalid_secret_key",
+            "message": "Yaroqsiz yoki topilmagan secret key!"
+        }, status=401)
+        
+    if not key_info.get("is_active", True):
+        return cors_json_response({
+            "ok": False,
+            "error": "secret_key_inactive",
+            "message": "Ushbu secret key faolsizlantirilgan!"
+        }, status=403)
+        
+    sitekey = key_info.get("site_key", "")
+    session_key = create_session_nonce(sitekey, ttl=90)
+    
+    return cors_json_response({
+        "ok": True,
+        "session_key": session_key,
+        "expires_in": 90,
+        "mode": "ephemeral_single_use",
+        "message": "Vaqtinchalik 90s session kaliti yaratildi. Uni frontend vidjet data-sitekey maydoniga bering."
+    })
 
 async def handle_api_captcha_verify(request):
     """POST /api/v1/captcha/verify - Widget orqali yechim va telemetriyani tasdiqlash"""
@@ -3190,6 +3277,7 @@ def setup_reseller_api_routes(app: web.Application):
     # 8. BotShield Captcha as a Service Endpoints
     app.router.add_get("/captcha/widget.js", handle_captcha_widget_js)
     app.router.add_get("/captcha/demo", handle_captcha_demo_page)
+    app.router.add_post("/api/v1/captcha/session/create", handle_api_captcha_create_session)
     app.router.add_post("/api/v1/captcha/create", handle_api_captcha_create)
     app.router.add_post("/api/v1/captcha/verify", handle_api_captcha_verify)
     app.router.add_post("/api/v1/captcha/siteverify", handle_api_captcha_siteverify)
@@ -3197,6 +3285,7 @@ def setup_reseller_api_routes(app: web.Application):
     app.router.add_get("/api/v1/captcha/stats", handle_api_captcha_stats)
 
     # CORS Preflight OPTIONS
+    app.router.add_options("/api/v1/captcha/session/create", handle_captcha_options)
     app.router.add_options("/api/v1/captcha/create", handle_captcha_options)
     app.router.add_options("/api/v1/captcha/verify", handle_captcha_options)
     app.router.add_options("/api/v1/captcha/siteverify", handle_captcha_options)

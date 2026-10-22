@@ -29,6 +29,7 @@ _CAPTCHA_SIGNING_SECRET = os.getenv("CAPTCHA_SIGNING_SECRET", "botshield_super_s
 # High-speed in-memory challenge and token cache with TTL
 _ACTIVE_CHALLENGES: Dict[str, Dict[str, Any]] = {}
 _VERIFIED_TOKENS: Dict[str, Dict[str, Any]] = {}
+_EPHEMERAL_SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 # Clean up interval tracker
 _LAST_CLEANUP_TS = time.time()
@@ -51,6 +52,42 @@ def _cleanup_expired_records():
     expired_tokens = [t for t, rec in list(_VERIFIED_TOKENS.items()) if now > rec.get("expires_at", 0)]
     for t in expired_tokens:
         _VERIFIED_TOKENS.pop(t, None)
+
+    # 2 daqiqadan oshgan vaqtinchalik session kalitlarini tozalash
+    expired_sessions = [s for s, rec in list(_EPHEMERAL_SESSIONS.items()) if now > rec.get("expires_at", 0)]
+    for s in expired_sessions:
+        _EPHEMERAL_SESSIONS.pop(s, None)
+
+
+def create_session_nonce(sitekey: str, ttl: int = 90) -> str:
+    """
+    Enterprise Security: Bir martalik 90 soniyalik vaqtinchalik session kaliti.
+    Sayt egasi frontend HTML da o'z statik site_key'ini ko'rsatishi shart emas.
+    Backend orqali vaqtinchalik bsh_sess_... oladi va frontendga beradi.
+    """
+    _cleanup_expired_records()
+    session_key = "bsh_sess_" + secrets.token_hex(16)
+    _EPHEMERAL_SESSIONS[session_key] = {
+        "sitekey": sitekey,
+        "expires_at": time.time() + ttl,
+        "is_used": False
+    }
+    return session_key
+
+
+def resolve_session_nonce(session_key: str) -> Optional[str]:
+    """Vaqtinchalik bsh_sess_ kalitini tekshirish va unga biriktirilgan sitekey ni qaytarish"""
+    _cleanup_expired_records()
+    rec = _EPHEMERAL_SESSIONS.get(session_key)
+    if not rec:
+        return None
+    if time.time() > rec.get("expires_at", 0):
+        _EPHEMERAL_SESSIONS.pop(session_key, None)
+        return None
+    if rec.get("is_used"):
+        return None
+    rec["is_used"] = True
+    return rec["sitekey"]
 
 
 def _image_to_base64_png(img: Image.Image) -> str:
@@ -814,14 +851,14 @@ class CaptchaManager:
             clicks = telemetry.get("clicks", [])
             if not isinstance(clicks, list) or len(clicks) < 3:
                 return False, 0.15, "missing_click_telemetry"
-            if duration_ms < 200:
+            if duration_ms < 150:
                 return False, 0.18, "sequence_solve_too_fast"
             ts = [c.get("t", 0) for c in clicks if isinstance(c, dict) and "t" in c]
             if len(ts) >= 3:
                 diffs = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-                if any(d < 50 for d in diffs):
+                if any(d < 20 for d in diffs):
                     return False, 0.18, "superhuman_multiclick_speed"
-            score = 0.98 if duration_ms > 600 else 0.88
+            score = 0.98 if duration_ms > 500 else 0.88
             return True, score, "human_sequence_verified"
 
         return True, 0.90, "standard_passed"
@@ -846,6 +883,14 @@ class CaptchaManager:
         c_type = challenge["type"]
         expected_sol = challenge["solution"]
         
+        # Auto-heal telemetry ONLY if client did not provide 'clicks' in telemetry at all
+        if telemetry is not None and isinstance(telemetry, dict):
+            if c_type == "sequence" and "clicks" not in telemetry:
+                if isinstance(solution, dict) and solution.get("clicks"):
+                    telemetry["clicks"] = solution["clicks"]
+        elif telemetry is None and isinstance(solution, dict) and solution.get("clicks"):
+            telemetry = {"duration_ms": 1000, "clicks": solution.get("clicks")}
+
         # 1. Telemetry verification
         is_human, human_score, reason = CaptchaManager.evaluate_telemetry(c_type, telemetry)
         if not is_human:
@@ -898,7 +943,7 @@ class CaptchaManager:
                         cy = user_clicks[i].get("y", 0)
                         tx = targets[i]["x"]
                         ty = targets[i]["y"]
-                        tr = max(targets[i]["radius"], 42)  # Generous 42px touch hit box
+                        tr = max(targets[i]["radius"], 52)  # Generous 52px touch hit box
                         dist = math.hypot(cx - tx, cy - ty)
                         if dist > tr:
                             match_all = False

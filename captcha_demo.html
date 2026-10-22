@@ -179,11 +179,13 @@
         .playground-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 28px;
+            gap: 24px;
             margin-bottom: 48px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        @media (max-width: 900px) {
+        @media (max-width: 960px) {
             .playground-grid {
                 grid-template-columns: 1fr;
             }
@@ -197,6 +199,10 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
             display: flex;
             flex-direction: column;
+            min-width: 0;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         .panel-title {
@@ -348,6 +354,8 @@
             font-size: 12px;
             line-height: 1.5;
             overflow-x: auto;
+            max-width: 100%;
+            box-sizing: border-box;
             position: relative;
         }
 
@@ -487,7 +495,10 @@
 
         <div class="header-links">
             <a href="/api/v1/docs" class="header-link-btn">REST API Docs</a>
-            <a href="https://t.me/WelfEdits" target="_blank" class="header-link-btn">Telegram Bot</a>
+            <a href="https://t.me/aiko_64" target="_blank" class="header-link-btn" style="display:inline-flex; align-items:center; gap:6px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                Admin / Aloqa (@aiko_64)
+            </a>
         </div>
     </header>
 
@@ -634,7 +645,10 @@
     </div>
 
     <footer>
-        BotShield Captcha Engine &copy; 2026 AutoReply AI. Barcha huquqlar himoyalangan.
+        <div>BotShield Captcha Engine &copy; 2026 AutoReply AI. Barcha huquqlar himoyalangan.</div>
+        <div style="margin-top: 8px; font-size: 13px; color: #64748B;">
+            Admin va Texnik Yordam: <a href="https://t.me/aiko_64" target="_blank" style="color: #7342E2; font-weight: 700; text-decoration: none;">@aiko_64</a>
+        </div>
     </footer>
 </div>
 

@@ -180,8 +180,10 @@
                 position: fixed;
                 top: 0;
                 left: 0;
-                width: 100vw;
-                height: 100vh;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                height: 100%;
                 background: rgba(15, 23, 42, 0.65);
                 backdrop-filter: blur(6px);
                 -webkit-backdrop-filter: blur(6px);
@@ -190,6 +192,7 @@
                 align-items: center;
                 justify-content: center;
                 padding: 16px;
+                box-sizing: border-box;
                 animation: bsh-fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             }
             @keyframes bsh-fade-in {
@@ -198,7 +201,9 @@
             }
 
             .bsh-modal-card {
-                width: 356px;
+                width: 396px;
+                max-width: min(396px, calc(100vw - 24px));
+                margin: auto;
                 background: #FFFFFF;
                 border: 1px solid #E2E8F0;
                 border-radius: 16px;
@@ -206,6 +211,7 @@
                 overflow: hidden;
                 display: flex;
                 flex-direction: column;
+                box-sizing: border-box;
                 animation: bsh-pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
             }
             @keyframes bsh-pop-in {
@@ -504,26 +510,33 @@
                 flex-direction: column;
                 align-items: center;
                 gap: 10px;
+                width: 100%;
+                box-sizing: border-box;
             }
             .bsh-seq-step-bar {
-                width: 320px;
+                width: 100%;
+                max-width: 350px;
+                box-sizing: border-box;
                 background: #F8FAFC;
                 border: 1px solid #E2E8F0;
                 border-radius: 8px;
-                padding: 6px 10px;
+                padding: 6px 8px;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
+                gap: 4px;
             }
             .bsh-seq-steps-list {
                 display: flex;
                 align-items: center;
-                gap: 6px;
+                gap: 4px;
+                flex: 1;
+                min-width: 0;
             }
             .bsh-seq-step-pill {
                 display: inline-flex;
                 align-items: center;
-                gap: 4px;
+                gap: 3px;
                 background: #FFFFFF;
                 border: 1px solid #CBD5E1;
                 padding: 2px 6px;
@@ -531,6 +544,13 @@
                 font-size: 11px;
                 font-weight: 600;
                 color: #334155;
+                white-space: nowrap;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            }
+            .bsh-seq-step-pill svg {
+                width: 13px;
+                height: 13px;
+                flex-shrink: 0;
             }
             .bsh-seq-step-num {
                 width: 16px;
@@ -543,10 +563,12 @@
                 justify-content: center;
                 font-size: 10px;
                 font-weight: 700;
+                flex-shrink: 0;
             }
             .bsh-seq-arrow {
                 color: #94A3B8;
-                font-size: 11px;
+                font-size: 10px;
+                flex-shrink: 0;
             }
             .bsh-seq-reset-btn {
                 background: #FFFFFF;
@@ -558,8 +580,10 @@
                 display: inline-flex;
                 align-items: center;
                 gap: 4px;
-                padding: 4px 8px;
+                padding: 3px 8px;
                 cursor: pointer;
+                flex-shrink: 0;
+                white-space: nowrap;
                 transition: all 0.15s ease;
             }
             .bsh-seq-reset-btn:hover {
@@ -572,11 +596,15 @@
                 position: relative;
                 width: 320px;
                 height: 180px;
+                max-width: 100%;
                 border-radius: 10px;
                 overflow: hidden;
                 border: 1px solid #CBD5E1;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                 cursor: crosshair;
+                user-select: none;
+                -webkit-user-select: none;
+                touch-action: none;
             }
             .bsh-seq-bg {
                 width: 100%;
@@ -1051,6 +1079,7 @@
 
             function clearClicks() {
                 clickSeq = [];
+                self.clicks = [];
                 wrap.querySelectorAll(".bsh-seq-badge").forEach(function (b) { b.remove(); });
                 countLabel.textContent = "Bosildi: 0 / " + p.count;
             }
@@ -1060,18 +1089,24 @@
             function handleCanvasClick(e) {
                 if (clickSeq.length >= p.count) return;
 
+                var isTouch = e.type.indexOf("touch") !== -1;
+                if (isTouch && e.cancelable) {
+                    e.preventDefault();
+                }
+
                 var rect = wrap.getBoundingClientRect();
                 var scaleX = 320 / (rect.width || 320);
                 var scaleY = 180 / (rect.height || 180);
-                var isTouch = e.type.indexOf("touch") !== -1;
-                var clientX = isTouch ? e.changedTouches[0].clientX : e.clientX;
-                var clientY = isTouch ? e.changedTouches[0].clientY : e.clientY;
+                var clientX = isTouch ? (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : e.clientX) : e.clientX;
+                var clientY = isTouch ? (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : e.clientY) : e.clientY;
 
-                var cx = Math.round((clientX - rect.left) * scaleX);
-                var cy = Math.round((clientY - rect.top) * scaleY);
+                var cx = Math.max(0, Math.min(320, Math.round((clientX - rect.left) * scaleX)));
+                var cy = Math.max(0, Math.min(180, Math.round((clientY - rect.top) * scaleY)));
                 var now = Date.now();
+                var clickItem = { x: cx, y: cy, t: now - self.startTime };
 
-                clickSeq.push({ x: cx, y: cy, t: now - self.startTime });
+                clickSeq.push(clickItem);
+                self.clicks.push(clickItem);
 
                 var badge = document.createElement("div");
                 badge.className = "bsh-seq-badge";
@@ -1090,6 +1125,7 @@
             }
 
             wrap.addEventListener("click", handleCanvasClick);
+            wrap.addEventListener("touchend", handleCanvasClick, { passive: false });
         }
     };
 
@@ -1162,7 +1198,7 @@
             telemetry: {
                 duration_ms: durationMs,
                 trajectory: this.trajectory,
-                clicks: this.clicks,
+                clicks: (solution && solution.clicks && solution.clicks.length) ? solution.clicks : (this.clicks && this.clicks.length ? this.clicks : []),
                 user_agent: navigator.userAgent
             }
         };
