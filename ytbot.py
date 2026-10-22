@@ -2685,6 +2685,7 @@ def create_ytbot():
         "help_api": (
             "🔑 <b>Developer & Reseller REST API:</b>\n\n"
             "• <code>/api</code> — Shaxsiy API kalitingiz va Python kodi\n"
+            "• <code>/captcha</code> — 🛡 BotShield Captcha (Saytlar uchun anti-bot himoya)\n"
             "• <code>/stock</code> — Do'kondagi API kalitlar va proksilar soni\n"
             "• <code>/dashboard</code> — Developer WebApp Mini App paneli\n"
             "• <code>/webhook &lt;url&gt; [hafta]</code> — Real-time Webhook obunasi ($3/hafta)\n"
@@ -3620,6 +3621,7 @@ def create_ytbot():
                 InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Python Kod Namunasi", callback_data="api_code_sample")
             ],
             [
+                InlineKeyboardButton(f"{ce('SECURITY_SHIELD')} 🛡 BotShield Captcha", callback_data="captcha_view"),
                 InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Web Dokumentatsiya (Docs)", url=docs_url)
             ]
         ]
@@ -3742,6 +3744,111 @@ def create_ytbot():
             
         await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(buttons), disable_web_page_preview=True)
         await callback_query.answer()
+
+    # ==================== /captcha & BotShield Anti-Bot Service ====================
+    async def _render_captcha_info(user_id: int):
+        import database
+        from database import get_or_create_captcha_keys, get_captcha_stats, get_user_balance
+        
+        keys = get_or_create_captcha_keys(user_id)
+        stats = get_captcha_stats(user_id)
+        bal = get_user_balance(user_id)
+        
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        demo_url = f"{base_domain}/captcha/demo"
+        docs_url = f"{base_domain}/api/v1/docs"
+        
+        site_key = keys.get("site_key", "Mavjud emas")
+        secret_key = keys.get("secret_key", "Mavjud emas")
+        verifs = stats.get("total_verifications", 0)
+        
+        text = (
+            f"{ce('SECURITY_SHIELD')} <b>BotShield — Sayt va Botlar uchun Captcha Xizmati</b>\n\n"
+            f"Veb-saytingiz, Telegram Mini App yoki ro'yxatdan o'tish shakllaringizni spam va avtomatlashtirilgan botlardan 100% himoya qiling!\n\n"
+            f"✨ <b>Asosiy Imkoniyatlar:</b>\n"
+            f"• 4 xil insoniy captcha (Pazl, 9 talik rasmlar, Aylantirish, Ketma-ketlik)\n"
+            f"• Ko'rgazmali ikonlar va 100% o'zbek tilida\n"
+            f"• Har bir tasdiqlangan inson uchun: <b>10 so'm</b> (Pay-As-You-Go)\n"
+            f"• Istalgan saytga atigi 2 qatorda ulanadi\n\n"
+            f"🔑 <b>Sizning Site Key (Frontend):</b>\n"
+            f"<code>{site_key}</code>\n\n"
+            f"🔒 <b>Sizning Secret Key (Backend):</b>\n"
+            f"<code>{secret_key}</code>\n\n"
+            f"{ce('PAY_HUMO_UZCARD')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>\n"
+            f"{ce('TOOL_CHART_GROWTH')} <b>Jami tasdiqlangan insonlar:</b> <code>{verifs} ta</code>\n\n"
+            f"<i>Saytga qo'yish kodi:</i>\n"
+            f"<code>&lt;div id=\"botshield-captcha\" data-sitekey=\"{site_key}\"&gt;&lt;/div&gt;\n"
+            f"&lt;script src=\"{base_domain}/captcha/widget.js\" async defer&gt;&lt;/script&gt;</code>"
+        )
+        
+        buttons = [
+            [
+                InlineKeyboardButton("🌐 Jonli Demo (Sinab ko'rish)", url=demo_url),
+                InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Kod namunasi", callback_data="captcha_code_sample")
+            ],
+            [
+                InlineKeyboardButton(f"{ce('DEV_API_DOCS')} REST API Hujjat", url=docs_url),
+                InlineKeyboardButton("🔄 Yangilash (Refresh)", callback_data="captcha_refresh")
+            ],
+            [
+                InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh Menyu", callback_data="back_main")
+            ]
+        ]
+        return text, InlineKeyboardMarkup(buttons)
+
+    @bot.on_message(filters.command(["captcha", "botshield"]))
+    async def captcha_cmd(client, message):
+        user_id = message.from_user.id
+        text, kb = await _render_captcha_info(user_id)
+        await message.reply_text(text, reply_markup=kb, disable_web_page_preview=True)
+
+    @bot.on_callback_query(filters.regex(r"^captcha_view$"))
+    async def captcha_view_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        text, kb = await _render_captcha_info(user_id)
+        await callback_query.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+        await callback_query.answer()
+
+    @bot.on_callback_query(filters.regex(r"^captcha_refresh$"))
+    async def captcha_refresh_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        text, kb = await _render_captcha_info(user_id)
+        await callback_query.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+        await callback_query.answer("Ma'lumotlar yangilandi!")
+
+    @bot.on_callback_query(filters.regex(r"^captcha_code_sample$"))
+    async def captcha_code_sample_callback(client, callback_query: CallbackQuery):
+        user_id = callback_query.from_user.id
+        import database
+        keys = database.get_or_create_captcha_keys(user_id)
+        sec = keys.get("secret_key", "bsh_sec_sizning_kalitingiz")
+        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        
+        sample = (
+            f"import requests\n\n"
+            f"# Frontend shakldan botshield_token keladi:\n"
+            f"token = request.form.get('botshield_token')\n\n"
+            f"res = requests.post('{base_domain}/api/v1/captcha/siteverify', json={{\n"
+            f"    'secret': '{sec}',\n"
+            f"    'token': token\n"
+            f"}}).json()\n\n"
+            f"if res.get('success'):\n"
+            f"    print('Inson tasdiqlandi! Baho:', res.get('score'))\n"
+            f"else:\n"
+            f"    print('Bot aniqlandi yoki xato:', res.get('error'))"
+        )
+        
+        text = (
+            f"{ce('DEV_CODE_SNIPPET')} <b>Python Backendda Captcha Tekshirish Kodi:</b>\n\n"
+            f"<pre><code class=\"language-python\">{sample}</code></pre>\n\n"
+            f"<i>Har bir muvaffaqiyatli tekshiruv uchun balansingizdan atigi 10 so'm yechiladi.</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⬅️ Orqaga", callback_data="captcha_view")]
+        ])
+        await callback_query.message.edit_text(text, reply_markup=kb, disable_web_page_preview=True)
+        await callback_query.answer()
+
 
     # ==================== 1. /box (Mystery Box & Telegram Stars Cases) ====================
     @bot.on_message(filters.command(["box", "mystery", "omad"]))

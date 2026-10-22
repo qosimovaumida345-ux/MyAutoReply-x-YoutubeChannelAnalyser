@@ -121,6 +121,17 @@ async def handle_api_products(request):
     proxy_stock = get_proxies_stock_count()
     
     products = {
+        "botshield_captcha": {
+            "name": "BotShield Captcha as a Service (Pay-As-You-Go)",
+            "service_id": "botshield_captcha",
+            "price_uzs": 10,
+            "stars": 1,
+            "unit": "1 verification",
+            "available": True,
+            "demo_url": "/captcha/demo",
+            "embed_script": "/captcha/widget.js",
+            "description": "Sayt va botlarni spamdan himoya qiluvchi 4 xil insoniy captcha"
+        },
         "openrouter": {
             "name": "OpenRouter API Key ($3 tier)",
             "service_id": "openrouter",
@@ -1857,6 +1868,9 @@ async def handle_api_tariffs(request):
     GET /api/v1/tariffs - Barcha xizmatlar, narxlar va tariflar jadvali
     """
     tariffs = {
+        "security_services": [
+            {"endpoint": "POST /api/v1/captcha/siteverify", "name": "BotShield Captcha as a Service", "cost_uzs": 10, "cost_stars": 1, "desc": "4 xil insoniy captcha (Pazl, 9 talik rasmlar, Aylantirish, Ketma-ketlik), 2 qatorda ulanadi", "demo_url": "/captcha/demo", "widget_script": "/captcha/widget.js"}
+        ],
         "ai_services": [
             {"endpoint": "POST /api/v1/ai/summarize", "name": "YouTube Transcript AI Summary", "cost_uzs": 1000, "cost_stars": 4, "desc": "Video xulosasi, 5 ta asosiy tezis va timecodes"},
             {"endpoint": "POST /api/v1/ai/clickbait-title", "name": "High-CTR Title Generator", "cost_uzs": 750, "cost_stars": 3, "desc": "A/B test va viral bosilish sarlavhalari"},
@@ -2031,6 +2045,24 @@ async def handle_api_docs_html(request):
         <p>Barcha so'rovlar Telegram botingizda berilgan shaxsiy API kalit bilan yuborilishi shart. Har bir so'rovda quyidagi HTTP Header ni kiriting:</p>
         <pre><code>Authorization: Bearer art_live_sizning_shaxsiy_api_kalitingiz</code></pre>
         <p style="margin-top: 8px; font-size: 0.9rem; color: var(--text-muted);">yoki <code>X-API-Key: art_live_...</code> sarlavhasi orqali.</p>
+    </div>
+
+    <!-- BotShield Captcha -->
+    <div class="card" style="border: 1px solid rgba(115, 66, 226, 0.4); background: rgba(115, 66, 226, 0.05);">
+        <h2 style="display: flex; align-items: center; gap: 8px; color: #a78bfa;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            BotShield Captcha as a Service (10 UZS / tekshiruv)
+            <span style="font-size: 11px; background: #7342e2; color: #fff; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">YANGI</span>
+        </h2>
+        <p>Saytingiz, Telegram Mini App yoki ro'yxatdan o'tish sahifalaringizni botlar va spamdan 100% himoya qiluvchi o'zbek tilidagi qulay captcha vidjeti. 4 xil insoniy captcha (Pazl, 9 talik rasmlar, Aylantirish, Ketma-ketlik).</p>
+        <p style="margin: 10px 0;"><b>🌐 Jonli Demo & Sinov:</b> <a href="/captcha/demo" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600;">https://botclient-d1jn.onrender.com/captcha/demo</a></p>
+        <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">1. HTML Vidjet (Frontendga qo'yish):</p>
+        <pre><code>&lt;div id="botshield-captcha" data-sitekey="bsh_live_SIZNING_SITE_KEY"&gt;&lt;/div&gt;
+&lt;script src="https://botclient-d1jn.onrender.com/captcha/widget.js" async defer&gt;&lt;/script&gt;</code></pre>
+        <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">2. Serverda tasdiqlash (POST /api/v1/captcha/siteverify):</p>
+        <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/captcha/siteverify" \
+     -H "Content-Type: application/json" \
+     -d '{"secret":"bsh_sec_SIZNING_SECRET_KEY","token":"bsh_TOKEN_..."}'</code></pre>
     </div>
 
     <!-- 1. Balans tekshirish -->
