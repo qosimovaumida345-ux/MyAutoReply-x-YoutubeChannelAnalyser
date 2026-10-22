@@ -2126,6 +2126,45 @@ def custom_emoji(key: str) -> str:
 
 ce = custom_emoji
 
+def clean_btn_text(text: str) -> str:
+    """Tugma (InlineKeyboardButton yoki KeyboardButton) matnidagi barcha HTML va <emoji id="..."> teglarini tozalaydi."""
+    if not text or not isinstance(text, str):
+        return str(text) if text is not None else ""
+    # <emoji id="123">✅</emoji> -> ✅
+    clean = re.sub(r'<emoji id="[^"]*">(.*?)</emoji>', r'\1', text, flags=re.DOTALL)
+    clean = re.sub(r'<tg-emoji id="[^"]*">(.*?)</tg-emoji>', r'\1', clean, flags=re.DOTALL)
+    # Boshqa HTML teglari (<b>, </i> va h.k.) ni tozalash
+    clean = re.sub(r'<[^>]+>', '', clean)
+    return clean.strip()
+
+def btn_emoji(key: str) -> str:
+    """Tugmalar uchun xavfsiz toza piktogramma (hech qanday <emoji id="..."> tegisiz)."""
+    return e(key)
+
+be = btn_emoji
+
+# ==================== PYROGRAM BUTTON SANITIZATION PATCH ====================
+# Telegram Bot API tugma (InlineKeyboardButton va KeyboardButton) text parametrida
+# HTML teglarni parse qilmaydi. Agar tugmaga <emoji id="..."> berilsa, u Telegramda xom kod
+# bo'lib ko'rinib qoladi. Ushbu patch barcha tugmalarni avtomatik tozalaydi.
+try:
+    from pyrogram.types import InlineKeyboardButton as _IKB, KeyboardButton as _KB
+    if not getattr(_IKB, "_botshield_sanitized", False):
+        _orig_ikb_init = _IKB.__init__
+        def _patched_ikb_init(self, text, *args, **kwargs):
+            _orig_ikb_init(self, clean_btn_text(text), *args, **kwargs)
+        _IKB.__init__ = _patched_ikb_init
+        _IKB._botshield_sanitized = True
+
+    if not getattr(_KB, "_botshield_sanitized", False):
+        _orig_kb_init = _KB.__init__
+        def _patched_kb_init(self, text, *args, **kwargs):
+            _orig_kb_init(self, clean_btn_text(text), *args, **kwargs)
+        _KB.__init__ = _patched_kb_init
+        _KB._botshield_sanitized = True
+except Exception:
+    pass
+
 def get_button_icon_id(key: str) -> str:
     """InlineKeyboardButton icon_custom_emoji_id parametri uchun ID qaytaradi."""
     info = get_custom_emoji_info(key)

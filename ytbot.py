@@ -1782,7 +1782,17 @@ def create_ytbot():
             await cb.answer("❌ Ruxsat yo'q!", show_alert=True)
             return
         try:
-            await cb.message.edit_reply_markup(reply_markup=admin_panel_kb())
+            panel_text = (
+                "⚙️ <b>Admin Boshqaruv Paneli — Xizmatlar Holati</b>\n\n"
+                "Bu yerdan istalgan xizmatni butun serverni to'xtatmasdan alohida <b>yoqishingiz yoki to'xtatib qo'yishingiz</b> mumkin.\n\n"
+                "• 🟢 <b>FAOL:</b> Foydalanuvchilar xizmatdan erkin foydalana oladi.\n"
+                "• 🔴 <b>O'CHIK:</b> Foydalanuvchiga <i>«⚠️ Bu xizmat vaqtincha to'xtatilgan»</i> xabari boradi.\n\n"
+                "👇 <i>Holatni o'zgartirish uchun kerakli xizmat tugmasini bosing:</i>"
+            )
+            try:
+                await cb.message.edit_text(panel_text, reply_markup=admin_panel_kb())
+            except Exception:
+                await cb.message.edit_reply_markup(reply_markup=admin_panel_kb())
             await cb.answer("🔄 Yangilandi!")
         except MessageNotModified:
             await cb.answer("Hammasi so'nggi holatda.")
