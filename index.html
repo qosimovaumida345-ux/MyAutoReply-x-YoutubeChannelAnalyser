@@ -1818,11 +1818,7 @@
             const [unboxingPrize, setUnboxingPrize] = useState(null);
             const [isRolling, setIsRolling] = useState(false);
             const [oddsModalCase, setOddsModalCase] = useState(null);
-            const [userGifts, setUserGifts] = useState([
-                { prize_name: "Delicious Cake", prize_stars: 15, rarity: "common", icon: "cake", date: "Bugun" },
-                { prize_name: "Bouquet of Flowers", prize_stars: 50, rarity: "rare", icon: "bouquet", date: "Bugun" },
-                { prize_name: "Black Cap Collectible", prize_stars: 1000, rarity: "legendary", icon: "cap", is_nft: true, date: "Kecha" }
-            ]);
+            const [userGifts, setUserGifts] = useState([]);
 
             // ==================== 6 MONETIZATION SUITE STATES ====================
             const [starsSubTab, setStarsSubTab] = useState('cases'); // 'cases' | 'battles' | 'upgrader' | 'streak' | 'scratch' | 'redeem'
@@ -2099,7 +2095,8 @@
                     if (res.ok) {
                         const tickTimer = setInterval(playTickSound, 100);
                         const spins = 1800; // 5 full turns
-                        const targetAngle = upgraderAngle + spins + res.final_angle;
+                        const currentBase = Math.floor(upgraderAngle / 360) * 360;
+                        const targetAngle = currentBase + spins + res.final_angle;
                         setUpgraderAngle(targetAngle);
 
                         setTimeout(() => {
@@ -2167,15 +2164,21 @@
                 setScratchData({
                     won: false,
                     slots: [
-                        { icon: "clapper", title: "CapCut Pro", label: "1 Oylik VIP" },
-                        { icon: "clapper", title: "CapCut Pro", label: "1 Oylik VIP" },
-                        { icon: "sparkles", title: "AI SEO", label: "15 ta Paket" }
+                        { icon: "zap", title: "Auto-Post Pro", label: "1 Oylik Kvota" },
+                        { icon: "sparkles", title: "AI SEO Suite", label: "25 ta YouTube" },
+                        { icon: "rocket", title: "Video Unikal VIP", label: "10 ta Video" }
                     ],
-                    symbols: ["clapper", "clapper", "sparkles"],
+                    symbols: ["zap", "sparkles", "rocket"],
                     prize: null
                 });
                 setTimeout(drawScratchCanvas, 80);
             };
+
+            useEffect(() => {
+                if (starsSubTab === 'scratch') {
+                    setupScratchCardUI();
+                }
+            }, [starsSubTab]);
 
             const playScratchCard = () => {
                 const uid = tgUser?.id || 0;
@@ -2218,17 +2221,30 @@
                 const ctx = canvas.getContext('2d');
                 ctx.globalCompositeOperation = 'source-over';
                 const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                grad.addColorStop(0, '#bdc3c7');
-                grad.addColorStop(0.3, '#7f8c8d');
-                grad.addColorStop(0.7, '#95a5a6');
-                grad.addColorStop(1, '#bdc3c7');
+                grad.addColorStop(0, '#1e1b4b');
+                grad.addColorStop(0.25, '#4338ca');
+                grad.addColorStop(0.5, '#6366f1');
+                grad.addColorStop(0.75, '#4338ca');
+                grad.addColorStop(1, '#1e1b4b');
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 2;
+                for (let i = -100; i < canvas.width + 100; i += 24) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i + 80, canvas.height);
+                    ctx.stroke();
+                }
+
                 ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 15px Inter, sans-serif';
+                ctx.font = 'bold 13px Inter, sans-serif';
                 ctx.textAlign = 'center';
-                ctx.fillText('BARMOQ BILAN TIRNAB OCHING', canvas.width / 2, canvas.height / 2 + 5);
+                ctx.fillText('BARMOQ BILAN QIRIB OCHING', canvas.width / 2, canvas.height / 2 - 4);
+                ctx.fillStyle = '#a5b4fc';
+                ctx.font = '600 11px Inter, sans-serif';
+                ctx.fillText('3 TA BIR XIL BELGI = KATTA YUTUQ', canvas.width / 2, canvas.height / 2 + 16);
             };
 
             const scratchMove = (e) => {
@@ -2434,6 +2450,13 @@
                                 setSyncSuccessToast(true);
                                 setTimeout(() => setSyncSuccessToast(false), 2500);
                             }
+                            fetch(`/api/stars/user-inventory?user_id=${targetUid}`)
+                                .then(ir => ir.json())
+                                .then(idat => {
+                                    if (idat && idat.ok && Array.isArray(idat.gifts)) {
+                                        setUserGifts(idat.gifts);
+                                    }
+                                }).catch(() => {});
                         }
                     })
                     .catch(() => {});
@@ -4355,7 +4378,7 @@
                                                         </button>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )))}
                                         </div>
                                     ) : (
                                         <div style={{ textAlign: "center", padding: "60px 0", color: "#a1a1aa" }}>
@@ -4369,7 +4392,7 @@
                             {/* =========================================================================
                                 TABS 3 & 4: STARS MYSTERY CASES & TON 3D GIFT NFTS
                                 ========================================================================= */}
-                            {(activeTab === 'cases' || activeTab === 'nfts') && (
+                            {activeTab === 'cases' && (
                                 <>
                                     {/* Hero Section */}
                                     <section className="creatorflow-hero-section" style={{
@@ -4726,7 +4749,7 @@
                                         Telegram Stars & Creator Suite
                                     </h2>
                                     <p style={{ color: "var(--muted)", maxWidth: "680px", margin: "16px auto 0", fontSize: "16px", lineHeight: "1.6" }}>
-                                        Haqiqiy Telegram Stars bilan keys oching, do'stlar bilan PvP duel qiling, sovg'alarni Upgrader qiling va rasmiy CapCut Pro litsenziyalarini oling!
+                                        Haqiqiy Telegram Stars bilan keys oching, do'stlar bilan PvP duel qiling, sovg'alarni Upgrader qiling va eksklyuziv 3D Telegram sovg'alarini oling!
                                     </p>
                                 </div>
 
@@ -5034,7 +5057,15 @@
                                             </div>
 
                                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
-                                                {userGifts.map((g, gIdx) => (
+                                                {userGifts.length === 0 ? (
+                                                    <div style={{ textAlign: "center", padding: "40px 16px", background: "#ffffff", borderRadius: "20px", border: "1px dashed var(--border-soft)", gridColumn: "1 / -1" }}>
+                                                        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}><SvgGift size={32} color="#7342E2" /></div>
+                                                        <h4 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", marginBottom: "4px" }}>Hozircha yutilgan sovg'alar yo'q</h4>
+                                                        <p style={{ color: "var(--muted)", fontSize: "13px", margin: "0 auto 16px", maxWidth: "360px" }}>Stars Mystery Keyslarini ochib birinchi Telegram sovgangizni yutib oling!</p>
+                                                        <button onClick={() => { window.scrollTo({ top: 400, behavior: 'smooth' }); }} style={{ background: "#7342E2", color: "#fff", border: "none", padding: "8px 22px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Keyslarni Ko'rish</button>
+                                                    </div>
+                                                ) : (
+                                                    userGifts.map((g, gIdx) => (
                                                     <div
                                                         key={gIdx}
                                                         style={{
@@ -5082,7 +5113,7 @@
                                                             )}
                                                         </div>
                                                     </div>
-                                                ))}
+                                                )))}
                                             </div>
                                         </div>
                                     </div>
@@ -5142,7 +5173,16 @@
                                             Kutilayotgan Jonli Duellar:
                                         </div>
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-                                            {caseBattles.map((b, bIdx) => (
+                                            {caseBattles.length === 0 ? (
+                                                <div style={{ textAlign: "center", padding: "48px 20px", background: "#ffffff", borderRadius: "24px", border: "1px dashed var(--border-soft)", gridColumn: "1 / -1" }}>
+                                                    <div style={{ marginBottom: "12px", display: "flex", justifyContent: "center" }}><SvgSwords size={36} color="#7342E2" /></div>
+                                                    <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>Hozircha ochiq duellar mavjud emas</h4>
+                                                    <p style={{ fontSize: "13px", color: "var(--muted)", maxWidth: "420px", margin: "0 auto 18px" }}>
+                                                        Birinchi bo'lib o'zingiz xohlagan keys bo'yicha yangi PvP duel yarating va do'stlaringizni taklif qiling!
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                caseBattles.map((b, bIdx) => (
                                                 <div
                                                     key={bIdx}
                                                     style={{
@@ -5301,8 +5341,9 @@
                                             {/* Circular Dial Wheel with Pointer Needle */}
                                             {(() => {
                                                 const nominalOdds = upgraderItem.stars / upgraderTarget.stars;
-                                                const greenSlice = Math.max(20, Math.min(110, Math.round(nominalOdds * 180)));
-                                                const oddsPct = Math.min(35, Math.round(nominalOdds * 100 * 0.5));
+                                                const winChance = Math.min(0.75, Math.max(0.01, nominalOdds * 0.70));
+                                                const greenSlice = upgradeResult?.green_slice_deg || Math.max(10, Math.min(300, Math.round(winChance * 360)));
+                                                const oddsPct = Math.round(winChance * 1000) / 10;
                                                 return (
                                                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "32px" }}>
                                                         {/* Wheel Outer */}
@@ -5388,7 +5429,7 @@
                                                             }}>
                                                                 {upgradeResult.won
                                                                     ? `Tabriklaymiz! Siz ${upgradeResult.target_name} yutib oldingiz!`
-                                                                    : `Deyarli yashil sektorga tushgandi! (${upgradeResult.final_angle}° ga to'xtadi). Yana bir bor urinib ko'ring.`}
+                                                                    : `Afsuski, strelka qizil sektorga tushdi (${upgradeResult.final_angle}° ga to'xtadi). Yana bir bor urinib ko'ring.`}
                                                             </div>
                                                         )}
                                                     </div>
@@ -5437,7 +5478,7 @@
                                                         <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)" }}>7-Kunlik Davomat Tizimi</h3>
                                                     </div>
                                                     <p style={{ color: "var(--muted)", fontSize: "14px", marginTop: "4px" }}>
-                                                        Har kuni botga kiring va 100% bepul AI SEO, Video Skriptlar hamda CapCut Pro VIP obunalarini oling!
+                                                        Har kuni botga kiring va 100% bepul AI SEO, Video Skriptlar hamda Video Unikalizatsiya VIP paketlarini oling!
                                                     </p>
                                                 </div>
                                                 <div style={{ background: "#0a0a0a", color: "#ffd700", padding: "8px 20px", borderRadius: "999px", fontSize: "14px", fontWeight: 700 }}>
@@ -5450,11 +5491,11 @@
                                                 {(streakData ? streakData.rewards : [
                                                     { day: 1, title: "5 ta AI SEO", icon: "zap" },
                                                     { day: 2, title: "10 ta AI Teglar", icon: "tag" },
-                                                    { day: 3, title: "1 Kun CapCut", icon: "film" },
+                                                    { day: 3, title: "3 ta Unikal VIP", icon: "rocket" },
                                                     { day: 4, title: "10 ta Skript", icon: "edit" },
                                                     { day: 5, title: "5 ta Unikal", icon: "sparkles" },
                                                     { day: 6, title: "VIP Auditor", icon: "rocket" },
-                                                    { day: 7, title: "1 Oy CapCut VIP", icon: "crown" }
+                                                    { day: 7, title: "100 Stars Sovg'a", icon: "star" }
                                                 ]).map((r, idx) => {
                                                     const currDay = streakData ? streakData.current_day : 1;
                                                     const isClaimed = streakData && idx + 1 < currDay;
@@ -5527,7 +5568,7 @@
                                                 Omadli Skretch Chipta
                                             </h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "24px" }}>
-                                                Barmoq yoki sichqoncha bilan himoya qatlamini qiring. 3 ta bir xil belgi tushsa — CapCut Pro yoki AI SEO paketi sizniki!
+                                                Barmoq yoki sichqoncha bilan himoya qatlamini qiring. 3 ta bir xil belgi tushsa — Video Auto-Post Pro, AI SEO Suite yoki Stars sizniki!
                                             </p>
 
                                             {/* Scratch Card Outer Wrapper */}
@@ -5554,7 +5595,7 @@
                                                         ? scratchData.slots
                                                         : (scratchData?.symbols || ["clapper", "clapper", "sparkles"]).map(s => ({
                                                             icon: s,
-                                                            title: s === 'clapper' ? 'CapCut Pro' : (s === 'sparkles' ? 'AI SEO' : (s === 'gem' ? 'Stars' : 'VIP')),
+                                                            title: s === 'zap' ? 'Auto-Post Pro' : (s === 'sparkles' ? 'AI SEO Suite' : (s === 'rocket' ? 'Video Unikal VIP' : '100 Stars')),
                                                             label: s === 'clapper' ? '1 Oylik VIP' : (s === 'sparkles' ? '15 ta Paket' : (s === 'gem' ? '100 Stars' : '1 Oylik'))
                                                         }))
                                                     ) || []).map((slotItem, sIdx) => (
@@ -5656,16 +5697,17 @@
                                                 Creator Redeem Store
                                             </h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginTop: "4px" }}>
-                                                Yutilgan Stars yoki ochilgan sovg'alarni rasmiy CapCut Pro litsenziya kalitlariga va AI SEO kvotalariga almashtiring.
+                                                Yutilgan Stars yoki ochilgan sovg'alarni professional YouTube avtomatlashtirish, Video Auto-Post, 24/7 Autostream va AI SEO paketlariga almashtiring.
                                             </p>
                                         </div>
 
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "24px" }}>
                                             {[
-                                                { id: "capcut_30", title: "CapCut Pro 1 Oylik", desc: "Barcha VIP effektlar, 4K eksport va auto-subtitrlar.", stars: 350, icon: "film", tag: "ENG OMMABOP" },
-                                                { id: "capcut_365", title: "CapCut Pro 1 Yillik VIP", desc: "365 kunlik cheksiz rasmiy premium akkaunt.", stars: 2500, icon: "crown", tag: "VIP CHEGIRMA" },
-                                                { id: "ai_seo_50", title: "50 ta Video uchun AI SEO", desc: "YouTube algoritmi uchun sarlavha, tavsif va teglar paketi.", stars: 100, icon: "zap", tag: "AI SPEED" },
-                                                { id: "video_unikal_10", title: "10 ta Video Unikalizatsiya VIP", desc: "TikTok va Reels uchun videolarni tozalash va unikal qilish.", stars: 150, icon: "rocket", tag: "FULL HD" }
+                                                { id: "video_autopost_30", title: "Video Auto-Post Pro (1 Oylik)", desc: "YouTube va TikTok uchun to'liq avtomatik jadval bo'yicha posting.", stars: 350, icon: "zap", tag: "ENG OMMABOP" },
+                                                { id: "autostream_24h", title: "24/7 YouTube Autostream (24 Soat)", desc: "Serverda 24 soat uzluksiz video jonli efir strim qilish kvotasi.", stars: 250, icon: "clapper", tag: "LIVE STREAM" },
+                                                { id: "ai_seo_50", title: "50 ta Video uchun AI SEO Suite", desc: "YouTube algoritmi uchun High-CTR sarlavha, tavsif va teglar paketi.", stars: 100, icon: "sparkles", tag: "AI SPEED" },
+                                                { id: "video_unikal_10", title: "10 ta Video Unikalizatsiya VIP", desc: "8-qatlamli Anti-Copyright himoyasi bilan to'liq unikalizatsiya.", stars: 150, icon: "rocket", tag: "FULL HD 4K" },
+                                                { id: "ai_scripts_100", title: "100 ta Viral Video Skript & G'oyalar", desc: "Shorts va uzun videolar uchun to'liq viral ssenariy va hooklar.", stars: 200, icon: "edit", tag: "VIRAL HOOKS" }
                                             ].map((srv, sIdx) => (
                                                 <div
                                                     key={sIdx}
@@ -5860,7 +5902,7 @@
                                             </p>
                                             {streakClaimedModal?.license_key && (
                                                 <div style={{ background: "#f8f8fa", padding: "12px", borderRadius: "12px", border: "1px dashed #7342E2", marginBottom: "20px" }}>
-                                                    <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>CapCut Pro Litsenziya Kaliti:</div>
+                                                    <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>VIP Xizmat Faollashtirish Kaliti:</div>
                                                     <div style={{ fontSize: "15px", fontWeight: 800, color: "#7342E2" }}>{streakClaimedModal.license_key}</div>
                                                 </div>
                                             )}
@@ -6385,6 +6427,165 @@
                             </section>
                                     </>
                                 )}
+
+                            {/* Dedicated 3D Gift NFTs Showcase Vault */}
+                            {activeTab === 'nfts' && (
+                                <div className="tab-content-enter" style={{ maxWidth: "1280px", margin: "0 auto", padding: "120px 24px 80px" }}>
+                                    <div style={{ textAlign: "center", marginBottom: "48px" }}>
+                                        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(115, 66, 226, 0.08)", padding: "6px 16px", borderRadius: "999px", color: "#7342E2", fontSize: "13px", fontWeight: 700, marginBottom: "16px" }}>
+                                            <SvgBox size={16} color="#7342E2" />
+                                            <span>TON Blockchain & Telegram Gifts Ekotizimi</span>
+                                        </div>
+                                        <h2 style={{ fontSize: "36px", fontWeight: 800, color: "var(--text)", letterSpacing: "-0.02em", marginBottom: "12px" }}>
+                                            3D Telegram Collectible NFTs & Sovg'alar
+                                        </h2>
+                                        <p style={{ color: "var(--muted)", fontSize: "16px", maxWidth: "640px", margin: "0 auto" }}>
+                                            Telegram va TON ekotizimidagi eng sara raqamli 3D sovg'alar va kolleksiyalar. Profilingizga eksport qiling, do'stlaringizga yuboring yoki savdoga qo'ying.
+                                        </p>
+                                    </div>
+
+                                    {/* Featured Collectibles Grid */}
+                                    <div style={{ marginBottom: "56px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+                                            <div>
+                                                <h3 style={{ fontSize: "22px", fontWeight: 700, color: "var(--text)" }}>Eksklyuziv 3D Kolleksiyalar</h3>
+                                                <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "2px" }}>Stars Keyslari orqali yutib olish mumkin bo'lgan rasmiy Telegram sovg'alari</p>
+                                            </div>
+                                            <button
+                                                onClick={() => setActiveTab('cases')}
+                                                style={{ background: "#7342E2", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "999px", fontWeight: 700, fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+                                            >
+                                                <SvgStar size={14} color="#ffd700" />
+                                                <span>Keyslarni Ochish</span>
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "24px" }}>
+                                            {[
+                                                { id: "cap_nft", name: "Durov's Black Cap Collectible", icon: "cap", stars: 1000, ton: "3.8 TON", rarity: "Legendary", mint: "Fragment Verified" },
+                                                { id: "pepe_nft", name: "Plush Pepe 3D Collectible", icon: "plush", stars: 1500, ton: "5.5 TON", rarity: "Mythic", mint: "Fragment Verified" },
+                                                { id: "crown_nft", name: "Royal Crown Sovereign NFT", icon: "crown", stars: 2500, ton: "9.2 TON", rarity: "Sovereign", mint: "Fragment Verified" },
+                                                { id: "trophy_nft", name: "Telegram Star Trophy 3D", icon: "trophy", stars: 3500, ton: "13.0 TON", rarity: "Immortal", mint: "Fragment Verified" },
+                                                { id: "dragon_nft", name: "Golden Dragon Collectible", icon: "crown", stars: 5000, ton: "18.5 TON", rarity: "Transcendent", mint: "Exclusive Release" }
+                                            ].map((nft, nIdx) => (
+                                                <div
+                                                    key={nIdx}
+                                                    style={{
+                                                        background: "#ffffff",
+                                                        border: "1px solid var(--border-soft)",
+                                                        borderRadius: "24px",
+                                                        padding: "24px",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        justifyContent: "space-between",
+                                                        boxShadow: "0 8px 30px rgba(0,0,0,0.04)"
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                                                            <span style={{ fontSize: "11px", fontWeight: 800, padding: "4px 10px", borderRadius: "999px", background: "rgba(115,66,226,0.1)", color: "#7342E2" }}>
+                                                                {nft.rarity}
+                                                            </span>
+                                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#0088cc", background: "rgba(0,136,204,0.08)", padding: "4px 10px", borderRadius: "999px" }}>
+                                                                {nft.mint}
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ height: "110px", display: "flex", alignItems: "center", justifyContent: "center", margin: "10px 0" }}>
+                                                            <TelegramGiftMedia icon={nft.icon} name={nft.name} size="88px" />
+                                                        </div>
+                                                        <h4 style={{ fontSize: "17px", fontWeight: 700, color: "var(--text)", textAlign: "center", marginBottom: "8px" }}>
+                                                            {nft.name}
+                                                        </h4>
+                                                    </div>
+                                                    <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--border-soft)" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                            <div>
+                                                                <div style={{ fontSize: "11px", color: "var(--muted)" }}>Bozor Qiymati:</div>
+                                                                <div style={{ fontSize: "16px", fontWeight: 800, color: "#ffd700" }}>{nft.stars} Stars</div>
+                                                            </div>
+                                                            <div style={{ textAlign: "right" }}>
+                                                                <div style={{ fontSize: "11px", color: "var(--muted)" }}>TON Ekvivalenti:</div>
+                                                                <div style={{ fontSize: "14px", fontWeight: 700, color: "#0088cc" }}>{nft.ton}</div>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => setActiveTab('cases')}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "11px 0",
+                                                                borderRadius: "999px",
+                                                                background: "#0a0a0a",
+                                                                color: "#ffffff",
+                                                                border: "none",
+                                                                fontSize: "13px",
+                                                                fontWeight: 700,
+                                                                cursor: "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "6px"
+                                                            }}
+                                                        >
+                                                            <SvgBox size={14} color="#ffd700" />
+                                                            <span>Keysdan Yutib Olish</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* User's Owned Collectibles Vault */}
+                                    <div style={{ background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "28px", padding: "32px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "10px" }}>
+                                            <div>
+                                                <h3 style={{ fontSize: "20px", fontWeight: 700, color: "var(--text)" }}>Sizning Shaxsiy 3D NFT Hamyoningiz</h3>
+                                                <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "2px" }}>Keyslardan ochilgan yoki yutib olingan barcha faol Telegram sovg'alari</p>
+                                            </div>
+                                            <div style={{ background: "#0a0a0a", color: "#ffd700", padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 700 }}>
+                                                {userGifts.length} ta Sovg'a
+                                            </div>
+                                        </div>
+
+                                        {userGifts.length === 0 ? (
+                                            <div style={{ textAlign: "center", padding: "48px 20px" }}>
+                                                <div style={{ marginBottom: "12px", display: "flex", justifyContent: "center" }}><SvgGift size={40} color="#7342E2" /></div>
+                                                <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>Hozircha sizda NFT sovg'alar yo'q</h4>
+                                                <p style={{ fontSize: "14px", color: "var(--muted)", maxWidth: "420px", margin: "0 auto 20px" }}>
+                                                    Stars Mystery Keyslarini ochib yoki Upgrader orqali birinchi 3D Telegram sovg'angizni yutib oling!
+                                                </p>
+                                                <button
+                                                    onClick={() => setActiveTab('cases')}
+                                                    style={{ background: "#7342E2", color: "#fff", border: "none", padding: "10px 24px", borderRadius: "999px", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}
+                                                >
+                                                    Keys Ochishga O'tish
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
+                                                {userGifts.length === 0 ? (
+                                                    <div style={{ textAlign: "center", padding: "40px 16px", background: "#ffffff", borderRadius: "20px", border: "1px dashed var(--border-soft)", gridColumn: "1 / -1" }}>
+                                                        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}><SvgGift size={32} color="#7342E2" /></div>
+                                                        <h4 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", marginBottom: "4px" }}>Hozircha yutilgan sovg'alar yo'q</h4>
+                                                        <p style={{ color: "var(--muted)", fontSize: "13px", margin: "0 auto 16px", maxWidth: "360px" }}>Stars Mystery Keyslarini ochib birinchi Telegram sovgangizni yutib oling!</p>
+                                                        <button onClick={() => { window.scrollTo({ top: 400, behavior: 'smooth' }); }} style={{ background: "#7342E2", color: "#fff", border: "none", padding: "8px 22px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Keyslarni Ko'rish</button>
+                                                    </div>
+                                                ) : (
+                                                    userGifts.map((g, gIdx) => (
+                                                    <div key={gIdx} style={{ background: "#fcfcfd", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px 16px", textAlign: "center" }}>
+                                                        <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
+                                                            <TelegramGiftMedia icon={g.icon} name={g.prize_name} size="56px" />
+                                                        </div>
+                                                        <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{g.prize_name}</div>
+                                                        <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700", margin: "4px 0" }}>{g.prize_stars} Stars</div>
+                                                        <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 700 }}>Saqlanmoqda (Inventar)</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Footer */}
                             <footer style={{ borderTop: "1px solid var(--border-soft)", padding: "48px 24px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>

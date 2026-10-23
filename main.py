@@ -2534,6 +2534,48 @@ async def handle_api_stars_pvp_cancel(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_stars_user_inventory(request):
+    """Foydalanuvchining shaxsiy yutib olgan sovg'alari va NFT lari"""
+    try:
+        user_id = int(request.query.get("user_id", 0) or request.query.get("tg_user_id", 0))
+        if user_id <= 0:
+            return web.json_response({"ok": True, "gifts": []}, headers={"Access-Control-Allow-Origin": "*"})
+        import database
+        raw_gifts = database.get_user_gift_history(user_id, limit=50)
+        formatted = []
+        for g in raw_gifts:
+            stars = int(g.get("prize_stars") or 25)
+            p_name = g.get("prize_name") or "Telegram Gift"
+            icon = "package"
+            p_lower = p_name.lower()
+            if "cake" in p_lower: icon = "cake"
+            elif "star" in p_lower: icon = "star"
+            elif "teddy" in p_lower: icon = "teddy"
+            elif "bouquet" in p_lower or "flower" in p_lower: icon = "bouquet"
+            elif "champagne" in p_lower: icon = "champagne"
+            elif "ring" in p_lower or "diamond" in p_lower: icon = "diamond_ring"
+            elif "trophy" in p_lower: icon = "trophy"
+            elif "rocket" in p_lower: icon = "rocket"
+            elif "cap" in p_lower: icon = "cap"
+            elif "plush" in p_lower or "pepe" in p_lower: icon = "plush"
+            elif "crown" in p_lower: icon = "crown"
+            
+            is_nft = bool(stars >= 750 or "nft" in p_lower or "collectible" in p_lower)
+            rarity = "legendary" if (stars >= 500 or is_nft) else ("rare" if stars >= 50 else "common")
+            formatted.append({
+                "id": g.get("id"),
+                "prize_name": p_name,
+                "prize_stars": stars,
+                "rarity": rarity,
+                "icon": icon,
+                "is_nft": is_nft,
+                "status": g.get("status", "pending"),
+                "date": str(g.get("created_at") or "Yaqinda")[:10]
+            })
+        return web.json_response({"ok": True, "gifts": formatted}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
 async def handle_api_stars_upgrader_inventory(request):
     """Upgrader uchun mavjud bo'lgan haqiqiy sovg'alar inventari (aiko_64 / bot)"""
     try:
@@ -3220,6 +3262,8 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/pvp-battle/cancel", handle_api_stars_pvp_cancel)
     app.router.add_post("/api/stars/upgrader", handle_api_stars_upgrader)
     app.router.add_get("/api/stars/upgrader/inventory", handle_api_stars_upgrader_inventory)
+    app.router.add_get("/api/stars/user-inventory", handle_api_stars_user_inventory)
+    app.router.add_get("/api/stars/user-gifts", handle_api_stars_user_inventory)
     app.router.add_get("/api/stars/daily-streak", handle_api_stars_daily_streak)
     app.router.add_post("/api/stars/daily-streak/claim", handle_api_stars_daily_claim)
     app.router.add_post("/api/stars/scratch-card/play", handle_api_stars_scratch_card)

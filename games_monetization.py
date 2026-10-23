@@ -443,11 +443,27 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         if t3_jackpot:
             t3_drops.append(t3_jackpot[0])
 
-        # Tier 4: Platinum (750 Stars) -> asosan 250-750 stars, max 1000 stars
-        t4_drops = [it for it in items if (250 <= it["stars"] <= 1000) or it["is_nft"]] or items[3*len(items)//5:max(4, 4*len(items)//5)]
+        # Tier 4: Platinum (750 Stars) -> asosan 250-750 stars, max 1500 stars
+        t4_drops = [it for it in items if (250 <= it["stars"] <= 1500)]
+        t4_drops.extend([
+            {"id": "5170690322832818290", "stars": 350, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True}
+        ])
+        t4_drops = [it for it in t4_drops if it["stars"] >= 250]
 
-        # Tier 5: Diamond (2500 Stars) -> 1000+ stars
-        t5_drops = [it for it in items if it["stars"] >= 1000 or it["is_nft"]] or items[4*len(items)//5:]
+        # Tier 5: Diamond Galaxy Case (2500 Stars) -> 500 - 5000+ stars
+        t5_drops = [it for it in items if it["stars"] >= 500]
+        t5_drops.extend([
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "is_nft": True}
+        ])
+        t5_drops = [it for it in t5_drops if it["stars"] >= 500]
     else:
         # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
         t1_drops = [
@@ -456,40 +472,44 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ", "file_type": "tgs", "is_nft": False}
         ]
         t2_drops = [
+            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", "file_type": "tgs", "is_nft": False},
             {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E", "file_type": "tgs", "is_nft": False},
-            {"id": "6028601630662853006", "stars": 50, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False}
-        ]
-        t3_drops = [
-            {"id": "6028601630662853006", "stars": 50, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
             {"id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": False}
         ]
-        t4_drops = [
+        t3_drops = [
+            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
             {"id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170564780938756245", "stars": 50, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 100, "name": "Black Cap Collectible", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True}
+            {"id": "5170690322832818290", "stars": 200, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False}
+        ]
+        t4_drops = [
+            {"id": "5170690322832818290", "stars": 350, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True}
         ]
         t5_drops = [
-            {"id": "5170564780938756245", "stars": 50, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 100, "name": "Plush Collectible", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170521118301225164", "stars": 100, "name": "Royal Crown Collectible", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True}
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
+            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": True},
+            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "is_nft": True}
         ]
 
-    # Maxsus Telegram Premium Yutuqlari
+    # Rasmiy Telegram Premium Yutuqlari (Vector icon bilan toza integratsiya)
     t4_drops.append({
         "id": "tg_prem_3m",
         "stars": 1100,
         "name": "Telegram Premium (3 Oylik)",
         "icon": "telegram_premium",
         "file_id": "",
-        "file_type": "video",
-        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v3",
-        "video_url": "/api/nft/video/TG_PREMIUM.mp4",
+        "file_type": "vector",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 3,
-        "min_stars_required": 1210
+        "min_stars_required": 1100
     })
     t5_drops.append({
         "id": "tg_prem_6m",
@@ -497,13 +517,11 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "name": "Telegram Premium (6 Oylik)",
         "icon": "telegram_premium",
         "file_id": "",
-        "file_type": "video",
-        "image_url": "/api/nft/image/TG_PREMIUM.webp?v=20261017_3d_v3",
-        "video_url": "/api/nft/video/TG_PREMIUM.mp4",
+        "file_type": "vector",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 6,
-        "min_stars_required": 2365
+        "min_stars_required": 2150
     })
 
     def format_drops(drop_list, case_cost_stars: int = 25):
@@ -1630,24 +1648,6 @@ def record_drop_event(user_name: str, item_name: str, stars: int, icon: str, rar
 
 def get_recent_drops(limit: int = 15) -> list:
     global _RECENT_DROPS_BUFFER
-    if len(_RECENT_DROPS_BUFFER) < 10:
-        import random
-        defaults = [
-            ("Delicious Cake", 15, "cake", "common", False),
-            ("Green Star", 25, "star", "rare", False),
-            ("Teddy Bear", 50, "teddy", "legendary", False),
-            ("Bouquet of Flowers", 50, "bouquet", "common", False),
-            ("Champagne Bottle", 100, "champagne", "rare", False),
-            ("Diamond Ring", 250, "diamond_ring", "legendary", False),
-            ("Golden Trophy", 500, "trophy", "common", False),
-            ("Durov's Black Cap NFT", 1000, "cap", "legendary", True),
-            ("Plush Pepe NFT", 1500, "plush", "rare", True),
-            ("Royal Crown NFT", 5000, "crown", "legendary", True),
-        ]
-        for _ in range(12 - len(_RECENT_DROPS_BUFFER)):
-            u = generate_realistic_username()
-            item, stars, icon, rar, nft = random.choice(defaults)
-            record_drop_event(u, item, stars, icon, rar, nft)
     return _RECENT_DROPS_BUFFER[:limit]
 
 
@@ -1686,7 +1686,7 @@ def create_case_battle(host_id: int, host_name: str, tier_id: str) -> dict:
         "cost_stars": cost_stars,
         "cost_uzs": cost_uzs,
         "host_id": host_id,
-        "host_name": host_name or generate_realistic_username(),
+        "host_name": host_name or f"User_{str(host_id)[-4:]}",
         "guest_id": None,
         "guest_name": None,
         "status": "waiting",
@@ -1710,48 +1710,7 @@ def create_case_battle(host_id: int, host_name: str, tier_id: str) -> dict:
 
 def get_open_case_battles() -> list:
     global _PVP_BATTLES
-    waiting = [b for b in _PVP_BATTLES.values() if b["status"] == "waiting"]
-    # Agar ochiq janglar kam bo'lsa, real ko'rinishdagi ochiq duel takliflarini tayyorlab turadi
-    if len(waiting) < 2:
-        import uuid
-        import random
-        cases = build_cases_from_gifts()
-        tiers = ["tier_1", "tier_2", "tier_3"]
-        for _ in range(2 - len(waiting)):
-            t_id = random.choice(tiers)
-            c = cases.get(t_id) or cases.get("tier_1")
-            b_id = "battle_" + uuid.uuid4().hex[:8]
-            h_name = generate_realistic_username()
-            cost_stars = c["price_stars"]
-            cost_uzs = cost_stars * 400
-            pot_stars = cost_stars * 2
-            comm_stars = int(pot_stars * 0.10)
-            pot_uzs = cost_uzs * 2
-            comm_uzs = int(pot_uzs * 0.10)
-            b = {
-                "id": b_id,
-                "tier_id": c["id"],
-                "case_name": c["name"],
-                "case_icon": c["icon"],
-                "cost_stars": cost_stars,
-                "cost_uzs": cost_uzs,
-                "host_id": random.randint(100000000, 999999999),
-                "host_name": h_name,
-                "guest_id": None,
-                "guest_name": None,
-                "status": "waiting",
-                "host_roll": None,
-                "guest_roll": None,
-                "winner_id": None,
-                "winner_name": None,
-                "pot_stars": pot_stars,
-                "house_commission": comm_stars,
-                "pot_uzs": pot_uzs,
-                "commission_uzs": comm_uzs,
-                "payout_uzs": pot_uzs - comm_uzs
-            }
-            _PVP_BATTLES[b_id] = b
-            waiting.append(b)
+    waiting = [b for b in _PVP_BATTLES.values() if b.get("status") == "waiting"]
     return waiting
 
 def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> dict:
@@ -1848,23 +1807,22 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
                 "error": f"Balansingiz yetarli emas! Upgrade qilish uchun {stake_uzs:,} so'm kerak. Balansingiz: {curr_bal:,} so'm."
             }
 
+    nominal_odds = item_stars / target_stars
+    # House edge: RTP ~70%, adolatli sektor taqsimoti
+    calc_odds = min(0.75, max(0.01, round(nominal_odds * 0.70, 4)))
+    green_slice_deg = max(10, min(300, int(calc_odds * 360)))
+    
     if is_admin:
         won = True
-        calc_odds = 0.95
-        green_slice_deg = 180
-        final_angle = random.randint(10, 160)
+        final_angle = random.randint(3, max(4, green_slice_deg - 4))
     else:
-        nominal_odds = item_stars / target_stars
-        # House Edge: yutish ehtimoli nominalning 45% iga teng (max 35% win rate, kassa kafolatlangan foydada)
-        calc_odds = min(0.35, max(0.05, nominal_odds * 0.45))
-        green_slice_deg = max(15, min(110, int(calc_odds * 360)))
         won = (random.random() < calc_odds)
         if won:
-            # Yashil sektor ichiga tushadi
-            final_angle = random.randint(5, max(6, green_slice_deg - 5))
+            # Yashil sektor ichiga aniq tushadi (0 dan green_slice_deg gacha)
+            final_angle = random.randint(3, max(4, green_slice_deg - 4))
         else:
-            # Yashil sektordan bir necha gradus nariga tushadi (dramatik near-miss effekti)
-            final_angle = random.randint(green_slice_deg + 4, min(355, green_slice_deg + 45))
+            # Yashil sektordan tashqaridagi to'q qizil/qora sektorga aniq tushadi
+            final_angle = random.randint(min(356, green_slice_deg + 4), 356)
 
     new_balance = None
     if won:
@@ -1928,11 +1886,11 @@ def get_user_streak(user_id: int) -> dict:
     rewards = [
         {"day": 1, "title": "5 ta AI YouTube SEO", "icon": "sparkles", "type": "seo_pack", "value": 5},
         {"day": 2, "title": "10 ta AI Video Teglar & Tavsif", "icon": "tag", "type": "ai_tags", "value": 10},
-        {"day": 3, "title": "1 Kunlik CapCut Pro", "icon": "clapper", "type": "capcut_trial", "value": 1},
-        {"day": 4, "title": "10 ta AI Video Skript & G'oyalar", "icon": "script", "type": "ai_script", "value": 10},
-        {"day": 5, "title": "5 ta Video Unikalizatsiya VIP", "icon": "sparkles", "type": "unikal", "value": 5},
-        {"day": 6, "title": "VIP Video Health Check & Auditor", "icon": "rocket", "type": "audit", "value": 1},
-        {"day": 7, "title": "1 Oylik CapCut Pro VIP", "icon": "crown", "type": "capcut_pro_month", "value": 30}
+        {"day": 3, "title": "3 ta Video Unikalizatsiya VIP", "icon": "rocket", "type": "unikal", "value": 3},
+        {"day": 4, "title": "10 ta AI Video Skript & G'oyalar", "icon": "edit", "type": "ai_script", "value": 10},
+        {"day": 5, "title": "5 ta Video Unikalizatsiya VIP", "icon": "rocket", "type": "unikal", "value": 5},
+        {"day": 6, "title": "12 Soatlik 24/7 Autostream VIP", "icon": "clapper", "type": "autostream", "value": 12},
+        {"day": 7, "title": "100 Telegram Stars Bonusi", "icon": "star", "type": "stars_bonus", "value": 100}
     ]
     
     curr_day = (streak_count % 7) + 1
@@ -1945,16 +1903,16 @@ def get_user_streak(user_id: int) -> dict:
         "rewards": rewards
     }
 
-def generate_capcut_license_key() -> str:
-    """Noyob CapCut Pro litsenziya kalitini xavfsiz generatsiya qilish"""
+def generate_vip_pass_code(prefix: str = "PASS") -> str:
+    """Noyob VIP Pass / Litsenziya kodini xavfsiz generatsiya qilish"""
     import uuid
     raw = uuid.uuid4().hex.upper()
-    return f"CAPCUT-PRO-{raw[:4]}-{raw[4:8]}-{raw[8:12]}"
+    return f"{prefix}-{raw[:4]}-{raw[4:8]}-{raw[8:12]}"
 
 
 def claim_daily_streak(user_id: int) -> dict:
     from datetime import date
-    from database import update_db_user_streak
+    from database import update_db_user_streak, add_user_balance
     st = get_user_streak(user_id)
     if not st["can_claim"]:
         return {"ok": False, "error": "Bugungi kunlik sovg'ani allaqachon olgansiz! Ertaga qaytib kiring."}
@@ -1967,8 +1925,15 @@ def claim_daily_streak(user_id: int) -> dict:
     # PostgreSQL bazasida doimiy saqlash
     update_db_user_streak(user_id, new_streak, today_str)
     
-    if reward["type"] in ["capcut_trial", "capcut_pro_month"]:
-        reward["license_key"] = generate_capcut_license_key()
+    pass_code = generate_vip_pass_code("DAILY-VIP")
+    reward["license_key"] = pass_code
+    reward["pass_code"] = pass_code
+    
+    if reward["type"] == "stars_bonus":
+        # 100 Stars = 40,000 UZS hisobga qo'shiladi
+        if user_id > 1000:
+            add_user_balance(user_id, 40000)
+        reward["bonus_uzs"] = 40000
     else:
         reward["quota_added"] = reward["value"]
         
@@ -1982,39 +1947,49 @@ def claim_daily_streak(user_id: int) -> dict:
     }
 
 
-# ==================== 12. MYSTERY SCRATCH CARDS (ANIQ SOVGA NOMLARI VA AVTO-OCHILISH) ====================
+# ==================== 12. MYSTERY SCRATCH CARDS ====================
 def play_scratch_card(user_id: int) -> dict:
     import random
     
     SCRATCH_PRIZES = {
-        "capcut": {"icon": "clapper", "title": "CapCut Pro", "label": "1 Oylik VIP"},
-        "seo": {"icon": "sparkles", "title": "AI SEO Paketi", "label": "15 ta YouTube"},
-        "stars": {"icon": "gem", "title": "Stars Sovg'a", "label": "100 Stars"},
-        "vip": {"icon": "crown", "title": "VIP Obuna", "label": "1 Oylik VIP"}
+        "autopost": {"icon": "zap", "title": "Auto-Post Pro", "label": "1 Oylik Kvota"},
+        "seo": {"icon": "sparkles", "title": "AI SEO Suite", "label": "25 ta YouTube"},
+        "unikal": {"icon": "rocket", "title": "Video Unikal VIP", "label": "10 ta Video"},
+        "stars": {"icon": "star", "title": "Stars Sovg'a", "label": "100 Stars"}
     }
     
     roll = random.random()
-    if roll < 0.05:
+    if roll < 0.08:
         won = True
-        slots = [dict(SCRATCH_PRIZES["capcut"]) for _ in range(3)]
-        symbols = ["clapper", "clapper", "clapper"]
+        slots = [dict(SCRATCH_PRIZES["autopost"]) for _ in range(3)]
+        symbols = ["zap", "zap", "zap"]
         prize = {
-            "title": "1 Oylik CapCut Pro VIP Litsenziyasi!",
-            "key": generate_capcut_license_key(),
-            "type": "capcut"
+            "title": "1 Oylik Video Auto-Post Pro VIP!",
+            "key": generate_vip_pass_code("AUTOPOST"),
+            "type": "autopost"
         }
-    elif roll < 0.20:
+    elif roll < 0.22:
         won = True
         slots = [dict(SCRATCH_PRIZES["seo"]) for _ in range(3)]
         symbols = ["sparkles", "sparkles", "sparkles"]
         prize = {
-            "title": "15 ta AI YouTube SEO & Teglar Paketi!",
+            "title": "25 ta AI YouTube SEO & Teglar Suite!",
+            "key": generate_vip_pass_code("AI-SEO"),
             "type": "seo_pack"
+        }
+    elif roll < 0.35:
+        won = True
+        slots = [dict(SCRATCH_PRIZES["unikal"]) for _ in range(3)]
+        symbols = ["rocket", "rocket", "rocket"]
+        prize = {
+            "title": "10 ta Video Unikalizatsiya VIP!",
+            "key": generate_vip_pass_code("UNIKAL"),
+            "type": "unikal"
         }
     else:
         won = False
-        pair_key = random.choice(["capcut", "seo", "stars"])
-        diff_key = random.choice([k for k in ["capcut", "seo", "stars", "vip"] if k != pair_key])
+        pair_key = random.choice(["autopost", "seo", "unikal", "stars"])
+        diff_key = random.choice([k for k in ["autopost", "seo", "unikal", "stars"] if k != pair_key])
         chosen_keys = [pair_key, pair_key, diff_key]
         random.shuffle(chosen_keys)
         slots = [dict(SCRATCH_PRIZES[k]) for k in chosen_keys]
@@ -2033,16 +2008,16 @@ def play_scratch_card(user_id: int) -> dict:
     }
 
 
-# ==================== 13. REDEEM CREATOR STORE (HAQIQIY BALANSDAN YECHISH VA XARID TARIXI) ====================
+# ==================== 13. REDEEM CREATOR STORE ====================
 def redeem_creator_service(user_id: int, service_id: str) -> dict:
-    import uuid
     from database import record_user_purchase
     
     services = {
-        "capcut_30": {"title": "CapCut Pro 1 Oylik", "stars": 350, "type": "capcut", "icon": "clapper"},
-        "capcut_365": {"title": "CapCut Pro 1 Yillik VIP", "stars": 2500, "type": "capcut", "icon": "crown"},
-        "ai_seo_50": {"title": "50 ta Video uchun AI SEO", "stars": 100, "type": "ai", "icon": "sparkles"},
-        "video_unikal_10": {"title": "10 ta Video Unikalizatsiya VIP", "stars": 150, "type": "unikal", "icon": "rocket"}
+        "video_autopost_30": {"title": "Video Auto-Post Pro (1 Oylik)", "stars": 350, "type": "autopost", "icon": "zap", "desc": "YouTube va TikTok uchun to'liq avtomatik jadval bo'yicha posting."},
+        "autostream_24h": {"title": "24/7 YouTube Autostream (24 Soat)", "stars": 250, "type": "autostream", "icon": "clapper", "desc": "Serverda 24 soat uzluksiz video jonli efir strim qilish kvotasi."},
+        "ai_seo_50": {"title": "50 ta Video uchun AI SEO", "stars": 100, "type": "ai", "icon": "sparkles", "desc": "YouTube algoritmi uchun High-CTR sarlavha, tavsif va teglar paketi."},
+        "video_unikal_10": {"title": "10 ta Video Unikalizatsiya VIP", "stars": 150, "type": "unikal", "icon": "rocket", "desc": "8-qatlamli Anti-Copyright himoyasi bilan to'liq unikalizatsiya."},
+        "ai_scripts_100": {"title": "100 ta Viral Video Skript & G'oyalar", "stars": 200, "type": "ai_scripts", "icon": "edit", "desc": "Shorts va uzun videolar uchun to'liq viral ssenariy va hooklar."}
     }
     
     srv = services.get(service_id)
@@ -2050,7 +2025,7 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
         return {"ok": False, "error": "Bunday xizmat topilmadi!"}
         
     price_uzs = srv["stars"] * 400
-    license_key = generate_capcut_license_key() if srv["type"] == "capcut" else f"VIP-QUOTA-{uuid.uuid4().hex[:6].upper()}"
+    pass_code = generate_vip_pass_code(f"VIP-{srv['type'].upper()}")
 
     # Real balansdan yechish va user_purchases jadvaliga yozish
     p_res = record_user_purchase(
@@ -2058,7 +2033,7 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
         item_type=f"creator_store_{srv['type']}",
         item_name=srv["title"],
         price_uzs=price_uzs,
-        payload=f"key:{license_key}"
+        payload=f"pass:{pass_code}"
     )
     if not p_res.get("ok"):
         return {
@@ -2071,7 +2046,8 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
         "service": srv,
         "price_uzs": price_uzs,
         "new_balance": p_res.get("new_balance"),
-        "license_key": license_key,
+        "license_key": pass_code,
+        "pass_code": pass_code,
         "message": f"Tabriklaymiz! {srv['title']} muvaffaqiyatli faollashtirildi!"
     }
     return res
