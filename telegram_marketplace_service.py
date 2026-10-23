@@ -3,6 +3,8 @@ Official Telegram Gifts & TON NFT Marketplace Live Service
 Integrates real in-stock marketplace items directly from Fragment & TonAPI.
 Sorted strictly ascending (min price -> max price).
 Calculates real-time live UZS prices via CBU and TonAPI/Binance.
+Dynamic 20% margin with 1.0 TON minimum profit.
+1 TON ≈ 140 Telegram Stars official Fragment parity.
 Zero mockups, zero unicode emojis, zero hardcoded currency rates.
 """
 
@@ -19,8 +21,13 @@ logger = logging.getLogger("marketplace_service")
 
 CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_market_stock_cache.json")
 RATE_CACHE_TTL = 300  # 5 daqiqa
-STOCK_CACHE_TTL = 1800  # 30 daqiqa (barqaror kesh)
-MARKETPLACE_TON_MARGIN = 5.0  # Har bir NFT sotuviga qo'shiladigan kafolatlangan sof foyda marjasi (TON)
+STOCK_CACHE_TTL = 60  # 60 soniya (tezkor dinamik zaxira yangilanishi)
+
+# Foyda marjasi va Stars hisoblash qoidalari
+MARGIN_PERCENT = 20.0  # 20% avtomatik ustama (masalan: 5 TON asl narxiga 1 TON qo'shiladi)
+MIN_MARGIN_TON = 1.0  # Har bir NFT sotuviga kafolatlangan minimal sof foyda marjasi (TON)
+STARS_PER_TON = 140  # Fragment rasmiy kursi bo'yicha: 1 TON ≈ 140 Telegram Stars
+MARKETPLACE_TON_MARGIN = 1.0  # Moslik uchun
 
 def load_stock_from_disk() -> list:
     """Diskdagi so'nggi real NFT zaxirasini o'qish"""
@@ -74,7 +81,7 @@ def get_sync_live_ton_rate() -> dict:
         with urllib.request.urlopen(req, timeout=4) as r:
             data = json.loads(r.read().decode('utf-8'))
             ton_usd = float(data['rates']['TON']['prices']['USD'])
-    except Exception as e:
+    except Exception:
         # Fallback: Binance
         try:
             req = urllib.request.Request(
@@ -111,6 +118,44 @@ def get_sync_live_ton_rate() -> dict:
     return _CACHED_RATE
 
 
+def calculate_margin_and_prices(raw_price_ton: float, ton_uzs: float):
+    """
+    Asl narx bo'yicha 20% (kamida 1.0 TON) foyda qo'shadi va
+    TON, So'm hamda 1 TON ≈ 140 Stars rasmiy kursi bo'yicha hisoblaydi.
+    """
+    profit_ton = max(MIN_MARGIN_TON, round(raw_price_ton * (MARGIN_PERCENT / 100.0), 2))
+    price_ton = round(raw_price_ton + profit_ton, 2)
+    price_uzs = int(round(price_ton * ton_uzs))
+    stars = max(10, int(round(price_ton * STARS_PER_TON)))
+    return price_ton, price_uzs, stars, profit_ton
+
+
+def is_nft_live_on_sale(slug: str) -> bool:
+    """
+    Fragment.com dan buyum ayni paytda 'For sale' holatidami yoki 'Sold' bo'lganmi tekshiradi.
+    """
+    url = f"https://fragment.com/gift/{slug}"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as r:
+            html = r.read().decode('utf-8')
+            if "tm-status-unavail" in html or ">Sold<" in html or "Not for sale" in html:
+                return False
+            return True
+    except Exception as e:
+        logger.warning(f"is_nft_live_on_sale error for {slug}: {e}")
+        return True
+
+
+def remove_nft_from_cache(slug: str):
+    """Sotilgan yoki mavjud bo'lmagan NFT ni keshdan zudlik bilan o'chirish"""
+    global _CACHED_STOCK
+    if _CACHED_STOCK:
+        _CACHED_STOCK = [x for x in _CACHED_STOCK if x.get("slug") != slug and x.get("id") != slug]
+        save_stock_to_disk(_CACHED_STOCK)
+
+
 # Rasmiy Fragment Telegram sovg'a kolleksiyalari
 COLLECTIONS = [
     ("tamagadget", "Tama Gadget", "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "#3b82f6"),
@@ -139,52 +184,30 @@ collections = COLLECTIONS
 def fetch_live_marketplace_stock_sync() -> list:
     """
     Fragment.com dagi barcha rasmiy Telegram Gift NFT kolleksiyalarini
-    parallel tarzda (price_asc + price_desc) yuklab oladi va narx bo'yicha
-    o'sish tartibida (ASC: min -> max) saralaydi.
-    Keshni saqlashda mavjud kolleksiyalar yo'qolmasligi uchun doimiy merge qilinadi.
+    parallel tarzda yuklab oladi va narx bo'yicha ASC (min -> max) saralaydi.
+    Sotilgan buyumlar avtomatik filtrlanadi va kesh yangilanadi.
     """
     global _CACHED_STOCK, _STOCK_LAST_UPDATED
     now = time.time()
-    if _CACHED_STOCK and (now - _STOCK_LAST_UPDATED < STOCK_CACHE_TTL):
-        return _CACHED_STOCK
-
     rates = get_sync_live_ton_rate()
     ton_uzs = rates["ton_uzs"]
 
-    # Rasmiy Fragment Telegram sovg'a kolleksiyalari
-    collections = [
-        ("tamagadget", "Tama Gadget", "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "#3b82f6"),
-        ("xmasstocking", "Xmas Stocking", "linear-gradient(145deg, #450a0a 0%, #1f0404 100%)", "#ef4444"),
-        ("vicecream", "Vice Cream", "linear-gradient(145deg, #500724 0%, #2e0214 100%)", "#ec4899"),
-        ("icecream", "Ice Cream", "linear-gradient(145deg, #134e4a 0%, #082f2c 100%)", "#14b8a6"),
-        ("instantramen", "Instant Ramen", "linear-gradient(145deg, #451a03 0%, #240e02 100%)", "#f59e0b"),
-        ("lolpop", "Lol Pop", "linear-gradient(145deg, #581c87 0%, #2e1065 100%)", "#a855f7"),
-        ("chillflame", "Chill Flame", "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "#60a5fa"),
-        ("scaredcat", "Scared Cat", "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "#a1a1aa"),
-        ("toybear", "Toy Bear", "linear-gradient(145deg, #3f2c1d 0%, #1e150d 100%)", "#d97706"),
-        ("gingercookie", "Ginger Cookie", "linear-gradient(145deg, #451a03 0%, #290f02 100%)", "#d97706"),
-        ("bdaycandle", "B-Day Candle", "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "#ec4899"),
-        ("deskcalendar", "Desk Calendar", "linear-gradient(145deg, #134e4a 0%, #0f2928 100%)", "#14b8a6"),
-        ("snoopcigar", "Snoop Cigar", "linear-gradient(145deg, #2b1810 0%, #1f120c 100%)", "#f59e0b"),
-        ("vintagecigar", "Vintage Cigar", "linear-gradient(145deg, #064e3b 0%, #022c22 100%)", "#10b981"),
-        ("heartlocket", "Heart Locket", "linear-gradient(145deg, #4c0519 0%, #2e020d 100%)", "#f43f5e"),
-        ("magicpotion", "Magic Potion", "linear-gradient(145deg, #083344 0%, #042f2e 100%)", "#06b6d4"),
-        ("diamondring", "Diamond Ring", "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "#38bdf8"),
-        ("swisswatch", "Swiss Watch", "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "#94a3b8"),
-        ("plushpepe", "Plush Pepe", "linear-gradient(145deg, #3b0764 0%, #1e1b4b 100%)", "#c084fc"),
-        ("durovscap", "Durov's Cap", "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "#3b82f6")
-    ]
-
-    # 1. Avval diskdagi mavjud to'liq keshni yuklaymiz
+    # 1. Avval diskdagi mavjud keshni yuklaymiz
     existing_stock = load_stock_from_disk()
     stock_by_col = {}
     for it in existing_stock:
+        # Sotilgan tamagadget-11627 ni o'chirib tashlaymiz
+        if it.get("slug") == "tamagadget-11627":
+            continue
         c_slug = it.get("collection_slug")
         if c_slug:
-            # Yangi kurs bo'yicha narxlarni qayta hisoblaymiz
-            p_ton = float(it.get("price_ton", 5.0))
-            it["price_uzs"] = round(p_ton * ton_uzs)
-            it["stars"] = max(10, round(it["price_uzs"] / 400))
+            raw_p = float(it.get("raw_price_ton") or max(1.0, float(it.get("price_ton", 5.0)) - 1.0))
+            price_ton, price_uzs, stars, profit_ton = calculate_margin_and_prices(raw_p, ton_uzs)
+            it["raw_price_ton"] = raw_p
+            it["profit_ton"] = profit_ton
+            it["price_ton"] = price_ton
+            it["price_uzs"] = price_uzs
+            it["stars"] = stars
             stock_by_col.setdefault(c_slug, {})[it["slug"]] = it
 
     pattern = r'<a href="(/gift/([^"?]+)[^"]*)" class="tm-grid-item">([\s\S]*?)</a>'
@@ -202,18 +225,21 @@ def fetch_live_marketplace_stock_sync() -> list:
                     for m in re.finditer(pattern, html):
                         block = m.group(3)
                         slug = m.group(2)
+                        
+                        # Sotilgan deb belgilangan bo'lsa olmaymiz
+                        if "tm-status-unavail" in block or ">Sold<" in block:
+                            continue
+                            
                         m_num = re.search(r'<span class="item-num">&nbsp;([^<]+)</span>', block) or re.search(r'<div class="tm-grid-item-num[^"]*">\s*([^<]+)\s*</div>', block)
                         m_price = re.search(r'class="tm-grid-item-value tm-value icon-before icon-ton">([0-9.,]+)</div>', block)
                         m_img = re.search(r'src="([^"]+)"', block)
 
                         if m_price:
                             raw_price_ton = float(m_price.group(1).replace(',', ''))
-                            price_ton = round(raw_price_ton + MARKETPLACE_TON_MARGIN, 2)
+                            price_ton, price_uzs, stars_equivalent, profit_ton = calculate_margin_and_prices(raw_price_ton, ton_uzs)
                             num = m_num.group(1).strip() if m_num else ""
                             img = m_img.group(1) if m_img else f"https://nft.fragment.com/gift/{slug}.medium.jpg"
                             item_name = f"{col_name} {num}".strip()
-                            price_uzs = round(price_ton * ton_uzs)
-                            stars_equivalent = max(10, round(price_uzs / 400))
 
                             rarity = "common"
                             if price_ton >= 50.0:
@@ -236,6 +262,8 @@ def fetch_live_marketplace_stock_sync() -> list:
                                 "collection": col_name,
                                 "collection_slug": col_slug,
                                 "edition": num,
+                                "raw_price_ton": raw_price_ton,
+                                "profit_ton": profit_ton,
                                 "price_ton": price_ton,
                                 "price_uzs": price_uzs,
                                 "stars": stars_equivalent,
@@ -259,8 +287,11 @@ def fetch_live_marketplace_stock_sync() -> list:
                 try:
                     c_slug, fetched_items = fut.result()
                     if fetched_items:
-                        stock_by_col.setdefault(c_slug, {})
-                        stock_by_col[c_slug].update(fetched_items)
+                        # Jonli sahifada topilgan buyumlar bo'yicha keshni yangilaymiz
+                        if len(fetched_items) >= 10:
+                            stock_by_col[c_slug] = fetched_items
+                        else:
+                            stock_by_col.setdefault(c_slug, {}).update(fetched_items)
                 except Exception as e:
                     logger.warning(f"Collection future error: {e}")
     except Exception as e:
@@ -271,8 +302,11 @@ def fetch_live_marketplace_stock_sync() -> list:
     for c_slug, c_items in stock_by_col.items():
         all_stock.extend(c_items.values())
 
+    # Har qanday holatda ham tamagadget-11627 ni chiqarib tashlaymiz
+    all_stock = [x for x in all_stock if x.get("slug") != "tamagadget-11627"]
+
     if all_stock:
-        all_stock.sort(key=lambda x: x["price_ton"])
+        all_stock.sort(key=lambda x: (x.get("price_ton", 0), x.get("name", "")))
         save_stock_to_disk(all_stock)
     else:
         all_stock = existing_stock
@@ -295,3 +329,22 @@ async def get_live_marketplace_stock_asc(force_refresh: bool = False) -> list:
         loop = asyncio.get_event_loop()
         stock = await loop.run_in_executor(None, fetch_live_marketplace_stock_sync)
         return stock
+
+
+async def run_marketplace_background_refresher(interval_seconds: int = 60):
+    """
+    Fon vazifasi: Har interval_seconds (default 60s) da Fragment dan jonli zaxirani
+    asinxron yangilab boradi, shunda sotilgan buyumlar keshda qolib ketmaydi va
+    web-foydalanuvchilarga ma'lumotlar doim yangi va 0ms kechikish bilan beriladi.
+    """
+    logger.info(f"Marketplace background refresher started (interval: {interval_seconds}s)")
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, fetch_live_marketplace_stock_sync)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.warning(f"Marketplace background refresher loop error: {e}")
+            await asyncio.sleep(10)

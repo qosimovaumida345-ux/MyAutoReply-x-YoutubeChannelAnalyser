@@ -1901,6 +1901,7 @@
                                     if (status === 'paid') {
                                         alert(`🎉 Tabriklaymiz! ${nft.name} uchun Stars to'lovi muvaffaqiyatli amalga oshirildi! Sovg'a profilingizga yuborilmoqda.`);
                                         loadUserStats(tgUser.id, true);
+                                        if (typeof fetchMarketplaceNfts === 'function') fetchMarketplaceNfts();
                                     }
                                 });
                             } else {
@@ -1908,6 +1909,7 @@
                             }
                         } else {
                             alert((data && data.error) || "Stars to'lov hisobini yaratib bo'lmadi.");
+                            if (typeof fetchMarketplaceNfts === 'function') fetchMarketplaceNfts();
                         }
                     } catch(err) {
                         alert("To'lov serveriga ulanishda xatolik yuz berdi.");
@@ -1940,8 +1942,10 @@
                             setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
                         }
                         loadUserStats(tgUser.id, true);
+                        if (typeof fetchMarketplaceNfts === 'function') fetchMarketplaceNfts();
                     } else {
                         alert((data && data.error) || "Xaridni amalga oshirib bo'lmadi!");
+                        if (typeof fetchMarketplaceNfts === 'function') fetchMarketplaceNfts();
                     }
                 } catch(err) {
                     alert("Server bilan aloqa uzildi.");
@@ -2858,6 +2862,11 @@
                     fetchBattles();
                     fetchUpgraderInventory();
                 }, 14000);
+
+                const marketRefreshTimer = setInterval(() => {
+                    if (document.hidden) return;
+                    fetchMarketplaceNfts();
+                }, 60000);
                 return () => clearInterval(timer);
             }, []);
 

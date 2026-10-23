@@ -2605,7 +2605,14 @@ async def handle_api_stars_user_inventory(request):
         import database
         raw_gifts = database.get_user_gift_history(user_id, limit=50)
         formatted = []
-        from telegram_marketplace_service import fetch_live_marketplace_stock_sync, get_sync_live_ton_rate
+        from telegram_marketplace_service import fetch_live_marketplace_stock_sync, get_sync_live_ton_rate, is_nft_live_on_sale, remove_nft_from_cache
+        if not is_nft_live_on_sale(slug):
+            remove_nft_from_cache(slug)
+            return web.json_response({
+                "ok": False,
+                "error": "Ushbu NFT yaqindagina Fragmentda sotilgan yoki ayni paytda mavjud emas! Sahifa yangilandi, iltimos boshqasini tanlang."
+            }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+            
         market_stock = fetch_live_marketplace_stock_sync()
         rate = get_sync_live_ton_rate()
         ton_uzs = rate.get("ton_uzs", 15700.0)
@@ -2802,7 +2809,14 @@ async def handle_api_stars_marketplace_buy_invoice(request):
         if database.is_user_banned(user_id):
             return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
             
-        from telegram_marketplace_service import fetch_live_marketplace_stock_sync
+        from telegram_marketplace_service import fetch_live_marketplace_stock_sync, is_nft_live_on_sale, remove_nft_from_cache
+        if not is_nft_live_on_sale(slug):
+            remove_nft_from_cache(slug)
+            return web.json_response({
+                "ok": False,
+                "error": "Ushbu NFT yaqindagina Fragmentda sotilgan yoki ayni paytda mavjud emas! Sahifa yangilandi, iltimos boshqasini tanlang."
+            }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+            
         stock = fetch_live_marketplace_stock_sync()
         target = None
         for it in stock:
@@ -4021,6 +4035,13 @@ async def main():
                     print("📸 Instagram Auto-Tracker & YouTube Sync Daemon ishga tushirildi.")
                 except Exception as ig_err:
                     print(f"Instagram Sync Daemon startup xatosi: {ig_err}")
+                try:
+                    from telegram_marketplace_service import run_marketplace_background_refresher
+                    asyncio.create_task(run_marketplace_background_refresher(interval_seconds=60))
+                    print("🚀 Telegram Marketplace 60s Live Stock Refresher ishga tushirildi.")
+                except Exception as mp_err:
+                    print(f"Marketplace Refresher startup error: {mp_err}")
+
 
 
             async def run_bot():
