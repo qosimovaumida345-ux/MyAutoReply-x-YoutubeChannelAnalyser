@@ -3409,10 +3409,10 @@ async def handle_api_auth_verify_token(request):
                 finally:
                     conn.close()
 
-            # Owner session recovery (owner is always recognized and re-authenticated)
-            if not session and is_owner_user and not database.is_user_banned(tg_user_id):
+            # Session auto-recovery (Valid non-banned users maintain persistent session across server restarts/F5)
+            if not session and tg_user_id and tg_user_id > 0 and not database.is_user_banned(tg_user_id):
                 import secrets
-                if not token or "fake" in token:
+                if not token or "fake" in token or len(token) < 12:
                     token = f"tok_{secrets.token_hex(24)}"
                 session = {
                     "tg_user_id": tg_user_id,

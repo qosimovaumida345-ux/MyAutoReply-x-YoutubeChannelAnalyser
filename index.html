@@ -882,10 +882,11 @@
             potion: "/api/nft/image/magic_potion.webp",
             premium: "/api/nft/image/TG_PREMIUM.webp",
             tg_premium: "/api/nft/image/TG_PREMIUM.webp",
-            package: "/api/nft/image/delicious_cake.webp",
-            box: "/api/nft/image/delicious_cake.webp",
-            gift: "/api/nft/image/delicious_cake.webp",
-            sovg: "/api/nft/image/delicious_cake.webp"
+            package: "/api/nft/image/NFT.webp",
+            box: "/api/nft/image/NFT.webp",
+            gift: "/api/nft/image/NFT.webp",
+            sovg: "/api/nft/image/NFT.webp",
+            nft: "/api/nft/image/NFT.webp"
         };
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
@@ -1589,14 +1590,42 @@
             };
 
             // View state: 'login' (Dedicated CreatorFlow Login Gateway) vs 'dashboard' (CreatorFlow Studio)
-            const [view, setView] = useState('login');
+            const [view, setView] = useState(() => {
+                try {
+                    const uid = parseInt(localStorage.getItem('creatorflow_tg_user_id') || '0');
+                    return uid > 0 ? 'dashboard' : 'login';
+                } catch(e) { return 'login'; }
+            });
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-            const [activeTab, setActiveTab] = useState('analytics'); // 'analytics' | 'videos' | 'cases' | 'nfts'
+            const [activeTab, setActiveTabRaw] = useState(() => {
+                try {
+                    return localStorage.getItem('creatorflow_active_tab') || 'cases';
+                } catch(e) { return 'cases'; }
+            });
+            const setActiveTab = (tab) => {
+                setActiveTabRaw(tab);
+                try { localStorage.setItem('creatorflow_active_tab', tab); } catch(e) {}
+            };
             const [drawerOpen, setDrawerOpen] = useState(false);
             
 
             // Telegram user context & Reactive Login
-            const [tgUser, setTgUser] = useState({ id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false });
+            const [tgUser, setTgUser] = useState(() => {
+                try {
+                    const uid = parseInt(localStorage.getItem('creatorflow_tg_user_id') || '0');
+                    if (uid > 0) {
+                        return {
+                            id: uid,
+                            first_name: localStorage.getItem('creatorflow_user_name') || `Creator #${uid}`,
+                            username: "",
+                            photo_url: null,
+                            is_vip: false,
+                            is_owner: false
+                        };
+                    }
+                } catch(e) {}
+                return { id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false };
+            });
             const [showLoginModal, setShowLoginModal] = useState(false);
             const [loginIdInput, setLoginIdInput] = useState('');
             const [userStats, setUserStats] = useState({ balance_uzs: 0, ton_balance: 0, is_vip: false, is_owner: false });
@@ -1648,8 +1677,8 @@
             const [battleWinner, setBattleWinner] = useState(null);
             
             // Upgrader (Zero-Loss Protected)
-            const [upgraderItem, setUpgraderItem] = useState({ name: "Delicious Cake", stars: 15, icon: "cake" });
-            const [upgraderTarget, setUpgraderTarget] = useState({ name: "2x Sovg'a (30 Stars)", stars: 30, icon: "star", image_url: "/api/nft/image/gift_star.webp" });
+            const [upgraderItem, setUpgraderItem] = useState({ name: "Desk Calendar NFT", stars: 150, icon: "calendar", image_url: "/api/nft/image/desk_calendar.webp" });
+            const [upgraderTarget, setUpgraderTarget] = useState({ name: "2x Sovg'a (300 Stars)", stars: 300, icon: "watch", image_url: "/api/nft/image/swiss_watch.webp" });
             const [upgraderAngle, setUpgraderAngle] = useState(0);
             const [isUpgrading, setIsUpgrading] = useState(false);
             const [upgradeResult, setUpgradeResult] = useState(null);
@@ -1682,6 +1711,10 @@
 
             const handleBuyNftDirect = async (nft, paymentMethod = 'stars') => {
                 if (!nft) return;
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
                 const costLabel = paymentMethod === 'stars' 
                     ? `${(nft.stars || 100).toLocaleString()} Stars` 
                     : `${(nft.price_uzs || 150000).toLocaleString()} so'm`;
@@ -1695,21 +1728,22 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            user_id: user?.id || 0,
+                            user_id: tgUser.id,
                             slug: nft.slug,
                             payment_method: paymentMethod
                         })
                     });
                     const data = await res.json();
-                    if (data.ok) {
+                    if (data && data.ok) {
                         alert(data.message || "NFT muvaffaqiyatli xarid qilindi va vitrinangizga qo'shildi!");
-                        if (data.new_balance !== undefined && setUser) {
-                            setUser(prev => ({ ...prev, balance: data.new_balance }));
+                        if (data.new_balance !== undefined) {
+                            setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
                         }
+                        loadUserStats(tgUser.id, true);
                         if (typeof fetchUserInventory === 'function') fetchUserInventory();
                         else if (typeof fetchDailyStreak === 'function') fetchDailyStreak();
                     } else {
-                        alert(data.error || "Xaridni amalga oshirib bo'lmadi!");
+                        alert((data && data.error) || "Xaridni amalga oshirib bo'lmadi!");
                     }
                 } catch (e) {
                     alert("Server bilan bog'lanishda xatolik: " + e.message);
@@ -2542,18 +2576,38 @@
                         .then(r => r.json())
                         .then(d => {
                             if (d.ok) {
+                                if (d.token) localStorage.setItem('creatorflow_auth_token', d.token);
                                 setView('dashboard');
-                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}`, is_vip: d.is_vip || false, is_owner: d.is_owner || false }));
+                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: (d.user && d.user.first_name) || `Creator #${savedUid}`, is_vip: d.is_vip || false, is_owner: d.is_owner || false }));
                                 loadStudioStats(savedUid);
                                 loadChannels(savedUid);
                                 loadUserStats(savedUid, true);
                             } else {
-                                localStorage.removeItem('creatorflow_auth_token');
-                                localStorage.removeItem('creatorflow_tg_user_id');
-                                setView('login');
+                                // Do NOT wipe savedUid! Keep session active and load user stats
+                                setView('dashboard');
+                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}` }));
+                                loadStudioStats(savedUid);
+                                loadChannels(savedUid);
+                                loadUserStats(savedUid, true);
                             }
                         })
-                        .catch(() => setView('login'));
+                        .catch(() => {
+                            if (savedUid > 0) {
+                                setView('dashboard');
+                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}` }));
+                                loadStudioStats(savedUid);
+                                loadChannels(savedUid);
+                                loadUserStats(savedUid, true);
+                            } else {
+                                setView('login');
+                            }
+                        });
+                    } else if (savedUid > 0) {
+                        setView('dashboard');
+                        setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}` }));
+                        loadStudioStats(savedUid);
+                        loadChannels(savedUid);
+                        loadUserStats(savedUid, true);
                     } else {
                         setView('login');
                     }
@@ -4782,13 +4836,13 @@
                                                                 key={dIdx}
                                                                 className="drop-mini-badge"
                                                                 title={`${d.name} (${d.stars} Stars)`}
-                                                                onClick={() => setOddsModalCase(c)}
                                                                 style={{
                                                                     position: "relative",
-                                                                    width: "54px",
-                                                                    height: "54px",
-                                                                    borderRadius: "16px",
-                                                                    background: "rgba(0, 0, 0, 0.03)",
+                                                                    width: "66px",
+                                                                    height: "66px",
+                                                                    borderRadius: "18px",
+                                                                    background: "transparent",
+                                                                    border: "none",
                                                                     display: "flex",
                                                                     flexDirection: "column",
                                                                     alignItems: "center",
@@ -4800,8 +4854,8 @@
                                                                 onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.08)"}
                                                                 onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                             >
-                                                                <div style={{ width: "42px", height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                                    <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} imageUrl={d.image_url} videoUrl={d.video_url} icon={d.icon} name={d.name} size={40} />
+                                                                <div style={{ width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                                    <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} imageUrl={d.image_url} videoUrl={d.video_url} icon={d.icon} name={d.name} size={54} />
                                                                 </div>
                                                                 <span style={{
                                                                     position: "absolute",
@@ -5195,10 +5249,10 @@
                                             </p>
 
                                             {/* Upgrader Controls: Selected Item vs 2x Multiplier Target */}
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px", alignItems: "center", marginBottom: "32px", maxWidth: "100%", boxSizing: "border-box" }}>
+                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "32px", width: "100%", boxSizing: "border-box" }}>
                                                 {/* Left: Your Item */}
                                                 <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
-                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px" }}>
+                                                <div style={{ flex: "1 1 280px", maxWidth: "360px", background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: "260px", boxSizing: "border-box" }}>
                                                         Siz Tikayotgan Sovg'a:
                                                     </div>
                                                     <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}>
@@ -5213,10 +5267,10 @@
                                                     {/* Tikilayotgan Sovg'a Tanlovi (4 ta aniq stavka) */}
                                                     <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
                                                         {[
-                                                            { name: "Delicious Cake", stars: 15, icon: "cake", image_url: "/api/nft/image/delicious_cake.webp" },
-                                                            { name: "Green Star", stars: 25, icon: "star", image_url: "/api/nft/image/gift_star.webp" },
-                                                            { name: "Teddy Bear", stars: 50, icon: "teddy", image_url: "https://nft.fragment.com/gift/toybear-7605.medium.jpg" },
-                                                            { name: "Diamond Ring", stars: 100, icon: "diamond_ring", image_url: "/api/nft/image/diamond_ring.webp" }
+                                                            { name: "Desk Calendar NFT", stars: 150, icon: "calendar", image_url: "/api/nft/image/desk_calendar.webp" },
+                                                            { name: "Durov's Black Cap NFT", stars: 250, icon: "cap", image_url: "/api/nft/image/durov_cap.webp" },
+                                                            { name: "Swiss Watch NFT", stars: 500, icon: "watch", image_url: "/api/nft/image/swiss_watch.webp" },
+                                                            { name: "Plush Pepe NFT", stars: 1000, icon: "plush", image_url: "/api/nft/image/plush_pepe.webp" }
                                                         ].map((it, idx) => {
                                                             const isSel = (upgraderItem?.name === it.name);
                                                             return (
@@ -5255,7 +5309,7 @@
                                                 </div>
 
                                                 {/* Middle: Arrow with Multiplier Badge */}
-                                                <div style={{ textAlign: "center" }}>
+                                                <div style={{ flexShrink: 0, textAlign: "center", padding: "8px 12px" }}>
                                                     <SvgArrowRight size={28} color="#7342E2" />
                                                     <div style={{
                                                         fontSize: "13px",
@@ -5273,7 +5327,7 @@
                                                 </div>
 
                                                 {/* Right: Target Goal based on Multiplier */}
-                                                <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
+                                                <div style={{ flex: "1 1 280px", maxWidth: "360px", background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: "260px", boxSizing: "border-box" }}>
                                                     <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "6px" }}>
                                                         Kutilayotgan Sovg'a:
                                                     </div>

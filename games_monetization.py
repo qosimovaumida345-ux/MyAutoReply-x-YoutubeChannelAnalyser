@@ -420,110 +420,39 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
 
     items.sort(key=lambda x: x["stars"])
 
-    # Har bir tier uchun drops ro'yxati (serverdan olingan sovg'alar bo'yicha)
-    if items:
-        # Tier 1: Bronze (25 Stars) -> asosan 10-25 stars, max 1 dona 50 stars jackpot
-        t1_base = [it for it in items if it["stars"] <= 25] or items[:max(1, len(items)//5)]
-        t1_jackpot = [it for it in items if 25 < it["stars"] <= 50]
-        t1_drops = list(t1_base)
-        if t1_jackpot:
-            t1_drops.append(t1_jackpot[0])
-
-        # Tier 2: Silver (75 Stars) -> asosan 25-75 stars, max 100 stars jackpot
-        t2_base = [it for it in items if 25 <= it["stars"] <= 75] or items[len(items)//5:max(2, 2*len(items)//5)]
-        t2_jackpot = [it for it in items if 75 < it["stars"] <= 100]
-        t2_drops = list(t2_base)
-        if t2_jackpot:
-            t2_drops.append(t2_jackpot[0])
-
-        # Tier 3: Gold (250 Stars) -> asosan 50-250 stars, max 350-500 stars jackpot
-        t3_base = [it for it in items if 50 <= it["stars"] <= 250] or items[2*len(items)//5:max(3, 3*len(items)//5)]
-        t3_jackpot = [it for it in items if 250 < it["stars"] <= 500]
-        t3_drops = list(t3_base)
-        if t3_jackpot:
-            t3_drops.append(t3_jackpot[0])
-
-        # Tier 4: Platinum (750 Stars) -> asosan 250-750 stars, max 1500 stars
-        t4_drops = [it for it in items if (250 <= it["stars"] <= 1500)]
-        t4_drops.extend([
-            {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True},
-            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True}
-        ])
-        t4_drops = [it for it in t4_drops if it["stars"] >= 250]
-
-        # Tier 5: Diamond Galaxy Case (2500 Stars) -> 500 - 5000+ stars
-        t5_drops = [it for it in items if it["stars"] >= 500]
-        t5_drops.extend([
-            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
-            {"id": "5170250947678437999", "stars": 2500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
-            {"id": "5170889922832818299", "stars": 3500, "name": "Snoop Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True},
-            {"id": "5170999922832818299", "stars": 5000, "name": "Vintage Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True}
-        ])
-        t5_drops = [it for it in t5_drops if it["stars"] >= 500]
-    else:
-        # Standart fallback (Telegram rasmiy .tgs animatsiyalariga ega haqiqiy sovg'alar)
-        t1_drops = [
-            {"id": "5170144170496491616", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E", "file_type": "tgs", "image_url": "/api/nft/image/delicious_cake.webp", "is_nft": False},
-            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_star.webp", "is_nft": False},
-            {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg", "is_nft": False},
-            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNuQYk_6K2_y5Wp8rPsw7sAAm4bAAKs6PlKSV7c24Y47kIPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False}
-        ]
-        t2_drops = [
-            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNuQYk_6K2_y5Wp8rPsw7sAAm4bAAKs6PlKSV7c24Y47kIPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False},
-            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
-            {"id": "5170889922832818291", "stars": 150, "name": "Desk Calendar NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True}
-        ]
-        t3_drops = [
-            {"id": "6028601630662853006", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 200, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_rocket.webp", "is_nft": False},
-            {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True}
-        ]
-        t4_drops = [
-            {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True},
-            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True}
-        ]
-        t5_drops = [
-            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
-            {"id": "5170250947678437999", "stars": 2500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
-            {"id": "5170889922832818299", "stars": 3500, "name": "Snoop Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True},
-            {"id": "5170999922832818299", "stars": 5000, "name": "Vintage Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True}
-        ]
-
-    # Rasmiy Telegram Premium Yutuqlari (Toza statik tasvir)
-    t4_drops.append({
-        "id": "tg_prem_3m",
-        "stars": 1100,
-        "name": "Telegram Premium (3 Oylik)",
-        "icon": "telegram_premium",
-        "file_id": "",
-        "file_type": "webp",
-        "is_nft": False,
-        "is_premium": True,
-        "premium_months": 3,
-        "min_stars_required": 1100,
-        "image_url": "/api/nft/image/TG_PREMIUM.webp",
-        "video_url": ""
-    })
-    t5_drops.append({
-        "id": "tg_prem_6m",
-        "stars": 2150,
-        "name": "Telegram Premium (6 Oylik)",
-        "icon": "telegram_premium",
-        "file_id": "",
-        "file_type": "webp",
-        "is_nft": False,
-        "is_premium": True,
-        "premium_months": 6,
-        "min_stars_required": 2150,
-        "image_url": "/api/nft/image/TG_PREMIUM.webp",
-        "video_url": ""
-    })
+    # Barcha arzon common (15-50 Stars) tortlar va gullar foydalanuvchi talabi bilan butunlay olib tashlandi!
+    # Faqat haqiqiy qimmatbaho Telegram sovg'alari va Collectible NFT lar qoldirildi.
+    t1_drops = [
+        {"id": "6028601630662853006", "stars": 120, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
+        {"id": "5170889922832818291", "stars": 150, "name": "Desk Calendar Collectible NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True},
+        {"id": "5170521118301225164", "stars": 200, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+        {"id": "5170521118301225199", "stars": 250, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True}
+    ]
+    t2_drops = [
+        {"id": "5170521118301225164", "stars": 350, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+        {"id": "5170521118301225199", "stars": 500, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True},
+        {"id": "5170690322832818299", "stars": 750, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
+        {"id": "tg_prem_3m", "stars": 1100, "name": "Telegram Premium (3 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 3, "min_stars_required": 1100, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""}
+    ]
+    t3_drops = [
+        {"id": "5170690322832818299", "stars": 750, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
+        {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+        {"id": "5170250947678437999", "stars": 1500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
+        {"id": "tg_prem_3m", "stars": 1100, "name": "Telegram Premium (3 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 3, "min_stars_required": 1100, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""},
+        {"id": "tg_prem_6m", "stars": 2150, "name": "Telegram Premium (6 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 6, "min_stars_required": 2150, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""}
+    ]
+    t4_drops = [
+        {"id": "5170250947678437999", "stars": 1500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
+        {"id": "tg_prem_6m", "stars": 2150, "name": "Telegram Premium (6 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 6, "min_stars_required": 2150, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""},
+        {"id": "5170889922832818299", "stars": 2500, "name": "Snoop Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True},
+        {"id": "5170999922832818300", "stars": 3500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_type": "webp", "image_url": "/api/nft/image/royal_crown.webp", "is_nft": True}
+    ]
+    t5_drops = [
+        {"id": "5170999922832818299", "stars": 3500, "name": "Vintage Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True},
+        {"id": "tg_prem_12m", "stars": 3800, "name": "Telegram Premium (1 Yillik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 12, "min_stars_required": 3800, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""},
+        {"id": "5170999922832818301", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "dragon", "file_type": "webp", "image_url": "/api/nft/image/golden_dragon.webp", "is_nft": True},
+        {"id": "5170999922832818302", "stars": 7500, "name": "Telegram Star Trophy Collectible NFT", "icon": "trophy", "file_type": "webp", "image_url": "/api/nft/image/star_trophy.webp", "is_nft": True}
+    ]
 
     GIFT_FALLBACK_IMAGES = {
         "cake": "/api/nft/image/delicious_cake.webp",
@@ -544,7 +473,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "candle": "/api/nft/image/bday_candle.webp",
         "locket": "/api/nft/image/heart_locket.webp",
         "potion": "/api/nft/image/magic_potion.webp",
-        "package": "/api/nft/image/delicious_cake.webp",
+        "package": "/api/nft/image/NFT.webp",
+        "gift": "/api/nft/image/NFT.webp",
         "telegram_premium": "/api/nft/image/TG_PREMIUM.webp"
     }
 
@@ -596,66 +526,66 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "tier_1": {
             "id": "tier_1",
             "key": "starter",
-            "name": "Bronze Starter Case",
-            "price_stars": 25,
-            "price_uzs": 10000,
+            "name": "Bronze Starter Vault",
+            "price_stars": 100,
+            "price_uzs": 40000,
             "icon": "package",
             "image_url": "/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v3",
-            "badge": "25 Stars / 10,000 so'm",
+            "badge": "100 Stars / 40,000 so'm",
             "color": "#cd7f32",
-            "description": "Telegram serveridagi rasmiy sovg'alar: 25 Stars gacha yutuqlar!",
-            "drops": format_drops(t1_drops, 25)
+            "description": "Telegram serveridagi eksklyuziv sovg'alar va Collectible NFT lar: 120 - 300 Stars!",
+            "drops": format_drops(t1_drops, 100)
         },
         "tier_2": {
             "id": "tier_2",
             "key": "creator",
-            "name": "Silver Creator Case",
-            "price_stars": 75,
-            "price_uzs": 30000,
+            "name": "Silver Collector Case",
+            "price_stars": 250,
+            "price_uzs": 100000,
             "icon": "gift",
             "image_url": "/api/nft/image/case_silver_3d.webp?v=20261017_3d_v3",
-            "badge": "75 Stars / 30,000 so'm",
+            "badge": "250 Stars / 100,000 so'm",
             "color": "#c0c0c0",
-            "description": "Telegram server sovg'alari: 50 Stars dan 250 Stars gacha!",
-            "drops": format_drops(t2_drops, 75)
+            "description": "Telegram Collectible NFT lar va Telegram Premium: 250 - 1100 Stars!",
+            "drops": format_drops(t2_drops, 250)
         },
         "tier_3": {
             "id": "tier_3",
             "key": "pro",
             "name": "Gold Pro Studio Case",
-            "price_stars": 250,
-            "price_uzs": 100000,
+            "price_stars": 500,
+            "price_uzs": 200000,
             "icon": "trophy",
             "image_url": "/api/nft/image/case_gold_3d.webp?v=20261017_3d_v3",
-            "badge": "250 Stars / 100,000 so'm",
+            "badge": "500 Stars / 200,000 so'm",
             "color": "#ffd700",
-            "description": "Telegram server sovg'alari: 100 Stars dan 500 Stars gacha!",
-            "drops": format_drops(t3_drops, 250)
+            "description": "Noyob Collectible NFT lar va Telegram Premium: 750 - 2150 Stars!",
+            "drops": format_drops(t3_drops, 500)
         },
         "tier_4": {
             "id": "tier_4",
             "key": "vip",
             "name": "Platinum VIP Master Case",
-            "price_stars": 750,
-            "price_uzs": 300000,
+            "price_stars": 1000,
+            "price_uzs": 400000,
             "icon": "gem",
             "image_url": "/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v3",
-            "badge": "750 Stars / 300,000 so'm",
+            "badge": "1,000 Stars / 400,000 so'm",
             "color": "#00f0ff",
-            "description": "Telegram serveridagi premium sovg'alar va Telegram Premium (3 oy)!",
-            "drops": format_drops(t4_drops, 750)
+            "description": "Super qimmatbaho Telegram NFT lar va 6 oylik Premium: 1500 - 3500 Stars!",
+            "drops": format_drops(t4_drops, 1000)
         },
         "tier_5": {
             "id": "tier_5",
             "key": "galaxy",
-            "name": "Diamond Galaxy Case",
+            "name": "Diamond Sovereign Case",
             "price_stars": 2500,
             "price_uzs": 1000000,
             "icon": "crown",
             "image_url": "/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v3",
             "badge": "2,500 Stars / 1,000,000 so'm",
             "color": "#b026ff",
-            "description": "Telegram eksklyuziv sovg'alari va Telegram Premium (6 oy)!",
+            "description": "Afsonaviy Telegram NFT lari va 1 yillik Telegram Premium: 3500 - 10,000 Stars!",
             "drops": format_drops(t5_drops, 2500)
         }
     }
