@@ -446,56 +446,53 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         # Tier 4: Platinum (750 Stars) -> asosan 250-750 stars, max 1500 stars
         t4_drops = [it for it in items if (250 <= it["stars"] <= 1500)]
         t4_drops.extend([
-            {"id": "5170690322832818290", "stars": 350, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True}
+            {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True},
+            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True}
         ])
         t4_drops = [it for it in t4_drops if it["stars"] >= 250]
 
         # Tier 5: Diamond Galaxy Case (2500 Stars) -> 500 - 5000+ stars
         t5_drops = [it for it in items if it["stars"] >= 500]
         t5_drops.extend([
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True},
-            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg", "is_nft": True},
-            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg", "is_nft": True},
-            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg", "is_nft": True}
+            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
+            {"id": "5170250947678437999", "stars": 2500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
+            {"id": "5170889922832818299", "stars": 3500, "name": "Snoop Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True},
+            {"id": "5170999922832818299", "stars": 5000, "name": "Vintage Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True}
         ])
         t5_drops = [it for it in t5_drops if it["stars"] >= 500]
     else:
         # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
         t1_drops = [
-            {"id": "5170144170496491616", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E", "file_type": "tgs", "is_nft": False},
-            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ", "file_type": "tgs", "is_nft": False}
+            {"id": "5170144170496491616", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_type": "webp", "image_url": "/api/nft/image/delicious_cake.webp", "is_nft": False},
+            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_type": "webp", "image_url": "/api/nft/image/gift_star.webp", "is_nft": False},
+            {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg", "is_nft": False},
+            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_type": "webp", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False}
         ]
         t2_drops = [
-            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E", "file_type": "tgs", "is_nft": False},
-            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": False}
+            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_type": "webp", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False},
+            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_type": "webp", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
+            {"id": "5170889922832818291", "stars": 150, "name": "Desk Calendar NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True}
         ]
         t3_drops = [
-            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 200, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False}
+            {"id": "6028601630662853006", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 200, "name": "Diamond Ring", "icon": "diamond_ring", "file_type": "webp", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_type": "webp", "image_url": "/api/nft/image/gift_rocket.webp", "is_nft": False},
+            {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True}
         ]
         t4_drops = [
-            {"id": "5170690322832818290", "stars": 350, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True}
+            {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True},
+            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True}
         ]
         t5_drops = [
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True},
-            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg", "is_nft": True},
-            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg", "is_nft": True},
-            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg", "is_nft": True}
+            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
+            {"id": "5170250947678437999", "stars": 2500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
+            {"id": "5170889922832818299", "stars": 3500, "name": "Snoop Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True},
+            {"id": "5170999922832818299", "stars": 5000, "name": "Vintage Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True}
         ]
 
     # Rasmiy Telegram Premium Yutuqlari (Toza statik tasvir)
@@ -529,18 +526,25 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     })
 
     GIFT_FALLBACK_IMAGES = {
-        "cake": "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg",
-        "star": "https://nft.fragment.com/gift/bdaycandle-265363.medium.jpg",
-        "teddy": "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
-        "bouquet": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
-        "champagne": "https://nft.fragment.com/gift/magicpotion-312.medium.jpg",
-        "diamond_ring": "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
-        "trophy": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-        "rocket": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-        "cap": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg",
-        "plush": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg",
-        "crown": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-        "package": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+        "cake": "/api/nft/image/delicious_cake.webp",
+        "star": "/api/nft/image/gift_star.webp",
+        "teddy": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+        "bouquet": "/api/nft/image/gift_bouquet.webp",
+        "champagne": "/api/nft/image/champagne_bottle.webp",
+        "diamond_ring": "/api/nft/image/diamond_ring.webp",
+        "trophy": "/api/nft/image/star_trophy.webp",
+        "rocket": "/api/nft/image/gift_rocket.webp",
+        "cap": "/api/nft/image/durov_cap.webp",
+        "plush": "/api/nft/image/plush_pepe.webp",
+        "crown": "/api/nft/image/royal_crown.webp",
+        "dragon": "/api/nft/image/golden_dragon.webp",
+        "cigar": "/api/nft/image/vintage_cigar.webp",
+        "calendar": "/api/nft/image/desk_calendar.webp",
+        "watch": "/api/nft/image/swiss_watch.webp",
+        "candle": "/api/nft/image/bday_candle.webp",
+        "locket": "/api/nft/image/heart_locket.webp",
+        "potion": "/api/nft/image/magic_potion.webp",
+        "package": "/api/nft/image/delicious_cake.webp",
         "telegram_premium": "/api/nft/image/TG_PREMIUM.webp"
     }
 

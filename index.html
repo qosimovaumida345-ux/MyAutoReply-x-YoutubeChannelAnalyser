@@ -831,36 +831,52 @@
 
         // ==================== REAL FRAGMENT TELEGRAM GIFT ASSETS (ZERO EMOJIS, ZERO MOCKS) ====================
         const FRAGMENT_FALLBACK_IMAGES = {
-            cake: "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg",
-            star: "https://nft.fragment.com/gift/bdaycandle-265363.medium.jpg",
-            teddy: "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
-            bear: "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
-            ayiq: "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
-            bouquet: "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
-            flower: "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
-            gul: "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
-            rose: "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
-            champagne: "https://nft.fragment.com/gift/magicpotion-312.medium.jpg",
-            shampan: "https://nft.fragment.com/gift/magicpotion-312.medium.jpg",
-            ring: "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
-            diamond: "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
-            uzuk: "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
-            trophy: "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-            kubok: "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-            rocket: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            raketa: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            cap: "https://nft.fragment.com/gift/durovscap-1024.medium.jpg",
-            kepka: "https://nft.fragment.com/gift/durovscap-1024.medium.jpg",
-            plush: "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg",
-            pepe: "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg",
-            crown: "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-            toj: "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
+            autostream: "/api/nft/image/service_autostream.webp",
+            stream: "/api/nft/image/service_autostream.webp",
+            autopost: "/api/nft/image/service_autopost.webp",
+            post: "/api/nft/image/service_autopost.webp",
+            seo: "/api/nft/image/service_seo.webp",
+            suite: "/api/nft/image/service_seo.webp",
+            uniquify: "/api/nft/image/service_uniquify.webp",
+            unikal: "/api/nft/image/service_uniquify.webp",
+            scripts: "/api/nft/image/service_scripts.webp",
+            script: "/api/nft/image/service_scripts.webp",
+            cake: "/api/nft/image/delicious_cake.webp",
+            star: "/api/nft/image/gift_star.webp",
+            teddy: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            bear: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            ayiq: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            bouquet: "/api/nft/image/gift_bouquet.webp",
+            flower: "/api/nft/image/gift_bouquet.webp",
+            gul: "/api/nft/image/gift_bouquet.webp",
+            rose: "/api/nft/image/gift_bouquet.webp",
+            champagne: "/api/nft/image/champagne_bottle.webp",
+            shampan: "/api/nft/image/champagne_bottle.webp",
+            ring: "/api/nft/image/diamond_ring.webp",
+            diamond: "/api/nft/image/diamond_ring.webp",
+            uzuk: "/api/nft/image/diamond_ring.webp",
+            trophy: "/api/nft/image/star_trophy.webp",
+            kubok: "/api/nft/image/star_trophy.webp",
+            rocket: "/api/nft/image/gift_rocket.webp",
+            raketa: "/api/nft/image/gift_rocket.webp",
+            cap: "/api/nft/image/durov_cap.webp",
+            kepka: "/api/nft/image/durov_cap.webp",
+            plush: "/api/nft/image/plush_pepe.webp",
+            pepe: "/api/nft/image/plush_pepe.webp",
+            crown: "/api/nft/image/royal_crown.webp",
+            dragon: "/api/nft/image/golden_dragon.webp",
+            cigar: "/api/nft/image/vintage_cigar.webp",
+            calendar: "/api/nft/image/desk_calendar.webp",
+            watch: "/api/nft/image/swiss_watch.webp",
+            candle: "/api/nft/image/bday_candle.webp",
+            locket: "/api/nft/image/heart_locket.webp",
+            potion: "/api/nft/image/magic_potion.webp",
             premium: "/api/nft/image/TG_PREMIUM.webp",
             tg_premium: "/api/nft/image/TG_PREMIUM.webp",
-            package: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            box: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            gift: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            sovg: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg"
+            package: "/api/nft/image/delicious_cake.webp",
+            box: "/api/nft/image/delicious_cake.webp",
+            gift: "/api/nft/image/delicious_cake.webp",
+            sovg: "/api/nft/image/delicious_cake.webp"
         };
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
@@ -1640,6 +1656,45 @@
             const [marketSearch, setMarketSearch] = useState('');
             const [marketVisibleCount, setMarketVisibleCount] = useState(36);
             const [hoveredNftId, setHoveredNftId] = useState(null);
+            const [buyingNftSlug, setBuyingNftSlug] = useState(null);
+
+            const handleBuyNftDirect = async (nft, paymentMethod = 'stars') => {
+                if (!nft) return;
+                const costLabel = paymentMethod === 'stars' 
+                    ? `${(nft.stars || 100).toLocaleString()} Stars` 
+                    : `${(nft.price_uzs || 150000).toLocaleString()} so'm`;
+                
+                const confirmed = window.confirm(`${nft.name} (${nft.edition || ''}) ni ${costLabel} hisobidan to'g'ridan-to'g'ri sotib olishni tasdiqlaysizmi?`);
+                if (!confirmed) return;
+
+                setBuyingNftSlug(nft.slug);
+                try {
+                    const res = await fetch('/api/stars/marketplace/buy', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: user?.id || 0,
+                            slug: nft.slug,
+                            payment_method: paymentMethod
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.ok) {
+                        alert(data.message || "NFT muvaffaqiyatli xarid qilindi va vitrinangizga qo'shildi!");
+                        if (data.new_balance !== undefined && setUser) {
+                            setUser(prev => ({ ...prev, balance: data.new_balance }));
+                        }
+                        if (typeof fetchUserInventory === 'function') fetchUserInventory();
+                        else if (typeof fetchDailyStreak === 'function') fetchDailyStreak();
+                    } else {
+                        alert(data.error || "Xaridni amalga oshirib bo'lmadi!");
+                    }
+                } catch (e) {
+                    alert("Server bilan bog'lanishda xatolik: " + e.message);
+                } finally {
+                    setBuyingNftSlug(null);
+                }
+            };
 
             // CS:GO Decelerating Reel State
             const [reelItems, setReelItems] = useState([]);
@@ -5120,23 +5175,40 @@
                                                     <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "10px" }}>
                                                         Siz Tikayotgan Sovg'a:
                                                     </div>
-                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderItem?.icon || "cake"} name={upgraderItem?.name || "Sovg'a"} size="48px" /></div>
+                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia imageUrl={upgraderItem?.image_url} icon={upgraderItem?.icon || "cake"} name={upgraderItem?.name || "Sovg'a"} size="56px" /></div>
                                                     <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderItem?.name || "Sovg'a tanlang"}</div>
                                                     <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderItem?.stars || 0} Stars</span><SvgStar size={13} color="#ffd700" /></div>
                                                     
-                                                    {/* Quick Select Buttons */}
-                                                    <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "12px" }}>
-                                                        {[
-                                                            { name: "Delicious Cake", stars: 15, icon: "cake" },
-                                                            { name: "Bouquet of Flowers", stars: 50, icon: "bouquet" },
-                                                            { name: "Champagne Bottle", stars: 100, icon: "champagne" }
-                                                        ].map((it, idx) => (
+                                                    {/* Tikilayotgan Sovg'a Tanlovi (Foydalanuvchi inventari yoki Baza sovg'alar) */}
+                                                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
+                                                        {((userGifts && userGifts.length > 0) ? userGifts : [
+                                                            { name: "Delicious Cake", stars: 15, icon: "cake", image_url: "/api/nft/image/delicious_cake.webp" },
+                                                            { name: "Green Star", stars: 25, icon: "star", image_url: "/api/nft/image/gift_star.webp" },
+                                                            { name: "Teddy Bear", stars: 50, icon: "teddy", image_url: "https://nft.fragment.com/gift/toybear-7605.medium.jpg" },
+                                                            { name: "Bouquet of Flowers", stars: 50, icon: "bouquet", image_url: "/api/nft/image/gift_bouquet.webp" },
+                                                            { name: "Champagne Bottle", stars: 75, icon: "champagne", image_url: "/api/nft/image/champagne_bottle.webp" },
+                                                            { name: "Diamond Ring", stars: 100, icon: "diamond_ring", image_url: "/api/nft/image/diamond_ring.webp" }
+                                                        ]).slice(0, 8).map((it, idx) => (
                                                             <button
                                                                 key={idx}
-                                                                onClick={() => setUpgraderItem(it)}
-                                                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderItem?.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+                                                                onClick={() => setUpgraderItem({
+                                                                    name: it.prize_name || it.name,
+                                                                    stars: it.prize_stars || it.stars,
+                                                                    icon: it.icon || "cake",
+                                                                    image_url: it.image_url || ""
+                                                                })}
+                                                                style={{
+                                                                    padding: "5px 10px",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: 700,
+                                                                    borderRadius: "999px",
+                                                                    border: (upgraderItem?.name === (it.prize_name || it.name)) ? "2px solid #7342E2" : "1px solid var(--border-soft)",
+                                                                    background: (upgraderItem?.name === (it.prize_name || it.name)) ? "#7342E2" : "#ffffff",
+                                                                    color: (upgraderItem?.name === (it.prize_name || it.name)) ? "#ffffff" : "var(--text)",
+                                                                    cursor: "pointer"
+                                                                }}
                                                             >
-                                                                {it.stars} Stars
+                                                                {it.prize_stars || it.stars} Stars
                                                             </button>
                                                         ))}
                                                     </div>
@@ -5161,27 +5233,63 @@
                                                             <span>Bor Sovg'a ({upgraderTarget.receiver_target === 'aiko_64' ? '@aiko_64' : 'Bot'})</span>
                                                         </div>
                                                     ) : null}
-                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia icon={upgraderTarget?.icon || "champagne"} name={upgraderTarget?.name || "Sovg'a"} size="48px" /></div>
+                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}><TelegramGiftMedia imageUrl={upgraderTarget?.image_url} icon={upgraderTarget?.icon || "champagne"} name={upgraderTarget?.name || "Sovg'a"} size="56px" /></div>
                                                     <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderTarget?.name || "Sovg'a tanlang"}</div>
                                                     <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}><span>{upgraderTarget?.stars || 0} Stars</span><SvgStar size={13} color="#ffd700" /></div>
 
-                                                    {/* Target Quick Select - Real Bor Sovg'alar */}
-                                                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
+                                                    {/* Kutilayotgan Sovg'a Tanlovi (Cheksiz to'liq katalog) */}
+                                                    <div style={{
+                                                        display: "flex",
+                                                        justifyContent: "flex-start",
+                                                        overflowX: "auto",
+                                                        gap: "6px",
+                                                        marginTop: "12px",
+                                                        paddingBottom: "6px",
+                                                        scrollbarWidth: "none"
+                                                    }}>
                                                         {(upgraderInventory && upgraderInventory.length > 0 ? upgraderInventory : [
-                                                            { name: "Champagne Bottle", stars: 100, icon: "champagne" },
-                                                            { name: "Diamond Ring", stars: 250, icon: "diamond_ring" },
-                                                            { name: "Golden Trophy", stars: 500, icon: "trophy" },
-                                                            { name: "Space Rocket", stars: 1000, icon: "rocket" }
-                                                        ]).map((it, idx) => (
-                                                            <button
-                                                                key={idx}
-                                                                onClick={() => setUpgraderTarget(it)}
-                                                                style={{ padding: "4px 8px", fontSize: "12px", borderRadius: "8px", border: upgraderTarget?.name === it.name ? "2px solid #7342E2" : "1px solid #ddd", background: "#fff", cursor: "pointer" }}
-                                                                title={it.receiver_target ? `Bor sovg'a: ${it.receiver_target}` : ""}
-                                                            >
-                                                                {it.stars} Stars
-                                                            </button>
-                                                        ))}
+                                                            { name: "Champagne Bottle", stars: 75, icon: "champagne", image_url: "/api/nft/image/champagne_bottle.webp" },
+                                                            { name: "Diamond Ring", stars: 100, icon: "diamond_ring", image_url: "/api/nft/image/diamond_ring.webp" },
+                                                            { name: "Desk Calendar NFT", stars: 150, icon: "calendar", image_url: "/api/nft/image/desk_calendar.webp" },
+                                                            { name: "Space Rocket", stars: 500, icon: "rocket", image_url: "/api/nft/image/gift_rocket.webp" },
+                                                            { name: "Swiss Watch NFT", stars: 550, icon: "watch", image_url: "/api/nft/image/swiss_watch.webp" },
+                                                            { name: "Durov's Cap NFT", stars: 750, icon: "cap", image_url: "/api/nft/image/durov_cap.webp" },
+                                                            { name: "Plush Pepe NFT", stars: 1500, icon: "plush", image_url: "/api/nft/image/plush_pepe.webp" },
+                                                            { name: "B-Day Candle NFT", stars: 2500, icon: "candle", image_url: "/api/nft/image/bday_candle.webp" },
+                                                            { name: "Snoop Cigar NFT", stars: 3500, icon: "cigar", image_url: "/api/nft/image/snoop_cigar.webp" },
+                                                            { name: "Vintage Cigar NFT", stars: 5000, icon: "cigar", image_url: "/api/nft/image/vintage_cigar.webp" }
+                                                        ]).map((it, idx) => {
+                                                            const isSel = (upgraderTarget?.name === (it.gift_name || it.name));
+                                                            return (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => setUpgraderTarget({
+                                                                        name: it.gift_name || it.name,
+                                                                        stars: it.stars_value || it.stars,
+                                                                        icon: it.icon || "champagne",
+                                                                        image_url: it.image_url || "",
+                                                                        id: it.id
+                                                                    })}
+                                                                    style={{
+                                                                        whiteSpace: "nowrap",
+                                                                        padding: "6px 12px",
+                                                                        fontSize: "12px",
+                                                                        fontWeight: 700,
+                                                                        borderRadius: "999px",
+                                                                        border: isSel ? "2px solid #7342E2" : "1px solid var(--border-soft)",
+                                                                        background: isSel ? "#7342E2" : "#ffffff",
+                                                                        color: isSel ? "#ffffff" : "var(--text)",
+                                                                        cursor: "pointer",
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        gap: "4px"
+                                                                    }}
+                                                                >
+                                                                    <span>{it.gift_name || it.name}</span>
+                                                                    <span style={{ fontSize: "11px", color: isSel ? "#ffd700" : "#d97706" }}>({it.stars_value || it.stars}★)</span>
+                                                                </button>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             </div>
@@ -5337,13 +5445,13 @@
                                             {/* 7 Days Grid */}
                                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))", gap: "12px", marginBottom: "32px" }}>
                                                 {(streakData ? streakData.rewards : [
-                                                    { day: 1, title: "5 ta AI SEO", icon: "zap" },
-                                                    { day: 2, title: "10 ta AI Teglar", icon: "tag" },
-                                                    { day: 3, title: "3 ta Unikal VIP", icon: "rocket" },
-                                                    { day: 4, title: "10 ta Skript", icon: "edit" },
-                                                    { day: 5, title: "5 ta Unikal", icon: "sparkles" },
-                                                    { day: 6, title: "VIP Auditor", icon: "rocket" },
-                                                    { day: 7, title: "100 Stars Sovg'a", icon: "star" }
+                                                    { day: 1, title: "5 ta AI YouTube SEO", icon: "seo", image_url: "/api/nft/image/service_seo.webp" },
+                                                    { day: 2, title: "10 ta AI Teglar & Tavsif", icon: "seo", image_url: "/api/nft/image/service_seo.webp" },
+                                                    { day: 3, title: "3 ta Video Unikalizatsiya VIP", icon: "uniquify", image_url: "/api/nft/image/service_uniquify.webp" },
+                                                    { day: 4, title: "10 ta AI Video Skript & G'oyalar", icon: "scripts", image_url: "/api/nft/image/service_scripts.webp" },
+                                                    { day: 5, title: "5 ta Video Unikalizatsiya VIP", icon: "uniquify", image_url: "/api/nft/image/service_uniquify.webp" },
+                                                    { day: 6, title: "12 Soatlik 24/7 Autostream VIP", icon: "autostream", image_url: "/api/nft/image/service_autostream.webp" },
+                                                    { day: 7, title: "100 Telegram Stars Bonusi", icon: "star", image_url: "/api/nft/image/gift_star.webp" }
                                                 ]).map((r, idx) => {
                                                     const currDay = streakData ? streakData.current_day : 1;
                                                     const isClaimed = streakData && idx + 1 < currDay;
@@ -5363,7 +5471,7 @@
                                                             <div style={{ fontSize: "11px", fontWeight: 800, color: isToday ? "#15803d" : "var(--muted)", textTransform: "uppercase" }}>
                                                                 {r.day}-Kun
                                                             </div>
-                                                            <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center", margin: "8px 0" }}><TelegramGiftMedia icon={r?.icon || "package"} name={r?.title || ""} size="36px" /></div>
+                                                            <div style={{ height: "48px", display: "flex", alignItems: "center", justifyContent: "center", margin: "8px 0" }}><TelegramGiftMedia imageUrl={r?.image_url} icon={r?.icon} name={r?.title || ""} size="44px" /></div>
                                                             <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--text)", lineHeight: 1.3 }}>
                                                                 {r?.title || ""}
                                                             </div>
@@ -5444,7 +5552,8 @@
                                                         : (scratchData?.symbols || ["clapper", "clapper", "sparkles"]).map(s => ({
                                                             icon: s,
                                                             title: s === 'zap' ? 'Auto-Post Pro' : (s === 'sparkles' ? 'AI SEO Suite' : (s === 'rocket' ? 'Video Unikal VIP' : '100 Stars')),
-                                                            label: s === 'clapper' ? '1 Oylik VIP' : (s === 'sparkles' ? '15 ta Paket' : (s === 'gem' ? '100 Stars' : '1 Oylik'))
+                                                            label: s === 'clapper' ? '1 Oylik VIP' : (s === 'sparkles' ? '15 ta Paket' : (s === 'gem' ? '100 Stars' : '1 Oylik')),
+                                                            image_url: s === 'zap' ? '/api/nft/image/service_autopost.webp' : (s === 'sparkles' ? '/api/nft/image/service_seo.webp' : (s === 'rocket' ? '/api/nft/image/service_uniquify.webp' : '/api/nft/image/gift_star.webp'))
                                                         }))
                                                     ) || []).map((slotItem, sIdx) => (
                                                         <div key={sIdx} style={{
@@ -5460,7 +5569,7 @@
                                                             padding: "8px 4px",
                                                             boxShadow: "0 4px 12px rgba(0,0,0,0.25)"
                                                         }}>
-                                                            <TelegramGiftMedia icon={slotItem?.icon || "package"} size="32px" />
+                                                            <TelegramGiftMedia imageUrl={slotItem?.image_url} icon={slotItem?.icon} name={slotItem?.title} size="38px" />
                                                             <div style={{
                                                                 fontSize: "11px",
                                                                 fontWeight: 800,
@@ -5551,11 +5660,11 @@
 
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "24px" }}>
                                             {[
-                                                { id: "video_autopost_30", title: "Video Auto-Post Pro (1 Oylik)", desc: "YouTube va TikTok uchun to'liq avtomatik jadval bo'yicha posting.", stars: 350, icon: "zap", tag: "ENG OMMABOP" },
-                                                { id: "autostream_24h", title: "24/7 YouTube Autostream (24 Soat)", desc: "Serverda 24 soat uzluksiz video jonli efir strim qilish kvotasi.", stars: 250, icon: "clapper", tag: "LIVE STREAM" },
-                                                { id: "ai_seo_50", title: "50 ta Video uchun AI SEO Suite", desc: "YouTube algoritmi uchun High-CTR sarlavha, tavsif va teglar paketi.", stars: 100, icon: "sparkles", tag: "AI SPEED" },
-                                                { id: "video_unikal_10", title: "10 ta Video Unikalizatsiya VIP", desc: "8-qatlamli Anti-Copyright himoyasi bilan to'liq unikalizatsiya.", stars: 150, icon: "rocket", tag: "FULL HD 4K" },
-                                                { id: "ai_scripts_100", title: "100 ta Viral Video Skript & G'oyalar", desc: "Shorts va uzun videolar uchun to'liq viral ssenariy va hooklar.", stars: 200, icon: "edit", tag: "VIRAL HOOKS" }
+                                                { id: "video_autopost_30", title: "Video Auto-Post Pro (1 Oylik)", desc: "YouTube va TikTok uchun to'liq avtomatik jadval bo'yicha posting.", stars: 350, icon: "autopost", image_url: "/api/nft/image/service_autopost.webp", tag: "ENG OMMABOP" },
+                                                { id: "autostream_24h", title: "24/7 YouTube Autostream (24 Soat)", desc: "Serverda 24 soat uzluksiz video jonli efir strim qilish kvotasi.", stars: 250, icon: "autostream", image_url: "/api/nft/image/service_autostream.webp", tag: "LIVE STREAM" },
+                                                { id: "ai_seo_50", title: "50 ta Video uchun AI SEO Suite", desc: "YouTube algoritmi uchun High-CTR sarlavha, tavsif va teglar paketi.", stars: 100, icon: "seo", image_url: "/api/nft/image/service_seo.webp", tag: "AI SPEED" },
+                                                { id: "video_unikal_10", title: "10 ta Video Unikalizatsiya VIP", desc: "8-qatlamli Anti-Copyright himoyasi bilan to'liq unikalizatsiya.", stars: 150, icon: "uniquify", image_url: "/api/nft/image/service_uniquify.webp", tag: "FULL HD 4K" },
+                                                { id: "ai_scripts_100", title: "100 ta Viral Video Skript & G'oyalar", desc: "Shorts va uzun videolar uchun to'liq viral ssenariy va hooklar.", stars: 200, icon: "scripts", image_url: "/api/nft/image/service_scripts.webp", tag: "VIRAL HOOKS" }
                                             ].map((srv, sIdx) => (
                                                 <div
                                                     key={sIdx}
@@ -5585,7 +5694,7 @@
                                                         {srv?.tag || ""}
                                                     </div>
                                                     <div>
-                                                        <div style={{ height: "56px", display: "flex", alignItems: "center", marginBottom: "14px" }}><TelegramGiftMedia icon={srv?.icon || "package"} name={srv?.title || srv?.name || ""} size="48px" /></div>
+                                                        <div style={{ height: "56px", display: "flex", alignItems: "center", marginBottom: "14px" }}><TelegramGiftMedia imageUrl={srv?.image_url} icon={srv?.icon} name={srv?.title || srv?.name || ""} size="60px" /></div>
                                                         <h4 style={{ fontSize: "18px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>{srv?.title || srv?.name || ""}</h4>
                                                         <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.4, marginBottom: "20px" }}>{srv?.desc || ""}</p>
                                                     </div>
@@ -6627,50 +6736,78 @@
                                                                 ≈ {nft.price_uzs.toLocaleString()} so'm
                                                             </div>
 
-                                                            <div style={{ display: "flex", gap: "8px" }}>
-                                                                <a
-                                                                    href={`https://fragment.com/gift/${nft.slug}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    style={{
-                                                                        flex: 1,
-                                                                        padding: "10px 0",
-                                                                        borderRadius: "999px",
-                                                                        background: "rgba(0,136,204,0.08)",
-                                                                        color: "#0088cc",
-                                                                        textDecoration: "none",
-                                                                        fontSize: "12px",
-                                                                        fontWeight: 700,
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        gap: "4px"
-                                                                    }}
-                                                                >
-                                                                    <span>Fragment</span>
-                                                                    <SvgExternalLink size={12} color="#0088cc" />
-                                                                </a>
+                                                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                                                {/* To'g'ridan-to'g'ri Botdan Sotib Olish (Direct Buy) */}
                                                                 <button
-                                                                    onClick={() => setActiveTab('cases')}
+                                                                    onClick={() => handleBuyNftDirect(nft, 'stars')}
+                                                                    disabled={buyingNftSlug === nft.slug}
                                                                     style={{
-                                                                        flex: 1,
-                                                                        padding: "10px 0",
+                                                                        width: "100%",
+                                                                        padding: "11px 0",
                                                                         borderRadius: "999px",
-                                                                        background: "#0a0a0a",
+                                                                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                                                                         color: "#ffffff",
                                                                         border: "none",
-                                                                        fontSize: "12px",
-                                                                        fontWeight: 700,
+                                                                        fontSize: "13px",
+                                                                        fontWeight: 800,
                                                                         cursor: "pointer",
                                                                         display: "flex",
                                                                         alignItems: "center",
                                                                         justifyContent: "center",
-                                                                        gap: "4px"
+                                                                        gap: "6px",
+                                                                        boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)"
                                                                     }}
                                                                 >
-                                                                    <SvgStar size={12} color="#ffd700" />
-                                                                    <span>Keysdan Yut</span>
+                                                                    <SvgBox size={14} color="#ffffff" />
+                                                                    <span>{buyingNftSlug === nft.slug ? "Xarid qilinmoqda..." : `To'g'ridan Sotib Olish (${(nft.stars || 100).toLocaleString()} Stars)`}</span>
                                                                 </button>
+
+                                                                <div style={{ display: "flex", gap: "8px" }}>
+                                                                    <button
+                                                                        onClick={() => handleBuyNftDirect(nft, 'uzs')}
+                                                                        disabled={buyingNftSlug === nft.slug}
+                                                                        style={{
+                                                                            flex: 1,
+                                                                            padding: "8px 0",
+                                                                            borderRadius: "999px",
+                                                                            background: "#f4f4f5",
+                                                                            color: "#18181b",
+                                                                            border: "1px solid var(--border-soft)",
+                                                                            fontSize: "11px",
+                                                                            fontWeight: 700,
+                                                                            cursor: "pointer",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            gap: "4px"
+                                                                        }}
+                                                                    >
+                                                                        <span>So'm Bilan Xarid</span>
+                                                                    </button>
+
+                                                                    <a
+                                                                        href={`https://fragment.com/gift/${nft.slug}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        style={{
+                                                                            flex: 1,
+                                                                            padding: "8px 0",
+                                                                            borderRadius: "999px",
+                                                                            background: "rgba(0,136,204,0.08)",
+                                                                            color: "#0088cc",
+                                                                            textDecoration: "none",
+                                                                            fontSize: "11px",
+                                                                            fontWeight: 700,
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            gap: "4px"
+                                                                        }}
+                                                                    >
+                                                                        <span>Fragment</span>
+                                                                        <SvgExternalLink size={11} color="#0088cc" />
+                                                                    </a>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>

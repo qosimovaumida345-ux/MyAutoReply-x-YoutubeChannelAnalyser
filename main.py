@@ -2579,21 +2579,21 @@ async def handle_api_stars_user_inventory(request):
 
         # Standart sovg'alar rasmlari xaritasi (Zero mockups, zero emojis)
         STANDARD_GIFT_IMAGES = {
-            "cake": "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg",
-            "star": "https://nft.fragment.com/gift/bdaycandle-265363.medium.jpg",
-            "teddy": "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
-            "bouquet": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
-            "champagne": "https://nft.fragment.com/gift/magicpotion-312.medium.jpg",
-            "diamond_ring": "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
-            "trophy": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-            "rocket": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            "cap": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg",
-            "plush": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg",
-            "crown": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
-            "package": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg"
+            "cake": "/api/nft/image/delicious_cake.webp",
+            "star": "/api/nft/image/gift_star.webp",
+            "teddy": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            "bouquet": "/api/nft/image/gift_bouquet.webp",
+            "champagne": "/api/nft/image/champagne_bottle.webp",
+            "diamond_ring": "/api/nft/image/diamond_ring.webp",
+            "trophy": "/api/nft/image/star_trophy.webp",
+            "rocket": "/api/nft/image/gift_rocket.webp",
+            "cap": "/api/nft/image/durov_cap.webp",
+            "plush": "/api/nft/image/plush_pepe.webp",
+            "crown": "/api/nft/image/royal_crown.webp",
+            "package": "/api/nft/image/delicious_cake.webp"
         }
 
-        for g in raw_gifts:
+        for g_idx, g in enumerate(raw_gifts):
             stars = int(g.get("prize_stars") or 25)
             p_name = g.get("prize_name") or "Telegram Sovg'a"
             p_lower = p_name.lower()
@@ -2629,19 +2629,21 @@ async def handle_api_stars_user_inventory(request):
                     if not matched_edition: matched_edition = matched_item.get("edition", "")
                     backdrop = matched_item.get("backdrop", backdrop)
             
+            if not is_nft:
+                # Agar generic "Telegram Sovg'asi" bo'lsa, har birini alohida chiroyli haqiqiy sovg'a sifatida ko'rsatish
+                if "telegram sovg" in p_lower or p_name == "Telegram Gift" or icon == "package":
+                    distinct_gifts = [
+                        ("Delicious Cake", "cake", "/api/nft/image/delicious_cake.webp", 15),
+                        ("Green Star", "star", "/api/nft/image/gift_star.webp", 25),
+                        ("Teddy Bear", "teddy", "https://nft.fragment.com/gift/toybear-7605.medium.jpg", 50),
+                        ("Bouquet of Flowers", "bouquet", "/api/nft/image/gift_bouquet.webp", 50)
+                    ]
+                    chosen = distinct_gifts[g_idx % len(distinct_gifts)]
+                    p_name, icon, image_url = chosen[0], chosen[1], chosen[2]
+                    stars = chosen[3]
+            
             if not image_url:
-                image_url = STANDARD_GIFT_IMAGES.get(icon, "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg")
-
-            # Clean name agar eski generatsiya bo'lsa
-            if "telegram sovg" in p_lower:
-                clean_names = {
-                    "cake": "Delicious Cake",
-                    "star": "Green Star",
-                    "teddy": "Teddy Bear",
-                    "bouquet": "Bouquet of Flowers",
-                    "champagne": "Champagne Bottle"
-                }
-                p_name = clean_names.get(icon, "Telegram Sovg'asi")
+                image_url = STANDARD_GIFT_IMAGES.get(icon, "/api/nft/image/delicious_cake.webp")
 
             formatted.append({
                 "id": g.get("id"),
@@ -2704,11 +2706,130 @@ async def handle_api_nft_animation(request):
         return web.Response(status=500, text=f"Error: {e}")
 
 async def handle_api_stars_upgrader_inventory(request):
-    """Upgrader uchun mavjud bo'lgan haqiqiy sovg'alar inventari (aiko_64 / bot)"""
+    """Upgrader uchun mavjud bo'lgan barcha darajadagi sovg'alar va NFT lar (Cheksiz to'liq katalog)"""
     try:
         from database import get_available_gift_inventory
-        inventory = get_available_gift_inventory(limit=50)
-        return web.json_response({"ok": True, "inventory": inventory}, headers={"Access-Control-Allow-Origin": "*"})
+        db_inventory = get_available_gift_inventory(limit=50) or []
+        
+        # Barcha narx toifalaridagi rasmiy sovg'alar va NFT lar (15 dan 6,000 Stars gacha)
+        full_catalog = [
+            {"id": "up_1", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_type": "webp", "image_url": "/api/nft/image/delicious_cake.webp", "is_nft": False, "rarity": "common"},
+            {"id": "up_2", "stars": 25, "name": "Green Star", "icon": "star", "file_type": "webp", "image_url": "/api/nft/image/gift_star.webp", "is_nft": False, "rarity": "common"},
+            {"id": "up_3", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg", "is_nft": False, "rarity": "common"},
+            {"id": "up_4", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_type": "webp", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False, "rarity": "common"},
+            {"id": "up_5", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False, "rarity": "rare"},
+            {"id": "up_6", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_type": "webp", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False, "rarity": "rare"},
+            {"id": "up_7", "stars": 150, "name": "Desk Calendar NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True, "rarity": "rare"},
+            {"id": "up_8", "stars": 250, "name": "Magic Potion NFT", "icon": "potion", "file_type": "webp", "image_url": "/api/nft/image/magic_potion.webp", "is_nft": True, "rarity": "rare"},
+            {"id": "up_9", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_type": "webp", "image_url": "/api/nft/image/gift_rocket.webp", "is_nft": False, "rarity": "legendary"},
+            {"id": "up_10", "stars": 550, "name": "Swiss Watch NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True, "rarity": "legendary"},
+            {"id": "up_11", "stars": 750, "name": "Durov's Cap NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True, "rarity": "legendary"},
+            {"id": "up_12", "stars": 1000, "name": "Star Trophy NFT", "icon": "trophy", "file_type": "webp", "image_url": "/api/nft/image/star_trophy.webp", "is_nft": True, "rarity": "legendary"},
+            {"id": "up_13", "stars": 1200, "name": "Heart Locket NFT", "icon": "locket", "file_type": "webp", "image_url": "/api/nft/image/heart_locket.webp", "is_nft": True, "rarity": "legendary"},
+            {"id": "up_14", "stars": 1500, "name": "Plush Pepe NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True, "rarity": "legendary"},
+            {"id": "up_15", "stars": 2500, "name": "B-Day Candle NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True, "rarity": "legendary"},
+            {"id": "up_16", "stars": 3500, "name": "Snoop Cigar NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True, "rarity": "transcendent"},
+            {"id": "up_17", "stars": 5000, "name": "Vintage Cigar NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True, "rarity": "transcendent"},
+            {"id": "up_18", "stars": 6000, "name": "Golden Dragon NFT", "icon": "dragon", "file_type": "webp", "image_url": "/api/nft/image/golden_dragon.webp", "is_nft": True, "rarity": "transcendent"}
+        ]
+        
+        combined = list(db_inventory)
+        existing_names = {str(it.get("gift_name") or it.get("name")).lower() for it in combined}
+        for cat_item in full_catalog:
+            if cat_item["name"].lower() not in existing_names:
+                combined.append({
+                    "id": cat_item["id"],
+                    "gift_name": cat_item["name"],
+                    "name": cat_item["name"],
+                    "stars_value": cat_item["stars"],
+                    "stars": cat_item["stars"],
+                    "icon": cat_item["icon"],
+                    "file_type": cat_item["file_type"],
+                    "image_url": cat_item["image_url"],
+                    "is_nft": cat_item["is_nft"],
+                    "rarity": cat_item["rarity"]
+                })
+        return web.json_response({"ok": True, "inventory": combined}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_marketplace_buy(request):
+    """
+    Fragment Telegram Gift NFT ni to'g'ridan-to'g'ri bot orqali sotib olish.
+    Foydalanuvchi o'zining Stars yoki so'm balansi orqali to'laydi.
+    """
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        slug = str(data.get("slug", "")).strip()
+        payment_method = str(data.get("payment_method", "uzs")).lower().strip()
+        
+        if user_id <= 0 or not slug:
+            return web.json_response({"ok": False, "error": "user_id va slug talab qilinadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+            
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+            
+        from telegram_marketplace_service import fetch_live_marketplace_stock_sync, get_sync_live_ton_rate
+        market_stock = fetch_live_marketplace_stock_sync()
+        target_item = None
+        for it in market_stock:
+            if it.get("slug") == slug or it.get("id") == slug:
+                target_item = it
+                break
+                
+        if not target_item:
+            return web.json_response({"ok": False, "error": "Tanlangan NFT topilmadi yoki allaqachon sotilgan!"}, status=404, headers={"Access-Control-Allow-Origin": "*"})
+            
+        rate = get_sync_live_ton_rate()
+        ton_uzs = rate.get("ton_uzs", 15703.0)
+        price_ton = float(target_item.get("price_ton", 1.0))
+        price_uzs = int(target_item.get("price_uzs") or round(price_ton * ton_uzs))
+        price_stars = int(target_item.get("stars", 100))
+        
+        user_balance_uzs = database.get_user_balance(user_id)
+        
+        if payment_method == "stars":
+            # 1 Star ≈ 400 so'm
+            required_uzs = price_stars * 400
+            if user_balance_uzs < required_uzs:
+                return web.json_response({
+                    "ok": False, 
+                    "error": f"Stars balansingiz yetarli emas! Sizga {price_stars} Stars ({required_uzs:,} so'm) kerak, hisobingizda esa {user_balance_uzs:,} so'm mavjud."
+                }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+            
+            if not database.deduct_user_balance(user_id, required_uzs):
+                return web.json_response({"ok": False, "error": "Mablag'ni hisobdan yechishda xatolik yuz berdi!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+        else:
+            if user_balance_uzs < price_uzs:
+                return web.json_response({
+                    "ok": False,
+                    "error": f"So'm balansingiz yetarli emas! Sizga {price_uzs:,} so'm kerak, hisobingizda esa {user_balance_uzs:,} so'm mavjud."
+                }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+                
+            if not database.deduct_user_balance(user_id, price_uzs):
+                return web.json_response({"ok": False, "error": "Mablag'ni hisobdan yechishda xatolik yuz berdi!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+                
+        # NFT ni foydalanuvchining shaxsiy inventariga yozish
+        rec_id = database.save_gift_record(
+            tg_user_id=user_id,
+            gift_id=slug,
+            tier_key="marketplace",
+            case_name="Fragment Marketplace Direct Buy",
+            prize_name=f"{target_item['name']} {target_item.get('edition', '')}".strip(),
+            prize_stars=price_stars,
+            status="sent"
+        )
+        
+        new_balance = database.get_user_balance(user_id)
+        return web.json_response({
+            "ok": True,
+            "message": f"Tabriklaymiz! {target_item['name']} muvaffaqiyatli xarid qilindi va shaxsiy vitrinangizga qo'shildi!",
+            "item": target_item,
+            "new_balance": new_balance,
+            "record_id": rec_id
+        }, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
@@ -3406,6 +3527,7 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/pvp/join", handle_api_stars_pvp_join)
     app.router.add_get("/api/stars/marketplace-nfts", handle_api_stars_marketplace_nfts)
     app.router.add_get("/api/stars/ton-rate", handle_api_stars_ton_rate)
+    app.router.add_post("/api/stars/marketplace/buy", handle_api_stars_marketplace_buy)
 
     # VenteBot Reseller API (so'm balansi, xavfsiz atomik buyurtma va kesh)
     app.router.add_get("/api/reseller/products", handle_api_reseller_products)
