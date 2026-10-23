@@ -2043,7 +2043,7 @@ def create_ytbot():
             return
         try:
             rec_id = int(parts[1].strip())
-            amt = int(parts[2].strip()) if len(parts) > 2 and parts[2].strip().isdigit() else 10000
+            amt = int(parts[2].strip()) if len(parts) > 2 and parts[2].strip().isdigit() else None
             from database import admin_refund_pending_gift
             res = admin_refund_pending_gift(rec_id, refund_amount_uzs=amt)
             if res.get("ok"):
@@ -2054,14 +2054,14 @@ def create_ytbot():
                     f"✅ <b>Buyurtma #{rec_id} muvaffaqiyatli bekor qilindi!</b>\n\n"
                     f"👤 Foydalanuvchi: <code>{target_uid}</code>\n"
                     f"🎁 Sovg'a: <b>{p_name}</b> ({p_stars} ⭐)\n"
-                    f"💰 Qaytarilgan mablag': <b>{amt:,} so'm</b>\n"
+                    f"💰 Qaytarilgan haqiqiy mablag': <b>{res.get('refund_uzs', 40000):,} so'm</b>\n"
                     f"💳 Yangi balans: <b>{res['new_balance']:,} so'm</b>"
                 )
                 try:
                     await client.send_message(
                         target_uid,
                         f"⚠️ <b>Hurmatli foydalanuvchi!</b>\n\n"
-                        f"Bot balansida hozirda yetarli Stars mavjud bo'lmagani sababli, <b>{p_name} ({p_stars} ⭐)</b> sovg'angiz buyurtmasi bekor qilindi va keys ochish uchun to'langan <b>{amt:,} so'm</b> mablag' hisobingizga to'liq qaytarildi! 💰\n\n"
+                        f"Bot balansida hozirda yetarli Stars mavjud bo'lmagani sababli, <b>{p_name} ({p_stars} ⭐)</b> sovg'angiz buyurtmasi bekor qilindi va to'langan <b>{res.get('refund_uzs', 40000):,} so'm</b> mablag' hisobingizga to'liq qaytarildi! 💰\n\n"
                         f"<i>Xohlasangiz hisobingizdagi mablag' bilan qaytadan keys ochishingiz yoki boshqa xizmatlardan foydalanishingiz mumkin.</i>"
                     )
                 except Exception as notify_err:
@@ -10693,9 +10693,12 @@ def create_ytbot():
                             tier_id = parts[2]
                             u_id = int(parts[3])
                             
-                            from games_monetization import open_stars_case, save_gift_record, process_pending_gifts_batch
+                            from games_monetization import open_stars_case, save_gift_record, process_pending_gifts_batch, STARS_CASES
                             res = open_stars_case(u_id, tier_id)
                             if res.get("ok"):
+                                c_info = STARS_CASES.get(tier_id, {})
+                                cost_s = int(c_info.get("price_stars", 100))
+                                cost_u = int(c_info.get("price_uzs", 40000))
                                 rec_id = save_gift_record(
                                     tg_user_id=u_id,
                                     gift_id=res.get("gift_id"),
@@ -10703,18 +10706,64 @@ def create_ytbot():
                                     case_name=res.get("case_name", ""),
                                     prize_name=res.get("prize_name", ""),
                                     prize_stars=res.get("prize_stars", 0),
-                                    status="pending"
+                                    status="pending",
+                                    cost_uzs=cost_u,
+                                    cost_stars=cost_s,
+                                    payment_method="stars"
                                 )
                                 import asyncio
                                 bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
                                 asyncio.create_task(process_pending_gifts_batch(bot_token=bot_token, limit=5))
                                 
+                                p_name = res.get("prize_name", "Telegram Sovg'a")
+                                p_stars = res.get("prize_stars", 0)
+                                c_name = res.get("case_name", "Mystery Keys")
                                 notify_txt = (
-                                    f"Tabriklaymiz! Siz <b>{nft_name}</b> NFT sovg'asini Telegram Stars orqali muvaffaqiyatli xarid qildingiz!\n\n"
-                                    f"Qiymati: {nft_stars} Stars\n"
+                                    f"Tabriklaymiz! Siz <b>{c_name}</b> keysini Stars orqali ochdingiz va <b>{p_name}</b> yutib oldingiz!\n\n"
+                                    f"Yutuq qiymati: {p_stars} Stars\n"
                                     f"Buyurtma ID: #{rec_id}\n\n"
-                                    f"<i>Sovg'a profilingizga yuborilmoqda!</i>"
+                                    f"<i>Sovg'angiz profilingizga yuborilmoqda!</i>"
                                 )
+                                await client.send_message(u_id, notify_txt)
+                        except Exception as box_pay_err:
+                            print(f"[Stars Box Payment] Error: {box_pay_err}")
+
+                    elif parts[1] == "nft":
+                        try:
+                            # stars_nft_{slug}_{user_id}_{timestamp}
+                            slug = parts[2]
+                            u_id = int(parts[3])
+                            from telegram_marketplace_service import fetch_live_marketplace_stock_sync
+                            stock = fetch_live_marketplace_stock_sync()
+                            target_nft = next((x for x in stock if x.get("slug") == slug), None)
+                            nft_name = target_nft["name"] if target_nft else f"Telegram NFT ({slug})"
+                            nft_stars = int(target_nft["stars"]) if target_nft else 100
+                            nft_uzs = int(target_nft.get("price_uzs", 0)) if target_nft else 0
+                            
+                            from database import save_gift_record
+                            rec_id = save_gift_record(
+                                tg_user_id=u_id,
+                                gift_id=slug,
+                                tier_key="marketplace",
+                                case_name="Fragment Marketplace",
+                                prize_name=nft_name,
+                                prize_stars=nft_stars,
+                                status="pending",
+                                cost_uzs=nft_uzs,
+                                cost_stars=nft_stars,
+                                payment_method="stars"
+                            )
+                            import asyncio
+                            from games_monetization import process_pending_gifts_batch
+                            bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
+                            asyncio.create_task(process_pending_gifts_batch(bot_token=bot_token, limit=5))
+                            
+                            notify_txt = (
+                                f"Tabriklaymiz! Siz <b>{nft_name}</b> NFT sovg'asini Telegram Stars orqali muvaffaqiyatli xarid qildingiz!\n\n"
+                                f"Qiymati: {nft_stars} Stars\n"
+                                f"Buyurtma ID: #{rec_id}\n\n"
+                                f"<i>Sovg'a profilingizga yuborilmoqda!</i>"
+                            )
                             await client.send_message(u_id, notify_txt)
                         except Exception as nft_pay_err:
                             print(f"[Stars NFT Payment] Error: {nft_pay_err}")

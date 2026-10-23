@@ -896,7 +896,10 @@ def open_stars_case_with_uzs(tg_user_id: int, tier_id: str, user_name: str = "")
         case_name=c_name,
         prize_name=p_name,
         prize_stars=p_stars,
-        status="pending"
+        status="pending",
+        cost_uzs=price_uzs,
+        cost_stars=int(case.get("price_stars", 100)),
+        payment_method="uzs"
     )
 
     res["gift_record_id"] = rec_id
@@ -1107,12 +1110,13 @@ async def process_pending_gifts_batch(bot_token: str = None, limit: int = 20) ->
             reason = res.get("reason", "api_error")
             err = res.get("error", "Noma'lum xato")
             if reason == "balance_insufficient":
-                # Bot Stars balansi yetarli emas -> foydalanuvchiga pul to'liq qaytariladi va xabar yuboriladi
+                # Bot Stars balansi yetarli emas -> foydalanuvchiga to'liq haqiqiy to'langan summa qaytariladi
                 from database import admin_refund_pending_gift
-                ref_res = admin_refund_pending_gift(rec_id, refund_amount_uzs=10000, reason="Bot Stars balansi yetarli emas - avto-qaytarildi")
+                ref_res = admin_refund_pending_gift(rec_id, refund_amount_uzs=None, reason="Bot Stars balansi yetarli emas - avto-qaytarildi")
                 if ref_res.get("ok"):
                     p_name = item.get("prize_name", "Telegram Sovg'a")
                     p_stars = item.get("prize_stars", 0)
+                    actual_refund_uzs = ref_res.get("refund_uzs", 40000)
                     try:
                         import urllib.request, json
                         from config import BOT_TOKEN
@@ -1121,11 +1125,10 @@ async def process_pending_gifts_batch(bot_token: str = None, limit: int = 20) ->
                         req_data = json.dumps({
                             "chat_id": u_id,
                             "text": (
-                                f"⚠️ <b>Hurmatli foydalanuvchi!</b>\n\n"
-                                f"Bot balansida hozirda yetarli Stars mavjud bo'lmagani sababli, <b>{p_name} ({p_stars} ⭐)</b> sovg'angiz buyurtmasi bekor qilindi va keys uchun to'langan <b>10,000 so'm</b> mablag' hisobingizga to'liq qaytarildi! 💰\n\n"
+                                f"Hurmatli foydalanuvchi!\n\n"
+                                f"Bot balansida hozirda yetarli Stars mavjud bo'lmagani sababli, <b>{p_name} ({p_stars} Stars)</b> sovg'angiz buyurtmasi bekor qilindi va keys uchun to'langan <b>{actual_refund_uzs:,} so'm</b> mablag' hisobingizga to'liq qaytarildi!\n\n"
                                 f"<i>Xohlasangiz hisobingizdagi mablag' bilan qaytadan keys ochishingiz yoki boshqa xizmatlardan foydalanishingiz mumkin.</i>"
-                            ),
-                            "parse_mode": "HTML"
+                            )
                         }).encode("utf-8")
                         req = urllib.request.Request(url, data=req_data, headers={"Content-Type": "application/json"})
                         with urllib.request.urlopen(req, timeout=5) as _: pass

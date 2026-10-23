@@ -535,6 +535,9 @@ def init_db():
             prize_stars INT DEFAULT 0,
             status TEXT DEFAULT 'pending',
             error_message TEXT,
+            payment_method VARCHAR(32) DEFAULT 'uzs',
+            cost_uzs BIGINT DEFAULT 0,
+            cost_stars INT DEFAULT 0,
             created_at TIMESTAMP DEFAULT NOW(),
             updated_at TIMESTAMP DEFAULT NOW(),
             sent_at TIMESTAMP
@@ -5629,6 +5632,32 @@ def update_ventebot_order_status(order_id: int, status: str, delivered_data: str
 
 # ==================== TELEGRAM STARS REAL GIFTS & PENDING QUEUE ====================
 
+CASE_DEFAULT_PRICES_UZS = {
+    "starter": 40000,
+    "tier_1": 40000,
+    "creator": 100000,
+    "tier_2": 100000,
+    "pro": 200000,
+    "tier_3": 200000,
+    "vip": 400000,
+    "tier_4": 400000,
+    "galaxy": 1000000,
+    "tier_5": 1000000
+}
+
+CASE_DEFAULT_PRICES_STARS = {
+    "starter": 100,
+    "tier_1": 100,
+    "creator": 250,
+    "tier_2": 250,
+    "pro": 500,
+    "tier_3": 500,
+    "vip": 1000,
+    "tier_4": 1000,
+    "galaxy": 2500,
+    "tier_5": 2500
+}
+
 def save_gift_record(
     tg_user_id: int,
     gift_id: str,
@@ -5637,7 +5666,10 @@ def save_gift_record(
     prize_name: str = "",
     prize_stars: int = 0,
     status: str = "pending",
-    error_message: str = None
+    error_message: str = None,
+    cost_uzs: int = 0,
+    cost_stars: int = 0,
+    payment_method: str = "uzs"
 ) -> int:
     """Yangi yutilgan sovg'a yozuvini saqlash (status: 'sent', 'pending', 'pending_balance', 'pending_privacy', 'failed')"""
     conn = get_db()
@@ -5646,13 +5678,24 @@ def save_gift_record(
     try:
         cur = conn.cursor()
         sent_at_sql = "NOW()" if status == "sent" else "NULL"
+        
+        # Auto-resolve costs from tier_key if not provided
+        if (cost_uzs is None or cost_uzs <= 0) and tier_key in CASE_DEFAULT_PRICES_UZS:
+            cost_uzs = CASE_DEFAULT_PRICES_UZS[tier_key]
+        if (cost_stars is None or cost_stars <= 0) and tier_key in CASE_DEFAULT_PRICES_STARS:
+            cost_stars = CASE_DEFAULT_PRICES_STARS[tier_key]
+            
         cur.execute(f"""
             INSERT INTO pending_gifts (
-                tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at, updated_at, sent_at
+                tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message,
+                payment_method, cost_uzs, cost_stars, created_at, updated_at, sent_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), {sent_at_sql})
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW(), {sent_at_sql})
             RETURNING id
-        """, (tg_user_id, str(gift_id), tier_key, case_name, prize_name, prize_stars, status, error_message))
+        """, (
+            tg_user_id, str(gift_id), tier_key, case_name, prize_name, prize_stars, status, error_message,
+            payment_method, int(cost_uzs or 0), int(cost_stars or 0)
+        ))
         res = cur.fetchone()
         conn.commit()
         if res:
@@ -5919,15 +5962,16 @@ def recycle_gift_record(record_id: int, tg_user_id: int, refund_uzs: int) -> dic
         conn.close()
 
 
-def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = 10000, reason: str = "Bot Stars balansi yetarli emas") -> dict:
-    """Pending giftni bekor qilib, summani foydalanuvchi balansiga to'liq qaytarish"""
+def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = None, reason: str = "Bot Stars balansi yetarli emas") -> dict:
+    """Pending giftni bekor qilib, summani foydalanuvchi balansiga to'liq qaytarish (agar summa ko'rsatilmasa, haqiqiy to'langan summa olinadi)"""
     conn = get_db()
     if not conn:
         return {"ok": False, "error": "Baza bilan aloqa yo'q"}
     try:
         cur = conn.cursor()
         cur.execute("""
-            SELECT id, tg_user_id, status, prize_name, prize_stars, tier_key, case_name 
+            SELECT id, tg_user_id, status, prize_name, prize_stars, tier_key, case_name,
+                   cost_uzs, cost_stars, payment_method
             FROM pending_gifts 
             WHERE id = %s 
             FOR UPDATE
@@ -5941,10 +5985,22 @@ def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = 10000, re
         status = row["status"] if isinstance(row, dict) else row[2]
         prize_name = row["prize_name"] if isinstance(row, dict) else row[3]
         prize_stars = row["prize_stars"] if isinstance(row, dict) else row[4]
+        tier_key = row["tier_key"] if isinstance(row, dict) else row[5]
+        row_cost_uzs = row["cost_uzs"] if isinstance(row, dict) and "cost_uzs" in row else (row[7] if len(row) > 7 else 0)
         
         if status in ("sent", "refunded"):
             conn.rollback()
             return {"ok": False, "error": f"Ushbu sovg'a allaqachon '{status}' holatida!"}
+
+        # Haqiqiy qaytariladigan summa: kiritilmagan bo'lsa bazadagi cost_uzs dan, u bo'lmasa tier_key narxidan olinadi
+        actual_refund_uzs = refund_amount_uzs
+        if actual_refund_uzs is None or actual_refund_uzs <= 0:
+            if row_cost_uzs and int(row_cost_uzs) > 0:
+                actual_refund_uzs = int(row_cost_uzs)
+            elif tier_key in CASE_DEFAULT_PRICES_UZS:
+                actual_refund_uzs = CASE_DEFAULT_PRICES_UZS[tier_key]
+            else:
+                actual_refund_uzs = 40000
 
         # 1. Holatni refunded ga o'tkazamiz
         cur.execute("""
@@ -5953,7 +6009,7 @@ def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = 10000, re
             WHERE id = %s
         """, (reason, record_id))
 
-        # 2. Foydalanuvchi balansiga to'langan mablag'ni qaytaramiz
+        # 2. Foydalanuvchi balansiga haqiqiy summani qaytaramiz
         cur.execute("""
             INSERT INTO user_balances (tg_user_id, balance_uzs)
             VALUES (%s, %s)
@@ -5961,7 +6017,7 @@ def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = 10000, re
             SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
                 updated_at = NOW()
             RETURNING balance_uzs
-        """, (tg_user_id, refund_amount_uzs))
+        """, (tg_user_id, actual_refund_uzs))
         b_res = cur.fetchone()
         new_bal = b_res["balance_uzs"] if isinstance(b_res, dict) else b_res[0]
 
@@ -5971,10 +6027,11 @@ def admin_refund_pending_gift(record_id: int, refund_amount_uzs: int = 10000, re
             "ok": True,
             "record_id": record_id,
             "tg_user_id": tg_user_id,
-            "refund_uzs": refund_amount_uzs,
+            "refund_uzs": actual_refund_uzs,
             "new_balance": new_bal,
             "prize_name": prize_name,
-            "prize_stars": prize_stars
+            "prize_stars": prize_stars,
+            "tier_key": tier_key
         }
     except Exception as e:
         conn.rollback()
@@ -7683,7 +7740,8 @@ def record_api_metered_usage(tg_user_id: int, endpoint: str, cost_uzs: int, stat
 
 
 
-
+
+
 
 # ==================== BOTSHIELD CAPTCHA DATABASE ENGINE ====================
 

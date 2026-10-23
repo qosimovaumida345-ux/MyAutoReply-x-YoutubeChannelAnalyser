@@ -2915,7 +2915,10 @@ async def handle_api_stars_marketplace_buy(request):
             case_name="Fragment Marketplace Direct Buy",
             prize_name=f"{target_item['name']} {target_item.get('edition', '')}".strip(),
             prize_stars=price_stars,
-            status="pending"
+            status="pending",
+            cost_uzs=price_uzs,
+            cost_stars=price_stars,
+            payment_method="uzs"
         )
         
         # Bot tokeni orqali jo'natish navbatini chaqirish
