@@ -706,6 +706,18 @@
             </svg>
         );
 
+        const SvgChevronLeft = ({ size = 20, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polyline points="15 18 9 12 15 6" />
+            </svg>
+        );
+
+        const SvgChevronRight = ({ size = 20, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <polyline points="9 18 15 12 9 6" />
+            </svg>
+        );
+
         const MenuIcon = ({ size = 24, color = "#192837" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="4" y1="12" x2="20" y2="12" />
@@ -831,62 +843,53 @@
 
         // ==================== REAL FRAGMENT TELEGRAM GIFT ASSETS (ZERO EMOJIS, ZERO MOCKS) ====================
         const FRAGMENT_FALLBACK_IMAGES = {
-            zap: "/api/nft/image/service_autopost.webp",
-            bolt: "/api/nft/image/service_autopost.webp",
-            autopost: "/api/nft/image/service_autopost.webp",
-            sparkles: "/api/nft/image/service_seo.webp",
-            seo: "/api/nft/image/service_seo.webp",
-            suite: "/api/nft/image/service_seo.webp",
-            uniquify: "/api/nft/image/service_uniquify.webp",
-            unikal: "/api/nft/image/service_uniquify.webp",
-            autostream: "/api/nft/image/service_autostream.webp",
-            clapper: "/api/nft/image/service_autostream.webp",
-            stream: "/api/nft/image/service_autostream.webp",
-            autopost: "/api/nft/image/service_autopost.webp",
-            post: "/api/nft/image/service_autopost.webp",
-            seo: "/api/nft/image/service_seo.webp",
-            suite: "/api/nft/image/service_seo.webp",
-            uniquify: "/api/nft/image/service_uniquify.webp",
-            unikal: "/api/nft/image/service_uniquify.webp",
-            scripts: "/api/nft/image/service_scripts.webp",
-            script: "/api/nft/image/service_scripts.webp",
-            cake: "/api/nft/image/delicious_cake.webp",
-            star: "/api/nft/image/gift_star.webp",
+            autopost: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            post: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            seo: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            suite: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            uniquify: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            unikal: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            scripts: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            script: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            cake: "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            star: "https://nft.fragment.com/gift/chillflame-443876.medium.jpg",
             teddy: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
             bear: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
             ayiq: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            bouquet: "/api/nft/image/gift_bouquet.webp",
-            flower: "/api/nft/image/gift_bouquet.webp",
-            gul: "/api/nft/image/gift_bouquet.webp",
-            rose: "/api/nft/image/gift_bouquet.webp",
-            champagne: "/api/nft/image/champagne_bottle.webp",
-            shampan: "/api/nft/image/champagne_bottle.webp",
-            ring: "/api/nft/image/diamond_ring.webp",
-            diamond: "/api/nft/image/diamond_ring.webp",
-            uzuk: "/api/nft/image/diamond_ring.webp",
-            trophy: "/api/nft/image/star_trophy.webp",
-            kubok: "/api/nft/image/star_trophy.webp",
-            rocket: "/api/nft/image/gift_rocket.webp",
-            raketa: "/api/nft/image/gift_rocket.webp",
-            cap: "/api/nft/image/durov_cap.webp",
-            kepka: "/api/nft/image/durov_cap.webp",
-            plush: "/api/nft/image/plush_pepe.webp",
-            pepe: "/api/nft/image/plush_pepe.webp",
-            crown: "/api/nft/image/royal_crown.webp",
-            dragon: "/api/nft/image/golden_dragon.webp",
-            cigar: "/api/nft/image/vintage_cigar.webp",
-            calendar: "/api/nft/image/desk_calendar.webp",
-            watch: "/api/nft/image/swiss_watch.webp",
-            candle: "/api/nft/image/bday_candle.webp",
-            locket: "/api/nft/image/heart_locket.webp",
-            potion: "/api/nft/image/magic_potion.webp",
+            bouquet: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            flower: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            gul: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            rose: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            champagne: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            shampan: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            ring: "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            diamond: "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            uzuk: "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            trophy: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            kubok: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            rocket: "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+            raketa: "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+            cap: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            kepka: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            plush: "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+            pepe: "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+            crown: "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+            dragon: "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+            cigar: "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+            calendar: "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
+            watch: "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+            candle: "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            locket: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            potion: "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+            cat: "https://nft.fragment.com/gift/scaredcat-15008.medium.jpg",
+            cookie: "https://nft.fragment.com/gift/gingercookie-148929.medium.jpg",
             premium: "/api/nft/image/TG_PREMIUM.webp",
             tg_premium: "/api/nft/image/TG_PREMIUM.webp",
-            package: "/api/nft/image/NFT.webp",
-            box: "/api/nft/image/NFT.webp",
-            gift: "/api/nft/image/NFT.webp",
-            sovg: "/api/nft/image/NFT.webp",
-            nft: "/api/nft/image/NFT.webp"
+            package: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            box: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            gift: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            sovg: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            nft: "https://nft.fragment.com/gift/toybear-7605.medium.jpg"
         };
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
@@ -4840,34 +4843,43 @@
                                                                     position: "relative",
                                                                     width: "66px",
                                                                     height: "66px",
-                                                                    borderRadius: "18px",
-                                                                    background: "transparent",
-                                                                    border: "none",
+                                                                    borderRadius: "16px",
+                                                                    background: d.backdrop || "linear-gradient(145deg, #18181b 0%, #09090b 100%)",
+                                                                    border: "1px solid rgba(255, 255, 255, 0.18)",
                                                                     display: "flex",
                                                                     flexDirection: "column",
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
                                                                     cursor: "pointer",
-                                                                    transition: "transform 0.15s ease",
-                                                                    padding: "2px"
+                                                                    transition: "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease",
+                                                                    padding: "3px",
+                                                                    boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+                                                                    overflow: "visible"
                                                                 }}
-                                                                onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.08)"}
-                                                                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                                                onMouseEnter={(e) => {
+                                                                    e.currentTarget.style.transform = "scale(1.12)";
+                                                                    e.currentTarget.style.boxShadow = "0 8px 22px rgba(0,0,0,0.28)";
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    e.currentTarget.style.transform = "scale(1)";
+                                                                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.18)";
+                                                                }}
                                                             >
-                                                                <div style={{ width: "56px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                                    <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} imageUrl={d.image_url} videoUrl={d.video_url} icon={d.icon} name={d.name} size={54} />
+                                                                <div style={{ width: "52px", height: "52px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", borderRadius: "12px" }}>
+                                                                    <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} imageUrl={d.image_url} videoUrl={d.video_url} icon={d.icon} name={d.name} size={50} style={{ objectFit: "contain" }} />
                                                                 </div>
                                                                 <span style={{
                                                                     position: "absolute",
-                                                                    bottom: "-4px",
+                                                                    bottom: "-5px",
                                                                     fontSize: "10px",
                                                                     fontWeight: 800,
                                                                     color: "#18181b",
                                                                     background: "#ffd700",
-                                                                    padding: "1px 6px",
+                                                                    padding: "1px 7px",
                                                                     borderRadius: "999px",
-                                                                    boxShadow: "0 2px 4px rgba(0,0,0,0.12)",
-                                                                    lineHeight: "1.2"
+                                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+                                                                    lineHeight: "1.2",
+                                                                    zIndex: 2
                                                                 }}>
                                                                     {d.stars}★
                                                                 </span>
@@ -6091,14 +6103,17 @@
                                             <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
                                                 <div style={{ fontSize: "13px", fontWeight: 700 }}>Mumkin bo'lgan sovg'alar:</div>
                                                 {oddsModalCase.drops && oddsModalCase.drops.map((d, i) => (
-                                                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "12px" }}>
+                                                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#ffffff", border: "1px solid var(--border-soft)", borderRadius: "14px", boxShadow: "0 2px 6px rgba(0,0,0,0.02)" }}>
                                                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                                            <div style={{ width: "56px", height: "56px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.03)", borderRadius: "14px", padding: "2px" }}>
-                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} imageUrl={d.image_url} videoUrl={d.video_url} icon={d.icon} name={d.name} size={50} />
+                                                            <div style={{ width: "56px", height: "56px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: d.backdrop || "linear-gradient(145deg, #18181b 0%, #09090b 100%)", borderRadius: "14px", padding: "3px", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 2px 8px rgba(0,0,0,0.12)" }}>
+                                                                <TelegramGiftMedia fileId={d.file_id} fileType={d.file_type} imageUrl={d.image_url} videoUrl={d.video_url} icon={d.icon} name={d.name} size={48} style={{ objectFit: "contain" }} />
                                                             </div>
-                                                            <span style={{ fontSize: "13px", fontWeight: 600 }}>{d.name}</span>
+                                                            <div>
+                                                                <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{d.name}</div>
+                                                                <div style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>{d.is_nft ? "Official Fragment NFT" : (d.is_premium ? "Telegram Premium" : "Official Gift")} • {d.rarity ? d.rarity.toUpperCase() : "RARE"}</div>
+                                                            </div>
                                                         </div>
-                                                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>{d.stars} Stars</span>
+                                                        <span style={{ fontSize: "14px", fontWeight: 800, color: "#eab308" }}>{d.stars.toLocaleString()} Stars</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -6340,11 +6355,25 @@
                                                     </div>
                                                 ) : (
                                                     <div style={{ animation: "prizePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)", textAlign: "center" }}>
-                                                        {unboxingPrize ? (
-                                                            <TelegramGiftMedia fileId={unboxingPrize.file_id} fileType={unboxingPrize.file_type} imageUrl={unboxingPrize.image_url} videoUrl={unboxingPrize.video_url} icon={unboxingPrize.icon} name={unboxingPrize.prize_name} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
-                                                        ) : (
-                                                            <TelegramGiftMedia fileId={activeUnboxing.drops[0]?.file_id} fileType={activeUnboxing.drops[0]?.file_type} imageUrl={activeUnboxing.drops[0]?.image_url} videoUrl={activeUnboxing.drops[0]?.video_url} icon={activeUnboxing.drops[0]?.icon} name={activeUnboxing.drops[0]?.name} size="80px" style={{ filter: "drop-shadow(0 0 20px rgba(255,215,0,0.5))" }} />
-                                                        )}
+                                                        <div style={{
+                                                            width: "110px",
+                                                            height: "110px",
+                                                            margin: "0 auto 12px",
+                                                            borderRadius: "22px",
+                                                            background: (unboxingPrize ? unboxingPrize.backdrop : activeUnboxing.drops[0]?.backdrop) || "linear-gradient(145deg, #18181b 0%, #09090b 100%)",
+                                                            border: "2px solid rgba(255,215,0,0.6)",
+                                                            boxShadow: "0 8px 32px rgba(255,215,0,0.35)",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            overflow: "hidden"
+                                                        }}>
+                                                            {unboxingPrize ? (
+                                                                <TelegramGiftMedia fileId={unboxingPrize.file_id} fileType={unboxingPrize.file_type} imageUrl={unboxingPrize.image_url} videoUrl={unboxingPrize.video_url} icon={unboxingPrize.icon} name={unboxingPrize.prize_name} size="90px" style={{ objectFit: "contain" }} />
+                                                            ) : (
+                                                                <TelegramGiftMedia fileId={activeUnboxing.drops[0]?.file_id} fileType={activeUnboxing.drops[0]?.file_type} imageUrl={activeUnboxing.drops[0]?.image_url} videoUrl={activeUnboxing.drops[0]?.video_url} icon={activeUnboxing.drops[0]?.icon} name={activeUnboxing.drops[0]?.name} size="90px" style={{ objectFit: "contain" }} />
+                                                            )}
+                                                        </div>
                                                         <div style={{ fontSize: "20px", fontWeight: 800, marginTop: "8px", color: "#ffffff" }}>
                                                             {unboxingPrize ? unboxingPrize.prize_name : (activeUnboxing.drops[0]?.name || "")}
                                                         </div>

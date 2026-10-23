@@ -423,58 +423,154 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     # Barcha arzon common (15-50 Stars) tortlar va gullar foydalanuvchi talabi bilan butunlay olib tashlandi!
     # Faqat haqiqiy qimmatbaho Telegram sovg'alari va Collectible NFT lar qoldirildi.
     t1_drops = [
-        {"id": "6028601630662853006", "stars": 120, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
-        {"id": "5170889922832818291", "stars": 150, "name": "Desk Calendar Collectible NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True},
-        {"id": "5170521118301225164", "stars": 200, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-        {"id": "5170521118301225199", "stars": 250, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True}
+        {
+            "id": "5170889922832818291", "stars": 150, "name": "Desk Calendar #269416", "icon": "calendar",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #134e4a 0%, #0f2928 100%)", "slug": "deskcalendar-269416", "is_nft": True
+        },
+        {
+            "id": "5170889922832818292", "stars": 180, "name": "Toy Bear #7605", "icon": "teddy",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #3f2c1d 0%, #1e150d 100%)", "slug": "toybear-7605", "is_nft": True
+        },
+        {
+            "id": "5170521118301225164", "stars": 250, "name": "Durov's Cap #3226", "icon": "cap",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "durovscap-3226", "is_nft": True
+        },
+        {
+            "id": "5170521118301225199", "stars": 350, "name": "Swiss Watch #19581", "icon": "watch",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "slug": "swisswatch-19581", "is_nft": True
+        }
     ]
     t2_drops = [
-        {"id": "5170521118301225164", "stars": 350, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-        {"id": "5170521118301225199", "stars": 500, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True},
-        {"id": "5170690322832818299", "stars": 750, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
-        {"id": "tg_prem_3m", "stars": 1100, "name": "Telegram Premium (3 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 3, "min_stars_required": 1100, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""}
+        {
+            "id": "5170521118301225164", "stars": 350, "name": "Durov's Cap #3226", "icon": "cap",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "durovscap-3226", "is_nft": True
+        },
+        {
+            "id": "5170521118301225199", "stars": 500, "name": "Swiss Watch #19581", "icon": "watch",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "slug": "swisswatch-19581", "is_nft": True
+        },
+        {
+            "id": "5170690322832818299", "stars": 750, "name": "Plush Pepe #2163", "icon": "plush",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #3b0764 0%, #1e1b4b 100%)", "slug": "plushpepe-2163", "is_nft": True
+        },
+        {
+            "id": "tg_prem_3m", "stars": 1100, "name": "Telegram Premium (3 Oylik)", "icon": "telegram_premium",
+            "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 3, "min_stars_required": 1100,
+            "image_url": "/api/nft/image/TG_PREMIUM.webp", "backdrop": "linear-gradient(145deg, #581c87 0%, #3b0764 100%)", "slug": "tg-premium-3m"
+        }
     ]
     t3_drops = [
-        {"id": "5170690322832818299", "stars": 750, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True},
-        {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True},
-        {"id": "5170250947678437999", "stars": 1500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
-        {"id": "tg_prem_3m", "stars": 1100, "name": "Telegram Premium (3 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 3, "min_stars_required": 1100, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""},
-        {"id": "tg_prem_6m", "stars": 2150, "name": "Telegram Premium (6 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 6, "min_stars_required": 2150, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""}
+        {
+            "id": "5170690322832818299", "stars": 750, "name": "Plush Pepe #2163", "icon": "plush",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #3b0764 0%, #1e1b4b 100%)", "slug": "plushpepe-2163", "is_nft": True
+        },
+        {
+            "id": "5170690322832818300", "stars": 950, "name": "Scared Cat #15008", "icon": "cat",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/scaredcat-15008.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "scaredcat-15008", "is_nft": True
+        },
+        {
+            "id": "5170690322832818301", "stars": 1200, "name": "Magic Potion #1036", "icon": "potion",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #083344 0%, #042f2e 100%)", "slug": "magicpotion-1036", "is_nft": True
+        },
+        {
+            "id": "5170250947678437999", "stars": 1500, "name": "B-Day Candle #149535", "icon": "candle",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "slug": "bdaycandle-149535", "is_nft": True
+        },
+        {
+            "id": "tg_prem_6m", "stars": 2150, "name": "Telegram Premium (6 Oylik)", "icon": "telegram_premium",
+            "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 6, "min_stars_required": 2150,
+            "image_url": "/api/nft/image/TG_PREMIUM.webp", "backdrop": "linear-gradient(145deg, #581c87 0%, #3b0764 100%)", "slug": "tg-premium-6m"
+        }
     ]
     t4_drops = [
-        {"id": "5170250947678437999", "stars": 1500, "name": "B-Day Candle Collectible NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True},
-        {"id": "tg_prem_6m", "stars": 2150, "name": "Telegram Premium (6 Oylik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 6, "min_stars_required": 2150, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""},
-        {"id": "5170889922832818299", "stars": 2500, "name": "Snoop Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True},
-        {"id": "5170999922832818300", "stars": 3500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_type": "webp", "image_url": "/api/nft/image/royal_crown.webp", "is_nft": True}
+        {
+            "id": "5170250947678437999", "stars": 1500, "name": "B-Day Candle #149535", "icon": "candle",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "slug": "bdaycandle-149535", "is_nft": True
+        },
+        {
+            "id": "5170889922832818302", "stars": 1800, "name": "Diamond Ring #26180", "icon": "ring",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "slug": "diamondring-26180", "is_nft": True
+        },
+        {
+            "id": "tg_prem_6m", "stars": 2150, "name": "Telegram Premium (6 Oylik)", "icon": "telegram_premium",
+            "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 6, "min_stars_required": 2150,
+            "image_url": "/api/nft/image/TG_PREMIUM.webp", "backdrop": "linear-gradient(145deg, #581c87 0%, #3b0764 100%)", "slug": "tg-premium-6m"
+        },
+        {
+            "id": "5170889922832818299", "stars": 2500, "name": "Snoop Cigar #56790", "icon": "cigar",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #2b1810 0%, #1f120c 100%)", "slug": "snoopcigar-56790", "is_nft": True
+        },
+        {
+            "id": "5170999922832818299", "stars": 3500, "name": "Vintage Cigar #1305", "icon": "cigar",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #064e3b 0%, #022c22 100%)", "slug": "vintagecigar-1305", "is_nft": True
+        }
     ]
     t5_drops = [
-        {"id": "5170999922832818299", "stars": 3500, "name": "Vintage Cigar Collectible NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True},
-        {"id": "tg_prem_12m", "stars": 3800, "name": "Telegram Premium (1 Yillik)", "icon": "telegram_premium", "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 12, "min_stars_required": 3800, "image_url": "/api/nft/image/TG_PREMIUM.webp", "video_url": ""},
-        {"id": "5170999922832818301", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "dragon", "file_type": "webp", "image_url": "/api/nft/image/golden_dragon.webp", "is_nft": True},
-        {"id": "5170999922832818302", "stars": 7500, "name": "Telegram Star Trophy Collectible NFT", "icon": "trophy", "file_type": "webp", "image_url": "/api/nft/image/star_trophy.webp", "is_nft": True}
+        {
+            "id": "5170999922832818303", "stars": 2500, "name": "Heart Locket #416", "icon": "locket",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #4c0519 0%, #2e020d 100%)", "slug": "heartlocket-416", "is_nft": True
+        },
+        {
+            "id": "5170999922832818299", "stars": 3500, "name": "Vintage Cigar #1305", "icon": "cigar",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #064e3b 0%, #022c22 100%)", "slug": "vintagecigar-1305", "is_nft": True
+        },
+        {
+            "id": "tg_prem_12m", "stars": 3800, "name": "Telegram Premium (1 Yillik)", "icon": "telegram_premium",
+            "file_type": "webp", "is_nft": False, "is_premium": True, "premium_months": 12, "min_stars_required": 3800,
+            "image_url": "/api/nft/image/TG_PREMIUM.webp", "backdrop": "linear-gradient(145deg, #581c87 0%, #3b0764 100%)", "slug": "tg-premium-12m"
+        },
+        {
+            "id": "5170889922832818302", "stars": 5000, "name": "Diamond Ring #26180", "icon": "ring",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "slug": "diamondring-26180", "is_nft": True
+        },
+        {
+            "id": "5170521118301225164", "stars": 7500, "name": "Durov's Cap #3226 Sovereign", "icon": "cap",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "durovscap-3226", "is_nft": True
+        }
     ]
 
     GIFT_FALLBACK_IMAGES = {
-        "cake": "/api/nft/image/delicious_cake.webp",
-        "star": "/api/nft/image/gift_star.webp",
+        "cake": "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+        "star": "https://nft.fragment.com/gift/chillflame-443876.medium.jpg",
         "teddy": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-        "bouquet": "/api/nft/image/gift_bouquet.webp",
-        "champagne": "/api/nft/image/champagne_bottle.webp",
-        "diamond_ring": "/api/nft/image/diamond_ring.webp",
-        "trophy": "/api/nft/image/star_trophy.webp",
-        "rocket": "/api/nft/image/gift_rocket.webp",
-        "cap": "/api/nft/image/durov_cap.webp",
-        "plush": "/api/nft/image/plush_pepe.webp",
-        "crown": "/api/nft/image/royal_crown.webp",
-        "dragon": "/api/nft/image/golden_dragon.webp",
-        "cigar": "/api/nft/image/vintage_cigar.webp",
-        "calendar": "/api/nft/image/desk_calendar.webp",
-        "watch": "/api/nft/image/swiss_watch.webp",
-        "candle": "/api/nft/image/bday_candle.webp",
-        "locket": "/api/nft/image/heart_locket.webp",
-        "potion": "/api/nft/image/magic_potion.webp",
-        "package": "/api/nft/image/NFT.webp",
-        "gift": "/api/nft/image/NFT.webp",
+        "bouquet": "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+        "champagne": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+        "diamond_ring": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+        "trophy": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+        "rocket": "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+        "cap": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+        "plush": "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+        "crown": "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+        "dragon": "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+        "cigar": "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+        "calendar": "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
+        "watch": "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+        "candle": "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+        "locket": "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+        "potion": "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+        "cat": "https://nft.fragment.com/gift/scaredcat-15008.medium.jpg",
+        "ring": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+        "package": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+        "gift": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
         "telegram_premium": "/api/nft/image/TG_PREMIUM.webp"
     }
 
@@ -487,11 +583,6 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             stars = item.get("stars", 100)
             ratio = stars / max(1, case_cost_stars)
             
-            # Ehtimollik (weight) nisbatga qarab kassa foydasi (House Edge ~30-35%, RTP ~65-70%) kafolatlangan holda beriladi:
-            # - ratio <= 0.65: Common (Arzon, kassa foydada) -> 82-85% ehtimollik
-            # - 0.65 < ratio <= 1.0: Rare (O'zini qoplaydigan) -> 12-15% ehtimollik
-            # - 1.0 < ratio <= 2.0: Legendary (Jackpot) -> 2-3% ehtimollik
-            # - ratio > 2.0: Ultra-Legendary -> 1% ehtimollik
             if ratio <= 0.65:
                 weight = 85
                 rarity = "common"
@@ -507,7 +598,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             
             icon = item.get("icon", "package")
             img = item.get("image_url") or GIFT_FALLBACK_IMAGES.get(icon, GIFT_FALLBACK_IMAGES["package"])
-            # Unowned video olib tashlandi
+            backdrop = item.get("backdrop") or "linear-gradient(145deg, #18181b 0%, #09090b 100%)"
+            slug = item.get("slug") or ""
             v_url = "" if ("premium" in icon or "tg_prem" in str(item.get("id", ""))) else item.get("video_url", "")
             
             formatted.append({
@@ -515,6 +607,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
                 "file_id": item.get("file_id", ""),
                 "file_type": item.get("file_type", "webp"),
                 "image_url": img,
+                "backdrop": backdrop,
+                "slug": slug,
                 "video_url": v_url,
                 "weight": weight,
                 "rarity": rarity
@@ -721,6 +815,10 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
         "icon": chosen["icon"],
         "file_id": chosen.get("file_id", ""),
         "file_type": chosen.get("file_type", "webp"),
+        "image_url": chosen.get("image_url", ""),
+        "backdrop": chosen.get("backdrop", ""),
+        "slug": chosen.get("slug", ""),
+        "video_url": chosen.get("video_url", ""),
         "gift_id": gift_id,
         "is_nft": is_nft,
         "is_premium": is_premium,
