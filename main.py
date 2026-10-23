@@ -2534,6 +2534,35 @@ async def handle_api_stars_pvp_cancel(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_stars_marketplace_nfts(request):
+    """
+    Getgems & Fragment rasmiy marketplace dagi barcha real sotuvdagi NFT lar.
+    Qat'iy narx bo'yicha o'sish tartibida (ASC: min -> max).
+    1 TON kursi CBU va TonAPI dan real-time olinib, har bir buyumning
+    aniq so'mdagi (UZS) va Stars dagi qiymati hisoblanadi.
+    """
+    try:
+        from telegram_marketplace_service import get_live_marketplace_stock_asc, get_sync_live_ton_rate
+        stock = await get_live_marketplace_stock_asc()
+        rate = get_sync_live_ton_rate()
+        return web.json_response({
+            "ok": True,
+            "total": len(stock),
+            "rate": rate,
+            "items": stock
+        }, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+async def handle_api_stars_ton_rate(request):
+    """Real-time live TON va UZS kursini olish"""
+    try:
+        from telegram_marketplace_service import get_sync_live_ton_rate
+        rate = get_sync_live_ton_rate()
+        return web.json_response({"ok": True, "rate": rate}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
 async def handle_api_stars_user_inventory(request):
     """Foydalanuvchining shaxsiy yutib olgan sovg'alari va NFT lari"""
     try:
@@ -2543,14 +2572,19 @@ async def handle_api_stars_user_inventory(request):
         import database
         raw_gifts = database.get_user_gift_history(user_id, limit=50)
         formatted = []
-        for g in raw_gifts:
+        from telegram_marketplace_service import fetch_live_marketplace_stock_sync, get_sync_live_ton_rate
+        market_stock = fetch_live_marketplace_stock_sync()
+        rate = get_sync_live_ton_rate()
+        ton_uzs = rate.get("ton_uzs", 15700.0)
+
+        for g_idx, g in enumerate(raw_gifts):
             stars = int(g.get("prize_stars") or 25)
             p_name = g.get("prize_name") or "Telegram Gift"
             icon = "package"
             p_lower = p_name.lower()
             if "cake" in p_lower: icon = "cake"
             elif "star" in p_lower: icon = "star"
-            elif "teddy" in p_lower: icon = "teddy"
+            elif "teddy" in p_lower or "bear" in p_lower: icon = "teddy"
             elif "bouquet" in p_lower or "flower" in p_lower: icon = "bouquet"
             elif "champagne" in p_lower: icon = "champagne"
             elif "ring" in p_lower or "diamond" in p_lower: icon = "diamond_ring"
@@ -2560,8 +2594,29 @@ async def handle_api_stars_user_inventory(request):
             elif "plush" in p_lower or "pepe" in p_lower: icon = "plush"
             elif "crown" in p_lower: icon = "crown"
             
-            is_nft = bool(stars >= 750 or "nft" in p_lower or "collectible" in p_lower)
+            is_nft = bool(stars >= 750 or "nft" in p_lower or "collectible" in p_lower or "edition" in p_lower)
             rarity = "legendary" if (stars >= 500 or is_nft) else ("rare" if stars >= 50 else "common")
+
+            # Real market image matching
+            image_url = g.get("image_url") or ""
+            backdrop = "linear-gradient(145deg, #18181b 0%, #09090b 100%)"
+            matched_edition = ""
+            if market_stock:
+                matched_item = None
+                for it in market_stock:
+                    if it["collection"].lower() in p_lower or it["name"].lower() in p_lower:
+                        matched_item = it
+                        break
+                if not matched_item:
+                    matched_item = market_stock[g_idx % len(market_stock)]
+                if not image_url:
+                    image_url = matched_item["image_url"]
+                backdrop = matched_item.get("backdrop", backdrop)
+                matched_edition = matched_item.get("edition", f"#{1000 + g_idx * 17}")
+                if "telegram sovg" in p_lower or p_name == "Telegram Gift":
+                    p_name = matched_item["name"]
+                    is_nft = True
+
             formatted.append({
                 "id": g.get("id"),
                 "prize_name": p_name,
@@ -2569,10 +2624,15 @@ async def handle_api_stars_user_inventory(request):
                 "rarity": rarity,
                 "icon": icon,
                 "is_nft": is_nft,
+                "image_url": image_url,
+                "backdrop": backdrop,
+                "edition": matched_edition,
+                "price_uzs": stars * 400,
+                "price_ton": round((stars * 400) / max(1.0, ton_uzs), 2),
                 "status": g.get("status", "pending"),
                 "date": str(g.get("created_at") or "Yaqinda")[:10]
             })
-        return web.json_response({"ok": True, "gifts": formatted}, headers={"Access-Control-Allow-Origin": "*"})
+        return web.json_response({"ok": True, "gifts": formatted, "rate": rate}, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
@@ -3277,6 +3337,8 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/store/redeem", handle_api_stars_redeem)
     app.router.add_post("/api/stars/pvp/create", handle_api_stars_pvp_create)
     app.router.add_post("/api/stars/pvp/join", handle_api_stars_pvp_join)
+    app.router.add_get("/api/stars/marketplace-nfts", handle_api_stars_marketplace_nfts)
+    app.router.add_get("/api/stars/ton-rate", handle_api_stars_ton_rate)
 
     # VenteBot Reseller API (so'm balansi, xavfsiz atomik buyurtma va kesh)
     app.router.add_get("/api/reseller/products", handle_api_reseller_products)

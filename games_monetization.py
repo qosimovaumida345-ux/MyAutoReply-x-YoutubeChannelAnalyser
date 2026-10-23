@@ -448,8 +448,8 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         t4_drops.extend([
             {"id": "5170690322832818290", "stars": 350, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
             {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True}
+            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True}
         ])
         t4_drops = [it for it in t4_drops if it["stars"] >= 250]
 
@@ -457,11 +457,11 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         t5_drops = [it for it in items if it["stars"] >= 500]
         t5_drops.extend([
             {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "is_nft": True}
+            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True},
+            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg", "is_nft": True},
+            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg", "is_nft": True},
+            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg", "is_nft": True}
         ])
         t5_drops = [it for it in t5_drops if it["stars"] >= 500]
     else:
@@ -486,16 +486,16 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         t4_drops = [
             {"id": "5170690322832818290", "stars": 350, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": False},
             {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True}
+            {"id": "5170521118301225164", "stars": 750, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True}
         ]
         t5_drops = [
             {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "is_nft": False},
-            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "is_nft": True},
-            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "is_nft": True}
+            {"id": "5170521118301225164", "stars": 1000, "name": "Durov's Black Cap Collectible NFT", "icon": "cap", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg", "is_nft": True},
+            {"id": "5170690322832818299", "stars": 1500, "name": "Plush Pepe Collectible NFT", "icon": "plush", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg", "is_nft": True},
+            {"id": "5170521118301225199", "stars": 2500, "name": "Royal Crown Collectible NFT", "icon": "crown", "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg", "is_nft": True},
+            {"id": "5170889922832818299", "stars": 3500, "name": "Telegram Star Trophy NFT", "icon": "trophy", "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg", "is_nft": True},
+            {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg", "is_nft": True}
         ]
 
     # Rasmiy Telegram Premium Yutuqlari (Vector icon bilan toza integratsiya)
@@ -509,7 +509,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "is_nft": False,
         "is_premium": True,
         "premium_months": 3,
-        "min_stars_required": 1100
+        "min_stars_required": 1100,
+        "image_url": "/api/nft/image/TG_PREMIUM.webp",
+        "video_url": "/api/nft/image/TG_PREMIUM.mp4"
     })
     t5_drops.append({
         "id": "tg_prem_6m",
@@ -521,7 +523,9 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "is_nft": False,
         "is_premium": True,
         "premium_months": 6,
-        "min_stars_required": 2150
+        "min_stars_required": 2150,
+        "image_url": "/api/nft/image/TG_PREMIUM.webp",
+        "video_url": "/api/nft/image/TG_PREMIUM.mp4"
     })
 
     def format_drops(drop_list, case_cost_stars: int = 25):
@@ -1812,17 +1816,14 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
     calc_odds = min(0.75, max(0.01, round(nominal_odds * 0.70, 4)))
     green_slice_deg = max(10, min(300, int(calc_odds * 360)))
     
-    if is_admin:
-        won = True
+    # Barcha foydalanuvchilar (shu jumladan admin) uchun 100% adolatli matematik ehtimollik
+    won = (random.random() < calc_odds)
+    if won:
+        # Yashil sektor ichiga aniq tushadi (3 dan green_slice_deg - 4 gacha)
         final_angle = random.randint(3, max(4, green_slice_deg - 4))
     else:
-        won = (random.random() < calc_odds)
-        if won:
-            # Yashil sektor ichiga aniq tushadi (0 dan green_slice_deg gacha)
-            final_angle = random.randint(3, max(4, green_slice_deg - 4))
-        else:
-            # Yashil sektordan tashqaridagi to'q qizil/qora sektorga aniq tushadi
-            final_angle = random.randint(min(356, green_slice_deg + 4), 356)
+        # Yashil sektordan tashqaridagi to'q qizil/qora sektorga aniq tushadi
+        final_angle = random.randint(min(356, green_slice_deg + 4), 356)
 
     new_balance = None
     if won:
