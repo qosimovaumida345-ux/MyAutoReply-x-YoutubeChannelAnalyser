@@ -463,23 +463,23 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         ])
         t5_drops = [it for it in t5_drops if it["stars"] >= 500]
     else:
-        # Standart fallback (Telegram serveriga ulanish vaqtincha bo'lmaganda)
+        # Standart fallback (Telegram rasmiy .tgs animatsiyalariga ega haqiqiy sovg'alar)
         t1_drops = [
-            {"id": "5170144170496491616", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_type": "webp", "image_url": "/api/nft/image/delicious_cake.webp", "is_nft": False},
-            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_type": "webp", "image_url": "/api/nft/image/gift_star.webp", "is_nft": False},
-            {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg", "is_nft": False},
-            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_type": "webp", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False}
+            {"id": "5170144170496491616", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E", "file_type": "tgs", "image_url": "/api/nft/image/delicious_cake.webp", "is_nft": False},
+            {"id": "5170250947678437525", "stars": 25, "name": "Green Star", "icon": "star", "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_star.webp", "is_nft": False},
+            {"id": "5170233102089322756", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg", "is_nft": False},
+            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNuQYk_6K2_y5Wp8rPsw7sAAm4bAAKs6PlKSV7c24Y47kIPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False}
         ]
         t2_drops = [
-            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_type": "webp", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False},
-            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_type": "webp", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
+            {"id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_id": "CAACAgIAAxUAAWrS2uNuQYk_6K2_y5Wp8rPsw7sAAm4bAAKs6PlKSV7c24Y47kIPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False},
+            {"id": "6028601630662853006", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
             {"id": "5170889922832818291", "stars": 150, "name": "Desk Calendar NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True}
         ]
         t3_drops = [
-            {"id": "6028601630662853006", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
-            {"id": "5170690322832818290", "stars": 200, "name": "Diamond Ring", "icon": "diamond_ring", "file_type": "webp", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
-            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_type": "webp", "image_url": "/api/nft/image/gift_rocket.webp", "is_nft": False},
+            {"id": "6028601630662853006", "stars": 100, "name": "Champagne Bottle", "icon": "champagne", "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ", "file_type": "tgs", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False},
+            {"id": "5170690322832818290", "stars": 200, "name": "Diamond Ring", "icon": "diamond_ring", "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ", "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False},
+            {"id": "5170564780938756245", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ", "file_type": "tgs", "image_url": "/api/nft/image/gift_rocket.webp", "is_nft": False},
             {"id": "5170521118301225199", "stars": 550, "name": "Swiss Watch Collectible NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True}
         ]
         t4_drops = [
@@ -1978,10 +1978,10 @@ def play_scratch_card(user_id: int) -> dict:
     import random
     
     SCRATCH_PRIZES = {
-        "autopost": {"icon": "zap", "title": "Auto-Post Pro", "label": "1 Oylik Kvota"},
-        "seo": {"icon": "sparkles", "title": "AI SEO Suite", "label": "25 ta YouTube"},
-        "unikal": {"icon": "rocket", "title": "Video Unikal VIP", "label": "10 ta Video"},
-        "stars": {"icon": "star", "title": "Stars Sovg'a", "label": "100 Stars"}
+        "autopost": {"icon": "zap", "title": "Auto-Post Pro", "label": "1 Oylik Kvota", "image_url": "/api/nft/image/service_autopost.webp"},
+        "seo": {"icon": "sparkles", "title": "AI SEO Suite", "label": "25 ta YouTube", "image_url": "/api/nft/image/service_seo.webp"},
+        "unikal": {"icon": "rocket", "title": "Video Unikal VIP", "label": "10 ta Video", "image_url": "/api/nft/image/service_uniquify.webp"},
+        "stars": {"icon": "star", "title": "Stars Sovg'a", "label": "100 Stars", "image_url": "/api/nft/image/gift_star.webp"}
     }
     
     roll = random.random()

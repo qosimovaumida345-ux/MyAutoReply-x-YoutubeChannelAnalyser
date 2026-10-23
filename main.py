@@ -2203,6 +2203,39 @@ async def handle_nft_image(request):
         "Access-Control-Allow-Origin": "*"
     })
 
+_FRAGMENT_IMG_CACHE = {}
+
+async def handle_fragment_image_proxy(request):
+    """Fragment CDN dagi NFT rasmini yuklab beruvchi proxy API (CORS va offline brauzerlar uchun)"""
+    slug = request.match_info.get("slug", "").strip()
+    if not slug:
+        return web.Response(status=400, text="slug is required")
+        
+    if slug in _FRAGMENT_IMG_CACHE:
+        return web.Response(
+            body=_FRAGMENT_IMG_CACHE[slug],
+            content_type="image/jpeg",
+            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+        )
+        
+    url = f"https://nft.fragment.com/gift/{slug}.medium.jpg"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    img_bytes = await resp.read()
+                    _FRAGMENT_IMG_CACHE[slug] = img_bytes
+                    return web.Response(
+                        body=img_bytes,
+                        content_type="image/jpeg",
+                        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+                    )
+                else:
+                    return web.Response(status=resp.status, text="Image not found on Fragment")
+    except Exception as e:
+        return web.Response(status=500, text=str(e))
+
 async def handle_nft_video(request):
     """NFT 3D video animatsiyasini yuborish"""
     filename = request.match_info.get("filename", "")
@@ -3528,6 +3561,7 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/marketplace-nfts", handle_api_stars_marketplace_nfts)
     app.router.add_get("/api/stars/ton-rate", handle_api_stars_ton_rate)
     app.router.add_post("/api/stars/marketplace/buy", handle_api_stars_marketplace_buy)
+    app.router.add_get("/api/nft/fragment-image/{slug}", handle_fragment_image_proxy)
 
     # VenteBot Reseller API (so'm balansi, xavfsiz atomik buyurtma va kesh)
     app.router.add_get("/api/reseller/products", handle_api_reseller_products)

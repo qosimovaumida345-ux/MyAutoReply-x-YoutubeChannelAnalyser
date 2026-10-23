@@ -13,12 +13,33 @@ import re
 import asyncio
 import urllib.request
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logger = logging.getLogger("marketplace_service")
 
 CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_market_stock_cache.json")
 RATE_CACHE_TTL = 300  # 5 daqiqa
-STOCK_CACHE_TTL = 900  # 15 daqiqa
+STOCK_CACHE_TTL = 1800  # 30 daqiqa (barqaror kesh)
+
+def load_stock_from_disk() -> list:
+    """Diskdagi so'nggi real NFT zaxirasini o'qish"""
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception as e:
+            logger.warning(f"Stock keshini o'qishda xato: {e}")
+    return []
+
+def save_stock_to_disk(stock: list):
+    """Real NFT zaxirasini diskka saqlash"""
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(stock, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f"Stock keshini yozishda xato: {e}")
 
 _CACHED_RATE = {
     "ton_usd": 1.32,
@@ -27,8 +48,9 @@ _CACHED_RATE = {
     "last_updated": 0
 }
 
-_CACHED_STOCK = []
-_STOCK_LAST_UPDATED = 0
+# Diskdagi to'liq zaxirani (2,200+ ta NFT) modul yuklangandayoq xotiraga olamiz
+_CACHED_STOCK = load_stock_from_disk()
+_STOCK_LAST_UPDATED = time.time() if _CACHED_STOCK else 0
 _STOCK_LOCK = asyncio.Lock()
 
 
@@ -88,33 +110,37 @@ def get_sync_live_ton_rate() -> dict:
     return _CACHED_RATE
 
 
-def load_stock_from_disk() -> list:
-    """Diskdagi so'nggi real NFT zaxirasini o'qish"""
-    if os.path.exists(CACHE_FILE):
-        try:
-            with open(CACHE_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list) and len(data) > 0:
-                    return data
-        except Exception as e:
-            logger.warning(f"Stock keshini o'qishda xato: {e}")
-    return []
-
-
-def save_stock_to_disk(stock: list):
-    """Real NFT zaxirasini diskka saqlash"""
-    try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(stock, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        logger.warning(f"Stock keshini yozishda xato: {e}")
-
+# Rasmiy Fragment Telegram sovg'a kolleksiyalari
+COLLECTIONS = [
+    ("tamagadget", "Tama Gadget", "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "#3b82f6"),
+    ("xmasstocking", "Xmas Stocking", "linear-gradient(145deg, #450a0a 0%, #1f0404 100%)", "#ef4444"),
+    ("vicecream", "Vice Cream", "linear-gradient(145deg, #500724 0%, #2e0214 100%)", "#ec4899"),
+    ("icecream", "Ice Cream", "linear-gradient(145deg, #134e4a 0%, #082f2c 100%)", "#14b8a6"),
+    ("instantramen", "Instant Ramen", "linear-gradient(145deg, #451a03 0%, #240e02 100%)", "#f59e0b"),
+    ("lolpop", "Lol Pop", "linear-gradient(145deg, #581c87 0%, #2e1065 100%)", "#a855f7"),
+    ("chillflame", "Chill Flame", "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "#60a5fa"),
+    ("scaredcat", "Scared Cat", "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "#a1a1aa"),
+    ("toybear", "Toy Bear", "linear-gradient(145deg, #3f2c1d 0%, #1e150d 100%)", "#d97706"),
+    ("gingercookie", "Ginger Cookie", "linear-gradient(145deg, #451a03 0%, #290f02 100%)", "#d97706"),
+    ("bdaycandle", "B-Day Candle", "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "#ec4899"),
+    ("deskcalendar", "Desk Calendar", "linear-gradient(145deg, #134e4a 0%, #0f2928 100%)", "#14b8a6"),
+    ("snoopcigar", "Snoop Cigar", "linear-gradient(145deg, #2b1810 0%, #1f120c 100%)", "#f59e0b"),
+    ("vintagecigar", "Vintage Cigar", "linear-gradient(145deg, #064e3b 0%, #022c22 100%)", "#10b981"),
+    ("heartlocket", "Heart Locket", "linear-gradient(145deg, #4c0519 0%, #2e020d 100%)", "#f43f5e"),
+    ("magicpotion", "Magic Potion", "linear-gradient(145deg, #083344 0%, #042f2e 100%)", "#06b6d4"),
+    ("diamondring", "Diamond Ring", "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "#38bdf8"),
+    ("swisswatch", "Swiss Watch", "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "#94a3b8"),
+    ("plushpepe", "Plush Pepe", "linear-gradient(145deg, #3b0764 0%, #1e1b4b 100%)", "#c084fc"),
+    ("durovscap", "Durov's Cap", "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "#3b82f6")
+]
+collections = COLLECTIONS
 
 def fetch_live_marketplace_stock_sync() -> list:
     """
     Fragment.com dagi barcha rasmiy Telegram Gift NFT kolleksiyalarini
-    haqiqiy 'For sale' (sotuvdagi) holatini yuklab oladi va narx bo'yicha
+    parallel tarzda (price_asc + price_desc) yuklab oladi va narx bo'yicha
     o'sish tartibida (ASC: min -> max) saralaydi.
+    Keshni saqlashda mavjud kolleksiyalar yo'qolmasligi uchun doimiy merge qilinadi.
     """
     global _CACHED_STOCK, _STOCK_LAST_UPDATED
     now = time.time()
@@ -148,72 +174,106 @@ def fetch_live_marketplace_stock_sync() -> list:
         ("durovscap", "Durov's Cap", "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "#3b82f6")
     ]
 
-    all_stock = []
+    # 1. Avval diskdagi mavjud to'liq keshni yuklaymiz
+    existing_stock = load_stock_from_disk()
+    stock_by_col = {}
+    for it in existing_stock:
+        c_slug = it.get("collection_slug")
+        if c_slug:
+            # Yangi kurs bo'yicha narxlarni qayta hisoblaymiz
+            p_ton = float(it.get("price_ton", 5.0))
+            it["price_uzs"] = round(p_ton * ton_uzs)
+            it["stars"] = max(10, round(it["price_uzs"] / 400))
+            stock_by_col.setdefault(c_slug, {})[it["slug"]] = it
+
     pattern = r'<a href="(/gift/([^"?]+)[^"]*)" class="tm-grid-item">([\s\S]*?)</a>'
 
-    for col_slug, col_name, backdrop, accent in collections:
-        url = f"https://fragment.com/gifts/{col_slug}?filter=sale&sort=price_asc"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        try:
-            with urllib.request.urlopen(req, timeout=5) as r:
-                html = r.read().decode('utf-8')
-                for m in re.finditer(pattern, html):
-                    block = m.group(3)
-                    m_num = re.search(r'<span class="item-num">&nbsp;([^<]+)</span>', block) or re.search(r'<div class="tm-grid-item-num[^"]*">\s*([^<]+)\s*</div>', block)
-                    m_price = re.search(r'class="tm-grid-item-value tm-value icon-before icon-ton">([0-9.,]+)</div>', block)
-                    m_img = re.search(r'src="([^"]+)"', block)
-                    slug = m.group(2)
+    def fetch_col(col_info):
+        col_slug, col_name, backdrop, accent = col_info
+        items_map = {}
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        for sort_param in ["price_asc", "price_desc"]:
+            url = f"https://fragment.com/gifts/{col_slug}?filter=sale&sort={sort_param}"
+            try:
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    html = r.read().decode('utf-8')
+                    for m in re.finditer(pattern, html):
+                        block = m.group(3)
+                        slug = m.group(2)
+                        m_num = re.search(r'<span class="item-num">&nbsp;([^<]+)</span>', block) or re.search(r'<div class="tm-grid-item-num[^"]*">\s*([^<]+)\s*</div>', block)
+                        m_price = re.search(r'class="tm-grid-item-value tm-value icon-before icon-ton">([0-9.,]+)</div>', block)
+                        m_img = re.search(r'src="([^"]+)"', block)
 
-                    if m_price:
-                        price_ton = float(m_price.group(1).replace(',', ''))
-                        num = m_num.group(1).strip() if m_num else ""
-                        img = m_img.group(1) if m_img else f"https://nft.fragment.com/gift/{slug}.medium.jpg"
-                        item_name = f"{col_name} {num}".strip()
-                        price_uzs = round(price_ton * ton_uzs)
-                        stars_equivalent = max(10, round(price_uzs / 400))
+                        if m_price:
+                            price_ton = float(m_price.group(1).replace(',', ''))
+                            num = m_num.group(1).strip() if m_num else ""
+                            img = m_img.group(1) if m_img else f"https://nft.fragment.com/gift/{slug}.medium.jpg"
+                            item_name = f"{col_name} {num}".strip()
+                            price_uzs = round(price_ton * ton_uzs)
+                            stars_equivalent = max(10, round(price_uzs / 400))
 
-                        rarity = "common"
-                        if price_ton >= 50.0:
-                            rarity = "transcendent"
-                        elif price_ton >= 25.0:
-                            rarity = "immortal"
-                        elif price_ton >= 15.0:
-                            rarity = "sovereign"
-                        elif price_ton >= 10.0:
-                            rarity = "mythic"
-                        elif price_ton >= 6.0:
-                            rarity = "legendary"
-                        elif price_ton >= 4.0:
-                            rarity = "rare"
+                            rarity = "common"
+                            if price_ton >= 50.0:
+                                rarity = "transcendent"
+                            elif price_ton >= 25.0:
+                                rarity = "immortal"
+                            elif price_ton >= 15.0:
+                                rarity = "sovereign"
+                            elif price_ton >= 10.0:
+                                rarity = "mythic"
+                            elif price_ton >= 6.0:
+                                rarity = "legendary"
+                            elif price_ton >= 4.0:
+                                rarity = "rare"
 
-                        all_stock.append({
-                            "id": slug,
-                            "slug": slug,
-                            "name": item_name,
-                            "collection": col_name,
-                            "collection_slug": col_slug,
-                            "edition": num,
-                            "price_ton": price_ton,
-                            "price_uzs": price_uzs,
-                            "stars": stars_equivalent,
-                            "rarity": rarity,
-                            "image_url": img,
-                            "backdrop": backdrop,
-                            "accent_color": accent,
-                            "is_nft": True,
-                            "status": "For sale",
-                            "marketplace": "Fragment & Getgems"
-                        })
-        except Exception as e:
-            logger.warning(f"Fragment collection {col_slug} fetch error: {e}")
+                            items_map[slug] = {
+                                "id": slug,
+                                "slug": slug,
+                                "name": item_name,
+                                "collection": col_name,
+                                "collection_slug": col_slug,
+                                "edition": num,
+                                "price_ton": price_ton,
+                                "price_uzs": price_uzs,
+                                "stars": stars_equivalent,
+                                "rarity": rarity,
+                                "image_url": img,
+                                "backdrop": backdrop,
+                                "accent_color": accent,
+                                "is_nft": True,
+                                "status": "For sale",
+                                "marketplace": "Fragment & Getgems"
+                            }
+            except Exception as e:
+                logger.warning(f"Fragment collection {col_slug} fetch error ({sort_param}): {e}")
+        return col_slug, items_map
 
-    # Agar birorta ham yuklanmasa, diskdagi keshni olamiz
-    if not all_stock:
-        all_stock = load_stock_from_disk()
-    else:
-        # Barcha buyumlarni qat'iy ravishda narx bo'yicha o'sish tartibida (ASC) saralaymiz: min -> max
+    # Parallel tezkor yuklash (max 8 workers)
+    try:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {pool.submit(fetch_col, c): c for c in collections}
+            for fut in as_completed(futures):
+                try:
+                    c_slug, fetched_items = fut.result()
+                    if fetched_items:
+                        stock_by_col.setdefault(c_slug, {})
+                        stock_by_col[c_slug].update(fetched_items)
+                except Exception as e:
+                    logger.warning(f"Collection future error: {e}")
+    except Exception as e:
+        logger.warning(f"ThreadPoolExecutor error in marketplace stock fetch: {e}")
+
+    # Barcha buyumlarni yagona ro'yxatga jamlab, ASC saralaymiz
+    all_stock = []
+    for c_slug, c_items in stock_by_col.items():
+        all_stock.extend(c_items.values())
+
+    if all_stock:
         all_stock.sort(key=lambda x: x["price_ton"])
         save_stock_to_disk(all_stock)
+    else:
+        all_stock = existing_stock
 
     _CACHED_STOCK = all_stock
     _STOCK_LAST_UPDATED = now
