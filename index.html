@@ -1881,11 +1881,45 @@
                     setShowLoginModal(true);
                     return;
                 }
-                const costLabel = paymentMethod === 'stars' 
-                    ? `${(nft.stars || 100).toLocaleString()} Stars` 
-                    : `${(nft.price_uzs || 150000).toLocaleString()} so'm`;
-                
-                const confirmed = window.confirm(`${nft.name} (${nft.edition || ''}) ni ${costLabel} hisobidan to'g'ridan-to'g'ri sotib olishni tasdiqlaysizmi?`);
+
+                // 1. Stars To'lovi (Haqiqiy Telegram Stars Invoice)
+                if (paymentMethod === 'stars') {
+                    setBuyingNftSlug(nft.slug);
+                    try {
+                        const res = await fetch('/api/stars/marketplace/buy-invoice', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                user_id: tgUser.id,
+                                slug: nft.slug
+                            })
+                        });
+                        const data = await res.json();
+                        if (data && data.ok && data.invoice_link) {
+                            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openInvoice === 'function') {
+                                window.Telegram.WebApp.openInvoice(data.invoice_link, (status) => {
+                                    if (status === 'paid') {
+                                        alert(`🎉 Tabriklaymiz! ${nft.name} uchun Stars to'lovi muvaffaqiyatli amalga oshirildi! Sovg'a profilingizga yuborilmoqda.`);
+                                        loadUserStats(tgUser.id, true);
+                                    }
+                                });
+                            } else {
+                                window.open(data.invoice_link, '_blank');
+                            }
+                        } else {
+                            alert((data && data.error) || "Stars to'lov hisobini yaratib bo'lmadi.");
+                        }
+                    } catch(err) {
+                        alert("To'lov serveriga ulanishda xatolik yuz berdi.");
+                    } finally {
+                        setBuyingNftSlug(null);
+                    }
+                    return;
+                }
+
+                // 2. So'm Balansi Bilan Xarid
+                const costLabel = `${(nft.price_uzs || 150000).toLocaleString()} so'm`;
+                const confirmed = window.confirm(`${nft.name} (${nft.edition || ''}) ni ${costLabel} balansingiz hisobidan sotib olishni tasdiqlaysizmi?`);
                 if (!confirmed) return;
 
                 setBuyingNftSlug(nft.slug);
@@ -1896,23 +1930,21 @@
                         body: JSON.stringify({
                             user_id: tgUser.id,
                             slug: nft.slug,
-                            payment_method: paymentMethod
+                            payment_method: 'uzs'
                         })
                     });
                     const data = await res.json();
                     if (data && data.ok) {
-                        alert(data.message || "NFT muvaffaqiyatli xarid qilindi va vitrinangizga qo'shildi!");
+                        alert(data.message || `Tabriklaymiz! ${nft.name} muvaffaqiyatli xarid qilindi!`);
                         if (data.new_balance !== undefined) {
                             setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
                         }
                         loadUserStats(tgUser.id, true);
-                        if (typeof fetchUserInventory === 'function') fetchUserInventory();
-                        else if (typeof fetchDailyStreak === 'function') fetchDailyStreak();
                     } else {
                         alert((data && data.error) || "Xaridni amalga oshirib bo'lmadi!");
                     }
-                } catch (e) {
-                    alert("Server bilan bog'lanishda xatolik: " + e.message);
+                } catch(err) {
+                    alert("Server bilan aloqa uzildi.");
                 } finally {
                     setBuyingNftSlug(null);
                 }
@@ -7104,7 +7136,7 @@
                                                                     disabled={buyingNftSlug === nft.slug}
                                                                     style={{
                                                                         width: "100%",
-                                                                        padding: "11px 0",
+                                                                        padding: "10px 14px",
                                                                         borderRadius: "999px",
                                                                         background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
                                                                         color: "#ffffff",
@@ -7112,15 +7144,21 @@
                                                                         fontSize: "13px",
                                                                         fontWeight: 800,
                                                                         cursor: "pointer",
-                                                                        display: "flex",
+                                                                        display: "inline-flex",
                                                                         alignItems: "center",
                                                                         justifyContent: "center",
-                                                                        gap: "6px",
-                                                                        boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)"
+                                                                        gap: "8px",
+                                                                        boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
+                                                                        transition: "all 0.15s ease",
+                                                                        overflow: "hidden"
                                                                     }}
                                                                 >
-                                                                    <SvgBox size={14} color="#ffffff" />
-                                                                    <span>{buyingNftSlug === nft.slug ? "Xarid qilinmoqda..." : `To'g'ridan Sotib Olish (${(nft.stars || 100).toLocaleString()} Stars)`}</span>
+                                                                    <span style={{ display: "inline-flex", flexShrink: 0, alignItems: "center" }}>
+                                                                        <SvgStar size={14} color="#ffd700" />
+                                                                    </span>
+                                                                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                                        {buyingNftSlug === nft.slug ? "Yuklanmoqda..." : `Stars Bilan Xarid (${(nft.stars || 100).toLocaleString()} ★)`}
+                                                                    </span>
                                                                 </button>
 
                                                                 <div style={{ display: "flex", gap: "8px" }}>
@@ -7129,7 +7167,7 @@
                                                                         disabled={buyingNftSlug === nft.slug}
                                                                         style={{
                                                                             flex: 1,
-                                                                            padding: "8px 0",
+                                                                            padding: "8px 10px",
                                                                             borderRadius: "999px",
                                                                             background: "#f4f4f5",
                                                                             color: "#18181b",
@@ -7137,10 +7175,12 @@
                                                                             fontSize: "11px",
                                                                             fontWeight: 700,
                                                                             cursor: "pointer",
-                                                                            display: "flex",
+                                                                            display: "inline-flex",
                                                                             alignItems: "center",
                                                                             justifyContent: "center",
-                                                                            gap: "4px"
+                                                                            gap: "4px",
+                                                                            transition: "all 0.15s ease",
+                                                                            whiteSpace: "nowrap"
                                                                         }}
                                                                     >
                                                                         <span>So'm Bilan Xarid</span>
@@ -7152,21 +7192,23 @@
                                                                         rel="noopener noreferrer"
                                                                         style={{
                                                                             flex: 1,
-                                                                            padding: "8px 0",
+                                                                            padding: "8px 10px",
                                                                             borderRadius: "999px",
                                                                             background: "rgba(0,136,204,0.08)",
                                                                             color: "#0088cc",
                                                                             textDecoration: "none",
                                                                             fontSize: "11px",
                                                                             fontWeight: 700,
-                                                                            display: "flex",
+                                                                            display: "inline-flex",
                                                                             alignItems: "center",
                                                                             justifyContent: "center",
-                                                                            gap: "4px"
+                                                                            gap: "4px",
+                                                                            border: "1px solid rgba(0,136,204,0.2)",
+                                                                            transition: "all 0.15s ease",
+                                                                            whiteSpace: "nowrap"
                                                                         }}
                                                                     >
                                                                         <span>Fragment</span>
-                                                                        <SvgExternalLink size={11} color="#0088cc" />
                                                                     </a>
                                                                 </div>
                                                             </div>

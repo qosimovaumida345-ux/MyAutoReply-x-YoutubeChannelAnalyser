@@ -10710,14 +10710,15 @@ def create_ytbot():
                                 asyncio.create_task(process_pending_gifts_batch(bot_token=bot_token, limit=5))
                                 
                                 notify_txt = (
-                                    f"🎁 <b>Tabriklaymiz!</b> Siz {res['case_name']} keysini ochdingiz!\n\n"
-                                    f"✨ <b>Yutuq:</b> {res['icon']} {res['prize_name']}\n"
-                                    f"⭐️ <b>Qiymati:</b> {res['prize_stars']} Stars\n\n"
-                                    f"<i>Yutuq profilingizga yuborilmoqda...</i>"
+                                    f"Tabriklaymiz! Siz <b>{nft_name}</b> NFT sovg'asini Telegram Stars orqali muvaffaqiyatli xarid qildingiz!\n\n"
+                                    f"Qiymati: {nft_stars} Stars\n"
+                                    f"Buyurtma ID: #{rec_id}\n\n"
+                                    f"<i>Sovg'a profilingizga yuborilmoqda!</i>"
                                 )
-                                await client.send_message(u_id, notify_txt)
-                        except Exception as pay_err:
-                            print(f"[Stars Box Payment] Error: {pay_err}")
+                            await client.send_message(u_id, notify_txt)
+                        except Exception as nft_pay_err:
+                            print(f"[Stars NFT Payment] Error: {nft_pay_err}")
+
                     else:
                         try:
                             tx_id = int(parts[4])

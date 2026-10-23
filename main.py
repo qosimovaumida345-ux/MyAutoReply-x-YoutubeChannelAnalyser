@@ -2786,16 +2786,75 @@ async def handle_api_stars_upgrader_inventory(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
-async def handle_api_stars_marketplace_buy(request):
+async def handle_api_stars_marketplace_buy_invoice(request):
     """
-    Fragment Telegram Gift NFT ni to'g'ridan-to'g'ri bot orqali sotib olish.
-    Foydalanuvchi o'zining Stars yoki so'm balansi orqali to'laydi.
+    NFT ni Telegram Stars orqali sotib olish uchun rasmiy Telegram createInvoiceLink yaratadi.
     """
     try:
         data = await request.json()
         user_id = int(data.get("user_id", 0))
         slug = str(data.get("slug", "")).strip()
-        payment_method = str(data.get("payment_method", "uzs")).lower().strip()
+        
+        if user_id <= 0 or not slug:
+            return web.json_response({"ok": False, "error": "user_id va slug talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+            
+        import database
+        if database.is_user_banned(user_id):
+            return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+            
+        from telegram_marketplace_service import fetch_live_marketplace_stock_sync
+        stock = fetch_live_marketplace_stock_sync()
+        target = None
+        for it in stock:
+            if it.get("slug") == slug or it.get("id") == slug:
+                target = it
+                break
+                
+        if not target:
+            return web.json_response({"ok": False, "error": "NFT topilmadi yoki sotilgan!"}, status=404, headers={"Access-Control-Allow-Origin": "*"})
+            
+        from config import BOT_TOKEN
+        import aiohttp
+        import time as _t
+        
+        stars_amount = int(target.get("stars", 100))
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink"
+        payload = {
+            "title": f"NFT: {target['name']}"[:32],
+            "description": f"{target['name']} ({target.get('collection', 'Telegram NFT')}) - Rasmiy Collectible xaridi"[:255],
+            "payload": f"stars_nft_{slug}_{user_id}_{int(_t.time())}",
+            "currency": "XTR",
+            "prices": [{"label": target["name"][:32], "amount": stars_amount}]
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                res_data = await resp.json()
+                if res_data.get("ok"):
+                    return web.json_response({
+                        "ok": True,
+                        "invoice_link": res_data.get("result"),
+                        "stars": stars_amount,
+                        "name": target["name"],
+                        "slug": slug
+                    }, headers={"Access-Control-Allow-Origin": "*"})
+                else:
+                    return web.json_response({
+                        "ok": False,
+                        "error": res_data.get("description", "Invoice yaratib bo'lmadi")
+                    }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_stars_marketplace_buy(request):
+    """
+    Fragment Telegram Gift NFT ni to'g'ridan-to'g'ri bot orqali so'm balansi bilan sotib olish.
+    """
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        slug = str(data.get("slug", "")).strip()
         
         if user_id <= 0 or not slug:
             return web.json_response({"ok": False, "error": "user_id va slug talab qilinadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
@@ -2817,34 +2876,24 @@ async def handle_api_stars_marketplace_buy(request):
             
         rate = get_sync_live_ton_rate()
         ton_uzs = rate.get("ton_uzs", 15703.0)
-        price_ton = float(target_item.get("price_ton", 1.0))
+        price_ton = float(target_item.get("price_ton", 5.0))
         price_uzs = int(target_item.get("price_uzs") or round(price_ton * ton_uzs))
         price_stars = int(target_item.get("stars", 100))
         
         user_balance_uzs = database.get_user_balance(user_id)
-        
-        if payment_method == "stars":
-            # 1 Star ≈ 400 so'm
-            required_uzs = price_stars * 400
-            if user_balance_uzs < required_uzs:
-                return web.json_response({
-                    "ok": False, 
-                    "error": f"Stars balansingiz yetarli emas! Sizga {price_stars} Stars ({required_uzs:,} so'm) kerak, hisobingizda esa {user_balance_uzs:,} so'm mavjud."
-                }, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        if user_balance_uzs < price_uzs:
+            return web.json_response({
+                "ok": False,
+                "error": f"Balansingiz yetarli emas! Ushbu NFT narxi: {price_uzs:,} so'm, sizda: {user_balance_uzs:,} so'm bor. Iltimos, avval bot orqali balansingizni to'ldiring.",
+                "need_deposit": True,
+                "current_balance": user_balance_uzs,
+                "required_balance": price_uzs
+            }, status=400, headers={"Access-Control-Allow-Origin": "*"})
             
-            if not database.deduct_user_balance(user_id, required_uzs):
-                return web.json_response({"ok": False, "error": "Mablag'ni hisobdan yechishda xatolik yuz berdi!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
-        else:
-            if user_balance_uzs < price_uzs:
-                return web.json_response({
-                    "ok": False,
-                    "error": f"So'm balansingiz yetarli emas! Sizga {price_uzs:,} so'm kerak, hisobingizda esa {user_balance_uzs:,} so'm mavjud."
-                }, status=400, headers={"Access-Control-Allow-Origin": "*"})
-                
-            if not database.deduct_user_balance(user_id, price_uzs):
-                return web.json_response({"ok": False, "error": "Mablag'ni hisobdan yechishda xatolik yuz berdi!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
-                
-        # NFT ni foydalanuvchining shaxsiy inventariga yozish
+        if not database.deduct_user_balance(user_id, price_uzs):
+            return web.json_response({"ok": False, "error": "Mablag'ni hisobdan yechishda xatolik yuz berdi!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+            
+        # NFT ni pending_gifts ga yozish
         rec_id = database.save_gift_record(
             tg_user_id=user_id,
             gift_id=slug,
@@ -2852,13 +2901,22 @@ async def handle_api_stars_marketplace_buy(request):
             case_name="Fragment Marketplace Direct Buy",
             prize_name=f"{target_item['name']} {target_item.get('edition', '')}".strip(),
             prize_stars=price_stars,
-            status="sent"
+            status="pending"
         )
         
+        # Bot tokeni orqali jo'natish navbatini chaqirish
+        try:
+            import asyncio
+            from games_monetization import process_pending_gifts_batch
+            from config import BOT_TOKEN
+            asyncio.create_task(process_pending_gifts_batch(bot_token=BOT_TOKEN, limit=5))
+        except Exception:
+            pass
+            
         new_balance = database.get_user_balance(user_id)
         return web.json_response({
             "ok": True,
-            "message": f"Tabriklaymiz! {target_item['name']} muvaffaqiyatli xarid qilindi va shaxsiy vitrinangizga qo'shildi!",
+            "message": f"Tabriklaymiz! {target_item['name']} {target_item.get('edition', '')} so'm balansingizdan muvaffaqiyatli xarid qilindi!",
             "item": target_item,
             "new_balance": new_balance,
             "record_id": rec_id
@@ -3561,6 +3619,7 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/marketplace-nfts", handle_api_stars_marketplace_nfts)
     app.router.add_get("/api/stars/ton-rate", handle_api_stars_ton_rate)
     app.router.add_post("/api/stars/marketplace/buy", handle_api_stars_marketplace_buy)
+    app.router.add_post("/api/stars/marketplace/buy-invoice", handle_api_stars_marketplace_buy_invoice)
     app.router.add_get("/api/nft/fragment-image/{slug}", handle_fragment_image_proxy)
 
     # VenteBot Reseller API (so'm balansi, xavfsiz atomik buyurtma va kesh)

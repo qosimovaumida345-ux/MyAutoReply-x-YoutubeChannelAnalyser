@@ -20,6 +20,7 @@ logger = logging.getLogger("marketplace_service")
 CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "telegram_market_stock_cache.json")
 RATE_CACHE_TTL = 300  # 5 daqiqa
 STOCK_CACHE_TTL = 1800  # 30 daqiqa (barqaror kesh)
+MARKETPLACE_TON_MARGIN = 5.0  # Har bir NFT sotuviga qo'shiladigan kafolatlangan sof foyda marjasi (TON)
 
 def load_stock_from_disk() -> list:
     """Diskdagi so'nggi real NFT zaxirasini o'qish"""
@@ -206,7 +207,8 @@ def fetch_live_marketplace_stock_sync() -> list:
                         m_img = re.search(r'src="([^"]+)"', block)
 
                         if m_price:
-                            price_ton = float(m_price.group(1).replace(',', ''))
+                            raw_price_ton = float(m_price.group(1).replace(',', ''))
+                            price_ton = round(raw_price_ton + MARKETPLACE_TON_MARGIN, 2)
                             num = m_num.group(1).strip() if m_num else ""
                             img = m_img.group(1) if m_img else f"https://nft.fragment.com/gift/{slug}.medium.jpg"
                             item_name = f"{col_name} {num}".strip()
