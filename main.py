@@ -2577,11 +2577,27 @@ async def handle_api_stars_user_inventory(request):
         rate = get_sync_live_ton_rate()
         ton_uzs = rate.get("ton_uzs", 15700.0)
 
-        for g_idx, g in enumerate(raw_gifts):
+        # Standart sovg'alar rasmlari xaritasi (Zero mockups, zero emojis)
+        STANDARD_GIFT_IMAGES = {
+            "cake": "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg",
+            "star": "https://nft.fragment.com/gift/bdaycandle-265363.medium.jpg",
+            "teddy": "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
+            "bouquet": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
+            "champagne": "https://nft.fragment.com/gift/magicpotion-312.medium.jpg",
+            "diamond_ring": "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
+            "trophy": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
+            "rocket": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            "cap": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg",
+            "plush": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg",
+            "crown": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
+            "package": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg"
+        }
+
+        for g in raw_gifts:
             stars = int(g.get("prize_stars") or 25)
-            p_name = g.get("prize_name") or "Telegram Gift"
-            icon = "package"
+            p_name = g.get("prize_name") or "Telegram Sovg'a"
             p_lower = p_name.lower()
+            icon = "package"
             if "cake" in p_lower: icon = "cake"
             elif "star" in p_lower: icon = "star"
             elif "teddy" in p_lower or "bear" in p_lower: icon = "teddy"
@@ -2594,28 +2610,38 @@ async def handle_api_stars_user_inventory(request):
             elif "plush" in p_lower or "pepe" in p_lower: icon = "plush"
             elif "crown" in p_lower: icon = "crown"
             
-            is_nft = bool(stars >= 750 or "nft" in p_lower or "collectible" in p_lower or "edition" in p_lower)
+            # Haqiqiy NFT tekshiruvi: faqat foydalanuvchi haqiqatan NFT yutgan bo'lsa
+            is_nft = bool(g.get("is_nft") or "nft" in p_lower or "collectible" in p_lower or (stars >= 1000 and "telegram sovg" not in p_lower))
             rarity = "legendary" if (stars >= 500 or is_nft) else ("rare" if stars >= 50 else "common")
 
-            # Real market image matching
             image_url = g.get("image_url") or ""
-            backdrop = "linear-gradient(145deg, #18181b 0%, #09090b 100%)"
-            matched_edition = ""
-            if market_stock:
+            backdrop = "transparent"
+            matched_edition = g.get("edition") or ""
+
+            if is_nft and market_stock:
                 matched_item = None
                 for it in market_stock:
                     if it["collection"].lower() in p_lower or it["name"].lower() in p_lower:
                         matched_item = it
                         break
-                if not matched_item:
-                    matched_item = market_stock[g_idx % len(market_stock)]
-                if not image_url:
-                    image_url = matched_item["image_url"]
-                backdrop = matched_item.get("backdrop", backdrop)
-                matched_edition = matched_item.get("edition", f"#{1000 + g_idx * 17}")
-                if "telegram sovg" in p_lower or p_name == "Telegram Gift":
-                    p_name = matched_item["name"]
-                    is_nft = True
+                if matched_item:
+                    if not image_url: image_url = matched_item["image_url"]
+                    if not matched_edition: matched_edition = matched_item.get("edition", "")
+                    backdrop = matched_item.get("backdrop", backdrop)
+            
+            if not image_url:
+                image_url = STANDARD_GIFT_IMAGES.get(icon, "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg")
+
+            # Clean name agar eski generatsiya bo'lsa
+            if "telegram sovg" in p_lower:
+                clean_names = {
+                    "cake": "Delicious Cake",
+                    "star": "Green Star",
+                    "teddy": "Teddy Bear",
+                    "bouquet": "Bouquet of Flowers",
+                    "champagne": "Champagne Bottle"
+                }
+                p_name = clean_names.get(icon, "Telegram Sovg'asi")
 
             formatted.append({
                 "id": g.get("id"),
@@ -2635,6 +2661,47 @@ async def handle_api_stars_user_inventory(request):
         return web.json_response({"ok": True, "gifts": formatted, "rate": rate}, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+_NFT_ANIMATION_CACHE = {}
+
+async def handle_api_nft_animation(request):
+    """
+    Fragment Telegram Gift NFT larining rasmiy .tgs Lottie vektor animatsiyasini
+    decompress qilib, toza JSON sifatida qaytaradi (RAM kesh bilan).
+    """
+    slug = request.match_info.get("slug", "").strip()
+    if not slug:
+        return web.Response(status=400, text="slug is required")
+        
+    if slug in _NFT_ANIMATION_CACHE:
+        return web.Response(
+            body=_NFT_ANIMATION_CACHE[slug],
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+        )
+        
+    url = f"https://nft.fragment.com/gift/{slug}.tgs"
+    try:
+        import aiohttp
+        import gzip
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                if resp.status == 200:
+                    raw_data = await resp.read()
+                    try:
+                        decompressed = gzip.decompress(raw_data)
+                    except Exception:
+                        decompressed = raw_data
+                    _NFT_ANIMATION_CACHE[slug] = decompressed
+                    return web.Response(
+                        body=decompressed,
+                        content_type="application/json",
+                        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+                    )
+                else:
+                    return web.Response(status=404, text="Animation not found")
+    except Exception as e:
+        return web.Response(status=500, text=f"Error: {e}")
 
 async def handle_api_stars_upgrader_inventory(request):
     """Upgrader uchun mavjud bo'lgan haqiqiy sovg'alar inventari (aiko_64 / bot)"""
@@ -3365,6 +3432,7 @@ async def start_web_server(port):
     app.router.add_get("/api/nft/meta/{item_id}", handle_nft_metadata)
     app.router.add_get("/api/nft/image/{filename}", handle_nft_image)
     app.router.add_get("/api/nft/video/{filename}", handle_nft_video)
+    app.router.add_get("/api/nft/animation/{slug}", handle_api_nft_animation)
     
     # Yangi: Reseller & Developer REST API (/api/v1/...)
     try:

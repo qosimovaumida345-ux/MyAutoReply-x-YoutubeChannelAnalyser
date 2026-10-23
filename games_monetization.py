@@ -498,20 +498,20 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             {"id": "5170999922832818299", "stars": 5000, "name": "Golden Dragon Collectible NFT", "icon": "crown", "file_id": "", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg", "is_nft": True}
         ]
 
-    # Rasmiy Telegram Premium Yutuqlari (Vector icon bilan toza integratsiya)
+    # Rasmiy Telegram Premium Yutuqlari (Toza statik tasvir)
     t4_drops.append({
         "id": "tg_prem_3m",
         "stars": 1100,
         "name": "Telegram Premium (3 Oylik)",
         "icon": "telegram_premium",
         "file_id": "",
-        "file_type": "vector",
+        "file_type": "webp",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 3,
         "min_stars_required": 1100,
         "image_url": "/api/nft/image/TG_PREMIUM.webp",
-        "video_url": "/api/nft/image/TG_PREMIUM.mp4"
+        "video_url": ""
     })
     t5_drops.append({
         "id": "tg_prem_6m",
@@ -519,14 +519,30 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         "name": "Telegram Premium (6 Oylik)",
         "icon": "telegram_premium",
         "file_id": "",
-        "file_type": "vector",
+        "file_type": "webp",
         "is_nft": False,
         "is_premium": True,
         "premium_months": 6,
         "min_stars_required": 2150,
         "image_url": "/api/nft/image/TG_PREMIUM.webp",
-        "video_url": "/api/nft/image/TG_PREMIUM.mp4"
+        "video_url": ""
     })
+
+    GIFT_FALLBACK_IMAGES = {
+        "cake": "https://nft.fragment.com/gift/gingercookie-52466.medium.jpg",
+        "star": "https://nft.fragment.com/gift/bdaycandle-265363.medium.jpg",
+        "teddy": "https://nft.fragment.com/gift/toybear-60000.medium.jpg",
+        "bouquet": "https://nft.fragment.com/gift/heartlocket-1209.medium.jpg",
+        "champagne": "https://nft.fragment.com/gift/magicpotion-312.medium.jpg",
+        "diamond_ring": "https://nft.fragment.com/gift/diamondring-1000.medium.jpg",
+        "trophy": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
+        "rocket": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+        "cap": "https://nft.fragment.com/gift/durovscap-1024.medium.jpg",
+        "plush": "https://nft.fragment.com/gift/plushpepe-8821.medium.jpg",
+        "crown": "https://nft.fragment.com/gift/swisswatch-552.medium.jpg",
+        "package": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+        "telegram_premium": "/api/nft/image/TG_PREMIUM.webp"
+    }
 
     def format_drops(drop_list, case_cost_stars: int = 25):
         if not drop_list:
@@ -555,12 +571,17 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
                 weight = 1
                 rarity = "legendary"
             
+            icon = item.get("icon", "package")
+            img = item.get("image_url") or GIFT_FALLBACK_IMAGES.get(icon, GIFT_FALLBACK_IMAGES["package"])
+            # Unowned video olib tashlandi
+            v_url = "" if ("premium" in icon or "tg_prem" in str(item.get("id", ""))) else item.get("video_url", "")
+            
             formatted.append({
                 **item,
                 "file_id": item.get("file_id", ""),
                 "file_type": item.get("file_type", "webp"),
-                "image_url": item.get("image_url", ""),
-                "video_url": item.get("video_url", ""),
+                "image_url": img,
+                "video_url": v_url,
                 "weight": weight,
                 "rarity": rarity
             })
