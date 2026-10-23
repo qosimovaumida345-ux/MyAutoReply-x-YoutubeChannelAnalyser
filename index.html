@@ -4378,7 +4378,7 @@
                                                         </button>
                                                     </div>
                                                 </div>
-                                            )))}
+                                            ))}
                                         </div>
                                     ) : (
                                         <div style={{ textAlign: "center", padding: "60px 0", color: "#a1a1aa" }}>
@@ -5242,7 +5242,7 @@
                                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgSwords size={14} color="#ffffff" /><span>Jangga Kirish ({(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span></span>
                                                     </button>
                                                 </div>
-                                            ))}
+                                            )))}
                                         </div>
                                     </div>
                                 )}
@@ -6563,15 +6563,7 @@
                                             </div>
                                         ) : (
                                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
-                                                {userGifts.length === 0 ? (
-                                                    <div style={{ textAlign: "center", padding: "40px 16px", background: "#ffffff", borderRadius: "20px", border: "1px dashed var(--border-soft)", gridColumn: "1 / -1" }}>
-                                                        <div style={{ marginBottom: "10px", display: "flex", justifyContent: "center" }}><SvgGift size={32} color="#7342E2" /></div>
-                                                        <h4 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", marginBottom: "4px" }}>Hozircha yutilgan sovg'alar yo'q</h4>
-                                                        <p style={{ color: "var(--muted)", fontSize: "13px", margin: "0 auto 16px", maxWidth: "360px" }}>Stars Mystery Keyslarini ochib birinchi Telegram sovgangizni yutib oling!</p>
-                                                        <button onClick={() => { window.scrollTo({ top: 400, behavior: 'smooth' }); }} style={{ background: "#7342E2", color: "#fff", border: "none", padding: "8px 22px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Keyslarni Ko'rish</button>
-                                                    </div>
-                                                ) : (
-                                                    userGifts.map((g, gIdx) => (
+                                                {userGifts.map((g, gIdx) => (
                                                     <div key={gIdx} style={{ background: "#fcfcfd", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px 16px", textAlign: "center" }}>
                                                         <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
                                                             <TelegramGiftMedia icon={g.icon} name={g.prize_name} size="56px" />
