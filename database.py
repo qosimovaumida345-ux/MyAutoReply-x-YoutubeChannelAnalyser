@@ -7592,16 +7592,26 @@ def cancel_db_case_battle(battle_id: str, host_id: int) -> dict:
             return {"ok": False, "error": "Jang allaqachon boshlangan yoki yakunlangan"}
 
         cost_uzs = int(b.get("cost_uzs") or 0)
+        if cost_uzs <= 0:
+            cost_stars = int(b.get("cost_stars") or 0)
+            cost_uzs = cost_stars * 400
+
         cur.execute("UPDATE pvp_case_battles SET status = 'cancelled', updated_at = NOW() WHERE battle_id = %s", (battle_id,))
         conn.commit()
 
-        # Mablag'ni hostga qaytarish
+        # Mablag'ni hostga 100% qaytarish
         new_bal = add_user_balance(int(host_id), cost_uzs)
+        try:
+            import games_monetization
+            if battle_id in games_monetization._PVP_BATTLES:
+                games_monetization._PVP_BATTLES[battle_id]["status"] = "cancelled"
+        except Exception:
+            pass
         return {
             "ok": True,
             "refund_uzs": cost_uzs,
             "new_balance": new_bal,
-            "message": f"PvP jang bekor qilindi. {cost_uzs:,} so'm balansingizga qaytarildi."
+            "message": f"PvP jang bekor qilindi. Garov summasi {cost_uzs:,} so'm balansingizga to'liq qaytarildi!"
         }
     except Exception as e:
         conn.rollback()

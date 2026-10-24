@@ -2561,8 +2561,8 @@ async def handle_api_stars_pvp_cancel(request):
         data = await request.json()
         battle_id = str(data.get("battle_id", "")).strip()
         host_id = int(data.get("user_id", 0))
-        from database import cancel_db_case_battle
-        res = cancel_db_case_battle(battle_id, host_id)
+        from games_monetization import cancel_case_battle
+        res = cancel_case_battle(battle_id, host_id)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -2927,8 +2927,32 @@ async def handle_api_stars_marketplace_buy(request):
             from games_monetization import process_pending_gifts_batch
             from config import BOT_TOKEN
             asyncio.create_task(process_pending_gifts_batch(bot_token=BOT_TOKEN, limit=5))
-        except Exception:
-            pass
+            
+            # Foydalanuvchiga to'liq Fragment havolasi bilan bot orqali bildirishnoma yuborish
+            import urllib.request, json
+            slug_url = f"https://fragment.com/gift/{slug}"
+            notify_txt = (
+                f"🎉 <b>TABRIKLAYMIZ! XARID MUVAFFAQIYATLI!</b>\n\n"
+                f"🎁 <b>Sovg'a:</b> <b>{target_item['name']} {target_item.get('edition', '')}</b>\n"
+                f"💰 <b>To'landi:</b> {price_uzs:,} so'm ({price_stars} Stars)\n"
+                f"📦 <b>Buyurtma ID:</b> #{rec_id}\n"
+                f"🔗 <b>Fragment rasmiy havolasi:</b>\n<a href=\"{slug_url}\">{slug_url}</a>\n\n"
+                f"<i>Sovg'a profilingizga yuborilmoqda!</i>"
+            )
+            req_data = json.dumps({
+                "chat_id": user_id,
+                "text": notify_txt,
+                "parse_mode": "HTML",
+                "reply_markup": {
+                    "inline_keyboard": [
+                        [{"text": "🔗 Fragment.com da Ko'rish", "url": slug_url}]
+                    ]
+                }
+            }).encode("utf-8")
+            req = urllib.request.Request(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data=req_data, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as _: pass
+        except Exception as notify_err:
+            print(f"Direct buy notify warning: {notify_err}")
             
         new_balance = database.get_user_balance(user_id)
         return web.json_response({
@@ -3633,6 +3657,7 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/store/redeem", handle_api_stars_redeem)
     app.router.add_post("/api/stars/pvp/create", handle_api_stars_pvp_create)
     app.router.add_post("/api/stars/pvp/join", handle_api_stars_pvp_join)
+    app.router.add_post("/api/stars/pvp/cancel", handle_api_stars_pvp_cancel)
     app.router.add_get("/api/stars/marketplace-nfts", handle_api_stars_marketplace_nfts)
     app.router.add_get("/api/stars/ton-rate", handle_api_stars_ton_rate)
     app.router.add_post("/api/stars/marketplace/buy", handle_api_stars_marketplace_buy)

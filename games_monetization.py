@@ -1770,12 +1770,40 @@ def create_case_battle(host_id: int, host_name: str, tier_id: str) -> dict:
 
 def get_open_case_battles() -> list:
     global _PVP_BATTLES
+    try:
+        from database import get_db_open_case_battles
+        db_battles = get_db_open_case_battles(limit=30)
+        for b in db_battles:
+            b_id = b.get("id")
+            if b_id:
+                if b_id not in _PVP_BATTLES:
+                    _PVP_BATTLES[b_id] = b
+                elif _PVP_BATTLES[b_id].get("status") != b.get("status"):
+                    _PVP_BATTLES[b_id]["status"] = b["status"]
+    except Exception as e:
+        print(f"get_open_case_battles sync warning: {e}")
     waiting = [b for b in _PVP_BATTLES.values() if b.get("status") == "waiting"]
     return waiting
+
+def cancel_case_battle(battle_id: str, host_id: int) -> dict:
+    from database import cancel_db_case_battle
+    res = cancel_db_case_battle(battle_id, host_id)
+    if res.get("ok"):
+        if battle_id in _PVP_BATTLES:
+            _PVP_BATTLES[battle_id]["status"] = "cancelled"
+    return res
 
 def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> dict:
     from database import deduct_user_balance, add_user_balance, get_user_balance
     battle = _PVP_BATTLES.get(battle_id)
+    if not battle:
+        try:
+            from database import get_db_case_battle
+            battle = get_db_case_battle(battle_id)
+            if battle:
+                _PVP_BATTLES[battle_id] = battle
+        except Exception:
+            pass
     if not battle:
         return {"ok": False, "error": "Bunday PvP jang topilmadi yoki tugatilgan!"}
     if battle["status"] != "waiting":

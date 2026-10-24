@@ -841,6 +841,13 @@
             </svg>
         );
 
+        const SvgX = ({ size = 14, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        );
+
         // ==================== REAL FRAGMENT TELEGRAM GIFT ASSETS (ZERO EMOJIS, ZERO MOCKS) ====================
         const FRAGMENT_FALLBACK_IMAGES = {
             autopost: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
@@ -2168,6 +2175,35 @@
                     alert("Aloqa xatosi: " + err);
                     setActiveBattle(null);
                 });
+            };
+
+            const handleCancelBattle = (battleId) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
+                if (!confirm("Haqiqatan ham ushbu PvP keys jangini bekor qilmoqchimisiz? Tikilgan garov mablag'i balansingizga 100% to'liq qaytariladi.")) {
+                    return;
+                }
+                fetch('/api/stars/pvp-battle/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ battle_id: battleId, user_id: tgUser.id })
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.ok) {
+                        alert(res.message || "PvP jang bekor qilindi va mablag' balansingizga 100% qaytarildi!");
+                        if (res.new_balance !== undefined) {
+                            setUserStats(prev => ({ ...prev, balance_uzs: res.new_balance }));
+                        }
+                        loadUserStats(tgUser.id, true);
+                        fetchBattles();
+                    } else {
+                        alert(res.error || "Bekor qilishda xatolik yuz berdi!");
+                    }
+                })
+                .catch(err => alert("Jangni bekor qilishda xatolik: " + err));
             };
 
             // Controlled Upgrader Run (Haqiqiy garov stavkasi va balans to'lovi)
@@ -5298,19 +5334,19 @@
                                                     onClick={() => handleCreateBattle('tier_1')}
                                                     style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "10px 18px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
-                                                    + Bronze (25 Stars / 10,000 so'm)
+                                                    + Bronze (100 Stars / 40,000 so'm)
                                                 </button>
                                                 <button
                                                     onClick={() => handleCreateBattle('tier_2')}
                                                     style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "10px 18px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
-                                                    + Silver (75 Stars / 30,000 so'm)
+                                                    + Silver (250 Stars / 100,000 so'm)
                                                 </button>
                                                 <button
                                                     onClick={() => handleCreateBattle('tier_3')}
                                                     style={{ background: "#7342E2", border: "none", color: "#fff", padding: "10px 20px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(115,66,226,0.4)" }}
                                                 >
-                                                    + Gold Jang (250 Stars / 100,000 so'm)
+                                                    + Gold (500 Stars / 200,000 so'm)
                                                 </button>
                                             </div>
                                         </div>
@@ -5369,25 +5405,56 @@
                                                         </div>
                                                     </div>
 
-                                                    <button
-                                                        onClick={() => handleJoinBattle(b)}
-                                                        style={{
-                                                            width: "100%",
-                                                            padding: "12px 0",
-                                                            borderRadius: "999px",
-                                                            background: "#0a0a0a",
-                                                            color: "#ffffff",
-                                                            border: "none",
-                                                            fontWeight: 700,
-                                                            fontSize: "14px",
-                                                            cursor: "pointer",
-                                                            transition: "background 0.2s"
-                                                        }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.background = "#7342E2"}
-                                                        onMouseLeave={(e) => e.currentTarget.style.background = "#0a0a0a"}
-                                                    >
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgSwords size={14} color="#ffffff" /><span>Jangga Kirish ({(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span></span>
-                                                    </button>
+                                                    {tgUser && b.host_id === tgUser.id ? (
+                                                        <button
+                                                            onClick={() => handleCancelBattle(b.id)}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "12px 0",
+                                                                borderRadius: "999px",
+                                                                background: "rgba(239, 68, 68, 0.12)",
+                                                                color: "#ef4444",
+                                                                border: "1px solid rgba(239, 68, 68, 0.35)",
+                                                                fontWeight: 700,
+                                                                fontSize: "14px",
+                                                                cursor: "pointer",
+                                                                transition: "all 0.2s"
+                                                            }}
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.background = "#ef4444";
+                                                                e.currentTarget.style.color = "#ffffff";
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)";
+                                                                e.currentTarget.style.color = "#ef4444";
+                                                            }}
+                                                        >
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                                <SvgX size={14} color="currentColor" />
+                                                                <span>Bekor qilish (100% Qaytarish: {(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span>
+                                                            </span>
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleJoinBattle(b)}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "12px 0",
+                                                                borderRadius: "999px",
+                                                                background: "#0a0a0a",
+                                                                color: "#ffffff",
+                                                                border: "none",
+                                                                fontWeight: 700,
+                                                                fontSize: "14px",
+                                                                cursor: "pointer",
+                                                                transition: "background 0.2s"
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.background = "#7342E2"}
+                                                            onMouseLeave={(e) => e.currentTarget.style.background = "#0a0a0a"}
+                                                        >
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgSwords size={14} color="#ffffff" /><span>Jangga Kirish ({(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span></span>
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )))}
                                         </div>

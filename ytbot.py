@@ -2111,9 +2111,41 @@ def create_ytbot():
         lines = ["📦 <b>Upgrader Jonli Sovg'alar Inventari:</b>\n"]
         for it in inv:
             target_badge = "@aiko_64" if it.get("receiver_target") == "aiko_64" else "Bot"
-            lines.append(f"• ID #{it.get('id')}: <b>{it.get('name')}</b> ({it.get('stars')} ⭐) | Egasi: <code>{target_badge}</code>")
+            gid = str(it.get("gift_id") or "")
+            link_str = f' | <a href="https://fragment.com/gift/{gid}">Fragment 🔗</a>' if ("-" in gid or not gid.isdigit()) else ""
+            lines.append(f"• ID #{it.get('id')}: <b>{it.get('name')}</b> ({it.get('stars')} ⭐) | Egasi: <code>{target_badge}</code>{link_str}")
         lines.append("\n<i>Ushbu sovg'alar foydalanuvchilar veb upgraderda maqsad (Target) sifatida tanlay oladigan haqiqiy bor sovg'alardir.</i>")
-        await message.reply_text("\n".join(lines))
+        await message.reply_text("\n".join(lines), disable_web_page_preview=True)
+
+    @bot.on_message(filters.command(["mygifts", "sovgalarim", "yutuqlarim", "gifts"]) & filters.private)
+    async def user_my_gifts_cmd(client, message: Message):
+        user_id = message.from_user.id
+        from database import get_user_gift_history
+        gifts = get_user_gift_history(user_id, limit=15)
+        if not gifts:
+            await message.reply_text(
+                "🎁 <b>Sizda hali yutilgan yoki xarid qilingan Telegram sovg'alari mavjud emas.</b>\n\n"
+                "<i>Keys ochish yoki do'kondan NFT xarid qilish orqali haqiqiy sovg'alarga ega bo'lishingiz mumkin!</i>"
+            )
+            return
+        lines = ["🎁 <b>Sizning Telegram Sovg'alaringiz va NFT Tarixingiz:</b>\n"]
+        buttons = []
+        for idx, g in enumerate(gifts, 1):
+            gid = str(g.get("gift_id") or "")
+            p_name = g.get("prize_name", "Telegram Sovg'a")
+            p_stars = g.get("prize_stars", 0)
+            status = g.get("status", "pending")
+            st_badge = "✅ Profilingizga yetkazilgan" if status == "sent" else ("⏳ Navbatda (Yetkazilmoqda)" if "pending" in status else f"Holat: {status}")
+            lines.append(f"{idx}. <b>{p_name}</b> ({p_stars} ⭐)")
+            lines.append(f"   Holat: <code>{st_badge}</code>")
+            if "-" in gid or not gid.isdigit():
+                frag_link = f"https://fragment.com/gift/{gid}"
+                lines.append(f"   🔗 <b>Fragment havolasi:</b> <a href=\"{frag_link}\">{frag_link}</a>")
+                if len(buttons) < 5:
+                    buttons.append([InlineKeyboardButton(f"🔗 {p_name} (Fragment)", url=frag_link)])
+            lines.append("")
+        kb = InlineKeyboardMarkup(buttons) if buttons else None
+        await message.reply_text("\n".join(lines), reply_markup=kb, disable_web_page_preview=True)
 
     @bot.on_message(filters.command(["ban", "bloklash"]) & filters.private)
     async def ban_user_cmd(client, message: Message):
@@ -2318,11 +2350,14 @@ def create_ytbot():
         if not gifts:
             await cb.answer("Ushbu foydalanuvchida hali sovg'alar yo'q.", show_alert=True)
             return
-        g_lines = "\n".join([
-            f"• <b>{g.get('prize_name')}</b> ({g.get('prize_stars')} ⭐) | Status: <code>{g.get('status')}</code>"
-            for g in gifts
-        ])
-        text = f"🎁 <b>Foydalanuvchi {uid} sovg'alari:</b>\n\n{g_lines}"
+        g_lines = []
+        for g in gifts:
+            gid = str(g.get("gift_id") or "")
+            link_str = ""
+            if "-" in gid or not gid.isdigit():
+                link_str = f' | <a href="https://fragment.com/gift/{gid}">Fragment 🔗</a>'
+            g_lines.append(f"• <b>{g.get('prize_name')}</b> ({g.get('prize_stars')} ⭐) | Status: <code>{g.get('status')}</code>{link_str}")
+        text = f"🎁 <b>Foydalanuvchi {uid} sovg'alari:</b>\n\n" + "\n".join(g_lines)
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Foydalanuvchiga qaytish", callback_data=f"adm_u_view_{uid}")]])
         await cb.message.edit_text(text, reply_markup=kb)
 
@@ -4136,12 +4171,23 @@ def create_ytbot():
         
         if gift_res.get("ok"):
             update_gift_record_status(rec_id, status="sent")
+            gid = str(gift_item.get("gift_id") or "")
+            link_text = ""
+            kb_list = [
+                [InlineKeyboardButton(f"{ce('BTN_HOME')} Bosh menyu", callback_data="back_main")]
+            ]
+            if "-" in gid or not gid.isdigit():
+                frag_link = f"https://fragment.com/gift/{gid}"
+                link_text = f"🔗 <b>Fragment rasmiy havolasi:</b>\n<a href=\"{frag_link}\">{frag_link}</a>\n\n"
+                kb_list.insert(0, [InlineKeyboardButton("🔗 Fragment.com da Ko'rish", url=frag_link)])
             await callback_query.message.edit_text(
                 f"🎉 <b>TABRIKLAYMIZ! SOVG'A TELEGRAM PROFILINGIZGA YUBORILDI!</b>\n\n"
                 f"🎁 <b>Sovg'a:</b> {gift_item['prize_name']}\n"
                 f"⭐ <b>Qiymati:</b> {gift_item['prize_stars']} ⭐ Stars\n\n"
+                f"{link_text}"
                 f"<i>Telegram profilingizdagi 'Gifts' (Sovg'alar) bo'limida ko'rishingiz va vitrinangizga qo'yishingiz mumkin.</i>",
-                reply_markup=main_menu_kb(user_id)
+                reply_markup=InlineKeyboardMarkup(kb_list),
+                disable_web_page_preview=False
             )
         else:
             reason = gift_res.get("reason", "api_error")
@@ -8405,6 +8451,26 @@ def create_ytbot():
                 p_date = str(p.get("created_at", ""))[:16].replace("T", " ")
                 lines.append(f"• {p['item_name']} — {p['price_uzs']:,} so'm ({p_date})")
 
+        # Telegram Gifts & NFT purchases
+        try:
+            from database import get_user_gift_history
+            gift_history = get_user_gift_history(user_id, limit=5)
+            if gift_history:
+                lines.append("\n🎁 <b>Telegram Sovg'alar & NFT Xaridlari:</b>")
+                for g in gift_history:
+                    gid = str(g.get("gift_id") or "")
+                    p_name = g.get("prize_name", "Telegram Sovg'a")
+                    p_stars = g.get("prize_stars", 0)
+                    status = g.get("status", "pending")
+                    st_str = "✅ Yetkazilgan" if status == "sent" else "⏳ Yetkazilmoqda"
+                    if "-" in gid or not gid.isdigit():
+                        frag_url = f"https://fragment.com/gift/{gid}"
+                        lines.append(f"• <b>{p_name}</b> ({p_stars} ⭐) [{st_str}]\n  🔗 <a href=\"{frag_url}\">{frag_url}</a>")
+                    else:
+                        lines.append(f"• <b>{p_name}</b> ({p_stars} ⭐) [{st_str}]")
+        except Exception as e:
+            print(f"gift_history error: {e}")
+
         text = "\n".join(lines)
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"{ce('BTN_SERVICES')} Do'konga qaytish", callback_data="menu_marketplace")],
@@ -8613,6 +8679,15 @@ def create_ytbot():
         catalog = await ventebot_service.get_products(lang="uz")
         products = catalog.get("products", [])
         product = next((p for p in products if p.get("id") == product_id), None)
+
+        # Agar tovar keshda topilmasa yoki stock 0 bo'lsa, zaxirani darhol jonli yangilaymiz!
+        if not product or (product.get("stock") is not None and product.get("stock") == 0):
+            fresh_cat = await ventebot_service.get_products(lang="uz", force_refresh=True)
+            if fresh_cat.get("success"):
+                fresh_products = fresh_cat.get("products", [])
+                fresh_p = next((p for p in fresh_products if p.get("id") == product_id), None)
+                if fresh_p:
+                    product = fresh_p
 
         if not product:
             await cb.answer("Mahsulot topilmadi!", show_alert=True)
@@ -10758,13 +10833,19 @@ def create_ytbot():
                             bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
                             asyncio.create_task(process_pending_gifts_batch(bot_token=bot_token, limit=5))
                             
+                            fragment_url = f"https://fragment.com/gift/{slug}"
                             notify_txt = (
-                                f"Tabriklaymiz! Siz <b>{nft_name}</b> NFT sovg'asini Telegram Stars orqali muvaffaqiyatli xarid qildingiz!\n\n"
-                                f"Qiymati: {nft_stars} Stars\n"
-                                f"Buyurtma ID: #{rec_id}\n\n"
-                                f"<i>Sovg'a profilingizga yuborilmoqda!</i>"
+                                f"🎉 <b>TABRIKLAYMIZ! XARID MUVAFFAQIYATLI!</b>\n\n"
+                                f"🎁 <b>Sovg'a:</b> <b>{nft_name}</b>\n"
+                                f"⭐ <b>Qiymati:</b> {nft_stars} Stars\n"
+                                f"📦 <b>Buyurtma ID:</b> #{rec_id}\n"
+                                f"🔗 <b>Fragment rasmiy havolasi:</b>\n<a href=\"{fragment_url}\">{fragment_url}</a>\n\n"
+                                f"<i>Sovg'angiz profilingizga yuborilmoqda!</i>"
                             )
-                            await client.send_message(u_id, notify_txt)
+                            kb = InlineKeyboardMarkup([
+                                [InlineKeyboardButton("🔗 Fragment.com da Ko'rish", url=fragment_url)]
+                            ])
+                            await client.send_message(u_id, notify_txt, reply_markup=kb, disable_web_page_preview=False)
                         except Exception as nft_pay_err:
                             print(f"[Stars NFT Payment] Error: {nft_pay_err}")
 

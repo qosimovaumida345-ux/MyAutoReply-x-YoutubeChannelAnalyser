@@ -110,24 +110,54 @@ class VenteBotClient:
         }
 
     @staticmethod
-    def calculate_retail_usd(price_usd: float) -> float:
+    def calculate_dynamic_markup_percent(price_usd: float, category: str = "", stock: Optional[int] = None) -> float:
         """
-        Dynamic Retail USD narxini hisoblash (Asl narxdan +150% ko'proq).
-        Foydalanuvchi talabi: Asl narxidan 150% ko'proq bo'lsin.
-        Masalan: $0.50 bo'lsa -> $0.50 * (1 + 1.50) = $1.25 (taxminan $1.20 - $1.25).
-        Formula: retail_usd = price_usd * (1.0 + (RESELLER_MARKUP_PERCENT / 100.0))
+        Dinamik Smart Marja (50% dan 100% gacha):
+        Foydalanuvchi talabi:
+        - Asl narxi $1 bo'lgan narsa $1.50 dan ko'proq, maksimum $2.00 bo'lsin (50% - 100% oralig'ida).
+        - Statik 150% olib tashlandi, narx darajasi va talabga ko'ra avtomatik belgilanadi.
+        """
+        if not price_usd or price_usd <= 0:
+            return 50.0
+
+        # Narx darajasiga (Bracket) ko'ra asosiy marja:
+        if price_usd <= 1.0:
+            # $0.01 - $1.00: 70% marja ($1.00 -> $1.70, $0.50 -> $0.85)
+            base_markup = 70.0
+        elif price_usd <= 3.0:
+            # $1.01 - $3.00: 60% marja ($2.00 -> $3.20)
+            base_markup = 60.0
+        elif price_usd <= 10.0:
+            # $3.01 - $10.00: 55% marja ($5.00 -> $7.75)
+            base_markup = 55.0
+        else:
+            # $10.00+: 50% marja ($20.00 -> $30.00)
+            base_markup = 50.0
+
+        # Talab (Scarcity indicator): Agar zaxira kam bo'lsa (<= 5 ta) +5% qo'shiladi
+        if stock is not None and 0 < stock <= 5:
+            base_markup += 5.0
+
+        # Qat'iy chegara: 50.0% dan kam emas, 100.0% dan ko'p emas!
+        return max(50.0, min(100.0, base_markup))
+
+    @staticmethod
+    def calculate_retail_usd(price_usd: float, category: str = "", stock: Optional[int] = None) -> float:
+        """
+        Dynamic Retail USD narxini hisoblash (50% - 100% marja).
+        $1 lik tovar qat'iy $1.50 - $2.00 oralig'ida bo'ladi!
         """
         if not price_usd or price_usd <= 0:
             return 0.0
-        markup = float(RESELLER_MARKUP_PERCENT if RESELLER_MARKUP_PERCENT is not None else 150.0)
+        markup = VenteBotClient.calculate_dynamic_markup_percent(price_usd, category, stock)
         retail = price_usd * (1.0 + (markup / 100.0))
         return round(retail, 2)
 
-    def convert_usd_to_uzs(self, price_usd: float, current_rate: Optional[float] = None) -> int:
+    def convert_usd_to_uzs(self, price_usd: float, current_rate: Optional[float] = None, category: str = "", stock: Optional[int] = None) -> int:
         """
-        Dynamic Smart Pricing Formula (Asl narxidan 150% ko'proq bo'lgan UZS narxi):
+        Dynamic Smart Pricing Formula (Asl narxidan 50% - 100% marja bilan UZS narxi):
         - Asl narx: price_usd
-        - Sotuv USD narxi: calculate_retail_usd(price_usd)
+        - Sotuv USD narxi: calculate_retail_usd(price_usd, category, stock)
         - Real-time USD kursi: currency_service (O'zbekiston Markaziy Banki CBU.uz API)
         - UZS ga o'tkazish: retail_usd * rate
         - Yaxlitlash: 1,000 so'mgacha yaxlitlanadi
@@ -135,7 +165,7 @@ class VenteBotClient:
         """
         if not price_usd or price_usd <= 0:
             return 10000
-        retail_usd = self.calculate_retail_usd(price_usd)
+        retail_usd = self.calculate_retail_usd(price_usd, category, stock)
         rate = float(current_rate or currency_service.get_cached_usd_rate() or USD_TO_UZS_RATE or 12850.0)
         uzs = int(round(retail_usd * rate, -3))
         return max(10000, uzs)
@@ -279,16 +309,17 @@ class VenteBotClient:
                                 continue  # Vendor test tovarini mijozlarga ko'rsatmaslik
                             p_copy = dict(p)
                             cost_usd = float(p.get("price_usd") or p.get("price") or 0)
-                            retail_usd = self.calculate_retail_usd(cost_usd)
+                            stock_val = p.get("stock")
+                            retail_usd = self.calculate_retail_usd(cost_usd, category=cat, stock=stock_val)
                             p_copy["category"] = cat
                             p_copy["cost_price_usd"] = cost_usd
                             p_copy["retail_price_usd"] = retail_usd
-                            p_copy["price_uzs"] = self.convert_usd_to_uzs(cost_usd, current_rate=live_rate)
+                            p_copy["price_uzs"] = self.convert_usd_to_uzs(cost_usd, current_rate=live_rate, category=cat, stock=stock_val)
                             processed_products.append(p_copy)
 
                         res = {"success": True, "products": processed_products}
-                        # 10 daqiqa keshda saqlash
-                        self.cache.set(cache_key, res, ttl_seconds=600)
+                        # 60 soniya (1 daqiqa) keshda saqlash - zaxira va narxlar kechikmasligi uchun
+                        self.cache.set(cache_key, res, ttl_seconds=60)
                         return res
                     else:
                         err_data = await resp.json() if resp.content_type == 'application/json' else {}
@@ -339,7 +370,7 @@ class VenteBotClient:
                         quote["unit_price_uzs"] = self.convert_usd_to_uzs(unit_usd, current_rate=live_rate)
                         quote["total_uzs"] = self.convert_usd_to_uzs(total_usd, current_rate=live_rate)
                         data["quote"] = quote
-                        self.cache.set(cache_key, data, ttl_seconds=300)
+                        self.cache.set(cache_key, data, ttl_seconds=30)
                         return data
                     return data
         except Exception as e:
