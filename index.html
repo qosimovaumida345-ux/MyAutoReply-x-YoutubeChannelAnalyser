@@ -4222,7 +4222,7 @@
                                                 {/* Admin Observability (n8n Flow) Button */}
                                                 {(tgUser.is_owner || userStats.is_owner || Number(tgUser.id) === 6735799833 || tgUser.username === 'aiko_64') && (
                                                     <a
-                                                        href={`/admin/flow?key=${encodeURIComponent(localStorage.getItem('creatorflow_auth_token') || '6735799833')}`}
+                                                        href="/admin/flow"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         title="Admin Observability & n8n Live Flow Inspector"
@@ -5237,46 +5237,42 @@
                                     </div>
                                     <div style={{ overflow: "hidden", whiteSpace: "nowrap", flex: 1, position: "relative" }}>
                                         <div className="ticker-track">
-                                            {(recentDrops.length > 0 ? recentDrops.concat(recentDrops) : [
-                                                { user: "@jasur_films", item: "Teddy Bear", stars: 50, icon: "teddy", rarity: "legendary" },
-                                                { user: "@azamat_editor", item: "Champagne Bottle", stars: 100, icon: "champagne", rarity: "rare" },
-                                                { user: "@shoxruh_yt", item: "Space Rocket", stars: 1000, icon: "rocket", rarity: "rare" },
-                                                { user: "@kamila_pro", item: "Delicious Cake", stars: 15, icon: "cake", rarity: "common" },
-                                                { user: "@islom_vlogs", item: "Diamond Ring", stars: 250, icon: "diamond_ring", rarity: "legendary" },
-                                                { user: "@bobur_media", item: "Golden Trophy", stars: 500, icon: "trophy", rarity: "rare" }
-                                            ].concat([
-                                                { user: "@jasur_films", item: "Teddy Bear", stars: 50, icon: "teddy", rarity: "legendary" },
-                                                { user: "@azamat_editor", item: "Champagne Bottle", stars: 100, icon: "champagne", rarity: "rare" }
-                                            ])).map((d, i) => (
-                                                <div key={i} style={{
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                    background: "rgba(255,255,255,0.05)",
-                                                    padding: "5px 14px",
-                                                    borderRadius: "999px",
-                                                    fontSize: "13px",
-                                                    border: "1px solid rgba(255,255,255,0.08)",
-                                                    color: "#ffffff"
-                                                }}>
-                                                    <span style={{ color: "#8e8e93", fontWeight: 500 }}>{d.user}</span>
-                                                    <SvgArrowRight size={11} color="#666" />
-                                                    <TelegramGiftMedia icon={d.icon} name={d.item} size="18px" />
-                                                    <span style={{ fontWeight: 600, color: "#ffffff" }}>{d.item}</span>
-                                                    {d.stars > 0 && <span style={{ color: "#ffd700", fontWeight: 700, fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "3px" }}>{d.stars} <SvgStar size={12} color="#ffd700" /></span>}
-                                                    <span style={{
-                                                        fontSize: "10px",
-                                                        fontWeight: 800,
-                                                        padding: "2px 7px",
-                                                        borderRadius: "6px",
-                                                        textTransform: "uppercase",
-                                                        background: d.rarity === 'legendary' ? 'rgba(255,215,0,0.2)' : (d.rarity === 'rare' ? 'rgba(0,240,255,0.18)' : 'rgba(255,255,255,0.1)'),
-                                                        color: d.rarity === 'legendary' ? '#ffd700' : (d.rarity === 'rare' ? '#00f0ff' : '#aaaaaa')
+                                            {recentDrops.length > 0 ? (
+                                                recentDrops.concat(recentDrops).map((d, i) => (
+                                                    <div key={i} style={{
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: "8px",
+                                                        background: "rgba(255,255,255,0.05)",
+                                                        padding: "5px 14px",
+                                                        borderRadius: "999px",
+                                                        fontSize: "13px",
+                                                        border: "1px solid rgba(255,255,255,0.08)",
+                                                        color: "#ffffff"
                                                     }}>
-                                                        {d.rarity}
-                                                    </span>
+                                                        <span style={{ color: "#8e8e93", fontWeight: 500 }}>{d.user}</span>
+                                                        <SvgArrowRight size={11} color="#666" />
+                                                        <TelegramGiftMedia icon={d.icon} name={d.item} size="18px" />
+                                                        <span style={{ fontWeight: 600, color: "#ffffff" }}>{d.item}</span>
+                                                        {d.stars > 0 && <span style={{ color: "#ffd700", fontWeight: 700, fontSize: "12px", display: "inline-flex", alignItems: "center", gap: "3px" }}>{d.stars} <SvgStar size={12} color="#ffd700" /></span>}
+                                                        <span style={{
+                                                            fontSize: "10px",
+                                                            fontWeight: 800,
+                                                            padding: "2px 7px",
+                                                            borderRadius: "6px",
+                                                            textTransform: "uppercase",
+                                                            background: d.rarity === 'legendary' ? 'rgba(255,215,0,0.2)' : (d.rarity === 'rare' ? 'rgba(0,240,255,0.18)' : 'rgba(255,255,255,0.1)'),
+                                                            color: d.rarity === 'legendary' ? '#ffd700' : (d.rarity === 'rare' ? '#00f0ff' : '#aaaaaa')
+                                                        }}>
+                                                            {d.rarity}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "5px 16px", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
+                                                    Hozircha jonli yutuqlar yo'q. Birinchi bo'lib omadli keysni oching!
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     </div>
                                 </div>

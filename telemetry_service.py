@@ -1098,7 +1098,12 @@ def render_telemetry_html(admin_key: str = "") -> str:
         async function fetchTelemetry() {{
             if (!isPolling) return;
             try {{
-                const res = await fetch(`/api/admin/telemetry/stream?key=${{encodeURIComponent(ADMIN_KEY)}}`);
+                const headers = {{}};
+                if (ADMIN_KEY) {{
+                    headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
+                    headers['X-Admin-Secret'] = ADMIN_KEY;
+                }}
+                const res = await fetch('/api/admin/telemetry/stream', {{ headers: headers }});
                 if (res.status === 403) {{
                     window.location.reload();
                     return;
@@ -1201,9 +1206,14 @@ def render_telemetry_html(admin_key: str = "") -> str:
         async function saveConfig(key, inputId) {{
             const val = document.getElementById(inputId).value;
             try {{
-                const res = await fetch(`/api/admin/telemetry/config?key=${{encodeURIComponent(ADMIN_KEY)}}`, {{
+                const headers = {{ 'Content-Type': 'application/json' }};
+                if (ADMIN_KEY) {{
+                    headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
+                    headers['X-Admin-Secret'] = ADMIN_KEY;
+                }}
+                const res = await fetch('/api/admin/telemetry/config', {{
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
+                    headers: headers,
                     body: JSON.stringify({{ [key]: Number(val) }})
                 }});
                 const d = await res.json();
@@ -1219,9 +1229,14 @@ def render_telemetry_html(admin_key: str = "") -> str:
         async function purgeCacheAction(cat) {{
             if (!confirm(`Haqiqatan ham "${{cat}}" keshini tozalamoqchimisiz?`)) return;
             try {{
-                const res = await fetch(`/api/admin/telemetry/purge?key=${{encodeURIComponent(ADMIN_KEY)}}`, {{
+                const headers = {{ 'Content-Type': 'application/json' }};
+                if (ADMIN_KEY) {{
+                    headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
+                    headers['X-Admin-Secret'] = ADMIN_KEY;
+                }}
+                const res = await fetch('/api/admin/telemetry/purge', {{
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
+                    headers: headers,
                     body: JSON.stringify({{ category: cat }})
                 }});
                 const d = await res.json();
