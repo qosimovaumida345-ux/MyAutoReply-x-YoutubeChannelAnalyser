@@ -6427,16 +6427,19 @@ def get_all_bot_users(page: int = 1, limit: int = 10, search: str = "") -> dict:
     try:
         cur = conn.cursor()
         params = []
-        where_clause = ""
+        # Faqat haqiqiy Telegram foydalanuvchilarini ko'rsatish (test/sun'iy IDlarni chetlab o'tish)
+        base_filter = "u.tg_user_id < 90000000000"
         clean_s = str(search).strip()
         if clean_s:
             s_like = f"%{clean_s.lstrip('@')}%"
             if clean_s.isdigit():
-                where_clause = "WHERE u.tg_user_id = %s OR u.username ILIKE %s OR u.first_name ILIKE %s"
+                where_clause = f"WHERE ({base_filter}) AND (u.tg_user_id = %s OR u.username ILIKE %s OR u.first_name ILIKE %s)"
                 params.extend([int(clean_s), s_like, s_like])
             else:
-                where_clause = "WHERE u.username ILIKE %s OR u.first_name ILIKE %s"
+                where_clause = f"WHERE ({base_filter}) AND (u.username ILIKE %s OR u.first_name ILIKE %s)"
                 params.extend([s_like, s_like])
+        else:
+            where_clause = f"WHERE {base_filter}"
 
         # Jami foydalanuvchilar soni
         cur.execute(f"SELECT COUNT(*) as count FROM bot_users u {where_clause}", tuple(params))
