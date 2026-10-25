@@ -1507,8 +1507,11 @@ def render_admin_login_portal(error_msg: str = "") -> str:
                 if (d.ok) {{
                     statusEl.className = 'status-msg success';
                     statusEl.textContent = 'Ruxsat berildi! Telemetriya yuklanmoqda...';
-                    document.cookie = "admin_key=" + encodeURIComponent(key) + "; path=/; max-age=2592000; SameSite=Lax";
-                    document.cookie = "cf_auth_token=" + encodeURIComponent(key) + "; path=/; max-age=2592000; SameSite=Lax";
+                    if (d.token) {{
+                        document.cookie = "cf_adm_sig=" + encodeURIComponent(d.token) + "; path=/; max-age=2592000; SameSite=Lax";
+                        localStorage.setItem('creatorflow_admin_sig', d.token);
+                    }}
+                    document.cookie = "cf_auth_owner=6735799833; path=/; max-age=2592000; SameSite=Lax";
                     setTimeout(() => {{
                         window.location.reload();
                     }}, 400);

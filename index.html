@@ -1948,13 +1948,20 @@
         };
 
         // ==================== MAIN APPLICATION ====================
+        const formatStarsCompact = (val) => {
+            const num = Number(val) || 0;
+            if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M\u2605';
+            if (num >= 10000) return (num / 1000).toFixed(num >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k\u2605';
+            return num.toLocaleString() + '\u2605';
+        };
+
         const CaseDropBadge = ({ drop, dIdx, onClick }) => {
             const [isHovered, setIsHovered] = React.useState(false);
             return (
                 <div
                     key={dIdx}
                     className="drop-mini-badge"
-                    title={`${drop.name} (${drop.stars} Stars)`}
+                    title={`${drop.name} (${Number(drop.stars).toLocaleString()} Stars)`}
                     onClick={onClick}
                     style={{
                         position: "relative",
@@ -2004,7 +2011,7 @@
                         lineHeight: "1.2",
                         zIndex: 2
                     }}>
-                        {drop.stars}★
+                        {formatStarsCompact(drop.stars)}
                     </span>
                 </div>
             );
@@ -6814,7 +6821,7 @@
                                                                         {item.name || item.prize_name}
                                                                     </div>
                                                                     <div style={{ fontSize: "11px", fontWeight: 700, color: "#ffd700", marginTop: "2px" }}>
-                                                                        {item.stars || item.prize_stars ? `${item.stars || item.prize_stars} Stars` : ""}
+                                                                        {item.stars || item.prize_stars ? `${Number(item.stars || item.prize_stars).toLocaleString()} Stars` : ""}
                                                                     </div>
                                                                 </div>
                                                             );
