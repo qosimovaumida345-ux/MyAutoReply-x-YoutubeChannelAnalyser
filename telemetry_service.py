@@ -267,7 +267,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
     # Xavfsizlik: Bot tokeni (masalan 1234:ABC formatida) hech qachon HTML shablonga kiritilmaydi
     safe_admin_key = str(admin_key or "").strip()
     if ":" in safe_admin_key or "bot" in safe_admin_key.lower():
-        safe_admin_key = "6735799833"
+        safe_admin_key = ""
     return f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -732,6 +732,10 @@ def render_telemetry_html(admin_key: str = "") -> str:
             <a href="/" class="btn-3d btn-3d-dark" style="text-decoration: none;">
                 Ilovaga qaytish
             </a>
+            <button onclick="adminLogout()" class="btn-3d btn-3d-dark" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.35);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Chiqish</span>
+            </button>
         </div>
     </header>
 
@@ -1061,11 +1065,22 @@ def render_telemetry_html(admin_key: str = "") -> str:
     <script>
         const ADMIN_KEY = "{safe_admin_key}" || (function() {{
             try {{
-                return localStorage.getItem('creatorflow_admin_sig') || localStorage.getItem('creatorflow_auth_token') || '6735799833';
+                return localStorage.getItem('creatorflow_admin_sig') || '';
             }} catch(e) {{
-                return '6735799833';
+                return '';
             }}
         }})();
+
+        async function adminLogout() {{
+            try {{
+                await fetch('/api/admin/logout', {{ method: 'POST', credentials: 'same-origin' }});
+            }} catch(e) {{}}
+            localStorage.removeItem('creatorflow_admin_sig');
+            document.cookie = "cf_adm_sig=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+            document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+            document.cookie = "cf_auth_owner=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+            window.location.href = '/admin/flow';
+        }}
         let isPolling = true;
         let pollTimer = null;
         let curTab = 'flow';
@@ -1462,12 +1477,12 @@ def render_admin_login_portal(error_msg: str = "") -> str:
         </div>
 
         <h1>Admin Observability</h1>
-        <p class="subtitle">CreatorFlow Studio • n8n-style jonli tizim oqimi va telemetriya tekshiruvi (@aiko_64)</p>
+        <p class="subtitle">CreatorFlow Studio • n8n-style jonli tizim oqimi va telemetriya tekshiruvi</p>
 
-        <form id="authForm" onsubmit="event.preventDefault(); verifyAdminKey();">
+        <form id="authForm" onsubmit="event.preventDefault(); submitAdminKey();">
             <div class="input-group">
-                <label for="adminKeyInput">Admin Kaliti yoki Telegram ID</label>
-                <input id="adminKeyInput" class="text-input" type="password" placeholder="6735799833 yoki maxfiy kalit" autocomplete="current-password" autofocus />
+                <label for="adminKeyInput">Maxfiy Admin Paroli</label>
+                <input id="adminKeyInput" class="text-input" type="password" placeholder="Maxfiy admin parolini kiriting" autocomplete="current-password" autofocus />
             </div>
 
             <button type="submit" id="verifyBtn" class="btn-3d">
@@ -1486,74 +1501,88 @@ def render_admin_login_portal(error_msg: str = "") -> str:
     </div>
 
     <script>
+        async function sha256Hex(str) {{
+            const enc = new TextEncoder().encode(str);
+            const buf = await crypto.subtle.digest('SHA-256', enc);
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }}
+
         async function checkAutoAuth() {{
             const statusEl = document.getElementById('statusMsg');
             try {{
                 const adminSig = localStorage.getItem('creatorflow_admin_sig');
-                const token = localStorage.getItem('creatorflow_auth_token');
-                const uid = localStorage.getItem('creatorflow_tg_user_id');
-                const candidate = adminSig || token || (uid === '6735799833' ? uid : '');
-                if (candidate) {{
+                if (adminSig) {{
                     statusEl.className = 'status-msg';
-                    statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saqlangan sessiya tekshirilmoqda (@aiko_64)...</span>';
-                    const ok = await verifyAdminKey(candidate, true);
-                    if (ok) return;
+                    statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saqlangan admin sessiyasi tekshirilmoqda...</span>';
+                    const res = await fetch('/api/admin/verify', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        credentials: 'same-origin',
+                        body: JSON.stringify({{ key: adminSig }})
+                    }});
+                    const d = await res.json();
+                    if (d.ok) {{
+                        if (d.token) {{
+                            localStorage.setItem('creatorflow_admin_sig', d.token);
+                        }}
+                        window.location.reload();
+                        return;
+                    }} else {{
+                        localStorage.removeItem('creatorflow_admin_sig');
+                    }}
                 }}
             }} catch(e) {{
                 console.warn('Auto auth check error:', e);
             }}
-            statusEl.textContent = 'Kirish uchun admin kaliti yoki Telegram ID (6735799833) kiriting.';
+            statusEl.textContent = 'Kirish uchun maxfiy admin parolini kiriting.';
         }}
 
-        async function verifyAdminKey(explicitKey, isAuto = false) {{
+        async function submitAdminKey() {{
             const input = document.getElementById('adminKeyInput');
             const statusEl = document.getElementById('statusMsg');
             const btn = document.getElementById('verifyBtn');
-            const key = (explicitKey || (input ? input.value : '')).trim();
+            const rawKey = (input ? input.value : '').trim();
 
-            if (!key) {{
+            if (!rawKey) {{
                 statusEl.className = 'status-msg error';
-                statusEl.textContent = "Iltimos, kalitni yoki Telegram ID ni kiriting!";
+                statusEl.textContent = "Iltimos, maxfiy admin parolini kiriting!";
                 return false;
             }}
 
             if (btn) btn.disabled = true;
             statusEl.className = 'status-msg';
-            statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Tasdiqlanmoqda...</span>';
+            statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Xavfsiz xeshlash va tasdiqlash...</span>';
 
             try {{
+                // Mijoz tomonida SHA-256 xeshlash (parol tarmoq orqali ochiq holda ketmaydi)
+                const hashedKey = await sha256Hex(rawKey);
+
                 const res = await fetch('/api/admin/verify', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     credentials: 'same-origin',
-                    body: JSON.stringify({{ key: key }})
+                    body: JSON.stringify({{ key_hash: hashedKey }})
                 }});
                 const d = await res.json();
                 if (d.ok) {{
                     statusEl.className = 'status-msg success';
                     statusEl.textContent = 'Ruxsat berildi! Telemetriya yuklanmoqda...';
                     if (d.token) {{
-                        document.cookie = "cf_adm_sig=" + encodeURIComponent(d.token) + "; path=/; max-age=2592000; SameSite=Lax";
                         localStorage.setItem('creatorflow_admin_sig', d.token);
                     }}
-                    document.cookie = "cf_auth_owner=6735799833; path=/; max-age=2592000; SameSite=Lax";
                     setTimeout(() => {{
                         window.location.reload();
                     }}, 350);
                     return true;
                 }} else {{
-                    if (!isAuto) {{
-                        statusEl.className = 'status-msg error';
-                        statusEl.textContent = d.error || "Ruxsat berilmadi! Noto'g'ri kalit.";
-                    }}
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = d.error || "Ruxsat berilmadi! Noto'g'ri kalit.";
                     if (btn) btn.disabled = false;
                     return false;
                 }}
             }} catch(err) {{
-                if (!isAuto) {{
-                    statusEl.className = 'status-msg error';
-                    statusEl.textContent = "Tarmoq xatosi: " + err.message;
-                }}
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = "Tarmoq xatosi: " + err.message;
                 if (btn) btn.disabled = false;
                 return false;
             }}

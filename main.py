@@ -893,18 +893,7 @@ async def handle_api_bot_user(request):
             "is_vip": bool(vip_info.get("is_vip")),
             "is_owner": is_owner
         }
-        if is_owner:
-            from config import OWNER_ID
-            from crypto_auth import generate_signed_admin_token
-            signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            resp["admin_token"] = signed_token
-            res_obj = web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
-            res_obj.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            res_obj.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            res_obj.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
-        else:
-            res_obj = web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
-        return res_obj
+        return web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.Response(text=json.dumps({"ok": False, "error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
 
@@ -3564,24 +3553,26 @@ async def security_and_rate_limit_middleware(request, handler):
 
 # ==================== ADMIN-ONLY OBSERVABILITY & TELEMETRY HANDLERS ====================
 
+_ADMIN_VERIFY_FAILURES = {}  # { ip: [timestamp, ...] }
+
 def is_admin_request(request) -> bool:
-    """Faqat haqiqiy admin / egasini aniqlash (HMAC-SHA256 Signed Opaque Token himoyasi bilan)"""
-    # 0. Kriptografik HMAC-SHA256 Signed Token tekshiruvi (Ochiq kalitsiz, 100% buzib bo'lmas daraja)
+    """
+    Haqiqiy Admin Huquqini Tekshirish (Zero Telegram ID Backdoor).
+    Faqatgina to'g'ri HMAC-SHA256 imzoli sessiya tokeni (cf_adm_sig) yoki
+    haqiqiy ADMIN_SECRET maxfiy paroli (yoki uning SHA-256 xeshi) taqdim etilgandagina True qaytaradi.
+    HECH QACHON Telegram account ID (6735799833) ga asoslanib adminlik berilmaydi!
+    """
     from crypto_auth import verify_signed_admin_token
     from urllib.parse import unquote
+    import hmac
+    import hashlib
+
+    # 1. Kriptografik HMAC-SHA256 imzoli tokenni tekshirish (Cookie yoki Header)
     token_candidates = [
         request.cookies.get("cf_adm_sig"),
-        request.cookies.get("admin_key"),
-        request.cookies.get("cf_auth_token"),
         request.headers.get("X-Admin-Signature"),
-        request.headers.get("X-Admin-Secret"),
-        request.headers.get("X-Admin-Key"),
-        request.headers.get("X-Admin-Token"),
-        request.headers.get("X-Auth-Token"),
         request.headers.get("Authorization", "").replace("Bearer ", "").strip(),
-        request.query.get("sig"),
-        request.query.get("token"),
-        request.query.get("admin_key")
+        request.query.get("admin_sig")
     ]
     for cand in token_candidates:
         if cand:
@@ -3591,79 +3582,23 @@ def is_admin_request(request) -> bool:
                 if verified_payload:
                     return True
 
-    from config import OWNER_ID, get_admin_secret
+    # 2. To'g'ridan-to'g'ri maxfiy admin paroli yoki uning SHA-256 xeshini tekshirish
+    from config import get_admin_secret
     expected_secret = get_admin_secret()
-    valid_keys = {expected_secret, str(OWNER_ID), "6735799833"}
-    valid_keys.discard("")
-    valid_keys.discard(None)
+    if not expected_secret:
+        return False
 
-    # 1. Query param (?key=... yoki ?secret=...)
-    q_key = request.query.get("key") or request.query.get("secret") or request.query.get("admin_key")
-    if q_key:
-        if q_key in valid_keys:
+    expected_hash = hashlib.sha256(expected_secret.encode("utf-8")).hexdigest()
+
+    # Sarlavhalar orqali tekshirish
+    h_sec = request.headers.get("X-Admin-Secret") or request.headers.get("X-Admin-Key")
+    if h_sec:
+        clean_h = unquote(str(h_sec).strip())
+        # Hech qachon oddiy raqamli ID qabul qilinmaydi
+        if clean_h.isdigit() and len(clean_h) < 12:
+            return False
+        if hmac.compare_digest(clean_h, expected_secret) or hmac.compare_digest(clean_h.lower(), expected_hash):
             return True
-        if q_key in _AUTH_TOKENS:
-            uid = _AUTH_TOKENS[q_key].get("tg_user_id", 0)
-            if uid in (OWNER_ID, 6735799833):
-                return True
-        try:
-            from database import get_web_session
-            sess = get_web_session(q_key)
-            if sess and int(sess.get("tg_user_id", 0)) in (OWNER_ID, 6735799833):
-                return True
-        except Exception:
-            pass
-
-    # 2. X-Admin-Secret sarlavhasi
-    h_sec = request.headers.get("X-Admin-Secret") or request.headers.get("X-Internal-Secret")
-    if h_sec and h_sec in valid_keys:
-        return True
-
-    # 3. Cookie tekshiruvi: admin_key yoki cf_auth_token
-    cookie_key = request.cookies.get("admin_key") or request.cookies.get("admin_secret")
-    if cookie_key and cookie_key in valid_keys:
-        return True
-
-    cookie_token = request.cookies.get("cf_auth_token") or request.cookies.get("auth_token")
-    if cookie_token:
-        if cookie_token in valid_keys:
-            return True
-        if cookie_token in _AUTH_TOKENS:
-            uid = _AUTH_TOKENS[cookie_token].get("tg_user_id", 0)
-            if uid in (OWNER_ID, 6735799833):
-                return True
-        try:
-            from database import get_web_session
-            sess = get_web_session(cookie_token)
-            if sess and int(sess.get("tg_user_id", 0)) in (OWNER_ID, 6735799833):
-                return True
-        except Exception:
-            pass
-
-    if request.cookies.get("cf_auth_owner") in (str(OWNER_ID), "6735799833"):
-        return True
-
-    # 4. Autentifikatsiyalangan User ID (OWNER_ID: 6735799833)
-    auth_uid = get_authenticated_user_id(request)
-    if auth_uid and (auth_uid == OWNER_ID or auth_uid == 6735799833):
-        return True
-
-    # 5. Bearer token OWNER_ID ga tegishlimi
-    auth_header = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
-    if auth_header:
-        if auth_header in valid_keys:
-            return True
-        if auth_header in _AUTH_TOKENS:
-            uid = _AUTH_TOKENS[auth_header].get("tg_user_id", 0)
-            if uid in (OWNER_ID, 6735799833):
-                return True
-        try:
-            from database import get_web_session
-            sess = get_web_session(auth_header)
-            if sess and int(sess.get("tg_user_id", 0)) in (OWNER_ID, 6735799833):
-                return True
-        except Exception:
-            pass
 
     return False
 
@@ -3675,70 +3610,123 @@ async def handle_admin_telemetry_ui(request):
         html = render_admin_login_portal()
         return web.Response(text=html, content_type="text/html")
 
-    from config import OWNER_ID
     from crypto_auth import generate_signed_admin_token
-    signed_token = generate_signed_admin_token(tg_user_id=6735799833)
+    signed_token = generate_signed_admin_token(tg_user_id=6735799833, ttl_seconds=12 * 3600)
     from telemetry_service import render_telemetry_html
     html = render_telemetry_html(admin_key=signed_token)
     resp = web.Response(text=html, content_type="text/html")
-    resp.set_cookie("cf_adm_sig", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
-    resp.set_cookie("admin_key", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
-    resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30 * 86400, path="/", samesite="Lax")
+    resp.set_cookie("cf_adm_sig", signed_token, max_age=12 * 3600, path="/", samesite="Lax", httponly=True)
+    # Eski zaif cookie larni bekor qilish
+    resp.del_cookie("cf_auth_owner", path="/")
+    resp.del_cookie("admin_key", path="/")
     return resp
 
 
 async def handle_api_admin_verify(request):
-    """Admin kalitini tekshirish va brauzerga 30 kunlik avto-kirish cookie sini o'rnatish"""
+    """
+    Admin kalitini tekshirish va brauzerga xavfsiz HMAC-SHA256 imzoli sessiya cookie sini o'rnatish.
+    Brute-force va DoS dan himoyalangan (IP bo'yicha cheklov).
+    Raw yoki SHA-256 xesh qabul qiladi. Telegram ID lar mutlaqo qabul qilinmaydi!
+    """
+    import time
+    import hmac
+    import hashlib
+    from urllib.parse import unquote
+
+    peer_ip = request.remote or "unknown"
+    now = time.time()
+
+    # Rate limiting: 10 daqiqada 5 ta muvaffaqiyatsiz urinishdan keyin bloklash
+    recent_fails = [t for t in _ADMIN_VERIFY_FAILURES.get(peer_ip, []) if now - t < 600]
+    _ADMIN_VERIFY_FAILURES[peer_ip] = recent_fails
+    if len(recent_fails) >= 5:
+        return web.json_response({
+            "ok": False,
+            "error": "Ko'p xato urinishlar qilindi! Xavfsizlik yuzasidan 10 daqiqaga bloklandingiz."
+        }, status=429, headers={"Access-Control-Allow-Origin": "*"})
+
     try:
         data = await request.json()
         key = str(data.get("key", "")).strip()
+        key_hash = str(data.get("key_hash", "")).strip().lower()
+        
         from config import OWNER_ID, get_admin_secret
-        from urllib.parse import unquote
         clean_key = unquote(key)
         expected_secret = get_admin_secret()
-        valid_keys = {expected_secret, str(OWNER_ID), "6735799833"}
-        valid_keys.discard("")
-        valid_keys.discard(None)
+        if not expected_secret:
+            return web.json_response({"ok": False, "error": "Serverda ADMIN_SECRET sozlanmagan!"}, status=500)
+
+        expected_hash = hashlib.sha256(expected_secret.encode("utf-8")).hexdigest()
+
+        # XAVFSIZLIK: Telegram ID larni admin paroli sifatida mutlaqo bloklash!
+        forbidden_candidates = {str(OWNER_ID), "6735799833"}
+        forbidden_hashes = {hashlib.sha256(fc.encode("utf-8")).hexdigest() for fc in forbidden_candidates if fc}
+        if clean_key in forbidden_candidates or key in forbidden_candidates or key_hash in forbidden_hashes:
+            recent_fails.append(now)
+            _ADMIN_VERIFY_FAILURES[peer_ip] = recent_fails
+            return web.json_response({
+                "ok": False,
+                "error": "Telegram ID admin paroli bo'la olmaydi! Maxfiy admin parolini kiriting."
+            }, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
         is_valid = False
+
+        # 1. Agar oldingi signed token taqdim etilgan bo'lsa
         if clean_key and "." in clean_key:
             from crypto_auth import verify_signed_admin_token
             if verify_signed_admin_token(clean_key):
                 is_valid = True
 
-        if not is_valid:
-            if key in valid_keys or clean_key in valid_keys:
+        # 2. Xesh bo'yicha tekshirish (Client-side SHA-256)
+        if not is_valid and key_hash:
+            if hmac.compare_digest(key_hash, expected_hash):
                 is_valid = True
-            elif key in _AUTH_TOKENS:
-                uid = _AUTH_TOKENS[key].get("tg_user_id", 0)
-                if uid in (OWNER_ID, 6735799833):
-                    is_valid = True
-            else:
-                try:
-                    from database import get_web_session
-                    sess = get_web_session(key)
-                    if sess and int(sess.get("tg_user_id", 0)) in (OWNER_ID, 6735799833):
-                        is_valid = True
-                except Exception:
-                    pass
+
+        # 3. Plaintext kalit taqdim etilgan bo'lsa (constant-time taqqoslash)
+        if not is_valid and clean_key:
+            if hmac.compare_digest(clean_key.lower(), expected_hash):
+                is_valid = True
+            elif hmac.compare_digest(clean_key, expected_secret):
+                is_valid = True
 
         if not is_valid:
+            recent_fails.append(now)
+            _ADMIN_VERIFY_FAILURES[peer_ip] = recent_fails
             return web.json_response({
                 "ok": False,
-                "error": "Noto'g'ri kalit yoki ruxsat berilmadi! (Faqat tizim egasi kirishi mumkin)"
+                "error": "Noto'g'ri maxfiy parol! Ruxsat berilmadi."
             }, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
+        # Muvaffaqiyatli kirish - xatoliklar sonini tozalash
+        _ADMIN_VERIFY_FAILURES.pop(peer_ip, None)
+
         from crypto_auth import generate_signed_admin_token
-        signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-        resp = web.json_response({"ok": True, "message": "Admin muvaffaqiyatli tasdiqlandi", "token": signed_token}, headers={"Access-Control-Allow-Origin": "*"})
-        resp.set_cookie("cf_adm_sig", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
-        resp.set_cookie("admin_key", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
-        safe_auth_val = signed_token if key == expected_secret else key
-        resp.set_cookie("cf_auth_token", safe_auth_val, max_age=30 * 86400, path="/", samesite="Lax")
-        resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30 * 86400, path="/", samesite="Lax")
+        # Xavfsiz 12 soatlik HMAC-SHA256 sessiya tokeni
+        signed_token = generate_signed_admin_token(tg_user_id=6735799833, ttl_seconds=12 * 3600)
+
+        resp = web.json_response({
+            "ok": True,
+            "message": "Admin ruxsati muvaffaqiyatli tasdiqlandi",
+            "token": signed_token
+        }, headers={"Access-Control-Allow-Origin": "*"})
+
+        # Xavfsiz SameSite=Lax HttpOnly cookie lar o'rnatish
+        resp.set_cookie("cf_adm_sig", signed_token, max_age=12 * 3600, path="/", samesite="Lax", httponly=True)
+        resp.del_cookie("cf_auth_owner", path="/")
+        resp.del_cookie("admin_key", path="/")
+
         return resp
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_admin_logout(request):
+    """Admin sessiyasini xavfsiz tugatish (Cookie larni o'chirish)"""
+    resp = web.json_response({"ok": True, "message": "Admin sessiyasi tugatildi"})
+    resp.del_cookie("cf_adm_sig", path="/")
+    resp.del_cookie("cf_auth_owner", path="/")
+    resp.del_cookie("admin_key", path="/")
+    return resp
 
 
 async def handle_api_telemetry_stream(request):
@@ -3945,18 +3933,8 @@ async def handle_api_auth_verify_otp(request):
             "is_vip": is_vip,
             "is_owner": is_owner
         }
-        if is_owner:
-            from config import OWNER_ID
-            from crypto_auth import generate_signed_admin_token
-            signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            resp_data["admin_token"] = signed_token
-
         resp = web.json_response(resp_data, headers={"Access-Control-Allow-Origin": "*"})
         resp.set_cookie("cf_auth_token", auth_token, max_age=30*86400, path="/", samesite="Lax")
-        if is_owner:
-            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
         print(f"handle_api_auth_verify_otp error: {e}")
@@ -4032,18 +4010,8 @@ async def handle_api_auth_verify_webapp(request):
             "is_vip": is_vip,
             "is_owner": is_owner
         }
-        if is_owner:
-            from config import OWNER_ID
-            from crypto_auth import generate_signed_admin_token
-            signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            resp_dict["admin_token"] = signed_token
-
         resp = web.json_response(resp_dict, headers={"Access-Control-Allow-Origin": "*"})
         resp.set_cookie("cf_auth_token", auth_token, max_age=30*86400, path="/", samesite="Lax")
-        if is_owner:
-            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
         print(f"handle_api_auth_verify_webapp error: {e}")
@@ -4191,18 +4159,8 @@ async def handle_api_auth_verify_token(request):
             "is_owner": is_owner,
             "user": user_data
         }
-        if is_owner:
-            from config import OWNER_ID
-            from crypto_auth import generate_signed_admin_token
-            signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            resp_payload["admin_token"] = signed_token
-
         resp = web.json_response(resp_payload, headers={"Access-Control-Allow-Origin": "*"})
         resp.set_cookie("cf_auth_token", token, max_age=30*86400, path="/", samesite="Lax")
-        if is_owner:
-            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
         print(f"handle_api_auth_verify_token error: {e}")
@@ -4353,6 +4311,8 @@ async def start_web_server(port):
     app.router.add_get("/api/admin/telemetry/stream", handle_api_telemetry_stream)
     app.router.add_post("/api/admin/telemetry/config", handle_api_telemetry_config)
     app.router.add_post("/api/admin/telemetry/purge", handle_api_telemetry_purge)
+    app.router.add_post("/api/admin/logout", handle_api_admin_logout)
+    app.router.add_get("/api/admin/logout", handle_api_admin_logout)
 
     runner = web.AppRunner(app)
     await runner.setup()

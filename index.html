@@ -2929,6 +2929,7 @@
                 document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
                 document.cookie = "cf_auth_owner=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
                 document.cookie = "cf_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+                fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
                 if (token) {
                     fetch('/api/auth/logout', {
                         method: 'POST',
@@ -2969,13 +2970,9 @@
                                 is_vip: d.is_vip || false,
                                 is_owner: d.is_owner || false
                             }));
-                            if (d.is_owner || Number(targetUid) === 6735799833) {
-                                if (d.admin_token) {
-                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
-                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
-                                }
-                                document.cookie = "admin_key=6735799833; path=/; max-age=2592000; SameSite=Lax";
-                                document.cookie = "cf_auth_owner=6735799833; path=/; max-age=2592000; SameSite=Lax";
+                            if (d.admin_token) {
+                                localStorage.setItem('creatorflow_admin_sig', d.admin_token);
+                                document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
                             }
                             if (forceRefresh) {
                                 setSyncSuccessToast(true);
