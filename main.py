@@ -893,14 +893,17 @@ async def handle_api_bot_user(request):
             "is_vip": bool(vip_info.get("is_vip")),
             "is_owner": is_owner
         }
-        res_obj = web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
         if is_owner:
             from config import OWNER_ID
             from crypto_auth import generate_signed_admin_token
             signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            res_obj.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax", httponly=True)
+            resp["admin_token"] = signed_token
+            res_obj = web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+            res_obj.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
             res_obj.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
             res_obj.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
+        else:
+            res_obj = web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
         return res_obj
     except Exception as e:
         return web.Response(text=json.dumps({"ok": False, "error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
@@ -3423,19 +3426,28 @@ def is_admin_request(request) -> bool:
     """Faqat haqiqiy admin / egasini aniqlash (HMAC-SHA256 Signed Opaque Token himoyasi bilan)"""
     # 0. Kriptografik HMAC-SHA256 Signed Token tekshiruvi (Ochiq kalitsiz, 100% buzib bo'lmas daraja)
     from crypto_auth import verify_signed_admin_token
+    from urllib.parse import unquote
     token_candidates = [
         request.cookies.get("cf_adm_sig"),
         request.cookies.get("admin_key"),
+        request.cookies.get("cf_auth_token"),
         request.headers.get("X-Admin-Signature"),
+        request.headers.get("X-Admin-Secret"),
+        request.headers.get("X-Admin-Key"),
+        request.headers.get("X-Admin-Token"),
+        request.headers.get("X-Auth-Token"),
         request.headers.get("Authorization", "").replace("Bearer ", "").strip(),
         request.query.get("sig"),
-        request.query.get("token")
+        request.query.get("token"),
+        request.query.get("admin_key")
     ]
     for cand in token_candidates:
-        if cand and "." in cand:
-            verified_payload = verify_signed_admin_token(cand)
-            if verified_payload:
-                return True
+        if cand:
+            clean_cand = unquote(str(cand).strip())
+            if "." in clean_cand:
+                verified_payload = verify_signed_admin_token(clean_cand)
+                if verified_payload:
+                    return True
 
     from config import OWNER_ID, get_admin_secret
     expected_secret = get_admin_secret()
@@ -3527,7 +3539,7 @@ async def handle_admin_telemetry_ui(request):
     from telemetry_service import render_telemetry_html
     html = render_telemetry_html(admin_key=signed_token)
     resp = web.Response(text=html, content_type="text/html")
-    resp.set_cookie("cf_adm_sig", signed_token, max_age=30 * 86400, path="/", samesite="Lax", httponly=True)
+    resp.set_cookie("cf_adm_sig", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
     resp.set_cookie("admin_key", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
     resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30 * 86400, path="/", samesite="Lax")
     return resp
@@ -3539,26 +3551,34 @@ async def handle_api_admin_verify(request):
         data = await request.json()
         key = str(data.get("key", "")).strip()
         from config import OWNER_ID, get_admin_secret
+        from urllib.parse import unquote
+        clean_key = unquote(key)
         expected_secret = get_admin_secret()
         valid_keys = {expected_secret, str(OWNER_ID), "6735799833"}
         valid_keys.discard("")
         valid_keys.discard(None)
 
         is_valid = False
-        if key in valid_keys:
-            is_valid = True
-        elif key in _AUTH_TOKENS:
-            uid = _AUTH_TOKENS[key].get("tg_user_id", 0)
-            if uid in (OWNER_ID, 6735799833):
+        if clean_key and "." in clean_key:
+            from crypto_auth import verify_signed_admin_token
+            if verify_signed_admin_token(clean_key):
                 is_valid = True
-        else:
-            try:
-                from database import get_web_session
-                sess = get_web_session(key)
-                if sess and int(sess.get("tg_user_id", 0)) in (OWNER_ID, 6735799833):
+
+        if not is_valid:
+            if key in valid_keys or clean_key in valid_keys:
+                is_valid = True
+            elif key in _AUTH_TOKENS:
+                uid = _AUTH_TOKENS[key].get("tg_user_id", 0)
+                if uid in (OWNER_ID, 6735799833):
                     is_valid = True
-            except Exception:
-                pass
+            else:
+                try:
+                    from database import get_web_session
+                    sess = get_web_session(key)
+                    if sess and int(sess.get("tg_user_id", 0)) in (OWNER_ID, 6735799833):
+                        is_valid = True
+                except Exception:
+                    pass
 
         if not is_valid:
             return web.json_response({
@@ -3569,9 +3589,10 @@ async def handle_api_admin_verify(request):
         from crypto_auth import generate_signed_admin_token
         signed_token = generate_signed_admin_token(tg_user_id=6735799833)
         resp = web.json_response({"ok": True, "message": "Admin muvaffaqiyatli tasdiqlandi", "token": signed_token}, headers={"Access-Control-Allow-Origin": "*"})
-        resp.set_cookie("cf_adm_sig", signed_token, max_age=30 * 86400, path="/", samesite="Lax", httponly=True)
+        resp.set_cookie("cf_adm_sig", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
         resp.set_cookie("admin_key", signed_token, max_age=30 * 86400, path="/", samesite="Lax")
-        resp.set_cookie("cf_auth_token", key, max_age=30 * 86400, path="/", samesite="Lax")
+        safe_auth_val = signed_token if key == expected_secret else key
+        resp.set_cookie("cf_auth_token", safe_auth_val, max_age=30 * 86400, path="/", samesite="Lax")
         resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30 * 86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
@@ -3775,19 +3796,23 @@ async def handle_api_auth_verify_otp(request):
         is_owner = (tg_user_id == 6735799833)
         is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
 
-        resp = web.json_response({
+        resp_data = {
             "ok": True,
             "token": auth_token,
             "tg_user_id": tg_user_id,
             "is_vip": is_vip,
             "is_owner": is_owner
-        }, headers={"Access-Control-Allow-Origin": "*"})
-        resp.set_cookie("cf_auth_token", auth_token, max_age=30*86400, path="/", samesite="Lax")
+        }
         if is_owner:
             from config import OWNER_ID
             from crypto_auth import generate_signed_admin_token
             signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax", httponly=True)
+            resp_data["admin_token"] = signed_token
+
+        resp = web.json_response(resp_data, headers={"Access-Control-Allow-Origin": "*"})
+        resp.set_cookie("cf_auth_token", auth_token, max_age=30*86400, path="/", samesite="Lax")
+        if is_owner:
+            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
             resp.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
             resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
@@ -3857,14 +3882,27 @@ async def handle_api_auth_verify_webapp(request):
         is_owner = (tg_user_id == 6735799833)
         is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
 
-        return web.json_response({
+        resp_dict = {
             "ok": True,
             "token": auth_token,
             "tg_user_id": tg_user_id,
             "user": user_obj,
             "is_vip": is_vip,
             "is_owner": is_owner
-        }, headers={"Access-Control-Allow-Origin": "*"})
+        }
+        if is_owner:
+            from config import OWNER_ID
+            from crypto_auth import generate_signed_admin_token
+            signed_token = generate_signed_admin_token(tg_user_id=6735799833)
+            resp_dict["admin_token"] = signed_token
+
+        resp = web.json_response(resp_dict, headers={"Access-Control-Allow-Origin": "*"})
+        resp.set_cookie("cf_auth_token", auth_token, max_age=30*86400, path="/", samesite="Lax")
+        if is_owner:
+            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
+            resp.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
+            resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
+        return resp
     except Exception as e:
         print(f"handle_api_auth_verify_webapp error: {e}")
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -4003,20 +4041,24 @@ async def handle_api_auth_verify_token(request):
             "is_kyc": is_kyc
         }
 
-        resp = web.json_response({
+        resp_payload = {
             "ok": True,
             "token": token,
             "tg_user_id": tg_user_id,
             "is_vip": is_vip,
             "is_owner": is_owner,
             "user": user_data
-        }, headers={"Access-Control-Allow-Origin": "*"})
-        resp.set_cookie("cf_auth_token", token, max_age=30*86400, path="/", samesite="Lax")
+        }
         if is_owner:
             from config import OWNER_ID
             from crypto_auth import generate_signed_admin_token
             signed_token = generate_signed_admin_token(tg_user_id=6735799833)
-            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax", httponly=True)
+            resp_payload["admin_token"] = signed_token
+
+        resp = web.json_response(resp_payload, headers={"Access-Control-Allow-Origin": "*"})
+        resp.set_cookie("cf_auth_token", token, max_age=30*86400, path="/", samesite="Lax")
+        if is_owner:
+            resp.set_cookie("cf_adm_sig", signed_token, max_age=30*86400, path="/", samesite="Lax")
             resp.set_cookie("admin_key", signed_token, max_age=30*86400, path="/", samesite="Lax")
             resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
