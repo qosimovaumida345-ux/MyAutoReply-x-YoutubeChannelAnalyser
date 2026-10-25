@@ -6383,6 +6383,11 @@ def sync_tg_user_profile(tg_user_id: int, user_context: dict = None):
             photo_url = user_context.get("photo_url")
             photo_file_id = user_context.get("photo_file_id")
 
+        # Pyrogram formatidagi AQAD... file_id larni rasmiy Bot API formatiga almashtirish kerak
+        if photo_file_id and str(photo_file_id).startswith("AQAD"):
+            photo_file_id = None
+            photo_url = None
+
         # Agar ism yoki rasm to'liq bo'lmasa, Telegram Bot API orqali boyitish
         if not (uname and fname and (photo_file_id or photo_url)):
             try:
@@ -6390,7 +6395,7 @@ def sync_tg_user_profile(tg_user_id: int, user_context: dict = None):
                 from config import BOT_TOKEN
                 if BOT_TOKEN:
                     headers = {"User-Agent": "Mozilla/5.0"}
-                    # 1. getChat orqali ism, username va rasm file_id
+                    # 1. getChat orqali ism, username
                     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getChat?chat_id={tg_user_id}"
                     req = urllib.request.Request(url, headers=headers)
                     try:
@@ -6401,18 +6406,15 @@ def sync_tg_user_profile(tg_user_id: int, user_context: dict = None):
                                 if not uname and res.get("username"): uname = res.get("username")
                                 if not fname and res.get("first_name"): fname = res.get("first_name")
                                 if not lname and res.get("last_name"): lname = res.get("last_name")
-                                photo_obj = res.get("photo") or {}
-                                if not photo_file_id:
-                                    photo_file_id = photo_obj.get("big_file_id") or photo_obj.get("small_file_id")
                     except Exception:
                         pass
                         
-                    # 2. Agar getChat rasm bermasa, getUserProfilePhotos orqali tekshirish
-                    if not photo_file_id and not photo_url:
+                    # 2. getUserProfilePhotos orqali haqiqiy Bot API file_id olish (Zero-Cake kafolati)
+                    if not photo_file_id:
                         try:
                             url_photos = f"https://api.telegram.org/bot{BOT_TOKEN}/getUserProfilePhotos?user_id={tg_user_id}&limit=1"
                             req_p = urllib.request.Request(url_photos, headers=headers)
-                            with urllib.request.urlopen(req_p, timeout=3) as resp_p:
+                            with urllib.request.urlopen(req_p, timeout=4) as resp_p:
                                 p_data = json.loads(resp_p.read().decode("utf-8"))
                                 if p_data.get("ok"):
                                     p_res = p_data.get("result", {})

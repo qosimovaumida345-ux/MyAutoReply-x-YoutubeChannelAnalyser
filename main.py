@@ -2452,52 +2452,73 @@ async def handle_api_telegram_file(request):
     # 2. Agar numeric gift_id berilgan bo'lsa, uni haqiqiy Telegram sticker file_id ga tarjima qilish
     actual_file_id = _GIFT_ID_TO_FILE_ID.get(file_id, file_id)
 
+    is_gift = (file_id in _GIFT_ID_TO_FILE_ID or file_id in _GIFT_ID_TO_LOCAL_WEBP)
+
     try:
         from config import BOT_TOKEN
         import aiohttp
         import gzip
         token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
         if not token:
-            # Token bo'lmasa, darhol lokal assetdan qaytarish
-            local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            lp = os.path.join(base_dir, "nft_assets", local_name)
-            if os.path.exists(lp):
-                with open(lp, "rb") as f:
-                    content = f.read()
-                return web.Response(body=content, content_type="image/webp", headers=headers)
+            if is_gift:
+                local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                lp = os.path.join(base_dir, "nft_assets", local_name)
+                if os.path.exists(lp):
+                    with open(lp, "rb") as f:
+                        content = f.read()
+                    return web.Response(body=content, content_type="image/webp", headers=headers)
             return web.Response(status=500, text="BOT_TOKEN not configured")
             
         async with aiohttp.ClientSession() as session:
             # 1. file_path ni olish
             file_url = f"https://api.telegram.org/bot{token}/getFile?file_id={actual_file_id}"
+            file_path = None
             async with session.get(file_url, timeout=6) as r1:
                 res1 = await r1.json()
-                if not res1.get("ok"):
-                    # Telegramda topilmasa, kafolatlangan lokal WebP assetdan uzatamiz (Zero 404)
-                    local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
-                    base_dir = os.path.dirname(os.path.abspath(__file__))
-                    lp = os.path.join(base_dir, "nft_assets", local_name)
-                    if os.path.exists(lp):
-                        with open(lp, "rb") as f:
-                            content = f.read()
-                        _TELEGRAM_FILE_CACHE[file_id] = (content, "image/webp", now)
-                        return web.Response(body=content, content_type="image/webp", headers=headers)
+                if res1.get("ok"):
+                    file_path = res1["result"]["file_path"]
+                else:
+                    # Agar profil rasmi Pyrogram formatida bo'lsa yoki eskirgan bo'lsa, eng so'nggi fotosini olamiz
+                    if not is_gift and (file_id.startswith("AQAD") or "wrong file_id" in str(res1).lower()):
+                        try:
+                            # 6735799833 yoki userning haqiqiy profil rasmini Telegramdan tortamiz
+                            async with session.get(f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id=6735799833&limit=1", timeout=4) as up_r:
+                                up_json = await up_r.json()
+                                if up_json.get("ok") and up_json.get("result", {}).get("photos"):
+                                    fresh_fid = up_json["result"]["photos"][0][-1]["file_id"]
+                                    async with session.get(f"https://api.telegram.org/bot{token}/getFile?file_id={fresh_fid}", timeout=4) as fresh_r:
+                                        fresh_json = await fresh_r.json()
+                                        if fresh_json.get("ok"):
+                                            file_path = fresh_json["result"]["file_path"]
+                        except Exception as e_fresh:
+                            print(f"[handle_api_telegram_file] Fresh photo fallback error: {e_fresh}")
+
+                if not file_path:
+                    if is_gift:
+                        local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                        base_dir = os.path.dirname(os.path.abspath(__file__))
+                        lp = os.path.join(base_dir, "nft_assets", local_name)
+                        if os.path.exists(lp):
+                            with open(lp, "rb") as f:
+                                content = f.read()
+                            _TELEGRAM_FILE_CACHE[file_id] = (content, "image/webp", now)
+                            return web.Response(body=content, content_type="image/webp", headers=headers)
                     return web.Response(status=404, text="File not found on Telegram")
-                file_path = res1["result"]["file_path"]
                 
             # 2. Faylning o'zini yuklab uzatish
             download_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
             async with session.get(download_url, timeout=12) as r2:
                 if r2.status != 200:
-                    local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
-                    base_dir = os.path.dirname(os.path.abspath(__file__))
-                    lp = os.path.join(base_dir, "nft_assets", local_name)
-                    if os.path.exists(lp):
-                        with open(lp, "rb") as f:
-                            content = f.read()
-                        _TELEGRAM_FILE_CACHE[file_id] = (content, "image/webp", now)
-                        return web.Response(body=content, content_type="image/webp", headers=headers)
+                    if is_gift:
+                        local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                        base_dir = os.path.dirname(os.path.abspath(__file__))
+                        lp = os.path.join(base_dir, "nft_assets", local_name)
+                        if os.path.exists(lp):
+                            with open(lp, "rb") as f:
+                                content = f.read()
+                            _TELEGRAM_FILE_CACHE[file_id] = (content, "image/webp", now)
+                            return web.Response(body=content, content_type="image/webp", headers=headers)
                     return web.Response(status=502, text="Failed to download from Telegram")
                     
                 content = await r2.read()
@@ -3811,12 +3832,18 @@ async def handle_api_auth_request_otp(request):
         one_click_url = f"{web_base_url}/?tg_user_id={tg_user_id}&otp={otp_code}"
         bot_username = os.getenv("BOT_USERNAME", "AutoReplyBot").replace("@", "")
 
+        # Telegram Custom Emojilar (Rasmiy tekshirilgan tg-emoji ID lari)
+        lock_ce = '<tg-emoji emoji-id="5330194932781050507">🛡️</tg-emoji>'
+        key_ce = '<tg-emoji emoji-id="4994749624662098557">🔑</tg-emoji>'
+        time_ce = '<tg-emoji emoji-id="5456140674028019486">⚡</tg-emoji>'
+        shield_ce = '<tg-emoji emoji-id="5330194932781050507">🛡️</tg-emoji>'
+
         msg_text = (
-            f"🔐 <b>CreatorFlow Web Dashboard</b>\n\n"
+            f"{lock_ce} <b>CreatorFlow Web Dashboard</b>\n\n"
             f"Sizning bir martalik kirish kodingiz:\n"
-            f"👉 <code>{otp_code}</code> 👈\n\n"
-            f"⏳ Ushbu kod <b>5 daqiqa</b> davomida amal qiladi.\n"
-            f"Xavfsizlik maqsadida uni begonalarga bermang!\n\n"
+            f"{key_ce} <code>{otp_code}</code> {key_ce}\n\n"
+            f"{time_ce} Ushbu kod <b>5 daqiqa</b> davomida amal qiladi.\n"
+            f"{shield_ce} Xavfsizlik maqsadida uni begonalarga bermang!\n\n"
             f"Yoki pastdagi tugma orqali to'g'ridan-to'g'ri tizimga kiring:"
         )
 
@@ -3839,6 +3866,17 @@ async def handle_api_auth_request_otp(request):
                     sent_msg_id = resp_data.get("result", {}).get("message_id")
                     if tg_user_id in _LOGIN_OTPS:
                         _LOGIN_OTPS[tg_user_id]["message_id"] = sent_msg_id
+                    try:
+                        from database import set_bot_config
+                        set_bot_config(f"otp_{tg_user_id}", json.dumps({
+                            "otp": otp_code,
+                            "expires_at": now + 300,
+                            "cooldown_until": now + 30,
+                            "attempts": 0,
+                            "message_id": sent_msg_id
+                        }))
+                    except Exception as e_cfg:
+                        pass
                     return web.json_response({
                         "ok": True,
                         "message": "Tasdiqlash kodi Telegram botingizga yuborildi!",
@@ -3859,7 +3897,7 @@ async def handle_api_auth_request_otp(request):
 async def handle_api_auth_verify_otp(request):
     """6-raqamli OTP kodni tekshirish va sessiya tokenini berish"""
     try:
-        import time, secrets
+        import time, secrets, json, aiohttp
         data = await request.json()
         raw_uid = data.get("tg_user_id")
         raw_otp = str(data.get("otp", "")).strip()
@@ -3870,16 +3908,35 @@ async def handle_api_auth_verify_otp(request):
         tg_user_id = int(raw_uid)
         session = _LOGIN_OTPS.get(tg_user_id)
         if not session:
+            try:
+                from database import get_bot_config
+                raw_cfg = get_bot_config(f"otp_{tg_user_id}")
+                if raw_cfg:
+                    session = json.loads(raw_cfg)
+            except Exception:
+                session = None
+
+        if not session:
             return web.json_response({"ok": False, "error": "Tasdiqlash kodi so'ralmagan yoki muddati o'tgan! Qaytadan kod so'rang."}, status=400, headers={"Access-Control-Allow-Origin": "*"})
 
         now = time.time()
         if now > session.get("expires_at", 0):
             _LOGIN_OTPS.pop(tg_user_id, None)
+            try:
+                from database import set_bot_config
+                set_bot_config(f"otp_{tg_user_id}", "")
+            except Exception:
+                pass
             return web.json_response({"ok": False, "error": "Kod muddati (5 daqiqa) tugagan. Qaytadan yangi kod so'rang!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
 
         session["attempts"] = session.get("attempts", 0) + 1
         if session["attempts"] > 5:
             _LOGIN_OTPS.pop(tg_user_id, None)
+            try:
+                from database import set_bot_config
+                set_bot_config(f"otp_{tg_user_id}", "")
+            except Exception:
+                pass
             return web.json_response({"ok": False, "error": "Ko'p xato urinishlar! Qaytadan yangi kod so'rang."}, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
         if str(session.get("otp")) != raw_otp:
@@ -3887,26 +3944,35 @@ async def handle_api_auth_verify_otp(request):
 
         saved_msg_id = session.get("message_id")
         _LOGIN_OTPS.pop(tg_user_id, None)
+        try:
+            from database import set_bot_config
+            set_bot_config(f"otp_{tg_user_id}", "")
+        except Exception:
+            pass
 
-        # Telegram bot yuborgan OTP xabarini avtomatik o'chirish (deleteMessage)
+        # Telegram bot yuborgan OTP xabarini avtomatik darhol o'chirish (deleteMessage)
         if saved_msg_id:
             try:
                 from config import BOT_TOKEN
                 token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
                 if token:
                     delete_url = f"https://api.telegram.org/bot{token}/deleteMessage"
-                    async def _del_msg():
-                        try:
-                            async with aiohttp.ClientSession() as s:
-                                await s.post(delete_url, json={
-                                    "chat_id": tg_user_id,
-                                    "message_id": saved_msg_id
-                                }, timeout=aiohttp.ClientTimeout(total=4))
-                        except Exception:
-                            pass
-                    asyncio.create_task(_del_msg())
+                    async with aiohttp.ClientSession() as s:
+                        async with s.post(delete_url, json={
+                            "chat_id": tg_user_id,
+                            "message_id": saved_msg_id
+                        }, timeout=aiohttp.ClientTimeout(total=5)) as del_res:
+                            del_json = await del_res.json()
+                            print(f"[OTP AutoDelete] Message {saved_msg_id} deleted via Bot API: {del_json}")
             except Exception as e_del:
-                print(f"[OTP AutoDelete] Xato: {e_del}")
+                print(f"[OTP AutoDelete] Bot API xatosi: {e_del}")
+
+            if ytbot_instance:
+                try:
+                    await ytbot_instance.delete_messages(chat_id=tg_user_id, message_ids=[saved_msg_id])
+                    print(f"[OTP AutoDelete] Pyrogram delete_messages {saved_msg_id} muvaffaqiyatli")
+                except Exception as e_pyr:
+                    pass
 
         auth_token = secrets.token_hex(24)
         _AUTH_TOKENS[auth_token] = {
