@@ -424,35 +424,44 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     # 1 TON = 140 Stars (Rasmiy bozor pariteti). Barcha narxlar telegram_market_stock_cache.json
     # va Fragment.com dagi real floor narxlari bilan 100% sinxronlashtirilgan.
 
+    # ==================== HAQIQIY FRAGMENT & TELEGRAM MARKET ASSETS ====================
+    # 1 TON = 140 Stars (Rasmiy bozor pariteti). Barcha nomlar, rasmlar va animatsiyalar
+    # telegram_market_stock_cache.json hamda telegram_gifts_cache.json bilan 100% moslashtirilgan.
+
     # 1. Tier 1: Bronze Starter Vault (Narxi: 100 Stars / 40,000 so'm)
     t1_drops = [
         {
             "id": "5170144170496491616", "stars": 50, "name": "Delicious Cake", "icon": "cake",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+            "file_type": "tgs", "image_url": "/api/telegram-file/CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
             "backdrop": "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "slug": "delicious-cake", "is_nft": False,
             "weight": 35, "rarity": "common"
         },
         {
             "id": "6028601630662853006", "stars": 50, "name": "Champagne Bottle", "icon": "champagne",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/6028601630662853006",
             "backdrop": "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "slug": "champagne-bottle", "is_nft": False,
             "weight": 30, "rarity": "common"
         },
         {
             "id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5170314324215857265",
             "backdrop": "linear-gradient(145deg, #3f2c1d 0%, #1e150d 100%)", "slug": "bouquet-flowers", "is_nft": False,
             "weight": 25, "rarity": "common"
         },
         {
             "id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5168043875654172773",
             "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "golden-trophy", "is_nft": False,
             "weight": 12, "rarity": "rare"
         },
         {
             "id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "ring",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5170690322832818290",
             "backdrop": "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "slug": "diamond-ring", "is_nft": False,
             "weight": 10, "rarity": "rare"
         },
@@ -474,20 +483,23 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     t2_drops = [
         {
             "id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5168043875654172773",
             "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "golden-trophy", "is_nft": False,
             "weight": 35, "rarity": "common"
         },
         {
             "id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "ring",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+            "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5170690322832818290",
             "backdrop": "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "slug": "diamond-ring", "is_nft": False,
             "weight": 30, "rarity": "common"
         },
         {
-            "id": "5170521118301225164", "stars": 100, "name": "Blue Diamond Gift", "icon": "diamond_ring",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
-            "backdrop": "linear-gradient(145deg, #083344 0%, #042f2e 100%)", "slug": "blue-diamond", "is_nft": False,
+            "id": "5170564780938756245", "stars": 50, "name": "Space Rocket", "icon": "rocket",
+            "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5170564780938756245",
+            "backdrop": "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "slug": "space-rocket", "is_nft": False,
             "weight": 25, "rarity": "common"
         },
         {
@@ -519,22 +531,30 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
     # 3. Tier 3: Gold Pro Studio Case (Narxi: 500 Stars / 200,000 so'm)
     t3_drops = [
         {
-            "id": "magic_star_250", "stars": 250, "name": "Golden Cup Gift", "icon": "trophy",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
-            "backdrop": "linear-gradient(145deg, #1c1917 0%, #0c0a09 100%)", "slug": "golden-cup-gift", "is_nft": False,
-            "weight": 40, "rarity": "common"
+            "id": "5170521118301225164", "stars": 100, "name": "Blue Diamond Gift", "icon": "diamond_ring",
+            "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5170521118301225164",
+            "backdrop": "linear-gradient(145deg, #083344 0%, #042f2e 100%)", "slug": "blue-diamond", "is_nft": False,
+            "weight": 35, "rarity": "common"
         },
         {
-            "id": "star_gem_350", "stars": 350, "name": "Royal Crown Gift", "icon": "crown",
-            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
-            "backdrop": "linear-gradient(145deg, #2e1065 0%, #17072b 100%)", "slug": "royal-crown-gift", "is_nft": False,
+            "id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy",
+            "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+            "file_type": "tgs", "image_url": "/api/telegram-file/5168043875654172773",
+            "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "golden-trophy", "is_nft": False,
             "weight": 30, "rarity": "common"
+        },
+        {
+            "id": "tamagadget-10816", "stars": 840, "name": "Tama Gadget #10816 (6 TON)", "icon": "package",
+            "file_type": "webp", "image_url": "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
+            "backdrop": "linear-gradient(145deg, #312e81 0%, #1e1b4b 100%)", "slug": "tamagadget-10816", "is_nft": True,
+            "weight": 15, "rarity": "rare"
         },
         {
             "id": "chillflame-116354", "stars": 840, "name": "Chill Flame #116354 (6 TON)", "icon": "star",
             "file_type": "webp", "image_url": "https://nft.fragment.com/gift/chillflame-116354.medium.jpg",
             "backdrop": "linear-gradient(145deg, #134e4a 0%, #0f2928 100%)", "slug": "chillflame-116354", "is_nft": True,
-            "weight": 15, "rarity": "rare"
+            "weight": 12, "rarity": "rare"
         },
         {
             "id": "bdaycandle-149535", "stars": 1008, "name": "B-Day Candle #149535 (7.2 TON)", "icon": "candle",

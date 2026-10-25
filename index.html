@@ -179,57 +179,75 @@
             50% { transform: scale(1.12); opacity: 1; }
             100% { transform: scale(1); opacity: 1; }
         }
+        /* ==================== MASTER 3D MECHANICAL TACTILE BUTTONS (RULE 2 & 3 COMPLIANT) ==================== */
         .tactile-btn {
             position: relative;
             display: inline-flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
             background: transparent;
             padding: 0;
+            padding-bottom: 5px; /* Physical vertical footprint reserving the 3D bevel base */
+            margin: 0;
             border: none;
             cursor: pointer;
             outline: none;
             user-select: none;
             -webkit-tap-highlight-color: transparent;
             font-family: inherit;
-            transition: opacity 0.2s ease;
+            box-sizing: border-box;
+            transition: filter 0.15s ease, opacity 0.2s ease;
+            transform: translateZ(0);
         }
         .tactile-btn:disabled {
             cursor: not-allowed;
-            opacity: 0.72;
+            opacity: 0.6;
+            filter: grayscale(0.5);
         }
         .tactile-btn-edge {
             position: absolute;
-            inset: 0;
+            left: 0;
+            right: 0;
+            top: 5px;
+            bottom: 0;
             border-radius: inherit;
-            transform: translateY(4px);
-            transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease;
+            box-sizing: border-box;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.1s ease;
         }
         .tactile-btn-face {
             position: relative;
+            width: 100%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             border-radius: inherit;
-            font-weight: 700;
+            font-weight: 800;
             letter-spacing: -0.01em;
             transform: translateY(0);
-            transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+            box-sizing: border-box;
+            box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.38), inset 0 -1.5px 0 rgba(0, 0, 0, 0.22), 0 2px 4px rgba(0, 0, 0, 0.15);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.22);
+            transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.1s ease, filter 0.15s ease;
         }
         .tactile-btn:hover:not(:disabled) .tactile-btn-face {
-            transform: translateY(-1px);
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+            box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), inset 0 -1.5px 0 rgba(0, 0, 0, 0.25), 0 4px 12px rgba(0, 0, 0, 0.28);
         }
         .tactile-btn:hover:not(:disabled) .tactile-btn-edge {
-            transform: translateY(5px);
+            transform: translateY(1px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
         }
         .tactile-btn:active:not(:disabled) .tactile-btn-face {
-            transform: translateY(4px);
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+            transform: translateY(4px); /* Mechanical compression down into the base! */
+            filter: brightness(0.95);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45);
         }
         .tactile-btn:active:not(:disabled) .tactile-btn-edge {
-            transform: translateY(4px);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
         }
         .btn-shake {
             animation: btnShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
@@ -929,53 +947,57 @@
 
         // ==================== REAL FRAGMENT TELEGRAM GIFT ASSETS (ZERO EMOJIS, ZERO MOCKS) ====================
         const FRAGMENT_FALLBACK_IMAGES = {
-            autopost: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            post: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            seo: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            suite: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            uniquify: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            unikal: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            scripts: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            script: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            cake: "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
-            star: "https://nft.fragment.com/gift/chillflame-443876.medium.jpg",
-            teddy: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            bear: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            ayiq: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            bouquet: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
-            flower: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
-            gul: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
-            rose: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
-            champagne: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            shampan: "https://nft.fragment.com/gift/tamagadget-11627.medium.jpg",
-            ring: "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
-            diamond: "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
-            uzuk: "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
-            trophy: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
-            kubok: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
-            rocket: "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
-            raketa: "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+            cake: "/api/telegram-file/CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+            champagne: "/api/telegram-file/6028601630662853006",
+            shampan: "/api/telegram-file/6028601630662853006",
+            bouquet: "/api/telegram-file/5170314324215857265",
+            flower: "/api/telegram-file/5170314324215857265",
+            gul: "/api/telegram-file/5170314324215857265",
+            rose: "/api/telegram-file/5170314324215857265",
+            trophy: "/api/telegram-file/5168043875654172773",
+            kubok: "/api/telegram-file/5168043875654172773",
+            rocket: "/api/telegram-file/5170564780938756245",
+            raketa: "/api/telegram-file/5170564780938756245",
+            ring: "/api/telegram-file/5170690322832818290",
+            diamond: "/api/telegram-file/5170690322832818290",
+            uzuk: "/api/telegram-file/5170690322832818290",
             cap: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+            durovscap: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
             kepka: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
-            plush: "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
-            pepe: "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
-            crown: "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
-            dragon: "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
-            cigar: "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
-            calendar: "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
-            watch: "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
-            candle: "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
             locket: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
-            potion: "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+            heartlocket: "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+            watch: "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+            swisswatch: "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+            cigar: "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+            snoopcigar: "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+            chillflame: "https://nft.fragment.com/gift/chillflame-102714.medium.jpg",
+            flame: "https://nft.fragment.com/gift/chillflame-102714.medium.jpg",
+            candle: "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            bdaycandle: "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+            tamagadget: "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
+            gadget: "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
+            calendar: "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
+            deskcalendar: "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
             cat: "https://nft.fragment.com/gift/scaredcat-15008.medium.jpg",
+            scaredcat: "https://nft.fragment.com/gift/scaredcat-15008.medium.jpg",
             cookie: "https://nft.fragment.com/gift/gingercookie-148929.medium.jpg",
+            gingercookie: "https://nft.fragment.com/gift/gingercookie-148929.medium.jpg",
+            potion: "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+            magicpotion: "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+            pepe: "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+            plushpepe: "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+            bear: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            toybear: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            ramen: "https://nft.fragment.com/gift/instantramen-108551.medium.jpg",
+            instantramen: "https://nft.fragment.com/gift/instantramen-108551.medium.jpg",
+            icecream: "https://nft.fragment.com/gift/icecream-101191.medium.jpg",
+            lolpop: "https://nft.fragment.com/gift/lolpop-118917.medium.jpg",
+            stocking: "https://nft.fragment.com/gift/xmasstocking-112520.medium.jpg",
             premium: "/api/nft/image/TG_PREMIUM.webp",
             tg_premium: "/api/nft/image/TG_PREMIUM.webp",
-            package: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            box: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            gift: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            sovg: "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            nft: "https://nft.fragment.com/gift/toybear-7605.medium.jpg"
+            package: "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
+            box: "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
+            gift: "/api/telegram-file/5170250947678437525"
         };
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
@@ -1755,39 +1777,39 @@
 
             const VARIANTS = {
                 primary: {
-                    face: "linear-gradient(135deg, #7342E2 0%, #5B21B6 100%)",
+                    face: "linear-gradient(180deg, #8B5CF6 0%, #7C3AED 55%, #6D28D9 100%)",
                     edge: "#3B0764",
-                    border: "rgba(167, 139, 250, 0.45)",
+                    border: "rgba(196, 181, 253, 0.6)",
                     color: "#ffffff"
                 },
                 cyan: {
-                    face: "linear-gradient(135deg, #00F0FF 0%, #0099FF 100%)",
-                    edge: "#005599",
-                    border: "rgba(0, 240, 255, 0.5)",
-                    color: "#090A0F"
-                },
-                gold: {
-                    face: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
-                    edge: "#78350F",
-                    border: "rgba(251, 191, 36, 0.5)",
+                    face: "linear-gradient(180deg, #00F0FF 0%, #0284C7 60%, #0369A1 100%)",
+                    edge: "#082F49",
+                    border: "rgba(56, 189, 248, 0.65)",
                     color: "#ffffff"
                 },
+                gold: {
+                    face: "linear-gradient(180deg, #FBBF24 0%, #F59E0B 55%, #D97706 100%)",
+                    edge: "#78350F",
+                    border: "rgba(253, 230, 138, 0.65)",
+                    color: "#000000"
+                },
                 success: {
-                    face: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
-                    edge: "#064E3B",
-                    border: "rgba(52, 211, 153, 0.45)",
+                    face: "linear-gradient(180deg, #10B981 0%, #059669 60%, #047857 100%)",
+                    edge: "#022C22",
+                    border: "rgba(52, 211, 153, 0.6)",
                     color: "#ffffff"
                 },
                 danger: {
-                    face: "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
-                    edge: "#7F1D1D",
-                    border: "rgba(248, 113, 113, 0.45)",
+                    face: "linear-gradient(180deg, #EF4444 0%, #DC2626 60%, #B91C1C 100%)",
+                    edge: "#450A0A",
+                    border: "rgba(248, 113, 113, 0.6)",
                     color: "#ffffff"
                 },
                 dark: {
-                    face: "linear-gradient(135deg, #27272A 0%, #18181B 100%)",
-                    edge: "#09090B",
-                    border: "rgba(255, 255, 255, 0.16)",
+                    face: "linear-gradient(180deg, #27272A 0%, #18181B 60%, #0F0F12 100%)",
+                    edge: "#000000",
+                    border: "rgba(255, 255, 255, 0.25)",
                     color: "#ffffff"
                 }
             };
@@ -1854,8 +1876,7 @@
                     <span
                         className="tactile-btn-edge"
                         style={{
-                            background: curVariant.edge,
-                            boxShadow: "0 6px 14px rgba(0, 0, 0, 0.42)"
+                            background: curVariant.edge
                         }}
                     />
                     <span
@@ -5502,25 +5523,30 @@
                                                         )}
                                                     </div>
 
-                                                    {/* Odds & Details Button */}
+                                                    {/* Odds & Details 3D Tactile Button */}
                                                     <button
+                                                        type="button"
                                                         onClick={() => setOddsModalCase(c)}
+                                                        className="tactile-btn"
                                                         style={{
-                                                            background: "rgba(0,0,0,0.04)",
-                                                            border: "1px solid rgba(0,0,0,0.08)",
                                                             borderRadius: "999px",
-                                                            padding: "5px 14px",
-                                                            fontSize: "12px",
-                                                            fontWeight: 600,
-                                                            color: "var(--muted)",
-                                                            cursor: "pointer",
+                                                            paddingBottom: "3px",
                                                             marginBottom: "16px",
-                                                            transition: "all 0.2s ease"
+                                                            background: "transparent"
                                                         }}
-                                                        onMouseEnter={(e) => { e.currentTarget.style.background = "#000000"; e.currentTarget.style.color = "#ffffff"; }}
-                                                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(0,0,0,0.04)"; e.currentTarget.style.color = "var(--muted)"; }}
                                                     >
-                                                        Ehtimollar & Sovg'alar
+                                                        <span className="tactile-btn-edge" style={{ background: "#94a3b8" }} />
+                                                        <span className="tactile-btn-face" style={{
+                                                            padding: "5px 16px",
+                                                            fontSize: "12px",
+                                                            fontWeight: 700,
+                                                            background: "#f1f5f9",
+                                                            color: "#334155",
+                                                            border: "1px solid #cbd5e1"
+                                                        }}>
+                                                            <SvgEye size={13} color="#475569" />
+                                                            <span>Ehtimollar & Sovg'alar</span>
+                                                        </span>
                                                     </button>
 
                                                     {/* Triple Action Buttons: So'm (UZS), Stars & Free Demo */}
@@ -7529,25 +7555,25 @@
                                                                         href={`https://fragment.com/gift/${nft.slug}`}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
+                                                                        className="tactile-btn"
                                                                         style={{
                                                                             flex: 1,
-                                                                            padding: "8px 10px",
-                                                                            borderRadius: "999px",
-                                                                            background: "rgba(0,136,204,0.08)",
-                                                                            color: "#0088cc",
-                                                                            textDecoration: "none",
-                                                                            fontSize: "11px",
-                                                                            fontWeight: 700,
-                                                                            display: "inline-flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            gap: "4px",
-                                                                            border: "1px solid rgba(0,136,204,0.2)",
-                                                                            transition: "all 0.15s ease",
-                                                                            whiteSpace: "nowrap"
+                                                                            borderRadius: "12px",
+                                                                            paddingBottom: "4px",
+                                                                            textDecoration: "none"
                                                                         }}
                                                                     >
-                                                                        <span>Fragment</span>
+                                                                        <span className="tactile-btn-edge" style={{ background: "#0369a1" }} />
+                                                                        <span className="tactile-btn-face" style={{
+                                                                            padding: "8px 10px",
+                                                                            fontSize: "11px",
+                                                                            fontWeight: 800,
+                                                                            background: "linear-gradient(180deg, #38bdf8 0%, #0284c7 100%)",
+                                                                            color: "#ffffff",
+                                                                            border: "1px solid rgba(255,255,255,0.4)"
+                                                                        }}>
+                                                                            <span>Fragment</span>
+                                                                        </span>
                                                                     </a>
                                                                 </div>
                                                             </div>
