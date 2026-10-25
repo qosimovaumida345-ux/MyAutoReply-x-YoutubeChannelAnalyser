@@ -50,9 +50,9 @@ def save_stock_to_disk(stock: list):
         logger.warning(f"Stock keshini yozishda xato: {e}")
 
 _CACHED_RATE = {
-    "ton_usd": 1.32,
+    "ton_usd": 5.20,
     "usd_uzs": 12850.0,
-    "ton_uzs": 16962.0,
+    "ton_uzs": 66820.0,
     "last_updated": 0
 }
 

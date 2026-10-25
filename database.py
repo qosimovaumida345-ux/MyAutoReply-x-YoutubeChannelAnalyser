@@ -43,12 +43,64 @@ from psycopg2.pool import ThreadedConnectionPool
 
 _DB_POOL = None
 
+class _TelemetryCursorWrapper:
+    """Telemetriya bilan jihozlangan kursor wrapper'i (so'rov vaqtini ms da o'lchaydi)"""
+    def __init__(self, cur):
+        self._cur = cur
+
+    def execute(self, query, vars=None):
+        import time
+        from telemetry_service import record_db_query
+        t0 = time.perf_counter()
+        try:
+            res = self._cur.execute(query, vars)
+            dur_ms = (time.perf_counter() - t0) * 1000.0
+            record_db_query(query, dur_ms, status="ok")
+            return res
+        except Exception as e:
+            dur_ms = (time.perf_counter() - t0) * 1000.0
+            record_db_query(query, dur_ms, status="error", error=str(e))
+            raise
+
+    def executemany(self, query, vars_list):
+        import time
+        from telemetry_service import record_db_query
+        t0 = time.perf_counter()
+        try:
+            res = self._cur.executemany(query, vars_list)
+            dur_ms = (time.perf_counter() - t0) * 1000.0
+            record_db_query(f"[BATCH] {query}", dur_ms, status="ok")
+            return res
+        except Exception as e:
+            dur_ms = (time.perf_counter() - t0) * 1000.0
+            record_db_query(f"[BATCH] {query}", dur_ms, status="error", error=str(e))
+            raise
+
+    def __iter__(self):
+        return iter(self._cur)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            self._cur.close()
+        except Exception:
+            pass
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
+
 class _PooledConnWrapper:
     """Connection pool dan olingan ulanishni xavfsiz boshqarish wrapper'i"""
     def __init__(self, pool, conn):
         self._pool = pool
         self._conn = conn
         self._closed = False
+
+    def cursor(self, *args, **kwargs):
+        cur = self._conn.cursor(*args, **kwargs)
+        return _TelemetryCursorWrapper(cur)
 
     def close(self):
         if not self._closed and self._pool is not None and self._conn is not None:
@@ -2685,9 +2737,13 @@ def complete_payment_transaction(tx_id: int, invoice_id: str = None) -> dict:
             ON CONFLICT (tg_user_id) DO UPDATE
             SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
                 updated_at = NOW()
+            RETURNING balance_uzs
         """, (tg_user_id, amount_uzs))
+        bal_row = cur.fetchone()
+        new_balance = int(bal_row["balance_uzs"]) if bal_row else 0
         
         conn.commit()
+        _set_cached(f"bal_{tg_user_id}", new_balance, 30)
 
         # Referral keshbek (10%)
         try:
@@ -2866,19 +2922,21 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
         cur = conn.cursor()
         matched_deposit = None
         
-        # 1-Qidiruv (Aniq summa): unique_amount_uzs yoki amount_uzs bo'yicha
-        cur.execute("""
-            SELECT * FROM humo_deposits
-            WHERE status IN ('pending', 'cancelled')
-              AND (unique_amount_uzs = %s OR amount_uzs = %s)
-              AND created_at > NOW() - INTERVAL '45 minutes'
-            ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
-            FOR UPDATE
-        """, (amount, amount))
-        row = cur.fetchone()
-        if row:
-            matched_deposit = dict(row)
-            
+        # 1-Qidiruv: Agar SMSda yuboruvchi karta raqami bo'lsa va foydalanuvchi kartasiga 100% mos kelsa
+        if sender_card:
+            cur.execute("""
+                SELECT * FROM humo_deposits
+                WHERE status IN ('pending', 'cancelled')
+                  AND (unique_amount_uzs = %s OR amount_uzs = %s)
+                  AND sender_card_last4 = %s
+                  AND created_at > NOW() - INTERVAL '45 minutes'
+                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at ASC LIMIT 1
+                FOR UPDATE
+            """, (amount, amount, sender_card))
+            row = cur.fetchone()
+            if row:
+                matched_deposit = dict(row)
+
         # 2-Qidiruv: Agar RRN kod avval kiritilgan bo'lsa yoki SMSda RRN bo'lsa
         if not matched_deposit and rrn_code:
             cur.execute("""
@@ -2886,23 +2944,23 @@ def match_and_complete_humo_deposit(parsed_data: dict) -> dict:
                 WHERE status IN ('pending', 'cancelled')
                   AND rrn_code = %s
                   AND created_at > NOW() - INTERVAL '45 minutes'
-                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
+                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at ASC LIMIT 1
                 FOR UPDATE
             """, (rrn_code,))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)
-                
-        # 3-Qidiruv: Agar foydalanuvchi to'layotgan kartasining oxirgi 4 raqamini kiritgan bo'lsa va SMSdagi yuboruvchi karta mos kelsa
-        if not matched_deposit and sender_card:
+
+        # 3-Qidiruv (Aniq summa): FIFO tartibida eng birinchi so'rov yuborgan foydalanuvchiga (created_at ASC)
+        if not matched_deposit:
             cur.execute("""
                 SELECT * FROM humo_deposits
                 WHERE status IN ('pending', 'cancelled')
-                  AND sender_card_last4 = %s
+                  AND (unique_amount_uzs = %s OR amount_uzs = %s)
                   AND created_at > NOW() - INTERVAL '45 minutes'
-                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 1
+                ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, created_at ASC LIMIT 1
                 FOR UPDATE
-            """, (sender_card,))
+            """, (amount, amount))
             row = cur.fetchone()
             if row:
                 matched_deposit = dict(row)
@@ -3993,6 +4051,7 @@ def process_referral_cashback(tg_user_id: int, deposit_uzs: int) -> dict:
         """, (bonus, tg_user_id))
 
         conn.commit()
+        _invalidate_cached(f"bal_{referrer_id}")
         return {
             "has_referrer": True,
             "referrer_id": referrer_id,
@@ -5091,7 +5150,9 @@ def create_cashout_request(tg_user_id: int, method: str, target_address: str, am
         if bal < amount_uzs:
             return False, "Balansingizda mablag' yetarli emas!", 0
 
-        cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs - %s, updated_at = NOW() WHERE tg_user_id = %s", (amount_uzs, tg_user_id))
+        cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs - %s, updated_at = NOW() WHERE tg_user_id = %s RETURNING balance_uzs", (amount_uzs, tg_user_id))
+        bal_row = cur.fetchone()
+        new_b = int(bal_row["balance_uzs"]) if bal_row else (bal - amount_uzs)
         cur.execute("""
             INSERT INTO cashout_requests (tg_user_id, method, target_address, amount_uzs, currency_equivalent, status)
             VALUES (%s, %s, %s, %s, %s, 'pending')
@@ -5100,6 +5161,7 @@ def create_cashout_request(tg_user_id: int, method: str, target_address: str, am
         id_row = cur.fetchone()
         req_id = (id_row["id"] if isinstance(id_row, dict) else id_row[0]) if id_row else 0
         conn.commit()
+        _set_cached(f"bal_{tg_user_id}", new_b, 30)
         return True, "Pul yechish so'rovingiz qabul qilindi. Admin tekshiruvidan so'ng o'tkazib beriladi!", req_id
     except Exception as e:
         conn.rollback()
@@ -5139,6 +5201,7 @@ def process_cashout_request(request_id: int, status: str) -> bool:
         if status == "rejected":
             # Pulni foydalanuvchiga qaytarish
             cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs + %s, updated_at = NOW() WHERE tg_user_id = %s", (req["amount_uzs"], req["tg_user_id"]))
+            _invalidate_cached(f"bal_{req['tg_user_id']}")
 
         conn.commit()
         return True
@@ -5754,6 +5817,27 @@ def get_pending_gifts(status: str = None, limit: int = 100) -> list:
     except Exception as e:
         print(f"get_pending_gifts error: {e}")
         return []
+    finally:
+        conn.close()
+
+
+def get_pending_gift_by_id(record_id: int) -> dict:
+    """Aniq ID bo'yicha kutilayotgan sovg'ani olish (limit cheklovisiz)"""
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at, cost_uzs, cost_stars
+            FROM pending_gifts
+            WHERE id = %s
+        """, (record_id,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_pending_gift_by_id error: {e}")
+        return None
     finally:
         conn.close()
 

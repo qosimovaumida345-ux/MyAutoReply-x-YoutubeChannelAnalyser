@@ -82,6 +82,14 @@ class TTLCache:
     def clear(self):
         self._store.clear()
 
+    def get_stats(self) -> Dict[str, Any]:
+        now = time.time()
+        active = sum(1 for v in self._store.values() if v[1] > now)
+        return {"total_keys": len(self._store), "active_keys": active}
+
+    def clear(self):
+        self._store.clear()
+
 
 # ==================== VENTEBOT CLIENT ====================
 class VenteBotClient:
@@ -164,11 +172,11 @@ class VenteBotClient:
         - Minimal narx: 10,000 so'm
         """
         if not price_usd or price_usd <= 0:
-            return 10000
+            return 0
         retail_usd = self.calculate_retail_usd(price_usd, category, stock)
         rate = float(current_rate or currency_service.get_cached_usd_rate() or USD_TO_UZS_RATE or 12850.0)
         uzs = int(round(retail_usd * rate, -3))
-        return max(10000, uzs)
+        return max(1000, uzs)
 
 
     @staticmethod
@@ -284,20 +292,27 @@ class VenteBotClient:
     async def get_products(self, lang: str = "uz", force_refresh: bool = False) -> Dict[str, Any]:
         """
         Faol tovarlar katalogini olish.
-        Kesh muddati: 10 daqiqa (600 soniya).
-        Barcha 88 ta mahsulot 6 toifaga ajratiladi va so'mdagi marjali narxi hisoblanadi.
+        Kesh muddati: Dinamik (Admin panel orqali sozlanadi, odatiy: 60s).
+        Barcha mahsulotlar toifaga ajratiladi va so'mdagi marjali narxi hisoblanadi.
         """
         cache_key = f"vb_products_{lang}"
-        if not force_refresh:
+        from telemetry_service import get_dynamic_config, record_outgoing_call
+        dyn_ttl = int(get_dynamic_config("product_cache_ttl", 60))
+
+        if not force_refresh and dyn_ttl > 0:
             cached = self.cache.get(cache_key)
             if cached:
+                record_outgoing_call("VenteBot", f"/api/reseller/products?lang={lang}", 0.4, status="ok", cached=True)
                 return cached
 
         await self.rate_limiter.acquire()
         url = f"{self.base_url}/api/reseller/products?lang={lang}"
+        t0 = time.perf_counter()
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=self._get_headers(), timeout=aiohttp.ClientTimeout(total=12)) as resp:
+                    dur_ms = (time.perf_counter() - t0) * 1000.0
+                    record_outgoing_call("VenteBot", f"/api/reseller/products?lang={lang}", dur_ms, status="ok" if resp.status == 200 else f"HTTP {resp.status}", cached=False)
                     if resp.status == 200:
                         raw_data = await resp.json()
                         raw_products = raw_data if isinstance(raw_data, list) else raw_data.get("products", raw_data.get("items", []))
@@ -318,8 +333,8 @@ class VenteBotClient:
                             processed_products.append(p_copy)
 
                         res = {"success": True, "products": processed_products}
-                        # 60 soniya (1 daqiqa) keshda saqlash - zaxira va narxlar kechikmasligi uchun
-                        self.cache.set(cache_key, res, ttl_seconds=60)
+                        if dyn_ttl > 0:
+                            self.cache.set(cache_key, res, ttl_seconds=dyn_ttl)
                         return res
                     else:
                         err_data = await resp.json() if resp.content_type == 'application/json' else {}
@@ -398,6 +413,9 @@ class VenteBotClient:
         7. Agar VenteBot buyurtmani bajarsa — tovar ma'lumotlarini saqlash va berish.
         8. Agar VenteBot rad etsa yoki xatolik bersa — PULNI 100% AVTOMATIK QAYTARISH (Refund).
         """
+        if int(quantity or 0) <= 0:
+            return {"success": False, "message": "Xarid miqdori kamida 1 ta bo'lishi kerak"}
+
         user_lock = self._get_user_lock(tg_user_id)
         async with user_lock:
             # 1. Tovarni katalogdan izlash

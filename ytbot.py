@@ -4112,7 +4112,7 @@ def create_ytbot():
         icon = res["icon"]
         rarity = res.get("rarity", "common").upper()
         rem_bal = res.get("remaining_balance_uzs", 0)
-        p_uzs = res.get("price_uzs", 10000)
+        p_uzs = res.get("price_uzs") or (res.get("prize_stars", 100) * 400) or 40000
         rec_id = res.get("gift_record_id", 0)
         ref_uzs = int(p_stars * 0.75 * 400)
         
@@ -4153,8 +4153,8 @@ def create_ytbot():
         from database import get_pending_gifts, update_gift_record_status
         from games_monetization import send_telegram_gift
         
-        all_pending = get_pending_gifts(limit=200)
-        gift_item = next((p for p in all_pending if p["id"] == rec_id), None)
+        from database import get_pending_gift_by_id
+        gift_item = get_pending_gift_by_id(rec_id)
         
         if not gift_item:
             await callback_query.answer("Ushbu sovg'a allaqachon yuborilgan yoki sotilgan!", show_alert=True)
@@ -4232,8 +4232,8 @@ def create_ytbot():
         from database import get_pending_gifts
         from games_monetization import recycle_pending_gift
         
-        all_pending = get_pending_gifts(limit=200)
-        gift_item = next((p for p in all_pending if p["id"] == rec_id), None)
+        from database import get_pending_gift_by_id
+        gift_item = get_pending_gift_by_id(rec_id)
         
         if not gift_item:
             await callback_query.answer("Ushbu sovg'a allaqachon yuborilgan yoki sotilgan!", show_alert=True)

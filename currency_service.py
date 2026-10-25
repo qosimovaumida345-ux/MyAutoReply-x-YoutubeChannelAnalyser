@@ -44,12 +44,18 @@ class CurrencyService:
         Kesh muddati o'tmagan bo'lsa, keshdagi kurs qaytariladi.
         """
         now = time.time()
-        if not force_refresh and (now - self._last_updated < self._cache_ttl) and self._last_updated > 0:
+        try:
+            from telemetry_service import get_dynamic_config
+            effective_ttl = int(get_dynamic_config("usd_cache_ttl", self._cache_ttl))
+        except Exception:
+            effective_ttl = self._cache_ttl
+
+        if not force_refresh and (now - self._last_updated < effective_ttl) and self._last_updated > 0:
             return self._cached_rate
 
         async with self._lock:
             # Re-check after lock
-            if not force_refresh and (time.time() - self._last_updated < self._cache_ttl) and self._last_updated > 0:
+            if not force_refresh and (time.time() - self._last_updated < effective_ttl) and self._last_updated > 0:
                 return self._cached_rate
 
             headers = {

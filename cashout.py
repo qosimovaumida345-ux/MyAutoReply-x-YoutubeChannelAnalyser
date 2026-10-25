@@ -33,7 +33,12 @@ def request_user_cashout(tg_user_id: int, method: str, target_address: str, amou
         stars_est = int((amount_uzs / 10_000) * STARS_PER_10K_UZS)
         equiv_str = f"~{stars_est} Stars"
     else:
-        ton_est = round(amount_uzs / TON_PRICE_UZS, 3)
+        try:
+            from telegram_marketplace_service import get_sync_live_ton_rate
+            cur_ton_price = float(get_sync_live_ton_rate().get("ton_uzs") or TON_PRICE_UZS)
+        except Exception:
+            cur_ton_price = float(TON_PRICE_UZS)
+        ton_est = round(amount_uzs / max(1000.0, cur_ton_price), 3)
         equiv_str = f"~{ton_est} TON"
 
     ok, msg, req_id = db.create_cashout_request(tg_user_id, method, clean_target, amount_uzs, equiv_str)

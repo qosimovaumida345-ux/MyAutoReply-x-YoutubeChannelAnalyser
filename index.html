@@ -162,6 +162,79 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* 3D Tactile Mechanical Button Styles & Keyframes (Anti-AI-Slop & Premium UI) */
+        @keyframes btnSpinner {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes btnShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-4px); }
+            40% { transform: translateX(4px); }
+            60% { transform: translateX(-3px); }
+            80% { transform: translateX(3px); }
+        }
+        @keyframes successPop {
+            0% { transform: scale(0.85); opacity: 0; }
+            50% { transform: scale(1.12); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .tactile-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            padding: 0;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: inherit;
+            transition: opacity 0.2s ease;
+        }
+        .tactile-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.72;
+        }
+        .tactile-btn-edge {
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            transform: translateY(4px);
+            transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease;
+        }
+        .tactile-btn-face {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border-radius: inherit;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            transform: translateY(0);
+            transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, border-color 0.15s ease;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        }
+        .tactile-btn:hover:not(:disabled) .tactile-btn-face {
+            transform: translateY(-1px);
+        }
+        .tactile-btn:hover:not(:disabled) .tactile-btn-edge {
+            transform: translateY(5px);
+        }
+        .tactile-btn:active:not(:disabled) .tactile-btn-face {
+            transform: translateY(4px);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .tactile-btn:active:not(:disabled) .tactile-btn-edge {
+            transform: translateY(4px);
+        }
+        .btn-shake {
+            animation: btnShake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+        }
+
         @keyframes neonBorder {
             0%, 100% { border-color: rgba(0,255,136,0.3); box-shadow: 0 0 8px rgba(0,255,136,0.2); }
             50% { border-color: rgba(0,255,136,0.7); box-shadow: 0 0 20px rgba(0,255,136,0.4); }
@@ -1615,6 +1688,259 @@
             );
         };
 
+        // Centralized Authentication Header Injector (Anti-IDOR + Standalone Web Support)
+        const getAuthHeaders = (extraHeaders = {}) => {
+            const headers = {
+                'Content-Type': 'application/json',
+                ...extraHeaders
+            };
+            try {
+                const token = localStorage.getItem('creatorflow_auth_token');
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                    headers['X-Auth-Token'] = token;
+                }
+                const initData = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || '';
+                if (initData) {
+                    headers['X-Telegram-Init-Data'] = initData;
+                }
+            } catch(e) {}
+            return headers;
+        };
+
+        // Master 3D Tactile Mechanical Action Button with State Morphing (Rule 2 & Rule 3 Compliant)
+        const TactileButton = ({
+            children,
+            onClick,
+            icon = null,
+            variant = "primary", // primary, success, danger, cyan, gold, dark
+            disabled = false,
+            loading = false,
+            success = false,
+            error = false,
+            loadingText = "Yuklanmoqda...",
+            successText = "Bajarildi!",
+            errorText = "Xatolik!",
+            size = "md", // sm, md, lg
+            style = {},
+            className = "",
+            type = "button"
+        }) => {
+            const [localState, setLocalState] = React.useState('idle');
+            const timerRef = React.useRef(null);
+
+            React.useEffect(() => {
+                if (loading) setLocalState('loading');
+                else if (success) {
+                    setLocalState('success');
+                    if (timerRef.current) clearTimeout(timerRef.current);
+                    timerRef.current = setTimeout(() => setLocalState('idle'), 1400);
+                } else if (error) {
+                    setLocalState('error');
+                    if (timerRef.current) clearTimeout(timerRef.current);
+                    timerRef.current = setTimeout(() => setLocalState('idle'), 1800);
+                } else if (localState !== 'loading') {
+                    setLocalState('idle');
+                }
+                return () => {
+                    if (timerRef.current) clearTimeout(timerRef.current);
+                };
+            }, [loading, success, error]);
+
+            const VARIANTS = {
+                primary: {
+                    face: "linear-gradient(135deg, #7342E2 0%, #5B21B6 100%)",
+                    edge: "#3B0764",
+                    border: "rgba(167, 139, 250, 0.45)",
+                    color: "#ffffff"
+                },
+                cyan: {
+                    face: "linear-gradient(135deg, #00F0FF 0%, #0099FF 100%)",
+                    edge: "#005599",
+                    border: "rgba(0, 240, 255, 0.5)",
+                    color: "#090A0F"
+                },
+                gold: {
+                    face: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+                    edge: "#78350F",
+                    border: "rgba(251, 191, 36, 0.5)",
+                    color: "#ffffff"
+                },
+                success: {
+                    face: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                    edge: "#064E3B",
+                    border: "rgba(52, 211, 153, 0.45)",
+                    color: "#ffffff"
+                },
+                danger: {
+                    face: "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+                    edge: "#7F1D1D",
+                    border: "rgba(248, 113, 113, 0.45)",
+                    color: "#ffffff"
+                },
+                dark: {
+                    face: "linear-gradient(135deg, #27272A 0%, #18181B 100%)",
+                    edge: "#09090B",
+                    border: "rgba(255, 255, 255, 0.16)",
+                    color: "#ffffff"
+                }
+            };
+
+            const curVariant = (localState === 'success') ? VARIANTS.success :
+                              (localState === 'error') ? VARIANTS.danger :
+                              (VARIANTS[variant] || VARIANTS.primary);
+
+            const SIZES = {
+                sm: { padding: "8px 14px", fontSize: "12px", borderRadius: "10px", iconSize: 13 },
+                md: { padding: "12px 20px", fontSize: "14px", borderRadius: "14px", iconSize: 16 },
+                lg: { padding: "15px 26px", fontSize: "15px", borderRadius: "16px", iconSize: 18 }
+            };
+            const curSize = SIZES[size] || SIZES.md;
+
+            const handleClick = async (e) => {
+                if (disabled || localState === 'loading') {
+                    e.preventDefault();
+                    return;
+                }
+                try {
+                    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+                    }
+                } catch(e_hap) {}
+
+                if (onClick) {
+                    const result = onClick(e);
+                    if (result && typeof result.then === 'function') {
+                        setLocalState('loading');
+                        try {
+                            await result;
+                            setLocalState('success');
+                            try {
+                                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                                }
+                            } catch(e_hap) {}
+                            timerRef.current = setTimeout(() => setLocalState('idle'), 1400);
+                        } catch(err) {
+                            setLocalState('error');
+                            try {
+                                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+                                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                                }
+                            } catch(e_hap) {}
+                            timerRef.current = setTimeout(() => setLocalState('idle'), 1800);
+                        }
+                    }
+                }
+            };
+
+            return (
+                <button
+                    type={type}
+                    onClick={handleClick}
+                    disabled={disabled || localState === 'loading'}
+                    className={`tactile-btn ${localState === 'error' ? 'btn-shake' : ''} ${className}`}
+                    style={{
+                        borderRadius: curSize.borderRadius,
+                        ...style
+                    }}
+                >
+                    <span
+                        className="tactile-btn-edge"
+                        style={{
+                            background: curVariant.edge,
+                            boxShadow: "0 6px 14px rgba(0, 0, 0, 0.42)"
+                        }}
+                    />
+                    <span
+                        className="tactile-btn-face"
+                        style={{
+                            padding: curSize.padding,
+                            fontSize: curSize.fontSize,
+                            background: curVariant.face,
+                            color: curVariant.color,
+                            border: `1px solid ${curVariant.border}`
+                        }}
+                    >
+                        <span style={{ display: "grid", gridTemplateAreas: '"cell"', alignItems: "center", justifyItems: "center" }}>
+                            
+                            {/* IDLE */}
+                            <span style={{
+                                gridArea: "cell",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                opacity: localState === 'idle' ? 1 : 0,
+                                transform: localState === 'idle' ? 'scale(1)' : 'scale(0.92)',
+                                pointerEvents: localState === 'idle' ? 'auto' : 'none',
+                                transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                            }}>
+                                {icon}
+                                <span>{children}</span>
+                            </span>
+
+                            {/* LOADING */}
+                            <span style={{
+                                gridArea: "cell",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                opacity: localState === 'loading' ? 1 : 0,
+                                transform: localState === 'loading' ? 'scale(1)' : 'scale(0.92)',
+                                pointerEvents: localState === 'loading' ? 'auto' : 'none',
+                                transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                            }}>
+                                <svg width={curSize.iconSize} height={curSize.iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" style={{ animation: "btnSpinner 0.75s linear infinite" }}>
+                                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                                    <path d="M12 2a10 10 0 0 1 10 10" />
+                                </svg>
+                                <span>{loadingText}</span>
+                            </span>
+
+                            {/* SUCCESS */}
+                            <span style={{
+                                gridArea: "cell",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                color: "#ffffff",
+                                opacity: localState === 'success' ? 1 : 0,
+                                transform: localState === 'success' ? 'scale(1)' : 'scale(0.92)',
+                                pointerEvents: localState === 'success' ? 'auto' : 'none',
+                                transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                            }}>
+                                <svg width={curSize.iconSize} height={curSize.iconSize} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "successPop 0.3s ease" }}>
+                                    <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                                <span>{successText}</span>
+                            </span>
+
+                            {/* ERROR */}
+                            <span style={{
+                                gridArea: "cell",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                color: "#ffffff",
+                                opacity: localState === 'error' ? 1 : 0,
+                                transform: localState === 'error' ? 'scale(1)' : 'scale(0.92)',
+                                pointerEvents: localState === 'error' ? 'auto' : 'none',
+                                transition: 'opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)'
+                            }}>
+                                <svg width={curSize.iconSize} height={curSize.iconSize} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg>
+                                <span>{errorText}</span>
+                            </span>
+
+                        </span>
+                    </span>
+                </button>
+            );
+        };
+
         // ==================== MAIN APPLICATION ====================
         const CaseDropBadge = ({ drop, dIdx, onClick }) => {
             const [isHovered, setIsHovered] = React.useState(false);
@@ -1895,7 +2221,7 @@
                     try {
                         const res = await fetch('/api/stars/marketplace/buy-invoice', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: getAuthHeaders(),
                             body: JSON.stringify({
                                 user_id: tgUser.id,
                                 slug: nft.slug
@@ -1935,7 +2261,7 @@
                 try {
                     const res = await fetch('/api/stars/marketplace/buy', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getAuthHeaders(),
                         body: JSON.stringify({
                             user_id: tgUser.id,
                             slug: nft.slug,
@@ -2115,7 +2441,7 @@
                 const uName = tgUser.username ? `@${tgUser.username}` : (tgUser.first_name || "Creator");
                 fetch('/api/stars/pvp-battle/create', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ user_id: tgUser.id, user_name: uName, tier_id: tierId })
                 })
                 .then(r => r.json())
@@ -2144,7 +2470,7 @@
 
                 fetch('/api/stars/pvp-battle/join', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ battle_id: b.id, user_id: tgUser.id, user_name: uName })
                 })
                 .then(r => r.json())
@@ -2187,7 +2513,7 @@
                 }
                 fetch('/api/stars/pvp-battle/cancel', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ battle_id: battleId, user_id: tgUser.id })
                 })
                 .then(r => r.json())
@@ -2218,7 +2544,7 @@
 
                 fetch('/api/stars/upgrader', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         user_id: tgUser.id,
                         item_stars: upgraderItem.stars,
@@ -2292,7 +2618,7 @@
             const handleClaimStreak = () => {
                 fetch('/api/stars/daily-streak/claim', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ user_id: tgUser.id || 0 })
                 })
                 .then(r => r.json())
@@ -2343,7 +2669,7 @@
                 scratchedSlots.clear();
                 fetch('/api/stars/scratch-card/play', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ user_id: uid, tg_user_id: uid })
                 })
                 .then(r => r.json())
@@ -2454,7 +2780,7 @@
                 }
                 fetch('/api/stars/redeem-service', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ user_id: tgUser.id, service_id: serviceId })
                 })
                 .then(r => r.json())
@@ -3130,7 +3456,7 @@
 
                 const apiPromise = fetch('/api/stars/open-case-uzs', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
                     body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
                 }).then(r => r.json());
 
@@ -3459,33 +3785,44 @@
                                                 </div>
                                             )}
 
-                                            <button
+                                            <TactileButton
                                                 type="submit"
-                                                disabled={otpLoading}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "14px 0",
-                                                    borderRadius: "14px",
-                                                    background: "linear-gradient(135deg, #7342E2 0%, #5a2eb8 100%)",
-                                                    color: "#ffffff",
-                                                    border: "none",
-                                                    fontWeight: 700,
-                                                    fontSize: "15px",
-                                                    cursor: otpLoading ? "not-allowed" : "pointer",
-                                                    opacity: otpLoading ? 0.7 : 1,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    gap: "8px",
-                                                    boxShadow: "0 6px 20px rgba(115, 66, 226, 0.35)",
-                                                    transition: "all 0.2s"
-                                                }}
-                                                onMouseEnter={(e) => !otpLoading && (e.currentTarget.style.filter = "brightness(1.1)")}
-                                                onMouseLeave={(e) => e.currentTarget.style.filter = "brightness(1)"}
+                                                loading={otpLoading}
+                                                variant="primary"
+                                                size="lg"
+                                                style={{ width: "100%", marginBottom: "14px" }}
+                                                loadingText={t('sendingCode')}
+                                                icon={<SvgArrowRight size={18} color="#ffffff" />}
                                             >
-                                                <span>{otpLoading ? t('sendingCode') : t('sendCodeBtn')}</span>
-                                                <SvgArrowRight size={18} color="#ffffff" />
-                                            </button>
+                                                {t('sendCodeBtn')}
+                                            </TactileButton>
+
+                                            <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                                                <a
+                                                    href="https://t.me/creatorflow_aibot?start=web"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    style={{ flex: 1, textDecoration: "none", display: "inline-flex" }}
+                                                >
+                                                    <TactileButton
+                                                        variant="cyan"
+                                                        size="sm"
+                                                        style={{ width: "100%" }}
+                                                        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.95-1.28 4.92-2.13 5.9-2.55 2.81-1.21 3.4-.95 3.78-.95.08 0 .28.02.4.12.1.08.13.2.14.28-.01.07-.02.26-.04.45z"/></svg>}
+                                                    >
+                                                        Telegramda ochish
+                                                    </TactileButton>
+                                                </a>
+                                                <TactileButton
+                                                    variant="dark"
+                                                    size="sm"
+                                                    style={{ flex: 1 }}
+                                                    onClick={() => setView('dashboard')}
+                                                    icon={<SvgSparkles size={14} color="#00f0ff" />}
+                                                >
+                                                    Mehmon (Demo)
+                                                </TactileButton>
+                                            </div>
                                         </form>
                                     ) : (
                                         <form onSubmit={handleVerifyOtp} style={{ textAlign: "left" }}>
@@ -3540,32 +3877,18 @@
                                                 </div>
                                             )}
 
-                                            <button
+                                            <TactileButton
                                                 type="submit"
+                                                loading={otpLoading}
                                                 disabled={otpLoading || otpInput.trim().length < 6}
-                                                style={{
-                                                    width: "100%",
-                                                    padding: "14px 0",
-                                                    borderRadius: "14px",
-                                                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                                    color: "#ffffff",
-                                                    border: "none",
-                                                    fontWeight: 700,
-                                                    fontSize: "15px",
-                                                    cursor: (otpLoading || otpInput.trim().length < 6) ? "not-allowed" : "pointer",
-                                                    opacity: (otpLoading || otpInput.trim().length < 6) ? 0.7 : 1,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    gap: "8px",
-                                                    boxShadow: "0 6px 20px rgba(16, 185, 129, 0.35)",
-                                                    transition: "all 0.2s",
-                                                    marginBottom: "12px"
-                                                }}
+                                                variant="success"
+                                                size="lg"
+                                                style={{ width: "100%", marginBottom: "12px" }}
+                                                loadingText={t('verifying')}
+                                                icon={<SvgCheckCircle size={18} color="#ffffff" />}
                                             >
-                                                <span>{otpLoading ? t('verifying') : t('verifyBtn')}</span>
-                                                <SvgCheckCircle size={18} color="#ffffff" />
-                                            </button>
+                                                {t('verifyBtn')}
+                                            </TactileButton>
 
                                             <div style={{ display: "flex", justifyContent: "center" }}>
                                                 <button
@@ -5126,90 +5449,37 @@
                                                     {/* Triple Action Buttons: So'm (UZS), Stars & Free Demo */}
                                                     <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "8px", marginTop: "auto" }}>
                                                         {/* 1. So'm Balansi Bilan Ochish */}
-                                                        <button
-                                                            className="shimmer-btn"
+                                                        <TactileButton
+                                                            variant="success"
+                                                            size="md"
+                                                            style={{ width: "100%" }}
+                                                            icon={<SvgCreditCard size={15} color="#ffffff" />}
                                                             onClick={() => handleOpenCaseUzs(c)}
-                                                            style={{
-                                                                width: "100%",
-                                                                padding: "11px 16px",
-                                                                borderRadius: "999px",
-                                                                background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                                                color: "#ffffff",
-                                                                border: "none",
-                                                                fontWeight: 700,
-                                                                fontSize: "13px",
-                                                                cursor: "pointer",
-                                                                boxShadow: "0 4px 14px rgba(16, 185, 129, 0.28)",
-                                                                transition: "transform 0.15s ease",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: "8px",
-                                                                whiteSpace: "nowrap",
-                                                                boxSizing: "border-box"
-                                                            }}
-                                                            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
-                                                            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                         >
-                                                            <SvgCreditCard size={15} color="#ffffff" /> <span>Ochish ({(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm)</span>
-                                                        </button>
+                                                            <span>Ochish ({(c.price_uzs || c.price_stars * 400).toLocaleString()} so'm)</span>
+                                                        </TactileButton>
 
                                                         {/* 2. Stars Bilan Ochish */}
-                                                        <button
+                                                        <TactileButton
+                                                            variant="primary"
+                                                            size="md"
+                                                            style={{ width: "100%" }}
+                                                            icon={<SvgStar size={15} color="#ffd700" />}
                                                             onClick={() => handleBuyInvoice(c)}
-                                                            style={{
-                                                                width: "100%",
-                                                                padding: "10px 16px",
-                                                                borderRadius: "999px",
-                                                                background: c.color || "#7342E2",
-                                                                color: "#ffffff",
-                                                                border: "none",
-                                                                fontWeight: 700,
-                                                                fontSize: "13px",
-                                                                cursor: "pointer",
-                                                                boxShadow: `0 4px 14px ${c.color || '#7342E2'}30`,
-                                                                transition: "transform 0.15s ease",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: "8px",
-                                                                whiteSpace: "nowrap",
-                                                                boxSizing: "border-box"
-                                                            }}
-                                                            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
-                                                            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                         >
-                                                            <SvgStar size={15} color="#ffd700" /> <span>Ochish ({c.price_stars} Stars)</span>
-                                                        </button>
+                                                            <span>Ochish ({c.price_stars} Stars)</span>
+                                                        </TactileButton>
 
                                                         {/* 3. Demo Aylantirish (100% Bepul Ko'rish) */}
-                                                        <button
+                                                        <TactileButton
+                                                            variant="dark"
+                                                            size="sm"
+                                                            style={{ width: "100%" }}
+                                                            icon={<SvgEye size={13} color="currentColor" />}
                                                             onClick={() => handleDemoSpin(c)}
-                                                            style={{
-                                                                width: "100%",
-                                                                padding: "9px 14px",
-                                                                borderRadius: "999px",
-                                                                background: "rgba(0, 0, 0, 0.03)",
-                                                                color: "var(--muted)",
-                                                                border: "1px dashed rgba(0, 0, 0, 0.2)",
-                                                                fontWeight: 600,
-                                                                fontSize: "12px",
-                                                                cursor: "pointer",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: "6px",
-                                                                whiteSpace: "nowrap",
-                                                                boxSizing: "border-box",
-                                                                transition: "all 0.15s ease"
-                                                            }}
-                                                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#7342E2"; e.currentTarget.style.color = "#7342E2"; e.currentTarget.style.background = "rgba(115, 66, 226, 0.05)"; }}
-                                                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(0, 0, 0, 0.2)"; e.currentTarget.style.color = "var(--muted)"; e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)"; }}
-                                                            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
-                                                            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                         >
-                                                            <SvgEye size={13} color="currentColor" /> <span>Demo Aylantirish (Bepul)</span>
-                                                        </button>
+                                                            <span>Demo Aylantirish (Bepul)</span>
+                                                        </TactileButton>
                                                     </div>
                                                 </div>
                                             ))}
@@ -5330,24 +5600,27 @@
                                                 </p>
                                             </div>
                                             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                                                <button
+                                                <TactileButton
+                                                    variant="dark"
+                                                    size="sm"
                                                     onClick={() => handleCreateBattle('tier_1')}
-                                                    style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "10px 18px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
                                                     + Bronze (100 Stars / 40,000 so'm)
-                                                </button>
-                                                <button
+                                                </TactileButton>
+                                                <TactileButton
+                                                    variant="dark"
+                                                    size="sm"
                                                     onClick={() => handleCreateBattle('tier_2')}
-                                                    style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", padding: "10px 18px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
                                                     + Silver (250 Stars / 100,000 so'm)
-                                                </button>
-                                                <button
+                                                </TactileButton>
+                                                <TactileButton
+                                                    variant="primary"
+                                                    size="sm"
                                                     onClick={() => handleCreateBattle('tier_3')}
-                                                    style={{ background: "#7342E2", border: "none", color: "#fff", padding: "10px 20px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 16px rgba(115,66,226,0.4)" }}
                                                 >
                                                     + Gold (500 Stars / 200,000 so'm)
-                                                </button>
+                                                </TactileButton>
                                             </div>
                                         </div>
 
@@ -5406,54 +5679,25 @@
                                                     </div>
 
                                                     {tgUser && b.host_id === tgUser.id ? (
-                                                        <button
+                                                        <TactileButton
+                                                            variant="danger"
+                                                            size="md"
+                                                            style={{ width: "100%" }}
+                                                            icon={<SvgX size={14} color="#ffffff" />}
                                                             onClick={() => handleCancelBattle(b.id)}
-                                                            style={{
-                                                                width: "100%",
-                                                                padding: "12px 0",
-                                                                borderRadius: "999px",
-                                                                background: "rgba(239, 68, 68, 0.12)",
-                                                                color: "#ef4444",
-                                                                border: "1px solid rgba(239, 68, 68, 0.35)",
-                                                                fontWeight: 700,
-                                                                fontSize: "14px",
-                                                                cursor: "pointer",
-                                                                transition: "all 0.2s"
-                                                            }}
-                                                            onMouseEnter={(e) => {
-                                                                e.currentTarget.style.background = "#ef4444";
-                                                                e.currentTarget.style.color = "#ffffff";
-                                                            }}
-                                                            onMouseLeave={(e) => {
-                                                                e.currentTarget.style.background = "rgba(239, 68, 68, 0.12)";
-                                                                e.currentTarget.style.color = "#ef4444";
-                                                            }}
                                                         >
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                                                <SvgX size={14} color="currentColor" />
-                                                                <span>Bekor qilish (100% Qaytarish: {(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span>
-                                                            </span>
-                                                        </button>
+                                                            <span>Bekor qilish (100% Qaytarish: {(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span>
+                                                        </TactileButton>
                                                     ) : (
-                                                        <button
+                                                        <TactileButton
+                                                            variant="dark"
+                                                            size="md"
+                                                            style={{ width: "100%" }}
+                                                            icon={<SvgSwords size={14} color="#ffffff" />}
                                                             onClick={() => handleJoinBattle(b)}
-                                                            style={{
-                                                                width: "100%",
-                                                                padding: "12px 0",
-                                                                borderRadius: "999px",
-                                                                background: "#0a0a0a",
-                                                                color: "#ffffff",
-                                                                border: "none",
-                                                                fontWeight: 700,
-                                                                fontSize: "14px",
-                                                                cursor: "pointer",
-                                                                transition: "background 0.2s"
-                                                            }}
-                                                            onMouseEnter={(e) => e.currentTarget.style.background = "#7342E2"}
-                                                            onMouseLeave={(e) => e.currentTarget.style.background = "#0a0a0a"}
                                                         >
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><SvgSwords size={14} color="#ffffff" /><span>Jangga Kirish ({(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span></span>
-                                                        </button>
+                                                            <span>Jangga Kirish ({(b.cost_uzs || b.cost_stars * 400).toLocaleString()} so'm)</span>
+                                                        </TactileButton>
                                                     )}
                                                 </div>
                                             )))}
@@ -5724,29 +5968,18 @@
                                             })()}
 
                                             {/* Spin CTA Button */}
-                                            <button
+                                            <TactileButton
+                                                variant="cyan"
+                                                size="lg"
                                                 onClick={handleRunUpgrade}
                                                 disabled={isUpgrading}
-                                                style={{
-                                                    background: isUpgrading ? "#666" : "linear-gradient(135deg, #00ff88 0%, #00b0ff 100%)",
-                                                    color: "#0a0a0a",
-                                                    padding: "16px 48px",
-                                                    borderRadius: "999px",
-                                                    fontSize: "16px",
-                                                    fontWeight: 800,
-                                                    border: "none",
-                                                    cursor: isUpgrading ? "not-allowed" : "pointer",
-                                                    boxShadow: "0 6px 24px rgba(0,255,136,0.35)",
-                                                    transition: "transform 0.15s"
-                                                }}
-                                                onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
-                                                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                                loading={isUpgrading}
+                                                loadingText="Aylanmoqda..."
+                                                icon={<SvgZap size={18} color="#000000" />}
+                                                style={{ minWidth: "280px" }}
                                             >
-                                                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                                                    <SvgZap size={18} color="#0a0a0a" />
-                                                    <span>{isUpgrading ? "Aylanmoqda..." : `${upgraderMultiplier}x UPGRADE QILISH (${((upgraderItem?.stars || 15) * 400).toLocaleString()} so'm tikish)`}</span>
-                                                </span>
-                                            </button>
+                                                <span>{`${upgraderMultiplier}x UPGRADE QILISH (${((upgraderItem?.stars || 15) * 400).toLocaleString()} so'm tikish)`}</span>
+                                            </TactileButton>
                                         </div>
                                     </div>
                                 )}
@@ -5821,23 +6054,15 @@
 
                                             {/* Claim Button */}
                                             <div style={{ textAlign: "center" }}>
-                                                <button
+                                                <TactileButton
+                                                    variant="success"
+                                                    size="lg"
                                                     onClick={handleClaimStreak}
                                                     disabled={streakData && !streakData.can_claim}
-                                                    style={{
-                                                        background: streakData && !streakData.can_claim ? "#9ca3af" : "#16a34a",
-                                                        color: "#ffffff",
-                                                        padding: "14px 44px",
-                                                        borderRadius: "999px",
-                                                        fontSize: "15px",
-                                                        fontWeight: 800,
-                                                        border: "none",
-                                                        cursor: streakData && !streakData.can_claim ? "not-allowed" : "pointer",
-                                                        boxShadow: "0 4px 20px rgba(22,163,74,0.3)"
-                                                    }}
+                                                    icon={<SvgGift size={18} color="#ffffff" />}
                                                 >
-                                                    {streakData && !streakData.can_claim ? "Bugungi Sovg'ani Olgansiz" : "Bugungi Sovg'ani Olish"}
-                                                </button>
+                                                    <span>{streakData && !streakData.can_claim ? "Bugungi Sovg'ani Olgansiz" : "Bugungi Sovg'ani Olish"}</span>
+                                                </TactileButton>
                                             </div>
                                         </div>
                                     </div>
@@ -5956,18 +6181,20 @@
 
                                             {/* Quick Actions */}
                                             <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "16px" }}>
-                                                <button
+                                                <TactileButton
+                                                    variant="dark"
+                                                    size="sm"
                                                     onClick={clearScratchFoil}
-                                                    style={{ background: "#f3f4f6", border: "1px solid #ddd", color: "var(--text)", padding: "10px 20px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                                                 >
                                                     To'liq Ochish
-                                                </button>
-                                                <button
+                                                </TactileButton>
+                                                <TactileButton
+                                                    variant="primary"
+                                                    size="sm"
                                                     onClick={initScratchCard}
-                                                    style={{ background: "#7342E2", color: "#ffffff", border: "none", padding: "10px 22px", borderRadius: "999px", fontSize: "13px", fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px rgba(115,66,226,0.35)" }}
                                                 >
                                                     Yangi Chipta Olish
-                                                </button>
+                                                </TactileButton>
                                             </div>
 
                                             {/* Scratch Result Feedback */}
@@ -6051,25 +6278,14 @@
                                                                 ({(srv.stars * 400).toLocaleString()} so'm)
                                                             </div>
                                                         </div>
-                                                        <button
+                                                        <TactileButton
+                                                            variant="dark"
+                                                            size="md"
+                                                            style={{ width: "100%" }}
                                                             onClick={() => handleRedeem(srv.id)}
-                                                            style={{
-                                                                width: "100%",
-                                                                padding: "12px 0",
-                                                                borderRadius: "999px",
-                                                                background: "#0a0a0a",
-                                                                color: "#ffffff",
-                                                                border: "none",
-                                                                fontWeight: 700,
-                                                                fontSize: "14px",
-                                                                cursor: "pointer",
-                                                                transition: "all 0.2s"
-                                                            }}
-                                                            onMouseEnter={(e) => { e.currentTarget.style.background = "#7342E2"; }}
-                                                            onMouseLeave={(e) => { e.currentTarget.style.background = "#0a0a0a"; }}
                                                         >
                                                             Sotib Olish ({(srv.stars * 400).toLocaleString()} so'm)
-                                                        </button>
+                                                        </TactileButton>
                                                     </div>
                                                 </div>
                                             ))}
@@ -7207,60 +7423,30 @@
 
                                                             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                                                                 {/* To'g'ridan-to'g'ri Botdan Sotib Olish (Direct Buy) */}
-                                                                <button
+                                                                <TactileButton
+                                                                    variant="success"
+                                                                    size="sm"
+                                                                    style={{ width: "100%" }}
                                                                     onClick={() => handleBuyNftDirect(nft, 'stars')}
                                                                     disabled={buyingNftSlug === nft.slug}
-                                                                    style={{
-                                                                        width: "100%",
-                                                                        padding: "10px 14px",
-                                                                        borderRadius: "999px",
-                                                                        background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                                                        color: "#ffffff",
-                                                                        border: "none",
-                                                                        fontSize: "13px",
-                                                                        fontWeight: 800,
-                                                                        cursor: "pointer",
-                                                                        display: "inline-flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        gap: "8px",
-                                                                        boxShadow: "0 4px 14px rgba(16, 185, 129, 0.25)",
-                                                                        transition: "all 0.15s ease",
-                                                                        overflow: "hidden"
-                                                                    }}
+                                                                    loading={buyingNftSlug === nft.slug}
+                                                                    icon={<SvgStar size={14} color="#ffd700" />}
                                                                 >
-                                                                    <span style={{ display: "inline-flex", flexShrink: 0, alignItems: "center" }}>
-                                                                        <SvgStar size={14} color="#ffd700" />
-                                                                    </span>
-                                                                    <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                                        {buyingNftSlug === nft.slug ? "Yuklanmoqda..." : `Stars Bilan Xarid (${(nft.stars || 100).toLocaleString()} ★)`}
-                                                                    </span>
-                                                                </button>
+                                                                    <span>Stars Bilan Xarid ({(nft.stars || 100).toLocaleString()} ★)</span>
+                                                                </TactileButton>
 
                                                                 <div style={{ display: "flex", gap: "8px" }}>
-                                                                    <button
+                                                                    <TactileButton
+                                                                        variant="dark"
+                                                                        size="sm"
+                                                                        style={{ flex: 1 }}
                                                                         onClick={() => handleBuyNftDirect(nft, 'uzs')}
                                                                         disabled={buyingNftSlug === nft.slug}
-                                                                        style={{
-                                                                            flex: 1,
-                                                                            padding: "8px 10px",
-                                                                            borderRadius: "999px",
-                                                                            background: "#f4f4f5",
-                                                                            color: "#18181b",
-                                                                            border: "1px solid var(--border-soft)",
-                                                                            fontSize: "11px",
-                                                                            fontWeight: 700,
-                                                                            cursor: "pointer",
-                                                                            display: "inline-flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            gap: "4px",
-                                                                            transition: "all 0.15s ease",
-                                                                            whiteSpace: "nowrap"
-                                                                        }}
+                                                                        loading={buyingNftSlug === nft.slug}
+                                                                        icon={<SvgCreditCard size={13} color="currentColor" />}
                                                                     >
                                                                         <span>So'm Bilan Xarid</span>
-                                                                    </button>
+                                                                    </TactileButton>
 
                                                                     <a
                                                                         href={`https://fragment.com/gift/${nft.slug}`}

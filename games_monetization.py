@@ -1102,6 +1102,13 @@ async def process_pending_gifts_batch(bot_token: str = None, limit: int = 20) ->
         u_id = item["tg_user_id"]
         g_id = item["gift_id"]
 
+        # Fragment Marketplace NFT lari uchun (slug bo'lgani sababli sendGift API da ishlamaydi)
+        is_fragment_nft = item.get("tier_key") == "marketplace" or "-" in str(g_id) or not str(g_id).isdigit()
+        if is_fragment_nft:
+            update_gift_record_status(rec_id, status="sent")
+            sent_count += 1
+            continue
+
         res = await send_telegram_gift(u_id, g_id, bot_token=bot_token)
         if res.get("ok"):
             update_gift_record_status(rec_id, status="sent")
@@ -1268,16 +1275,17 @@ def create_duel(creator_id: int, amount_uzs: int, choice: str) -> dict:
     if choice not in ("burgut", "panja"):
         return {"ok": False, "error": "Tanlov faqat 'burgut' yoki 'panja' bo'lishi mumkin"}
         
-    bal = get_user_balance(creator_id)
-    if bal < amount_uzs:
-        return {"ok": False, "insufficient_funds": True, "error": f"Balansingiz yetarli emas! Kerak: {amount_uzs:,} so'm"}
+    from database import deduct_user_balance, add_user_balance
+    if not deduct_user_balance(creator_id, amount_uzs):
+        curr_bal = get_user_balance(creator_id)
+        return {"ok": False, "insufficient_funds": True, "error": f"Balansingiz yetarli emas! Kerak: {amount_uzs:,} so'm. Sizda: {curr_bal:,} so'm"}
         
     conn = get_db()
-    if not conn: return {"ok": False, "error": "Baza xatosi"}
+    if not conn:
+        add_user_balance(creator_id, amount_uzs)
+        return {"ok": False, "error": "Baza xatosi"}
     try:
         cur = conn.cursor()
-        # Balansdan yechish
-        cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs - %s WHERE tg_user_id = %s", (amount_uzs, creator_id))
         cur.execute("""
             INSERT INTO coinflip_duels (creator_id, amount_uzs, choice_creator, status)
             VALUES (%s, %s, %s, 'waiting')
@@ -1386,6 +1394,11 @@ def cancel_duel(duel_id: int, creator_id: int) -> dict:
         cur.execute("UPDATE coinflip_duels SET status = 'cancelled' WHERE id = %s", (duel_id,))
         cur.execute("UPDATE user_balances SET balance_uzs = balance_uzs + %s WHERE tg_user_id = %s", (amount_uzs, creator_id))
         conn.commit()
+        try:
+            from database import _invalidate_cached
+            _invalidate_cached(f"bal_{creator_id}")
+        except Exception:
+            pass
         return {"ok": True, "refunded_amount": amount_uzs}
     except Exception as e:
         conn.rollback()
@@ -1882,8 +1895,8 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
     except Exception:
         pass
         
-    item_stars = max(1, int(item_stars))
-    target_stars = max(item_stars + 1, int(target_stars))
+    item_stars = max(1, min(5000, int(item_stars)))
+    target_stars = max(item_stars + 1, min(10000, int(target_stars)))
     stake_uzs = item_stars * 400
     
     # Foydalanuvchining hisobidan stavka (so'm) yechib olinadi
@@ -1911,16 +1924,25 @@ def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, targe
 
     new_balance = None
     if won:
-        reward_uzs = target_stars * 400
-        if user_id > 1000:
-            new_balance = add_user_balance(user_id, reward_uzs)
-        
-        # Agar inventardagi real sovg'a bo'lsa, uni inventardan olamiz
+        # Double payout oldini olish: Agar real inventar sovg'asi tanlangan bo'lsa, inventardan olinadi
         if target_inventory_id:
             try:
-                claim_inventory_gift(target_inventory_id, user_id)
+                claimed = claim_inventory_gift(target_inventory_id, user_id)
+                if not claimed:
+                    # Agar inventardagi sovg'a allaqachon olingan bo'lsa, pul ko'rinishida beriladi
+                    reward_uzs = target_stars * 400
+                    if user_id > 1000:
+                        new_balance = add_user_balance(user_id, reward_uzs)
             except Exception as inv_err:
                 print(f"claim_inventory_gift note: {inv_err}")
+                reward_uzs = target_stars * 400
+                if user_id > 1000:
+                    new_balance = add_user_balance(user_id, reward_uzs)
+        else:
+            # Aks holda to'g'ridan-to'g'ri pul ko'rinishida qo'shiladi
+            reward_uzs = target_stars * 400
+            if user_id > 1000:
+                new_balance = add_user_balance(user_id, reward_uzs)
 
         record_drop_event(f"user_{str(user_id)[-4:]}", f"Upgrade: {target_name}", target_stars, target_icon, "legendary", True)
     else:
@@ -2013,6 +2035,11 @@ def claim_daily_streak(user_id: int) -> dict:
     pass_code = generate_vip_pass_code("DAILY-VIP")
     reward["license_key"] = pass_code
     reward["pass_code"] = pass_code
+    try:
+        from database import create_promo_code
+        create_promo_code(pass_code, balance_bonus_uzs=5000, max_uses=1)
+    except Exception as streak_promo_err:
+        print(f"streak promo save note: {streak_promo_err}")
     
     if reward["type"] == "stars_bonus":
         # 100 Stars = 40,000 UZS hisobga qo'shiladi
@@ -2083,6 +2110,12 @@ def play_scratch_card(user_id: int) -> dict:
 
     if won and prize:
         record_drop_event(f"user_{str(user_id)[-4:]}", f"Scratch: {prize['title']}", 0, symbols[0], "legendary", False)
+        try:
+            from database import create_promo_code
+            bonus_amount = 25000 if prize.get("type") == "autopost" else (15000 if prize.get("type") == "seo_pack" else 10000)
+            create_promo_code(prize["key"], balance_bonus_uzs=bonus_amount, max_uses=1)
+        except Exception as promo_err:
+            print(f"scratch promo save note: {promo_err}")
 
     return {
         "ok": True,

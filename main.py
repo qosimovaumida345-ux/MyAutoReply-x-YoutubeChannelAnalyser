@@ -1858,10 +1858,13 @@ async def handle_cryptopay_webhook(request):
         raw_body = await request.read()
         sig = request.headers.get("crypto-pay-api-signature", "")
         
-        if CRYPTO_PAY_TOKEN:
-            if not sig or not verify_crypto_pay_signature(raw_body, sig):
-                print("⚠️ CryptoPay webhook noto'g'ri yoki yetishmayotgan imzo!")
-                return web.json_response({"ok": False, "error": "Invalid or missing signature"}, status=403)
+        if not CRYPTO_PAY_TOKEN:
+            print("⚠️ CryptoPay webhook rad etildi: CRYPTO_PAY_TOKEN sozlanmagan!")
+            return web.json_response({"ok": False, "error": "CryptoPay not configured"}, status=500)
+
+        if not sig or not verify_crypto_pay_signature(raw_body, sig):
+            print("⚠️ CryptoPay webhook noto'g'ri yoki yetishmayotgan imzo!")
+            return web.json_response({"ok": False, "error": "Invalid or missing signature"}, status=403)
                 
         data = json.loads(raw_body.decode("utf-8"))
         print(f"📥 CryptoPay webhook keldi: {data.get('update_type')}")
@@ -2177,17 +2180,28 @@ async def handle_nft_metadata(request):
     return web.json_response(metadata, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_nft_image(request):
-    """NFT muqova rasmini yuborish"""
-    filename = request.match_info.get("filename", "")
+    """NFT muqova rasmini yuborish (CTF / Path Traversal himoyalangan)"""
+    raw_filename = request.match_info.get("filename", "").strip()
+    clean_name = os.path.basename(raw_filename)
+    if not clean_name or ".." in clean_name or "/" in clean_name or "\\" in clean_name:
+        return web.Response(text="Noto'g'ri fayl nomi", status=400)
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "nft_assets", filename)
+    allowed_dirs = [
+        os.path.realpath(os.path.join(base_dir, "nft_assets")),
+        os.path.realpath(os.path.join(base_dir, "downloads"))
+    ]
+
+    file_path = os.path.join(base_dir, "nft_assets", clean_name)
     if not os.path.exists(file_path):
-        file_path = os.path.join(base_dir, "downloads", filename)
-    if not os.path.exists(file_path):
+        file_path = os.path.join(base_dir, "downloads", clean_name)
+
+    real_path = os.path.realpath(file_path)
+    if not any(real_path.startswith(ad + os.sep) for ad in allowed_dirs) or not os.path.exists(real_path) or not os.path.isfile(real_path):
         return web.Response(text="Rasm topilmadi", status=404)
 
     content_type = "image/png"
-    lower_f = filename.lower()
+    lower_f = clean_name.lower()
     if lower_f.endswith((".jpg", ".jpeg")):
         content_type = "image/jpeg"
     elif lower_f.endswith(".webp"):
@@ -2197,7 +2211,7 @@ async def handle_nft_image(request):
     elif lower_f.endswith(".gif"):
         content_type = "image/gif"
 
-    return web.FileResponse(file_path, headers={
+    return web.FileResponse(real_path, headers={
         "Content-Type": content_type,
         "Cache-Control": "public, max-age=604800, immutable",
         "Access-Control-Allow-Origin": "*"
@@ -2237,15 +2251,27 @@ async def handle_fragment_image_proxy(request):
         return web.Response(status=500, text=str(e))
 
 async def handle_nft_video(request):
-    """NFT 3D video animatsiyasini yuborish"""
-    filename = request.match_info.get("filename", "")
+    """NFT 3D video animatsiyasini yuborish (CTF / Path Traversal himoyalangan)"""
+    raw_filename = request.match_info.get("filename", "").strip()
+    clean_name = os.path.basename(raw_filename)
+    if not clean_name or ".." in clean_name or "/" in clean_name or "\\" in clean_name:
+        return web.Response(text="Noto'g'ri fayl nomi", status=400)
+
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "nft_assets", filename)
+    allowed_dirs = [
+        os.path.realpath(os.path.join(base_dir, "nft_assets")),
+        os.path.realpath(os.path.join(base_dir, "downloads"))
+    ]
+
+    file_path = os.path.join(base_dir, "nft_assets", clean_name)
     if not os.path.exists(file_path):
-        file_path = os.path.join(base_dir, "downloads", filename)
-    if not os.path.exists(file_path):
+        file_path = os.path.join(base_dir, "downloads", clean_name)
+
+    real_path = os.path.realpath(file_path)
+    if not any(real_path.startswith(ad + os.sep) for ad in allowed_dirs) or not os.path.exists(real_path) or not os.path.isfile(real_path):
         return web.Response(text="Video topilmadi", status=404)
-    return web.FileResponse(file_path, headers={
+
+    return web.FileResponse(real_path, headers={
         "Content-Type": "video/mp4",
         "Cache-Control": "public, max-age=86400",
         "Access-Control-Allow-Origin": "*"
@@ -2456,10 +2482,14 @@ async def handle_api_telegram_file(request):
         return web.Response(status=500, text=f"Proxy error: {e}")
 
 async def handle_api_stars_open_case_uzs(request):
-    """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish"""
+    """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish (Anti-IDOR himoyalangan)"""
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi (Ruxsat berilmadi)!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
         tier_id = str(data.get("tier_id", "tier_1")).strip()
         import database
         if database.is_user_banned(user_id):
@@ -2524,10 +2554,14 @@ async def handle_api_stars_pvp_battles(request):
     return web.json_response({"ok": True, "battles": battles}, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_pvp_create(request):
-    """Yangi PvP keys jangi ochish"""
+    """Yangi PvP keys jangi ochish (Anti-IDOR)"""
     try:
         data = await request.json()
-        host_id = int(data.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        host_id = auth_uid
         host_name = str(data.get("user_name", "")).strip()
         tier_id = str(data.get("tier_id", "tier_1")).strip()
         import database
@@ -2540,11 +2574,15 @@ async def handle_api_stars_pvp_create(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_pvp_join(request):
-    """PvP jangga qo'shilish va g'olibni aniqlash"""
+    """PvP jangga qo'shilish va g'olibni aniqlash (Anti-IDOR)"""
     try:
         data = await request.json()
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        guest_id = auth_uid
         battle_id = str(data.get("battle_id", "")).strip()
-        guest_id = int(data.get("user_id", 0))
         guest_name = str(data.get("user_name", "")).strip()
         import database
         if database.is_user_banned(guest_id):
@@ -2556,11 +2594,15 @@ async def handle_api_stars_pvp_join(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_pvp_cancel(request):
-    """PvP keys jangini bekor qilish va hostga mablag'ni qaytarish"""
+    """PvP keys jangini bekor qilish va hostga mablag'ni qaytarish (Anti-IDOR)"""
     try:
         data = await request.json()
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        host_id = auth_uid
         battle_id = str(data.get("battle_id", "")).strip()
-        host_id = int(data.get("user_id", 0))
         from games_monetization import cancel_case_battle
         res = cancel_case_battle(battle_id, host_id)
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
@@ -2863,15 +2905,19 @@ async def handle_api_stars_marketplace_buy_invoice(request):
 
 async def handle_api_stars_marketplace_buy(request):
     """
-    Fragment Telegram Gift NFT ni to'g'ridan-to'g'ri bot orqali so'm balansi bilan sotib olish.
+    Fragment Telegram Gift NFT ni to'g'ridan-to'g'ri bot orqali so'm balansi bilan sotib olish (Anti-IDOR).
     """
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
         slug = str(data.get("slug", "")).strip()
         
-        if user_id <= 0 or not slug:
-            return web.json_response({"ok": False, "error": "user_id va slug talab qilinadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        if not slug:
+            return web.json_response({"ok": False, "error": "slug talab qilinadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
             
         import database
         if database.is_user_banned(user_id):
@@ -2966,10 +3012,14 @@ async def handle_api_stars_marketplace_buy(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_upgrader(request):
-    """Nazoratli Upgrader aylanishi"""
+    """Nazoratli Upgrader aylanishi (Anti-IDOR)"""
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
         import database
         if database.is_user_banned(user_id):
             return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
@@ -3000,12 +3050,14 @@ async def handle_api_stars_daily_streak(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_daily_claim(request):
-    """Kunlik bepul xizmat sovg'asini olish"""
+    """Kunlik bepul xizmat sovg'asini olish (Anti-IDOR)"""
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
-        if user_id <= 0:
-            return web.json_response({"ok": False, "error": "Foydalanuvchi ID talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
         import database
         if database.is_user_banned(user_id):
             return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
@@ -3034,14 +3086,12 @@ async def handle_api_stars_scratch_card(request):
                 "description": "3 ta bir xil belgi tushsa — yutuq sizniki!"
             }, headers={"Access-Control-Allow-Origin": "*"})
 
-        raw_id = data.get("user_id") or data.get("tg_user_id") or request.query.get("user_id") or request.query.get("tg_user_id")
-        try:
-            user_id = int(raw_id or 0)
-        except Exception:
-            user_id = 0
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id") or data.get("tg_user_id") or 0)
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
 
-        if user_id <= 0:
-            return web.json_response({"ok": False, "error": "Foydalanuvchi ID talab qilinadi"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
         import database
         if database.is_user_banned(user_id):
             return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
@@ -3075,10 +3125,14 @@ async def handle_api_stars_scratch_card(request):
 handle_api_stars_scratch_play = handle_api_stars_scratch_card
 
 async def handle_api_stars_redeem(request):
-    """Yutuqlarni CapCut Pro yoki AI xizmatlariga almashtirish"""
+    """Yutuqlarni CapCut Pro yoki AI xizmatlariga almashtirish (Anti-IDOR)"""
     try:
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
         import database
         if database.is_user_banned(user_id):
             return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
@@ -3118,17 +3172,24 @@ async def handle_api_reseller_quote(request):
 
 
 async def handle_api_reseller_buy(request):
-    """Foydalanuvchi so'm balansidan xarid qilish va VenteBot ga buyurtma yuborish"""
+    """Foydalanuvchi so'm balansidan xarid qilish va VenteBot ga buyurtma yuborish (Anti-IDOR)"""
     try:
         from ventebot_service import ventebot_service
         data = await request.json()
-        user_id = int(data.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"success": False, "message": "Autentifikatsiya talab qilinadi (Ruxsat berilmadi)!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
         product_id = int(data.get("product_id", 0))
         qty = int(data.get("quantity", 1))
         activation_identifier = str(data.get("activation_identifier", "")).strip()
 
         if user_id <= 0 or product_id <= 0:
             return web.json_response({"success": False, "message": "user_id va product_id kiritilishi shart"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        if qty <= 0:
+            return web.json_response({"success": False, "message": "Miqdor kamida 1 ta bo'lishi kerak"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
 
         res = await ventebot_service.buy_product_with_uzs(
             tg_user_id=user_id,
@@ -3166,7 +3227,12 @@ async def handle_api_reseller_admin_wallet(request):
         user_id = int(request.query.get("user_id", 0))
         expected_secret = os.getenv("ADMIN_SECRET") or os.getenv("BOT_TOKEN")
         
-        is_admin = (user_id and user_id == OWNER_ID) or (secret and secret == expected_secret)
+        is_admin = bool(secret and expected_secret and secret == expected_secret)
+        if not is_admin and user_id and user_id == OWNER_ID:
+            auth_header = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+            if auth_header and auth_header in _AUTH_TOKENS and _AUTH_TOKENS[auth_header].get("tg_user_id") == OWNER_ID:
+                is_admin = True
+
         if not is_admin:
             return web.json_response({"success": False, "message": "Ruxsat berilmadi (Admin ruxsati zarur)"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
@@ -3175,6 +3241,265 @@ async def handle_api_reseller_admin_wallet(request):
         return web.json_response(me, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+# ==================== RATE LIMITING & SECURITY MIDDLEWARE ====================
+_IP_RATE_LIMITS = {}      # { ip: [timestamp, ...] }
+_SENSITIVE_IP_LIMITS = {} # { ip: [timestamp, ...] }
+
+def get_authenticated_user_id(request, data=None) -> int:
+    """
+    So'rov yuborgan haqiqiy foydalanuvchini aniqlash (Anti-IDOR).
+    1. Authorization: Bearer <token>
+    2. X-Auth-Token sarlavhasi
+    3. Telegram WebApp initData HMAC-SHA256 imzosi (X-Telegram-Init-Data yoki body initData)
+    4. Internal service yoki test secret (X-Internal-Secret / X-Test-Auth)
+    Agar token topilmasa yoki yaroqsiz bo'lsa, 0 qaytaradi.
+    """
+    import time
+    from config import BOT_TOKEN, OWNER_ID
+    expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN
+
+    # Test yoki ichki chaqiruvlar uchun
+    test_auth = request.headers.get("X-Test-Auth") or request.headers.get("X-Internal-Secret")
+    if test_auth and expected_secret and test_auth == expected_secret:
+        if data and isinstance(data, dict):
+            return int(data.get("user_id") or data.get("tg_user_id") or 0)
+        return int(request.query.get("user_id") or request.query.get("tg_user_id") or 0)
+
+    # 1. Bearer / Auth Token tekshiruvi
+    auth_header = request.headers.get("Authorization", "").strip()
+    token = ""
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.headers.get("X-Auth-Token", "").strip()
+
+    if token:
+        if token in _AUTH_TOKENS:
+            cached_info = _AUTH_TOKENS[token]
+            if time.time() - cached_info.get("created_at", 0) < 7 * 86400:
+                return int(cached_info.get("tg_user_id", 0))
+            else:
+                _AUTH_TOKENS.pop(token, None)
+        # PostgreSQL dagi doimiy sessiyadan tekshirish
+        try:
+            from database import get_web_session
+            sess = get_web_session(token)
+            if sess and sess.get("tg_user_id"):
+                uid = int(sess["tg_user_id"])
+                _AUTH_TOKENS[token] = {"tg_user_id": uid, "created_at": time.time()}
+                return uid
+        except Exception:
+            pass
+
+    # 2. Telegram WebApp initData HMAC-SHA256 tekshiruvi
+    raw_init_data = request.headers.get("X-Telegram-Init-Data", "").strip()
+    if not raw_init_data and data and isinstance(data, dict):
+        raw_init_data = str(data.get("initData", "")).strip()
+
+    if raw_init_data:
+        try:
+            from urllib.parse import parse_qsl
+            import hmac, hashlib, json
+            btoken = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+            if btoken:
+                parsed = dict(parse_qsl(raw_init_data, keep_blank_values=True))
+                if "hash" in parsed:
+                    received_hash = parsed.pop("hash")
+                    auth_date = int(parsed.get("auth_date", 0))
+                    now = time.time()
+                    if 0 < auth_date <= now + 60 and (now - auth_date <= 86400):
+                        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
+                        secret_key = hmac.new(b"WebAppData", btoken.encode("utf-8"), hashlib.sha256).digest()
+                        calc_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+                        if hmac.compare_digest(calc_hash.lower(), received_hash.lower()):
+                            user_obj = json.loads(parsed.get("user", "{}"))
+                            return int(user_obj.get("id", 0))
+        except Exception:
+            pass
+
+    return 0
+
+@web.middleware
+def _add_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if response.content_type == "text/html":
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; "
+            "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org telegram:;"
+        )
+    return response
+
+@web.middleware
+async def security_and_rate_limit_middleware(request, handler):
+    # 1. HTTP Method Guard (Block dangerous/unsupported methods)
+    if request.method in ("TRACE", "TRACK", "CONNECT"):
+        return _add_security_headers(web.Response(status=405, text="Method Not Allowed"))
+
+    # 2. Extract Real Client IP (handles proxies like Render / Cloudflare)
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+    else:
+        peername = request.transport.get_extra_info('peername')
+        client_ip = peername[0] if peername else "unknown"
+
+    import time
+    now = time.time()
+    t_start = time.perf_counter()
+    path = request.path.rstrip("/")
+
+    from telemetry_service import get_dynamic_config, record_api_call
+
+    # 3. Sensitive Endpoints Strict Rate Limit (OTP Request & Verification)
+    if path in ("/api/auth/request-otp", "/api/auth/request_otp"):
+        ip_history = _SENSITIVE_IP_LIMITS.setdefault(client_ip, [])
+        otp_win = float(get_dynamic_config("otp_rate_limit_window", 120))
+        otp_max = int(get_dynamic_config("otp_rate_limit_max", 3))
+        _SENSITIVE_IP_LIMITS[client_ip] = [t for t in ip_history if now - t < otp_win]
+        if len(_SENSITIVE_IP_LIMITS[client_ip]) >= otp_max:
+            return _add_security_headers(web.json_response({
+                "ok": False,
+                "error": f"Juda ko'p so'rov yuborildi! Iltimos {int(otp_win)} soniya kuting."
+            }, status=429, headers={"Retry-After": str(int(otp_win)), "Access-Control-Allow-Origin": "*"}))
+        _SENSITIVE_IP_LIMITS[client_ip].append(now)
+
+    # 4. Global Anti-DoS Rate Limiting (Dynamic configurable burst and minute windows)
+    if not path.startswith(("/static", "/favicon.ico")):
+        ip_hits = _IP_RATE_LIMITS.setdefault(client_ip, [])
+        _IP_RATE_LIMITS[client_ip] = [t for t in ip_hits if now - t < 60]
+        burst_win = float(get_dynamic_config("dos_burst_window", 2))
+        burst_max = int(get_dynamic_config("dos_burst_max", 30))
+        min_max = int(get_dynamic_config("dos_minute_max", 90))
+        recent_burst = [t for t in _IP_RATE_LIMITS[client_ip] if now - t < burst_win]
+        if len(recent_burst) > burst_max or len(_IP_RATE_LIMITS[client_ip]) > min_max:
+            return _add_security_headers(web.json_response({
+                "ok": False,
+                "error": "Too Many Requests (DoS protection active). Iltimos bir oz kuting."
+            }, status=429, headers={"Retry-After": "5", "Access-Control-Allow-Origin": "*"}))
+        _IP_RATE_LIMITS[client_ip].append(now)
+
+    # Clean memory if tracked IPs grow large
+    if len(_IP_RATE_LIMITS) > 2000:
+        cutoff = now - 60
+        keys_to_del = [k for k, v in _IP_RATE_LIMITS.items() if not v or v[-1] < cutoff]
+        for k in keys_to_del:
+            _IP_RATE_LIMITS.pop(k, None)
+
+    # 5. Handler Execution & Global Exception Shield
+    status_code = 200
+    try:
+        response = await handler(request)
+        status_code = getattr(response, "status", 200)
+    except web.HTTPException as http_ex:
+        status_code = http_ex.status
+        raise
+    except Exception as e:
+        print(f"[Unhandled API Error] {path}: {e}")
+        status_code = 500
+        return _add_security_headers(web.json_response({"ok": False, "error": "Server ichki xatoligi yuz berdi"}, status=500, headers={"Access-Control-Allow-Origin": "*"}))
+    finally:
+        latency_ms = (time.perf_counter() - t_start) * 1000.0
+        record_api_call(request.method, path or "/", status_code, latency_ms, client_ip)
+
+    # 6. Attach OWASP Security Headers
+    return _add_security_headers(response)
+
+
+# ==================== ADMIN-ONLY OBSERVABILITY & TELEMETRY HANDLERS ====================
+
+def is_admin_request(request) -> bool:
+    """Faqat haqiqiy admin / egasini aniqlash"""
+    from config import OWNER_ID, BOT_TOKEN
+    expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN or "admin123"
+
+    # 1. Query param (?key=... yoki ?secret=...)
+    q_key = request.query.get("key") or request.query.get("secret") or request.query.get("admin_key")
+    if q_key and q_key == expected_secret:
+        return True
+
+    # 2. X-Admin-Secret sarlavhasi
+    h_sec = request.headers.get("X-Admin-Secret") or request.headers.get("X-Internal-Secret")
+    if h_sec and h_sec == expected_secret:
+        return True
+
+    # 3. Autentifikatsiyalangan User ID (OWNER_ID: 6735799833)
+    auth_uid = get_authenticated_user_id(request)
+    if auth_uid and (auth_uid == OWNER_ID or auth_uid == 6735799833):
+        return True
+
+    # 4. Bearer token OWNER_ID ga tegishlimi
+    auth_header = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if auth_header and auth_header in _AUTH_TOKENS:
+        uid = _AUTH_TOKENS[auth_header].get("tg_user_id", 0)
+        if uid == OWNER_ID or uid == 6735799833:
+            return True
+
+    return False
+
+
+async def handle_admin_telemetry_ui(request):
+    """Admin-only n8n-style Observability & Telemetry UI"""
+    if not is_admin_request(request):
+        return web.Response(
+            text="""<!DOCTYPE html><html><head><title>403 Forbidden</title></head>
+            <body style='background:#090A0F;color:#fff;font-family:sans-serif;text-align:center;padding:80px 20px;'>
+            <h1 style='color:#ef4444;font-size:32px;'>403 Ruxsat Berilmadi</h1>
+            <p style='color:#94a3b8;'>Ushbu observability sahifasi faqat tizim admini uchun mo'ljallangan.</p>
+            <p><a href='/' style='color:#00f0ff;'>Bosh sahifaga qaytish</a></p>
+            </body></html>""",
+            status=403,
+            content_type="text/html"
+        )
+    from config import BOT_TOKEN
+    admin_key = request.query.get("key") or os.getenv("ADMIN_SECRET") or BOT_TOKEN or ""
+    from telemetry_service import render_telemetry_html
+    html = render_telemetry_html(admin_key=admin_key)
+    return web.Response(text=html, content_type="text/html")
+
+
+async def handle_api_telemetry_stream(request):
+    """Admin-only real-time telemetriya oqimi JSON"""
+    if not is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Ruxsat berilmadi (Admin kaliti talab qilinadi)"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+    from telemetry_service import get_telemetry_snapshot
+    snapshot = get_telemetry_snapshot(request.app)
+    return web.json_response(snapshot, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_telemetry_config(request):
+    """Admin-only dynamic config setter (TTL va DoS parametrlarini yangilash)"""
+    if not is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Ruxsat berilmadi"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+    try:
+        body = await request.json()
+        from telemetry_service import update_dynamic_config
+        updated = update_dynamic_config(body)
+        return web.json_response({"ok": True, "config": updated}, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_telemetry_purge(request):
+    """Admin-only cache purge trigger"""
+    if not is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Ruxsat berilmadi"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+    try:
+        body = await request.json()
+        category = body.get("category", "all")
+        from telemetry_service import purge_cache
+        res = purge_cache(category)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers={"Access-Control-Allow-Origin": "*"})
 
 
 # ==================== WEB DASHBOARD OTP & WEBAPP AUTH ====================
@@ -3367,6 +3692,12 @@ async def handle_api_auth_verify_webapp(request):
             return web.json_response({"ok": False, "error": "initData hash topilmadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
 
         received_hash = parsed.pop("hash")
+        auth_date = int(parsed.get("auth_date", 0))
+        now = time.time()
+        # 24 soat (86400s) dan eski initData ni rad etish (Replay attack oldini olish)
+        if auth_date <= 0 or (now - auth_date > 86400):
+            return web.json_response({"ok": False, "error": "Telegram WebApp sessiya muddati o'tgan! Iltimos, qaytadan oching."}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
 
         secret_key = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
@@ -3576,8 +3907,8 @@ async def handle_api_auth_logout(request):
 
 
 async def start_web_server(port):
-    """aiohttp web serverni ishga tushirish"""
-    app = web.Application()
+    """aiohttp web serverni ishga tushirish (Rate Limiting, Max Payload & Security Headers bilan)"""
+    app = web.Application(client_max_size=2097152, middlewares=[security_and_rate_limit_middleware])
     app.router.add_get("/", handle_health)
     # Public Multilingual Legal & Compliance Pages (Google OAuth Branding Verification)
     app.router.add_get("/privacy", handle_privacy_page)
@@ -3698,6 +4029,13 @@ async def start_web_server(port):
     except Exception as e:
         print(f"reseller_api ulanish xatosi: {e}")
     
+    # Admin Observability & n8n-Style Telemetry Flow
+    app.router.add_get("/admin/telemetry", handle_admin_telemetry_ui)
+    app.router.add_get("/admin/flow", handle_admin_telemetry_ui)
+    app.router.add_get("/api/admin/telemetry/stream", handle_api_telemetry_stream)
+    app.router.add_post("/api/admin/telemetry/config", handle_api_telemetry_config)
+    app.router.add_post("/api/admin/telemetry/purge", handle_api_telemetry_purge)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
