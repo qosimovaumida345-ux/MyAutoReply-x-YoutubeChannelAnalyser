@@ -2435,24 +2435,28 @@ async def handle_api_telegram_file(request):
     import os
     now = time.time()
 
+    # 2. Agar numeric gift_id berilgan bo'lsa, uni haqiqiy Telegram sticker file_id ga tarjima qilish
+    actual_file_id = _GIFT_ID_TO_FILE_ID.get(file_id, file_id)
+
+    is_gift = (file_id in _GIFT_ID_TO_FILE_ID or file_id in _GIFT_ID_TO_LOCAL_WEBP)
+
     headers = {
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=604800, immutable"
+        "Cache-Control": "public, max-age=604800, immutable" if is_gift else "public, max-age=3600, stale-while-revalidate=86400"
     }
 
     # 1. RAM keshdan tekshirish
     cached = _TELEGRAM_FILE_CACHE.get(file_id)
     if cached and (now - cached[2]) < _TG_FILE_CACHE_TTL:
-        return web.Response(
-            body=cached[0],
-            content_type=cached[1],
-            headers=headers
-        )
-
-    # 2. Agar numeric gift_id berilgan bo'lsa, uni haqiqiy Telegram sticker file_id ga tarjima qilish
-    actual_file_id = _GIFT_ID_TO_FILE_ID.get(file_id, file_id)
-
-    is_gift = (file_id in _GIFT_ID_TO_FILE_ID or file_id in _GIFT_ID_TO_LOCAL_WEBP)
+        # Keshda saqlangan rasm cake bo'lib qolgan bo'lsa va bu gift bo'lmasa, keshni tozalaymiz
+        if not is_gift and cached[1] == "image/webp":
+            _TELEGRAM_FILE_CACHE.pop(file_id, None)
+        else:
+            return web.Response(
+                body=cached[0],
+                content_type=cached[1],
+                headers=headers
+            )
 
     try:
         from config import BOT_TOKEN
@@ -2460,8 +2464,8 @@ async def handle_api_telegram_file(request):
         import gzip
         token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
         if not token:
-            if is_gift:
-                local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+            if is_gift and file_id in _GIFT_ID_TO_LOCAL_WEBP:
+                local_name = _GIFT_ID_TO_LOCAL_WEBP[file_id]
                 base_dir = os.path.dirname(os.path.abspath(__file__))
                 lp = os.path.join(base_dir, "nft_assets", local_name)
                 if os.path.exists(lp):
@@ -2483,7 +2487,8 @@ async def handle_api_telegram_file(request):
                     if not is_gift and (file_id.startswith("AQAD") or "wrong file_id" in str(res1).lower()):
                         try:
                             # 6735799833 yoki userning haqiqiy profil rasmini Telegramdan tortamiz
-                            async with session.get(f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id=6735799833&limit=1", timeout=4) as up_r:
+                            target_tg_id = int(request.query.get("user_id") or 6735799833)
+                            async with session.get(f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id={target_tg_id}&limit=1", timeout=4) as up_r:
                                 up_json = await up_r.json()
                                 if up_json.get("ok") and up_json.get("result", {}).get("photos"):
                                     fresh_fid = up_json["result"]["photos"][0][-1]["file_id"]
@@ -2495,8 +2500,8 @@ async def handle_api_telegram_file(request):
                             print(f"[handle_api_telegram_file] Fresh photo fallback error: {e_fresh}")
 
                 if not file_path:
-                    if is_gift:
-                        local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                    if is_gift and file_id in _GIFT_ID_TO_LOCAL_WEBP:
+                        local_name = _GIFT_ID_TO_LOCAL_WEBP[file_id]
                         base_dir = os.path.dirname(os.path.abspath(__file__))
                         lp = os.path.join(base_dir, "nft_assets", local_name)
                         if os.path.exists(lp):
@@ -2510,8 +2515,8 @@ async def handle_api_telegram_file(request):
             download_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
             async with session.get(download_url, timeout=12) as r2:
                 if r2.status != 200:
-                    if is_gift:
-                        local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                    if is_gift and file_id in _GIFT_ID_TO_LOCAL_WEBP:
+                        local_name = _GIFT_ID_TO_LOCAL_WEBP[file_id]
                         base_dir = os.path.dirname(os.path.abspath(__file__))
                         lp = os.path.join(base_dir, "nft_assets", local_name)
                         if os.path.exists(lp):
@@ -2553,13 +2558,14 @@ async def handle_api_telegram_file(request):
                     headers=headers
                 )
     except Exception as e:
-        local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        lp = os.path.join(base_dir, "nft_assets", local_name)
-        if os.path.exists(lp):
-            with open(lp, "rb") as f:
-                content = f.read()
-            return web.Response(body=content, content_type="image/webp", headers=headers)
+        if is_gift and file_id in _GIFT_ID_TO_LOCAL_WEBP:
+            local_name = _GIFT_ID_TO_LOCAL_WEBP[file_id]
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            lp = os.path.join(base_dir, "nft_assets", local_name)
+            if os.path.exists(lp):
+                with open(lp, "rb") as f:
+                    content = f.read()
+                return web.Response(body=content, content_type="image/webp", headers=headers)
         return web.Response(status=500, text=f"Proxy error: {e}")
 
 async def handle_api_stars_open_case_uzs(request):

@@ -6426,7 +6426,7 @@ def sync_tg_user_profile(tg_user_id: int, user_context: dict = None):
                 print(f"[sync_tg_user_profile] api fetch warning: {e}")
 
         if photo_file_id and not photo_url:
-            photo_url = f"/api/telegram-file/{photo_file_id}"
+            photo_url = f"/api/telegram-file/{photo_file_id}?v=2"
             
         c = get_db()
         if c:
@@ -6591,7 +6591,9 @@ def get_user_full_details(tg_user_id: int, force_sync: bool = False, user_contex
             conn.rollback()
 
         if user_data.get("photo_file_id") and not user_data.get("photo_url"):
-            user_data["photo_url"] = f"/api/telegram-file/{user_data['photo_file_id']}"
+            user_data["photo_url"] = f"/api/telegram-file/{user_data['photo_file_id']}?v=2"
+        elif user_data.get("photo_url") and not "?" in str(user_data["photo_url"]):
+            user_data["photo_url"] = f"{user_data['photo_url']}?v=2"
 
         # Telefon raqami
         try:

@@ -4190,8 +4190,9 @@
                                                 }}>
                                                     {tgUser.photo_url && !avatarImgError ? (
                                                         <img
-                                                            src={tgUser.photo_url}
+                                                            src={tgUser.photo_url.includes('?') ? tgUser.photo_url : `${tgUser.photo_url}?v=2`}
                                                             alt={tgUser.first_name}
+                                                            referrerPolicy="no-referrer"
                                                             style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                                             onError={() => setAvatarImgError(true)}
                                                         />
@@ -4284,14 +4285,13 @@
                                                             }
                                                         }}
                                                         style={{
-                                                            background: "linear-gradient(135deg, #090A0F, #182032)",
-                                                            border: "1px solid rgba(0, 240, 255, 0.45)",
-                                                            boxShadow: "0 2px 10px rgba(0, 240, 255, 0.2)",
+                                                            background: "#f4f4f5",
+                                                            border: "1px solid #e4e4e7",
                                                             borderRadius: "999px",
                                                             padding: "6px 12px",
                                                             fontSize: "12px",
-                                                            fontWeight: 800,
-                                                            color: "#00F0FF",
+                                                            fontWeight: 600,
+                                                            color: "#3f3f46",
                                                             cursor: "pointer",
                                                             display: "flex",
                                                             alignItems: "center",
@@ -4300,7 +4300,7 @@
                                                             transition: "all 0.2s"
                                                         }}
                                                     >
-                                                        <SvgActivity size={13} color="#00F0FF" />
+                                                        <SvgActivity size={13} color="#71717a" />
                                                         <span>n8n Flow</span>
                                                     </a>
                                                 )}
