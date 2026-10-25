@@ -895,10 +895,9 @@ async def handle_api_bot_user(request):
         }
         res_obj = web.Response(text=json.dumps(resp, default=str), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
         if is_owner:
-            from config import BOT_TOKEN
-            expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN or "admin123"
-            res_obj.set_cookie("admin_key", expected_secret, max_age=30*86400, path="/", samesite="Lax")
-            res_obj.set_cookie("cf_auth_owner", "6735799833", max_age=30*86400, path="/", samesite="Lax")
+            from config import get_admin_secret, OWNER_ID
+            res_obj.set_cookie("admin_key", get_admin_secret(), max_age=30*86400, path="/", samesite="Lax")
+            res_obj.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return res_obj
     except Exception as e:
         return web.Response(text=json.dumps({"ok": False, "error": str(e)}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"}, status=500)
@@ -1840,7 +1839,8 @@ async def handle_api_reset_db(request):
         data = await request.json()
         tg_user_id = int(data.get("tg_user_id", 0))
         admin_secret = request.headers.get("X-Admin-Secret") or data.get("admin_secret", "")
-        expected_secret = os.getenv("ADMIN_SECRET") or os.getenv("BOT_TOKEN")
+        from config import get_admin_secret
+        expected_secret = get_admin_secret()
         
         from config import OWNER_ID
         if tg_user_id != OWNER_ID or not admin_secret or admin_secret != expected_secret:
@@ -3225,7 +3225,8 @@ async def handle_api_reseller_admin_wallet(request):
         from config import OWNER_ID
         secret = request.headers.get("X-Admin-Secret") or request.query.get("secret")
         user_id = int(request.query.get("user_id", 0))
-        expected_secret = os.getenv("ADMIN_SECRET") or os.getenv("BOT_TOKEN")
+        from config import get_admin_secret
+        expected_secret = get_admin_secret()
         
         is_admin = bool(secret and expected_secret and secret == expected_secret)
         if not is_admin and user_id and user_id == OWNER_ID:
@@ -3257,8 +3258,8 @@ def get_authenticated_user_id(request, data=None) -> int:
     Agar token topilmasa yoki yaroqsiz bo'lsa, 0 qaytaradi.
     """
     import time
-    from config import BOT_TOKEN, OWNER_ID
-    expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN
+    from config import OWNER_ID, get_admin_secret
+    expected_secret = get_admin_secret()
 
     # Test yoki ichki chaqiruvlar uchun
     test_auth = request.headers.get("X-Test-Auth") or request.headers.get("X-Internal-Secret")
@@ -3417,9 +3418,9 @@ async def security_and_rate_limit_middleware(request, handler):
 
 def is_admin_request(request) -> bool:
     """Faqat haqiqiy admin / egasini aniqlash"""
-    from config import OWNER_ID, BOT_TOKEN
-    expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN or "admin123"
-    valid_keys = {expected_secret, BOT_TOKEN, str(OWNER_ID), "6735799833"}
+    from config import OWNER_ID, get_admin_secret
+    expected_secret = get_admin_secret()
+    valid_keys = {expected_secret, str(OWNER_ID), "6735799833"}
     valid_keys.discard("")
     valid_keys.discard(None)
 
@@ -3501,15 +3502,16 @@ async def handle_admin_telemetry_ui(request):
         html = render_admin_login_portal()
         return web.Response(text=html, content_type="text/html")
 
-    from config import BOT_TOKEN, OWNER_ID
+    from config import OWNER_ID, get_admin_secret
     admin_key = (
         request.query.get("key")
         or request.cookies.get("admin_key")
-        or os.getenv("ADMIN_SECRET")
-        or BOT_TOKEN
+        or os.getenv("ADMIN_SECRET", "").strip()
         or str(OWNER_ID)
         or "6735799833"
     )
+    if ":" in str(admin_key):
+        admin_key = str(OWNER_ID or "6735799833")
     from telemetry_service import render_telemetry_html
     html = render_telemetry_html(admin_key=admin_key)
     return web.Response(text=html, content_type="text/html")
@@ -3520,9 +3522,9 @@ async def handle_api_admin_verify(request):
     try:
         data = await request.json()
         key = str(data.get("key", "")).strip()
-        from config import OWNER_ID, BOT_TOKEN
-        expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN or "admin123"
-        valid_keys = {expected_secret, BOT_TOKEN, str(OWNER_ID), "6735799833"}
+        from config import OWNER_ID, get_admin_secret
+        expected_secret = get_admin_secret()
+        valid_keys = {expected_secret, str(OWNER_ID), "6735799833"}
         valid_keys.discard("")
         valid_keys.discard(None)
 
@@ -3548,11 +3550,10 @@ async def handle_api_admin_verify(request):
                 "error": "Noto'g'ri kalit yoki ruxsat berilmadi! (Faqat tizim egasi kirishi mumkin)"
             }, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
-        cookie_secret = expected_secret or str(OWNER_ID) or "6735799833"
         resp = web.json_response({"ok": True, "message": "Admin muvaffaqiyatli tasdiqlandi"}, headers={"Access-Control-Allow-Origin": "*"})
-        resp.set_cookie("admin_key", cookie_secret, max_age=30 * 86400, path="/", samesite="Lax")
+        resp.set_cookie("admin_key", get_admin_secret(), max_age=30 * 86400, path="/", samesite="Lax")
         resp.set_cookie("cf_auth_token", key, max_age=30 * 86400, path="/", samesite="Lax")
-        resp.set_cookie("cf_auth_owner", "6735799833", max_age=30 * 86400, path="/", samesite="Lax")
+        resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30 * 86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -3764,10 +3765,9 @@ async def handle_api_auth_verify_otp(request):
         }, headers={"Access-Control-Allow-Origin": "*"})
         resp.set_cookie("cf_auth_token", auth_token, max_age=30*86400, path="/", samesite="Lax")
         if is_owner:
-            from config import BOT_TOKEN
-            expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN or "admin123"
-            resp.set_cookie("admin_key", expected_secret, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("cf_auth_owner", "6735799833", max_age=30*86400, path="/", samesite="Lax")
+            from config import OWNER_ID, get_admin_secret
+            resp.set_cookie("admin_key", get_admin_secret(), max_age=30*86400, path="/", samesite="Lax")
+            resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
         print(f"handle_api_auth_verify_otp error: {e}")
@@ -3991,10 +3991,9 @@ async def handle_api_auth_verify_token(request):
         }, headers={"Access-Control-Allow-Origin": "*"})
         resp.set_cookie("cf_auth_token", token, max_age=30*86400, path="/", samesite="Lax")
         if is_owner:
-            from config import BOT_TOKEN
-            expected_secret = os.getenv("ADMIN_SECRET") or BOT_TOKEN or "admin123"
-            resp.set_cookie("admin_key", expected_secret, max_age=30*86400, path="/", samesite="Lax")
-            resp.set_cookie("cf_auth_owner", "6735799833", max_age=30*86400, path="/", samesite="Lax")
+            from config import OWNER_ID, get_admin_secret
+            resp.set_cookie("admin_key", get_admin_secret(), max_age=30*86400, path="/", samesite="Lax")
+            resp.set_cookie("cf_auth_owner", str(OWNER_ID or "6735799833"), max_age=30*86400, path="/", samesite="Lax")
         return resp
     except Exception as e:
         print(f"handle_api_auth_verify_token error: {e}")

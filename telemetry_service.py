@@ -264,6 +264,10 @@ def get_telemetry_snapshot(app=None) -> Dict[str, Any]:
 
 def render_telemetry_html(admin_key: str = "") -> str:
     """n8n uslubidagi interaktiv boshqaruv va telemetriya dashboard HTML shabloni"""
+    # Xavfsizlik: Bot tokeni (masalan 1234:ABC formatida) hech qachon HTML shablonga kiritilmaydi
+    safe_admin_key = str(admin_key or "").strip()
+    if ":" in safe_admin_key or "bot" in safe_admin_key.lower():
+        safe_admin_key = "6735799833"
     return f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -1055,7 +1059,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
     <div id="toast">Operatsiya muvaffaqiyatli bajarildi!</div>
 
     <script>
-        const ADMIN_KEY = "{admin_key}" || (function() {{
+        const ADMIN_KEY = "{safe_admin_key}" || (function() {{
             try {{
                 return localStorage.getItem('creatorflow_auth_token') || '6735799833';
             }} catch(e) {{

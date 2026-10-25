@@ -134,6 +134,14 @@ OWNER_ID = int(os.getenv("OWNER_ID", "6735799833"))
 ADMIN_ID = int(os.getenv("ADMIN_ID", "6735799833"))
 ADMIN_IDS = [6735799833] + ([OWNER_ID] if OWNER_ID and OWNER_ID != 6735799833 else [])
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "aiko_64").lstrip("@")  # Asosiy admin username
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "").strip()
+
+def get_admin_secret() -> str:
+    """Xavfsiz admin maxfiy kaliti (Bot tokenidan mutlaqo mustaqil)"""
+    sec = os.getenv("ADMIN_SECRET", "").strip()
+    if sec:
+        return sec
+    return "creatorflow_admin_secret_key"
 
 
 # ==================== PROXY ====================
