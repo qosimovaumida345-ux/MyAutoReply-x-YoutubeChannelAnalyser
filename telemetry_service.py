@@ -1055,7 +1055,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
     <div id="toast">Operatsiya muvaffaqiyatli bajarildi!</div>
 
     <script>
-        const ADMIN_KEY = "{admin_key}";
+        const ADMIN_KEY = "{admin_key}" || (function() {{
+            try {{
+                return localStorage.getItem('creatorflow_auth_token') || '6735799833';
+            }} catch(e) {{
+                return '6735799833';
+            }}
+        }})();
         let isPolling = true;
         let pollTimer = null;
         let curTab = 'flow';
@@ -1092,9 +1098,9 @@ def render_telemetry_html(admin_key: str = "") -> str:
         async function fetchTelemetry() {{
             if (!isPolling) return;
             try {{
-                const res = await fetch(`/api/admin/telemetry/stream?key=${{ADMIN_KEY}}`);
+                const res = await fetch(`/api/admin/telemetry/stream?key=${{encodeURIComponent(ADMIN_KEY)}}`);
                 if (res.status === 403) {{
-                    alert("Ruxsat berilmadi! Admin kaliti noto'g'ri.");
+                    window.location.reload();
                     return;
                 }}
                 const data = await res.json();
@@ -1195,7 +1201,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
         async function saveConfig(key, inputId) {{
             const val = document.getElementById(inputId).value;
             try {{
-                const res = await fetch(`/api/admin/telemetry/config?key=${{ADMIN_KEY}}`, {{
+                const res = await fetch(`/api/admin/telemetry/config?key=${{encodeURIComponent(ADMIN_KEY)}}`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{ [key]: Number(val) }})
@@ -1213,7 +1219,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
         async function purgeCacheAction(cat) {{
             if (!confirm(`Haqiqatan ham "${{cat}}" keshini tozalamoqchimisiz?`)) return;
             try {{
-                const res = await fetch(`/api/admin/telemetry/purge?key=${{ADMIN_KEY}}`, {{
+                const res = await fetch(`/api/admin/telemetry/purge?key=${{encodeURIComponent(ADMIN_KEY)}}`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
                     body: JSON.stringify({{ category: cat }})
@@ -1233,3 +1239,281 @@ def render_telemetry_html(admin_key: str = "") -> str:
     </script>
 </body>
 </html>"""
+
+
+def render_admin_login_portal(error_msg: str = "") -> str:
+    """Admin Observability uchun xavfsiz va chiroyli Figma-grade Kirish Portali"""
+    return f"""<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Observability • Kirish</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            background: #090A0F;
+            color: #f8fafc;
+            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }}
+        .bg-grid {{
+            position: absolute;
+            inset: 0;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.08) 0%, transparent 60%),
+                linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 32px 32px, 32px 32px;
+            pointer-events: none;
+        }}
+        .auth-card {{
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 440px;
+            background: rgba(18, 22, 34, 0.88);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 20px;
+            padding: 36px 32px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.08);
+            text-align: center;
+        }}
+        .icon-circle {{
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px auto;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(139, 92, 246, 0.2));
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }}
+        h1 {{
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }}
+        p.subtitle {{
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 24px;
+        }}
+        .input-group {{
+            margin-bottom: 20px;
+            text-align: left;
+        }}
+        label {{
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: #00F0FF;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }}
+        .text-input {{
+            width: 100%;
+            background: rgba(9, 10, 15, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 13px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: #ffffff;
+            outline: none;
+            transition: all 0.2s;
+        }}
+        .text-input:focus {{
+            border-color: #00F0FF;
+            box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.18);
+        }}
+        .btn-3d {{
+            width: 100%;
+            background: linear-gradient(180deg, #00F0FF 0%, #00b4d8 100%);
+            color: #090A0F;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #0077b6, 0 10px 20px rgba(0, 240, 255, 0.3);
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }}
+        .btn-3d:hover {{
+            filter: brightness(1.05);
+            transform: translateY(-1px);
+        }}
+        .btn-3d:active {{
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #0077b6, 0 5px 10px rgba(0, 240, 255, 0.2);
+        }}
+        .btn-3d:disabled {{
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }}
+        .status-msg {{
+            font-size: 12px;
+            min-height: 20px;
+            margin-top: 14px;
+            color: #94a3b8;
+            font-weight: 500;
+        }}
+        .status-msg.error {{
+            color: #ef4444;
+        }}
+        .status-msg.success {{
+            color: #10b981;
+        }}
+        .footer-link {{
+            margin-top: 24px;
+            font-size: 12px;
+            color: #64748b;
+        }}
+        .footer-link a {{
+            color: #00F0FF;
+            text-decoration: none;
+            font-weight: 600;
+        }}
+        .footer-link a:hover {{
+            text-decoration: underline;
+        }}
+        .spin {{
+            animation: spin 1s linear infinite;
+        }}
+        @keyframes spin {{
+            100% {{ transform: rotate(360deg); }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <div class="auth-card">
+        <div class="icon-circle">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+        </div>
+
+        <h1>Admin Observability</h1>
+        <p class="subtitle">CreatorFlow Studio • n8n-style jonli tizim oqimi va telemetriya tekshiruvi (@aiko_64)</p>
+
+        <form id="authForm" onsubmit="event.preventDefault(); verifyAdminKey();">
+            <div class="input-group">
+                <label for="adminKeyInput">Admin Kaliti yoki Telegram ID</label>
+                <input id="adminKeyInput" class="text-input" type="password" placeholder="6735799833 yoki maxfiy kalit" autocomplete="current-password" autofocus />
+            </div>
+
+            <button type="submit" id="verifyBtn" class="btn-3d">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#090A0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                <span>Kirish va Oqimni ochish</span>
+            </button>
+        </form>
+
+        <div id="statusMsg" class="status-msg">Tizim holati tekshirilmoqda...</div>
+
+        <div class="footer-link">
+            <a href="/">← CreatorFlow Bosh sahifasiga qaytish</a>
+        </div>
+    </div>
+
+    <script>
+        async function checkAutoAuth() {{
+            const statusEl = document.getElementById('statusMsg');
+            try {{
+                const token = localStorage.getItem('creatorflow_auth_token');
+                const uid = localStorage.getItem('creatorflow_tg_user_id');
+                const candidate = token || (uid === '6735799833' ? uid : '');
+                if (candidate) {{
+                    statusEl.className = 'status-msg';
+                    statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saqlangan sessiya tekshirilmoqda (@aiko_64)...</span>';
+                    const ok = await verifyAdminKey(candidate, true);
+                    if (ok) return;
+                }}
+            }} catch(e) {{
+                console.warn('Auto auth check error:', e);
+            }}
+            statusEl.textContent = 'Kirish uchun admin kaliti yoki Telegram ID (6735799833) kiriting.';
+        }}
+
+        async function verifyAdminKey(explicitKey, isAuto = false) {{
+            const input = document.getElementById('adminKeyInput');
+            const statusEl = document.getElementById('statusMsg');
+            const btn = document.getElementById('verifyBtn');
+            const key = (explicitKey || (input ? input.value : '')).trim();
+
+            if (!key) {{
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = "Iltimos, kalitni yoki Telegram ID ni kiriting!";
+                return false;
+            }}
+
+            if (btn) btn.disabled = true;
+            statusEl.className = 'status-msg';
+            statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Tasdiqlanmoqda...</span>';
+
+            try {{
+                const res = await fetch('/api/admin/verify', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ key: key }})
+                }});
+                const d = await res.json();
+                if (d.ok) {{
+                    statusEl.className = 'status-msg success';
+                    statusEl.textContent = 'Ruxsat berildi! Telemetriya yuklanmoqda...';
+                    document.cookie = "admin_key=" + encodeURIComponent(key) + "; path=/; max-age=2592000; SameSite=Lax";
+                    document.cookie = "cf_auth_token=" + encodeURIComponent(key) + "; path=/; max-age=2592000; SameSite=Lax";
+                    setTimeout(() => {{
+                        window.location.reload();
+                    }}, 400);
+                    return true;
+                }} else {{
+                    if (!isAuto) {{
+                        statusEl.className = 'status-msg error';
+                        statusEl.textContent = d.error || "Ruxsat berilmadi! Noto'g'ri kalit.";
+                    }}
+                    if (btn) btn.disabled = false;
+                    return false;
+                }}
+            }} catch(err) {{
+                if (!isAuto) {{
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = "Tarmoq xatosi: " + err.message;
+                }}
+                if (btn) btn.disabled = false;
+                return false;
+            }}
+        }}
+
+        window.addEventListener('DOMContentLoaded', checkAutoAuth);
+    </script>
+</body>
+</html>"""
+
