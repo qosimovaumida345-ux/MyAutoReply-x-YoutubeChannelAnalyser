@@ -947,20 +947,21 @@
 
         // ==================== REAL FRAGMENT TELEGRAM GIFT ASSETS (ZERO EMOJIS, ZERO MOCKS) ====================
         const FRAGMENT_FALLBACK_IMAGES = {
-            cake: "/api/telegram-file/CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
-            champagne: "/api/telegram-file/6028601630662853006",
-            shampan: "/api/telegram-file/6028601630662853006",
-            bouquet: "/api/telegram-file/5170314324215857265",
-            flower: "/api/telegram-file/5170314324215857265",
-            gul: "/api/telegram-file/5170314324215857265",
-            rose: "/api/telegram-file/5170314324215857265",
-            trophy: "/api/telegram-file/5168043875654172773",
-            kubok: "/api/telegram-file/5168043875654172773",
-            rocket: "/api/telegram-file/5170564780938756245",
-            raketa: "/api/telegram-file/5170564780938756245",
-            ring: "/api/telegram-file/5170690322832818290",
-            diamond: "/api/telegram-file/5170690322832818290",
-            uzuk: "/api/telegram-file/5170690322832818290",
+            cake: "/api/nft/image/delicious_cake.webp",
+            champagne: "/api/nft/image/champagne_bottle.webp",
+            shampan: "/api/nft/image/champagne_bottle.webp",
+            bouquet: "/api/nft/image/gift_bouquet.webp",
+            flower: "/api/nft/image/gift_bouquet.webp",
+            gul: "/api/nft/image/gift_bouquet.webp",
+            rose: "/api/nft/image/gift_bouquet.webp",
+            trophy: "/api/nft/image/star_trophy.webp",
+            kubok: "/api/nft/image/star_trophy.webp",
+            rocket: "/api/nft/image/gift_rocket.webp",
+            raketa: "/api/nft/image/gift_rocket.webp",
+            ring: "/api/nft/image/diamond_ring.webp",
+            diamond: "/api/nft/image/diamond_ring.webp",
+            uzuk: "/api/nft/image/diamond_ring.webp",
+            star: "/api/nft/image/gift_star.webp",
             cap: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
             durovscap: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
             kepka: "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
@@ -997,7 +998,7 @@
             tg_premium: "/api/nft/image/TG_PREMIUM.webp",
             package: "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
             box: "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
-            gift: "/api/telegram-file/5170250947678437525"
+            gift: "/api/nft/image/delicious_cake.webp"
         };
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
@@ -5826,15 +5827,36 @@
                                             <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>
                                                 Nazoratli Item Upgrader
                                             </h3>
-                                            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "28px" }}>
+                                            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "16px" }}>
                                                 Tikilayotgan sovg'angizni 2x (yoki tanlangan ko'paytiruvchi) ga oshiring! Dumaloq g'ildirakda strelka aylanadi.
                                             </p>
+
+                                            {/* Shaffof Qoidalar & Garov Narxi Eslatmasi */}
+                                            <div style={{
+                                                background: "rgba(245, 158, 11, 0.08)",
+                                                border: "1px solid rgba(245, 158, 11, 0.3)",
+                                                borderRadius: "16px",
+                                                padding: "12px 18px",
+                                                maxWidth: "520px",
+                                                margin: "0 auto 24px",
+                                                textAlign: "center"
+                                            }}>
+                                                <div style={{ fontSize: "13px", fontWeight: 700, color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "4px" }}>
+                                                    <SvgZap size={15} color="#d97706" />
+                                                    <span>DIQQAT: Garov Asosiy UZS Balansingizdan Yechiladi!</span>
+                                                </div>
+                                                <div style={{ fontSize: "12px", color: "var(--text)", lineHeight: 1.5 }}>
+                                                    Sovg'ani upgrade qilish uchun uning Stars qiymatiga teng so'm balansi (<strong>1 Stars = 400 so'm</strong>) yechib olinadi. 
+                                                    Hozirgi stavka: <span style={{ color: "#7342E2", fontWeight: 800 }}>{((upgraderItem?.stars || 15) * 400).toLocaleString()} so'm</span> ({upgraderItem?.stars || 15} Stars). 
+                                                    Yutgan taqdiringizda <strong>{Math.round((upgraderItem?.stars || 15) * upgraderMultiplier * 400).toLocaleString()} so'm</strong> qiymatidagi sovg'a beriladi!
+                                                </div>
+                                            </div>
 
                                             {/* Upgrader Controls: Selected Item vs 2x Multiplier Target */}
                                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "32px", width: "100%", boxSizing: "border-box" }}>
                                                 {/* Left: Your Item */}
-                                                <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: 0, maxWidth: "100%", boxSizing: "border-box" }}>
                                                 <div style={{ flex: "1 1 280px", maxWidth: "360px", background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: "260px", boxSizing: "border-box" }}>
+                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "6px" }}>
                                                         Siz Tikayotgan Sovg'a:
                                                     </div>
                                                     <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}>
@@ -6185,9 +6207,29 @@
                                             <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", margin: "8px 0" }}>
                                                 Omadli Skretch Chipta
                                             </h3>
-                                            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "24px" }}>
+                                            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "16px" }}>
                                                 Barmoq yoki sichqoncha bilan himoya qatlamini qiring. 3 ta bir xil belgi tushsa — Video Auto-Post Pro, AI SEO Suite yoki Stars sizniki!
                                             </p>
+
+                                            {/* Chipta Narxi & Shartlar Eslatmasi (Shaffof Narx) */}
+                                            <div style={{
+                                                background: "rgba(115, 66, 226, 0.08)",
+                                                border: "1px solid rgba(115, 66, 226, 0.25)",
+                                                borderRadius: "16px",
+                                                padding: "12px 18px",
+                                                margin: "0 auto 20px",
+                                                maxWidth: "420px",
+                                                textAlign: "center"
+                                            }}>
+                                                <div style={{ fontSize: "13px", fontWeight: 800, color: "#7342E2", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                                                    <SvgTicket size={16} color="#7342E2" />
+                                                    <span>Chipta Narxi: 1,000 so'm / dona</span>
+                                                </div>
+                                                <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px", lineHeight: 1.4 }}>
+                                                    Har bir "Yangi Chipta Olish" bosilganda hisobingizdan <strong>1,000 so'm</strong> yechiladi.
+                                                    3 ta bir xil belgi qirilsa — 1 oylik xizmat yoki Stars promo-kodi beriladi!
+                                                </div>
+                                            </div>
 
                                             {/* Scratch Card Outer Wrapper */}
                                             <div style={{
@@ -6295,9 +6337,13 @@
                                                     variant="primary"
                                                     size="sm"
                                                     onClick={initScratchCard}
+                                                    icon={<SvgTicket size={15} color="#ffffff" />}
                                                 >
-                                                    Yangi Chipta Olish
+                                                    <span>Yangi Chipta Olish (1,000 so'm)</span>
                                                 </TactileButton>
+                                            </div>
+                                            <div style={{ fontSize: "12px", color: (tgUser?.balance_uzs || 0) < 1000 ? "#ef4444" : "var(--muted)", fontWeight: 600, marginTop: "6px", marginBottom: "16px" }}>
+                                                Joriy hisobingiz: {((tgUser?.balance_uzs || 0)).toLocaleString()} so'm {(tgUser?.balance_uzs || 0) < 1000 ? "(Kamida 1,000 so'm kerak)" : ""}
                                             </div>
 
                                             {/* Scratch Result Feedback */}

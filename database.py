@@ -6166,29 +6166,69 @@ def get_available_gift_inventory(limit: int = 50) -> list:
         results = []
         for r in rows:
             if isinstance(r, dict):
+                g_name = r.get("gift_name") or r.get("name") or "Telegram Sovg'a"
+                g_icon = r.get("icon") or "package"
+                p_lower = g_name.lower()
+                img_url = "/api/nft/image/delicious_cake.webp"
+                if "champagne" in p_lower or g_icon == "champagne":
+                    img_url = "/api/nft/image/champagne_bottle.webp"
+                elif "bouquet" in p_lower or "flower" in p_lower or g_icon == "bouquet":
+                    img_url = "/api/nft/image/gift_bouquet.webp"
+                elif "ring" in p_lower or "diamond" in p_lower or g_icon in ("diamond_ring", "ring"):
+                    img_url = "/api/nft/image/diamond_ring.webp"
+                elif "trophy" in p_lower or g_icon == "trophy":
+                    img_url = "/api/nft/image/star_trophy.webp"
+                elif "rocket" in p_lower or g_icon == "rocket":
+                    img_url = "/api/nft/image/gift_rocket.webp"
+                elif "star" in p_lower or g_icon == "star":
+                    img_url = "/api/nft/image/gift_star.webp"
+                elif "cake" in p_lower or g_icon == "cake":
+                    img_url = "/api/nft/image/delicious_cake.webp"
+
                 results.append({
                     "id": r["id"],
                     "sender_name": r.get("sender_name") or "",
                     "receiver_target": r.get("receiver_target") or "aiko_64",
                     "gift_id": r.get("gift_id") or "",
-                    "name": r.get("gift_name") or r.get("name") or "Telegram Sovg'a",
+                    "name": g_name,
                     "stars": r.get("stars_value") or r.get("stars") or 50,
-                    "icon": r.get("icon") or "package",
+                    "icon": g_icon,
                     "file_id": r.get("file_id") or "",
                     "file_type": r.get("file_type") or "webp",
+                    "image_url": img_url,
                     "received_at": str(r.get("received_at") or "")
                 })
             else:
+                g_name = r[4] or "Telegram Sovg'a"
+                g_icon = r[6] or "package"
+                p_lower = g_name.lower()
+                img_url = "/api/nft/image/delicious_cake.webp"
+                if "champagne" in p_lower or g_icon == "champagne":
+                    img_url = "/api/nft/image/champagne_bottle.webp"
+                elif "bouquet" in p_lower or "flower" in p_lower or g_icon == "bouquet":
+                    img_url = "/api/nft/image/gift_bouquet.webp"
+                elif "ring" in p_lower or "diamond" in p_lower or g_icon in ("diamond_ring", "ring"):
+                    img_url = "/api/nft/image/diamond_ring.webp"
+                elif "trophy" in p_lower or g_icon == "trophy":
+                    img_url = "/api/nft/image/star_trophy.webp"
+                elif "rocket" in p_lower or g_icon == "rocket":
+                    img_url = "/api/nft/image/gift_rocket.webp"
+                elif "star" in p_lower or g_icon == "star":
+                    img_url = "/api/nft/image/gift_star.webp"
+                elif "cake" in p_lower or g_icon == "cake":
+                    img_url = "/api/nft/image/delicious_cake.webp"
+
                 results.append({
                     "id": r[0],
                     "sender_name": r[1],
                     "receiver_target": r[2],
                     "gift_id": r[3],
-                    "name": r[4],
+                    "name": g_name,
                     "stars": r[5],
-                    "icon": r[6],
+                    "icon": g_icon,
                     "file_id": r[7],
                     "file_type": r[8],
+                    "image_url": img_url,
                     "received_at": str(r[9]) if r[9] else ""
                 })
         return results

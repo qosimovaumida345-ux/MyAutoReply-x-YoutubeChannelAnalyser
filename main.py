@@ -2412,13 +2412,38 @@ _TELEGRAM_FILE_CACHE = {}  # { file_id: (content, content_type, timestamp) }
 _TG_FILE_CACHE_MAX = 200
 _TG_FILE_CACHE_TTL = 3600  # 1 soat
 
+_GIFT_ID_TO_FILE_ID = {
+    "5170144170496491616": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",  # Cake
+    "6028601630662853006": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",  # Champagne
+    "5170314324215857265": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",  # Bouquet
+    "5168043875654172773": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",  # Trophy
+    "5170690322832818290": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",  # Ring
+    "5170564780938756245": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",  # Rocket
+    "5170521118301225164": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",  # Blue Diamond
+    "5170145012310081615": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",  # Green Star
+    "5170250947678437525": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+}
+
+_GIFT_ID_TO_LOCAL_WEBP = {
+    "5170144170496491616": "delicious_cake.webp",
+    "6028601630662853006": "champagne_bottle.webp",
+    "5170314324215857265": "gift_bouquet.webp",
+    "5168043875654172773": "star_trophy.webp",
+    "5170690322832818290": "diamond_ring.webp",
+    "5170564780938756245": "gift_rocket.webp",
+    "5170521118301225164": "diamond_ring.webp",
+    "5170145012310081615": "gift_star.webp",
+    "5170250947678437525": "delicious_cake.webp",
+}
+
 async def handle_api_telegram_file(request):
-    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG/JPG) yuklab, frontendga uzatuvchi proxy API (RAM LRU kesh bilan)"""
+    """Telegramdan file_id orqali faylni (TGS/WEBM/PNG/JPG) yuklab, frontendga uzatuvchi proxy API (RAM LRU kesh va Zero-404 fallback bilan)"""
     file_id = request.match_info.get("file_id", "").strip()
     if not file_id:
         return web.Response(status=400, text="file_id is required")
         
     import time
+    import os
     now = time.time()
 
     headers = {
@@ -2435,21 +2460,40 @@ async def handle_api_telegram_file(request):
             headers=headers
         )
 
+    # 2. Agar numeric gift_id berilgan bo'lsa, uni haqiqiy Telegram sticker file_id ga tarjima qilish
+    actual_file_id = _GIFT_ID_TO_FILE_ID.get(file_id, file_id)
+
     try:
         from config import BOT_TOKEN
         import aiohttp
-        import os
         import gzip
         token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
         if not token:
+            # Token bo'lmasa, darhol lokal assetdan qaytarish
+            local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            lp = os.path.join(base_dir, "nft_assets", local_name)
+            if os.path.exists(lp):
+                with open(lp, "rb") as f:
+                    content = f.read()
+                return web.Response(body=content, content_type="image/webp", headers=headers)
             return web.Response(status=500, text="BOT_TOKEN not configured")
             
         async with aiohttp.ClientSession() as session:
             # 1. file_path ni olish
-            file_url = f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}"
+            file_url = f"https://api.telegram.org/bot{token}/getFile?file_id={actual_file_id}"
             async with session.get(file_url, timeout=6) as r1:
                 res1 = await r1.json()
                 if not res1.get("ok"):
+                    # Telegramda topilmasa, kafolatlangan lokal WebP assetdan uzatamiz (Zero 404)
+                    local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                    base_dir = os.path.dirname(os.path.abspath(__file__))
+                    lp = os.path.join(base_dir, "nft_assets", local_name)
+                    if os.path.exists(lp):
+                        with open(lp, "rb") as f:
+                            content = f.read()
+                        _TELEGRAM_FILE_CACHE[file_id] = (content, "image/webp", now)
+                        return web.Response(body=content, content_type="image/webp", headers=headers)
                     return web.Response(status=404, text="File not found on Telegram")
                 file_path = res1["result"]["file_path"]
                 
@@ -2457,6 +2501,14 @@ async def handle_api_telegram_file(request):
             download_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
             async with session.get(download_url, timeout=12) as r2:
                 if r2.status != 200:
+                    local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+                    base_dir = os.path.dirname(os.path.abspath(__file__))
+                    lp = os.path.join(base_dir, "nft_assets", local_name)
+                    if os.path.exists(lp):
+                        with open(lp, "rb") as f:
+                            content = f.read()
+                        _TELEGRAM_FILE_CACHE[file_id] = (content, "image/webp", now)
+                        return web.Response(body=content, content_type="image/webp", headers=headers)
                     return web.Response(status=502, text="Failed to download from Telegram")
                     
                 content = await r2.read()
@@ -2491,6 +2543,13 @@ async def handle_api_telegram_file(request):
                     headers=headers
                 )
     except Exception as e:
+        local_name = _GIFT_ID_TO_LOCAL_WEBP.get(file_id, "delicious_cake.webp")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        lp = os.path.join(base_dir, "nft_assets", local_name)
+        if os.path.exists(lp):
+            with open(lp, "rb") as f:
+                content = f.read()
+            return web.Response(body=content, content_type="image/webp", headers=headers)
         return web.Response(status=500, text=f"Proxy error: {e}")
 
 async def handle_api_stars_open_case_uzs(request):
@@ -2754,22 +2813,74 @@ async def handle_api_stars_user_inventory(request):
 
 _NFT_ANIMATION_CACHE = {}
 
+_STANDARD_GIFT_SLUGS_TO_FILE_ID = {
+    "golden-trophy": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+    "star-trophy": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+    "delicious-cake": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+    "champagne-bottle": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
+    "bouquet-flowers": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
+    "diamond-ring": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
+    "space-rocket": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
+    "blue-diamond": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",
+}
+
+EMPTY_LOTTIE_JSON = b'{"v":"5.5.7","fr":60,"ip":0,"op":60,"w":100,"h":100,"nm":"empty","ddd":0,"assets":[],"layers":[]}'
+
 async def handle_api_nft_animation(request):
     """
-    Fragment Telegram Gift NFT larining rasmiy .tgs Lottie vektor animatsiyasini
-    decompress qilib, toza JSON sifatida qaytaradi (RAM kesh bilan).
+    Fragment Telegram Gift NFT larining va standart Telegram sovg'alarining rasmiy .tgs Lottie
+    vektor animatsiyasini decompress qilib, toza JSON sifatida qaytaradi (RAM kesh & Zero-Crash fallback).
     """
     slug = request.match_info.get("slug", "").strip()
     if not slug:
         return web.Response(status=400, text="slug is required")
         
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Cache-Control": "public, max-age=604800, immutable"
+    }
+
     if slug in _NFT_ANIMATION_CACHE:
         return web.Response(
             body=_NFT_ANIMATION_CACHE[slug],
             content_type="application/json",
-            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+            headers=headers
         )
-        
+
+    # 1. Standart Telegram sovg'alari uchun Bot API orqali rasmiy sticker .tgs olish
+    if slug in _STANDARD_GIFT_SLUGS_TO_FILE_ID:
+        try:
+            from config import BOT_TOKEN
+            import aiohttp
+            import gzip
+            import os
+            token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+            if token:
+                file_id = _STANDARD_GIFT_SLUGS_TO_FILE_ID[slug]
+                async with aiohttp.ClientSession() as session:
+                    file_url = f"https://api.telegram.org/bot{token}/getFile?file_id={file_id}"
+                    async with session.get(file_url, timeout=6) as r1:
+                        res1 = await r1.json()
+                        if res1.get("ok"):
+                            file_path = res1["result"]["file_path"]
+                            download_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
+                            async with session.get(download_url, timeout=10) as r2:
+                                if r2.status == 200:
+                                    raw = await r2.read()
+                                    try:
+                                        decompressed = gzip.decompress(raw)
+                                    except Exception:
+                                        decompressed = raw
+                                    _NFT_ANIMATION_CACHE[slug] = decompressed
+                                    return web.Response(
+                                        body=decompressed,
+                                        content_type="application/json",
+                                        headers=headers
+                                    )
+        except Exception as tg_anim_err:
+            print(f"Standard gift animation fetch note for {slug}: {tg_anim_err}")
+
+    # 2. Fragment NFT collectible lar uchun Fragment CDN dan .tgs olish
     url = f"https://nft.fragment.com/gift/{slug}.tgs"
     try:
         import aiohttp
@@ -2786,12 +2897,21 @@ async def handle_api_nft_animation(request):
                     return web.Response(
                         body=decompressed,
                         content_type="application/json",
-                        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+                        headers=headers
                     )
                 else:
-                    return web.Response(status=404, text="Animation not found")
+                    # lit-html insertBefore xatoligining oldini olish uchun bo'sh lottie JSON qaytaramiz (Zero 404 crash)
+                    return web.Response(
+                        body=EMPTY_LOTTIE_JSON,
+                        content_type="application/json",
+                        headers=headers
+                    )
     except Exception as e:
-        return web.Response(status=500, text=f"Error: {e}")
+        return web.Response(
+            body=EMPTY_LOTTIE_JSON,
+            content_type="application/json",
+            headers=headers
+        )
 
 async def handle_api_stars_upgrader_inventory(request):
     """Upgrader uchun mavjud bo'lgan barcha darajadagi sovg'alar va NFT lar (Cheksiz to'liq katalog)"""
@@ -2821,7 +2941,29 @@ async def handle_api_stars_upgrader_inventory(request):
             {"id": "up_18", "stars": 6000, "name": "Golden Dragon NFT", "icon": "dragon", "file_type": "webp", "image_url": "/api/nft/image/golden_dragon.webp", "is_nft": True, "rarity": "transcendent"}
         ]
         
-        combined = list(db_inventory)
+        combined = []
+        for it in db_inventory:
+            g_name = str(it.get("gift_name") or it.get("name") or "")
+            g_icon = str(it.get("icon") or "")
+            img_url = it.get("image_url")
+            if not img_url:
+                if "champagne" in g_name.lower() or g_icon == "champagne":
+                    img_url = "/api/nft/image/champagne_bottle.webp"
+                elif "bouquet" in g_name.lower() or g_icon == "bouquet":
+                    img_url = "/api/nft/image/gift_bouquet.webp"
+                elif "ring" in g_name.lower() or "diamond" in g_name.lower() or g_icon in ("diamond_ring", "ring"):
+                    img_url = "/api/nft/image/diamond_ring.webp"
+                elif "trophy" in g_name.lower() or g_icon == "trophy":
+                    img_url = "/api/nft/image/star_trophy.webp"
+                elif "rocket" in g_name.lower() or g_icon == "rocket":
+                    img_url = "/api/nft/image/gift_rocket.webp"
+                elif "star" in g_name.lower() or g_icon == "star":
+                    img_url = "/api/nft/image/gift_star.webp"
+                else:
+                    img_url = "/api/nft/image/delicious_cake.webp"
+                it["image_url"] = img_url
+            combined.append(it)
+
         existing_names = {str(it.get("gift_name") or it.get("name")).lower() for it in combined}
         for cat_item in full_catalog:
             if cat_item["name"].lower() not in existing_names:

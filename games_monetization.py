@@ -433,35 +433,35 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         {
             "id": "5170144170496491616", "stars": 50, "name": "Delicious Cake", "icon": "cake",
             "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
-            "file_type": "tgs", "image_url": "/api/telegram-file/CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+            "file_type": "tgs", "image_url": "/api/nft/image/delicious_cake.webp",
             "backdrop": "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "slug": "delicious-cake", "is_nft": False,
             "weight": 35, "rarity": "common"
         },
         {
             "id": "6028601630662853006", "stars": 50, "name": "Champagne Bottle", "icon": "champagne",
             "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/6028601630662853006",
+            "file_type": "tgs", "image_url": "/api/nft/image/champagne_bottle.webp",
             "backdrop": "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)", "slug": "champagne-bottle", "is_nft": False,
             "weight": 30, "rarity": "common"
         },
         {
             "id": "5170314324215857265", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet",
             "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5170314324215857265",
+            "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp",
             "backdrop": "linear-gradient(145deg, #3f2c1d 0%, #1e150d 100%)", "slug": "bouquet-flowers", "is_nft": False,
             "weight": 25, "rarity": "common"
         },
         {
             "id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy",
             "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5168043875654172773",
+            "file_type": "tgs", "image_url": "/api/nft/image/star_trophy.webp",
             "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "golden-trophy", "is_nft": False,
             "weight": 12, "rarity": "rare"
         },
         {
             "id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "ring",
             "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5170690322832818290",
+            "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp",
             "backdrop": "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "slug": "diamond-ring", "is_nft": False,
             "weight": 10, "rarity": "rare"
         },
@@ -484,21 +484,21 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         {
             "id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy",
             "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5168043875654172773",
+            "file_type": "tgs", "image_url": "/api/nft/image/star_trophy.webp",
             "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "golden-trophy", "is_nft": False,
             "weight": 35, "rarity": "common"
         },
         {
             "id": "5170690322832818290", "stars": 100, "name": "Diamond Ring", "icon": "ring",
             "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5170690322832818290",
+            "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp",
             "backdrop": "linear-gradient(145deg, #0c4a6e 0%, #082f49 100%)", "slug": "diamond-ring", "is_nft": False,
             "weight": 30, "rarity": "common"
         },
         {
             "id": "5170564780938756245", "stars": 50, "name": "Space Rocket", "icon": "rocket",
             "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5170564780938756245",
+            "file_type": "tgs", "image_url": "/api/nft/image/gift_rocket.webp",
             "backdrop": "linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%)", "slug": "space-rocket", "is_nft": False,
             "weight": 25, "rarity": "common"
         },
@@ -533,14 +533,14 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
         {
             "id": "5170521118301225164", "stars": 100, "name": "Blue Diamond Gift", "icon": "diamond_ring",
             "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5170521118301225164",
+            "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp",
             "backdrop": "linear-gradient(145deg, #083344 0%, #042f2e 100%)", "slug": "blue-diamond", "is_nft": False,
             "weight": 35, "rarity": "common"
         },
         {
             "id": "5168043875654172773", "stars": 100, "name": "Golden Trophy", "icon": "trophy",
             "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
-            "file_type": "tgs", "image_url": "/api/telegram-file/5168043875654172773",
+            "file_type": "tgs", "image_url": "/api/nft/image/star_trophy.webp",
             "backdrop": "linear-gradient(145deg, #18181b 0%, #09090b 100%)", "slug": "golden-trophy", "is_nft": False,
             "weight": 30, "rarity": "common"
         },
@@ -2175,13 +2175,13 @@ def get_user_streak(user_id: int) -> dict:
         can_claim = True
             
     rewards = [
-        {"day": 1, "title": "5 ta AI YouTube SEO", "icon": "sparkles", "type": "seo_pack", "value": 5},
-        {"day": 2, "title": "10 ta AI Video Teglar & Tavsif", "icon": "tag", "type": "ai_tags", "value": 10},
-        {"day": 3, "title": "3 ta Video Unikalizatsiya VIP", "icon": "rocket", "type": "unikal", "value": 3},
-        {"day": 4, "title": "10 ta AI Video Skript & G'oyalar", "icon": "edit", "type": "ai_script", "value": 10},
-        {"day": 5, "title": "5 ta Video Unikalizatsiya VIP", "icon": "rocket", "type": "unikal", "value": 5},
-        {"day": 6, "title": "12 Soatlik 24/7 Autostream VIP", "icon": "clapper", "type": "autostream", "value": 12},
-        {"day": 7, "title": "100 Telegram Stars Bonusi", "icon": "star", "type": "stars_bonus", "value": 100}
+        {"day": 1, "title": "5 ta AI YouTube SEO", "icon": "sparkles", "type": "seo_pack", "value": 5, "image_url": "/api/nft/image/service_seo.webp"},
+        {"day": 2, "title": "10 ta AI Video Teglar & Tavsif", "icon": "tag", "type": "ai_tags", "value": 10, "image_url": "/api/nft/image/service_seo.webp"},
+        {"day": 3, "title": "3 ta Video Unikalizatsiya VIP", "icon": "rocket", "type": "unikal", "value": 3, "image_url": "/api/nft/image/service_uniquify.webp"},
+        {"day": 4, "title": "10 ta AI Video Skript & G'oyalar", "icon": "edit", "type": "ai_script", "value": 10, "image_url": "/api/nft/image/service_scripts.webp"},
+        {"day": 5, "title": "5 ta Video Unikalizatsiya VIP", "icon": "rocket", "type": "unikal", "value": 5, "image_url": "/api/nft/image/service_uniquify.webp"},
+        {"day": 6, "title": "12 Soatlik 24/7 Autostream VIP", "icon": "clapper", "type": "autostream", "value": 12, "image_url": "/api/nft/image/service_autostream.webp"},
+        {"day": 7, "title": "100 Telegram Stars Bonusi", "icon": "star", "type": "stars_bonus", "value": 100, "image_url": "/api/nft/image/gift_star.webp"}
     ]
     
     curr_day = (streak_count % 7) + 1
