@@ -781,23 +781,23 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
     <!-- Tabs Navigation -->
     <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('flow')">
+        <button id="tabBtn_flow" class="tab-btn active" onclick="switchTab('flow', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
             <span>n8n Oqim & Pipeline</span>
         </button>
-        <button class="tab-btn" onclick="switchTab('db')">
+        <button id="tabBtn_db" class="tab-btn" onclick="switchTab('db', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
             <span>Baza So'rovlari (DB Inspector)</span>
         </button>
-        <button class="tab-btn" onclick="switchTab('cache')">
+        <button id="tabBtn_cache" class="tab-btn" onclick="switchTab('cache', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             <span>Kesh & Dinamik TTL Sozlamalari</span>
         </button>
-        <button class="tab-btn" onclick="switchTab('routes')">
+        <button id="tabBtn_routes" class="tab-btn" onclick="switchTab('routes', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             <span>Auto-Discovered Marshrutlar</span>
         </button>
-        <button class="tab-btn" onclick="switchTab('api')">
+        <button id="tabBtn_api" class="tab-btn" onclick="switchTab('api', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span>Kiruvchi / Chiquvchi API Jurnali</span>
         </button>
@@ -1061,7 +1061,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
     <script>
         const ADMIN_KEY = "{safe_admin_key}" || (function() {{
             try {{
-                return localStorage.getItem('creatorflow_auth_token') || '6735799833';
+                return localStorage.getItem('creatorflow_admin_sig') || localStorage.getItem('creatorflow_auth_token') || '6735799833';
             }} catch(e) {{
                 return '6735799833';
             }}
@@ -1072,30 +1072,33 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
         function showToast(msg) {{
             const t = document.getElementById('toast');
+            if (!t) return;
             t.textContent = msg;
             t.style.display = 'block';
             setTimeout(() => {{ t.style.display = 'none'; }}, 2200);
         }}
 
-        function switchTab(tabId) {{
+        function switchTab(tabId, el) {{
             curTab = tabId;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('[id^="tabContent_"]').forEach(c => c.style.display = 'none');
             
             const target = document.getElementById('tabContent_' + tabId);
             if (target) target.style.display = 'block';
-            event.currentTarget.classList.add('active');
+
+            const btn = el || document.getElementById('tabBtn_' + tabId) || (window.event ? (window.event.currentTarget || (window.event.target && window.event.target.closest ? window.event.target.closest('.tab-btn') : null)) : null);
+            if (btn && btn.classList) btn.classList.add('active');
         }}
 
         function togglePolling() {{
             isPolling = !isPolling;
             const btn = document.getElementById('pollBtnTxt');
+            if (pollTimer) clearTimeout(pollTimer);
             if (isPolling) {{
-                btn.textContent = "Avto-Yangilanish: Faol (2.5s)";
+                if (btn) btn.textContent = "Avto-Yangilanish: Faol (2.5s)";
                 fetchTelemetry();
             }} else {{
-                btn.textContent = "To'xtatilgan (Pauza)";
-                if (pollTimer) clearTimeout(pollTimer);
+                if (btn) btn.textContent = "To'xtatilgan (Pauza)";
             }}
         }}
 
@@ -1106,9 +1109,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 if (ADMIN_KEY) {{
                     headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
                     headers['X-Admin-Secret'] = ADMIN_KEY;
+                    headers['X-Admin-Signature'] = ADMIN_KEY;
                 }}
-                const res = await fetch('/api/admin/telemetry/stream', {{ headers: headers }});
-                if (res.status === 403) {{
+                const res = await fetch('/api/admin/telemetry/stream', {{
+                    headers: headers,
+                    credentials: 'same-origin'
+                }});
+                if (res.status === 401 || res.status === 403) {{
                     window.location.reload();
                     return;
                 }}
@@ -1120,6 +1127,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 console.error("Telemetry fetch error:", err);
             }} finally {{
                 if (isPolling) {{
+                    if (pollTimer) clearTimeout(pollTimer);
                     pollTimer = setTimeout(fetchTelemetry, 2500);
                 }}
             }}
@@ -1208,25 +1216,35 @@ def render_telemetry_html(admin_key: str = "") -> str:
         }}
 
         async function saveConfig(key, inputId) {{
-            const val = document.getElementById(inputId).value;
+            const inputEl = document.getElementById(inputId);
+            if (!inputEl) return;
+            const val = inputEl.value;
+            if (val === '' || isNaN(val)) {{
+                showToast("Iltimos, to'g'ri raqam kiriting!");
+                return;
+            }}
             try {{
                 const headers = {{ 'Content-Type': 'application/json' }};
                 if (ADMIN_KEY) {{
                     headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
                     headers['X-Admin-Secret'] = ADMIN_KEY;
+                    headers['X-Admin-Signature'] = ADMIN_KEY;
                 }}
                 const res = await fetch('/api/admin/telemetry/config', {{
                     method: 'POST',
                     headers: headers,
+                    credentials: 'same-origin',
                     body: JSON.stringify({{ [key]: Number(val) }})
                 }});
                 const d = await res.json();
                 if (d.ok) {{
                     showToast(`Sozlama saqlandi: ${{key}} = ${{val}}`);
                     fetchTelemetry();
+                }} else {{
+                    showToast("Xatolik: " + (d.error || "Saqlab bo'lmadi"));
                 }}
             }} catch(e) {{
-                alert("Xatolik: " + e);
+                showToast("Tarmoq xatosi: " + e.message);
             }}
         }}
 
@@ -1237,19 +1255,24 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 if (ADMIN_KEY) {{
                     headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
                     headers['X-Admin-Secret'] = ADMIN_KEY;
+                    headers['X-Admin-Signature'] = ADMIN_KEY;
                 }}
                 const res = await fetch('/api/admin/telemetry/purge', {{
                     method: 'POST',
                     headers: headers,
+                    credentials: 'same-origin',
                     body: JSON.stringify({{ category: cat }})
                 }});
                 const d = await res.json();
                 if (d.ok) {{
-                    showToast(`Kesh tozalandi: ${{d.purged.join(', ')}}`);
+                    const items = Array.isArray(d.purged) ? d.purged.join(', ') : cat;
+                    showToast(`Kesh tozalandi: ${{items}}`);
                     fetchTelemetry();
+                }} else {{
+                    showToast("Xatolik: " + (d.error || "Keshni tozalab bo'lmadi"));
                 }}
             }} catch(e) {{
-                alert("Xatolik: " + e);
+                showToast("Tarmoq xatosi: " + e.message);
             }}
         }}
 
@@ -1466,9 +1489,10 @@ def render_admin_login_portal(error_msg: str = "") -> str:
         async function checkAutoAuth() {{
             const statusEl = document.getElementById('statusMsg');
             try {{
+                const adminSig = localStorage.getItem('creatorflow_admin_sig');
                 const token = localStorage.getItem('creatorflow_auth_token');
                 const uid = localStorage.getItem('creatorflow_tg_user_id');
-                const candidate = token || (uid === '6735799833' ? uid : '');
+                const candidate = adminSig || token || (uid === '6735799833' ? uid : '');
                 if (candidate) {{
                     statusEl.className = 'status-msg';
                     statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saqlangan sessiya tekshirilmoqda (@aiko_64)...</span>';
@@ -1501,6 +1525,7 @@ def render_admin_login_portal(error_msg: str = "") -> str:
                 const res = await fetch('/api/admin/verify', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
+                    credentials: 'same-origin',
                     body: JSON.stringify({{ key: key }})
                 }});
                 const d = await res.json();
@@ -1514,7 +1539,7 @@ def render_admin_login_portal(error_msg: str = "") -> str:
                     document.cookie = "cf_auth_owner=6735799833; path=/; max-age=2592000; SameSite=Lax";
                     setTimeout(() => {{
                         window.location.reload();
-                    }}, 400);
+                    }}, 350);
                     return true;
                 }} else {{
                     if (!isAuto) {{

@@ -2870,6 +2870,10 @@
                     if (d.ok) {
                         localStorage.setItem('creatorflow_auth_token', d.token);
                         localStorage.setItem('creatorflow_tg_user_id', num);
+                        if (d.admin_token) {
+                            localStorage.setItem('creatorflow_admin_sig', d.admin_token);
+                            document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
+                        }
                         setTgUser(prev => ({
                             ...prev,
                             id: num,
@@ -2898,6 +2902,11 @@
                 const token = localStorage.getItem('creatorflow_auth_token');
                 localStorage.removeItem('creatorflow_auth_token');
                 localStorage.removeItem('creatorflow_tg_user_id');
+                localStorage.removeItem('creatorflow_admin_sig');
+                document.cookie = "cf_adm_sig=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+                document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+                document.cookie = "cf_auth_owner=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+                document.cookie = "cf_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
                 if (token) {
                     fetch('/api/auth/logout', {
                         method: 'POST',
@@ -2939,6 +2948,10 @@
                                 is_owner: d.is_owner || false
                             }));
                             if (d.is_owner || Number(targetUid) === 6735799833) {
+                                if (d.admin_token) {
+                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
+                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
+                                }
                                 document.cookie = "admin_key=6735799833; path=/; max-age=2592000; SameSite=Lax";
                                 document.cookie = "cf_auth_owner=6735799833; path=/; max-age=2592000; SameSite=Lax";
                             }
@@ -3090,6 +3103,10 @@
                             if (d.ok) {
                                 localStorage.setItem('creatorflow_auth_token', d.token);
                                 localStorage.setItem('creatorflow_tg_user_id', qId);
+                                if (d.admin_token) {
+                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
+                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
+                                }
                                 setTgUser(prev => ({ ...prev, id: qId, first_name: `Creator #${qId}`, is_vip: d.is_vip, is_owner: d.is_owner }));
                                 setView('dashboard');
                                 loadStudioStats(qId);
@@ -3121,6 +3138,10 @@
                                 const uid = d.tg_user_id;
                                 localStorage.setItem('creatorflow_auth_token', d.token);
                                 localStorage.setItem('creatorflow_tg_user_id', uid);
+                                if (d.admin_token) {
+                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
+                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
+                                }
                                 const u = d.user || {};
                                 setTgUser(prev => ({
                                     ...prev,
@@ -3158,6 +3179,10 @@
                         .then(d => {
                             if (d.ok) {
                                 if (d.token) localStorage.setItem('creatorflow_auth_token', d.token);
+                                if (d.admin_token) {
+                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
+                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
+                                }
                                 setView('dashboard');
                                 setTgUser(prev => ({ ...prev, id: savedUid, first_name: (d.user && d.user.first_name) || `Creator #${savedUid}`, is_vip: d.is_vip || false, is_owner: d.is_owner || false }));
                                 loadStudioStats(savedUid);
@@ -4233,6 +4258,12 @@
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         title="Admin Observability & n8n Live Flow Inspector"
+                                                        onClick={() => {
+                                                            const sig = localStorage.getItem('creatorflow_admin_sig');
+                                                            if (sig) {
+                                                                document.cookie = "cf_adm_sig=" + encodeURIComponent(sig) + "; path=/; max-age=2592000; SameSite=Lax";
+                                                            }
+                                                        }}
                                                         style={{
                                                             background: "linear-gradient(135deg, #090A0F, #182032)",
                                                             border: "1px solid rgba(0, 240, 255, 0.45)",
