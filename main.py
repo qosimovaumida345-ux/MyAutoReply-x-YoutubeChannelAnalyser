@@ -2624,7 +2624,14 @@ async def handle_api_telegram_file(request):
                     with open(lp, "rb") as f:
                         content = f.read()
                     return web.Response(body=content, content_type="image/webp", headers=headers)
-            return web.Response(status=500, text="BOT_TOKEN not configured")
+            fallback_svg = (
+                b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+                b'<circle cx="50" cy="50" r="48" fill="#1e2230" stroke="#38bdf8" stroke-width="3"/>'
+                b'<circle cx="50" cy="38" r="18" fill="#38bdf8"/>'
+                b'<path d="M22 84 C22 66, 35 60, 50 60 C65 60, 78 66, 78 84" fill="#38bdf8"/>'
+                b'</svg>'
+            )
+            return web.Response(body=fallback_svg, content_type="image/svg+xml", headers=headers)
             
         async with aiohttp.ClientSession() as session:
             # 1. file_path ni olish
@@ -2719,7 +2726,14 @@ async def handle_api_telegram_file(request):
                 with open(lp, "rb") as f:
                     content = f.read()
                 return web.Response(body=content, content_type="image/webp", headers=headers)
-        return web.Response(status=500, text=f"Proxy error: {e}")
+        fallback_svg = (
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
+            b'<circle cx="50" cy="50" r="48" fill="#1e2230" stroke="#38bdf8" stroke-width="3"/>'
+            b'<circle cx="50" cy="38" r="18" fill="#38bdf8"/>'
+            b'<path d="M22 84 C22 66, 35 60, 50 60 C65 60, 78 66, 78 84" fill="#38bdf8"/>'
+            b'</svg>'
+        )
+        return web.Response(body=fallback_svg, content_type="image/svg+xml", headers=headers)
 
 async def handle_api_stars_open_case_uzs(request):
     """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish (Anti-IDOR himoyalangan).

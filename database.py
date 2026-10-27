@@ -6039,6 +6039,10 @@ def execute_atomic_upgrade_transaction(
         return {"ok": False, "error": "Ma'lumotlar bazasiga ulanishda xatolik!"}
     try:
         cur = conn.cursor()
+        try:
+            cur.execute("SET LOCAL statement_timeout = '3000'")
+        except Exception:
+            pass
         
         # 1. Shaxsiy inventardan sovg'ani qidirish va qulflash (Atomic FOR UPDATE)
         row = None

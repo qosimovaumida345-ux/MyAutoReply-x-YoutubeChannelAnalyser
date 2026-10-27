@@ -2208,6 +2208,8 @@
             const upgraderNeedleRef = useRef(null);
             const [isUpgrading, setIsUpgrading] = useState(false);
             const [upgradeResult, setUpgradeResult] = useState(null);
+            const [upgradeError, setUpgradeError] = useState('');
+            const lastTickTimeRef = useRef(0);
             const [upgraderInventory, setUpgraderInventory] = useState([]);
             const [upgraderMultiplier, setUpgraderMultiplier] = useState(2.0);
 
@@ -2366,19 +2368,22 @@
 
             const playTickSound = () => {
                 try {
+                    const now = performance.now();
+                    if (now - lastTickTimeRef.current < 85) return;
+                    lastTickTimeRef.current = now;
                     const ctx = getSharedAudioContext();
-                    if (!ctx) return;
+                    if (!ctx || ctx.state === 'suspended') return;
                     const osc = ctx.createOscillator();
                     const gain = ctx.createGain();
                     osc.type = "sine";
-                    osc.frequency.setValueAtTime(800, ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.04);
-                    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+                    osc.frequency.setValueAtTime(750, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(250, ctx.currentTime + 0.03);
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
                     osc.connect(gain);
                     gain.connect(ctx.destination);
                     osc.start();
-                    osc.stop(ctx.currentTime + 0.04);
+                    osc.stop(ctx.currentTime + 0.03);
                 } catch(e) {}
             };
 
@@ -2756,12 +2761,13 @@
                 }
                 if (isUpgrading) return;
                 if (!upgraderItem || !upgraderItem.id) {
-                    alert("Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling.");
+                    setUpgradeError("Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling.");
                     return;
                 }
 
                 setIsUpgrading(true);
                 setUpgradeResult(null);
+                setUpgradeError('');
 
                 const baseStars = Number(upgraderItem.prize_stars || upgraderItem.stars || 15);
                 const computedTargetStars = Math.round(baseStars * Number(upgraderMultiplier || 2.0));
@@ -2775,15 +2781,19 @@
                 let decelerationStartTime = null;
                 let startDecelAngle = null;
                 let targetLandingAngle = null;
-                const decelDuration = 3200; // 3.2s smooth deceleration
+                const decelDuration = 3000; // 3.0s smooth deceleration
+                let isCancelled = false;
 
                 if (upgraderAnimRef.current) {
                     cancelAnimationFrame(upgraderAnimRef.current);
+                    upgraderAnimRef.current = null;
                 }
 
                 playTickSound();
 
                 const spinFrame = (now) => {
+                    if (isCancelled) return;
+
                     if (!decelerationStartTime) {
                         // 1. Tezyurar aylanma (backend javobini kutayotganda 0ms kechikishsiz darhol aylanadi)
                         const elapsed = now - spinStartTime;
@@ -2808,7 +2818,9 @@
                             targetLandingAngle = currentAngle + turns + diffToFinal;
                         }
 
-                        upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+                        if (!isCancelled) {
+                            upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+                        }
                     } else {
                         // 2. Sekinlashuvchi Quintic Ease-Out (dramatik near-miss to'xtash)
                         const decelElapsed = now - decelerationStartTime;
@@ -2826,7 +2838,9 @@
                         }
 
                         if (progress < 1) {
-                            upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+                            if (!isCancelled) {
+                                upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+                            }
                         } else {
                             // To'xtadi (Landing finish)
                             if (upgraderAnimRef.current) {
@@ -2857,10 +2871,25 @@
 
                 upgraderAnimRef.current = requestAnimationFrame(spinFrame);
 
+                const abortController = new AbortController();
+                const safetyTimer = setTimeout(() => {
+                    if (!resolvedData && !isCancelled) {
+                        isCancelled = true;
+                        if (upgraderAnimRef.current) {
+                            cancelAnimationFrame(upgraderAnimRef.current);
+                            upgraderAnimRef.current = null;
+                        }
+                        try { abortController.abort(); } catch(e) {}
+                        setIsUpgrading(false);
+                        setUpgradeError("Tarmoq kutish vaqti tugadi (5.5s). Qaytadan urinib ko'ring.");
+                    }
+                }, 5500);
+
                 // Parallel backend chaqiruvi
                 fetch('/api/stars/upgrader', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    signal: abortController.signal,
                     body: JSON.stringify({
                         user_id: tgUser.id,
                         source_inventory_id: upgraderItem.id,
@@ -2875,24 +2904,31 @@
                 })
                 .then(r => r.json())
                 .then(res => {
-                    if (res.ok) {
+                    clearTimeout(safetyTimer);
+                    if (res && res.ok && res.final_angle !== undefined) {
                         resolvedData = res;
                     } else {
+                        isCancelled = true;
                         if (upgraderAnimRef.current) {
                             cancelAnimationFrame(upgraderAnimRef.current);
                             upgraderAnimRef.current = null;
                         }
                         setIsUpgrading(false);
-                        alert(res.error || "Upgrader xatosi: Inventaringizda sovg'a topilmadi!");
+                        setUpgradeError(res?.error || "Upgrader xatosi: Inventaringizda sovg'a topilmadi!");
                     }
                 })
                 .catch(err => {
+                    clearTimeout(safetyTimer);
+                    if (isCancelled) return;
+                    isCancelled = true;
                     if (upgraderAnimRef.current) {
                         cancelAnimationFrame(upgraderAnimRef.current);
                         upgraderAnimRef.current = null;
                     }
                     setIsUpgrading(false);
-                    alert("Tarmoq xatosi: " + err);
+                    if (err.name !== 'AbortError') {
+                        setUpgradeError("Tarmoq xatosi: " + (err.message || err));
+                    }
                 });
             };
 
@@ -6663,6 +6699,24 @@
                                                                     : `Strelka yashil chiziqqa juda yaqin kelib to'xtadi (${upgradeResult.final_angle}°) — omadingizni qayta sinab ko'ring!`}
                                                             </div>
                                                         )}
+
+                                                        {/* Error Alert Banner */}
+                                                        {upgradeError && (
+                                                            <div style={{
+                                                                marginTop: "16px",
+                                                                padding: "12px 20px",
+                                                                borderRadius: "14px",
+                                                                fontSize: "13px",
+                                                                fontWeight: 800,
+                                                                textAlign: "center",
+                                                                background: "rgba(239, 68, 68, 0.16)",
+                                                                color: "#f87171",
+                                                                border: "1.5px solid rgba(239, 68, 68, 0.45)",
+                                                                boxShadow: "0 8px 24px rgba(239, 68, 68, 0.2)"
+                                                            }}>
+                                                                {upgradeError}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* RIGHT COLUMN: SOURCE ITEM -> TARGET ITEM CARDS & NEON GREEN UPGRADE BUTTON */}
@@ -6957,6 +7011,7 @@
                                                                 onChange={(e) => {
                                                                     const mVal = parseFloat(e.target.value);
                                                                     setUpgradeResult(null);
+                                                                    setUpgradeError('');
                                                                     setUpgraderMultiplier(mVal);
                                                                     syncTargetForMultiplier(upgraderItem, mVal, upgraderInventory);
                                                                 }}
@@ -6978,6 +7033,7 @@
                                                                             type="button"
                                                                             onClick={() => {
                                                                                 setUpgradeResult(null);
+                                                                                setUpgradeError('');
                                                                                 setUpgraderMultiplier(m);
                                                                                 syncTargetForMultiplier(upgraderItem, m, upgraderInventory);
                                                                             }}
@@ -7035,6 +7091,7 @@
                                                                                     stars: Number(g.prize_stars || g.stars || 15)
                                                                                 };
                                                                                 setUpgradeResult(null);
+                                                                                setUpgradeError('');
                                                                                 setUpgraderItem(nextItem);
                                                                                 syncTargetForMultiplier(nextItem, upgraderMultiplier, upgraderInventory);
                                                                             }}
