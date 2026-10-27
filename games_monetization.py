@@ -2139,15 +2139,16 @@ def execute_upgrade_roll(
     target_stars = max(int(round(item_stars * 1.5)), min(int(round(item_stars * 100.0)), int(target_stars or round(item_stars * mult_val))))
     stake_uzs = 0  # Upgrader tekin (faqat inventardagi sovg'a tikiladi)
 
-    # 3. Foiz va Yashil/Qizil sektor burchagini hisoblash (1.5x -> ~62%, 2x -> ~47%, ..., 100x -> ~1%)
+    # 3. Foiz va Yashil/Qizil sektor burchagini hisoblash (2x -> 50%, 4x -> 25%, 5x -> 20%, ..., 100x -> 1%)
     nominal_odds = 1.0 / mult_val
-    calc_odds = min(0.65, max(0.01, round(nominal_odds * 0.93, 4)))
-    green_slice_deg = max(6, min(234, int(round(calc_odds * 360))))
+    calc_odds = min(0.75, max(0.01, round(nominal_odds, 4)))
+    green_slice_deg = max(6, min(270, int(round(calc_odds * 360))))
 
-    # 4. Qat'iy ketma-ketlik qoidasi:
-    # Foydalanuvchi 1-marta boshida YUTADI (plays == 0), keyingi urinishlarida YUTQAZADI (plays >= 1)
+    # 4. Qat'iy ketma-ketlik qoidasi (Past yutish foizi: 5 marta yutqazib, 1 marta yutadi):
+    # Urinishlar 0, 1, 2, 3, 4 -> YUTQAZADI (strelka yashilga juda yaqin keladi lekin kirmaydi — near-miss)
+    # Urinish 5 (har 6-urinish) -> YUTADI (strelka yashil sektorga tushadi)
     plays_before = get_user_upgrader_plays(user_id)
-    if plays_before == 0:
+    if (plays_before % 6) == 5:
         won = True
     else:
         won = False
@@ -2155,15 +2156,19 @@ def execute_upgrade_roll(
 
     if won:
         # Yashil sektor ichiga aniq tushadi (0 .. green_slice_deg)
-        margin = max(2, min(6, green_slice_deg // 5))
+        margin = max(2, min(8, green_slice_deg // 5))
         low_deg = min(margin, max(1, green_slice_deg - 1))
         high_deg = max(low_deg, green_slice_deg - margin)
         final_angle = random.randint(low_deg, high_deg)
     else:
-        # Qizil sektorga aniq tushadi (green_slice_deg .. 360)
-        low_red = min(354, green_slice_deg + 8)
-        high_red = max(low_red, 352)
-        final_angle = random.randint(low_red, high_red)
+        # Near-miss: strelka yashil sektorga juda yaqinlashadi, ammo kirmaydi!
+        # Yoki 360° (0° yashil boshlanish chizig'i) ga 2°..7° qolganda qizilda to'xtaydi (353°..358°),
+        # yoki yashil sektor tugagan chiziqdan 2°..7° o'tib qizilda to'xtaydi (green_slice_deg + 2 .. green_slice_deg + 7)
+        if plays_before % 2 == 0:
+            final_angle = random.randint(353, 358)
+        else:
+            near_after = min(352, green_slice_deg + random.randint(2, 7))
+            final_angle = max(green_slice_deg + 2, near_after)
 
     # 5. Inventarda sovg'ani almashtirish (yutsa yangi sovg'a tushadi, yutqazsa kuyadi)
     resolved_target_gift_id = str(target_slug or target_inventory_id or target_icon or "gift").strip()

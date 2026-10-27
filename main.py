@@ -2458,6 +2458,102 @@ _GIFT_ID_TO_LOCAL_WEBP = {
     "5170521118301225164": "diamond_ring.webp",
 }
 
+_LOCAL_LOTTIE_KEY_MAP = {
+    # Numeric Telegram Gift IDs
+    "5170145012310081615": "heart-box",
+    "5170233102089322756": "teddy-bear",
+    "5170250947678437525": "gift-box",
+    "5168103777563050263": "red-rose",
+    "5170144170496491616": "delicious-cake",
+    "5170314324215857265": "bouquet-flowers",
+    "5170564780938756245": "space-rocket",
+    "6028601630662853006": "champagne-bottle",
+    "5168043875654172773": "golden-trophy",
+    "5170690322832818290": "diamond-ring",
+    "5170521118301225164": "blue-diamond",
+    # Canonical Slugs & Aliases
+    "heart-box": "heart-box",
+    "red-heart": "heart-box",
+    "teddy-bear": "teddy-bear",
+    "gift-box": "gift-box",
+    "green-star": "gift-box",
+    "red-rose": "red-rose",
+    "delicious-cake": "delicious-cake",
+    "birthday-cake": "delicious-cake",
+    "bouquet-flowers": "bouquet-flowers",
+    "space-rocket": "space-rocket",
+    "champagne-bottle": "champagne-bottle",
+    "golden-trophy": "golden-trophy",
+    "star-trophy": "golden-trophy",
+    "diamond-ring": "diamond-ring",
+    "blue-diamond": "blue-diamond",
+    # Telegram file_id strings (both bots / environments)
+    "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ": "heart-box",
+    "CAACAgIAAxUAAWrgfG5D8b9uP4T6jX-N7aLmKRVhAAJ8GwACkoTYS_itxFzPIpm1PQQ": "heart-box",
+    "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ": "teddy-bear",
+    "CAACAgIAAxUAAWrgfG7ba9v2H5mE3cR8wLpXyKZaAAKtVAACmj_pSnvPkDQv_sivPQQ": "teddy-bear",
+    "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ": "gift-box",
+    "CAACAgIAAxUAAWrgfG7_wG9nK2xL5vM8pQrTyWZcAAKNSAACsU84SMuB4ge7V_wGPQQ": "gift-box",
+    "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ": "red-rose",
+    "CAACAgIAAxUAAWrgfG7pQ9xK4mN7vL2wYrTzXZa9AAJxGQAC1P-BS9CYmaAv74KEPQQ": "red-rose",
+    "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E": "delicious-cake",
+    "CAACAgIAAxUAAWrgfG5990QACgRgAApWfiUpqxk-ZAWRQxj0E": "delicious-cake",
+    "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E": "bouquet-flowers",
+    "CAACAgIAAxUAAWrgfG7xVU45QAC3iUAAkUg4ErI5hOgFM9DXj0E": "bouquet-flowers",
+    "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ": "space-rocket",
+    "CAACAgIAAxUAAWrgfG7cFzHFAALLGwAC14mRSzvrMNfF90DPPQQ": "space-rocket",
+    "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ": "champagne-bottle",
+    "CAACAgIAAxUAAWrgfG5KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ": "champagne-bottle",
+    "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ": "golden-trophy",
+    "CAACAgIAAxUAAWrgfG7ii_xcAAKZGwACzagQS38R6izkF899PQQ": "golden-trophy",
+    "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ": "diamond-ring",
+    "CAACAgIAAxUAAWrgfG7dly-gAALoTwACJx74Ss1NNn7ovmiePQQ": "diamond-ring",
+    "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ": "blue-diamond",
+    "CAACAgIAAxUAAWrgfG5024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ": "blue-diamond",
+}
+
+def _get_local_gift_lottie_bytes(identifier: str):
+    """Mahalliy nft_assets/gifts_lottie/ papkasidan rasmiy Telegram .tgs (decompressed Lottie JSON) ni o'qiydi."""
+    if not identifier:
+        return None
+    import os
+    clean_id = str(identifier).strip()
+    slug_key = _LOCAL_LOTTIE_KEY_MAP.get(clean_id) or _LOCAL_LOTTIE_KEY_MAP.get(clean_id.lower())
+    if not slug_key:
+        # Check prefix/suffix match for CAACAg file_ids whose unique tail matches known stickers
+        tail_map = {
+            "koTYS_itxFzPIpm1PQQ": "heart-box",
+            "mj_pSnvPkDQv_sivPQQ": "teddy-bear",
+            "sU84SMuB4ge7V_wGPQQ": "gift-box",
+            "1P-BS9CYmaAv74KEPQQ": "red-rose",
+            "pWfiUpqxk-ZAWRQxj0E": "delicious-cake",
+            "kUg4ErI5hOgFM9DXj0E": "bouquet-flowers",
+            "14mRSzvrMNfF90DPPQQ": "space-rocket",
+            "y0WJSqKYQ7cuIwaJPQQ": "champagne-bottle",
+            "zagQS38R6izkF899PQQ": "golden-trophy",
+            "Jx74Ss1NNn7ovmiePQQ": "diamond-ring",
+            "QEjwS6XKX-OK2k1MPQQ": "blue-diamond",
+        }
+        for tail, mapped_slug in tail_map.items():
+            if clean_id.endswith(tail):
+                slug_key = mapped_slug
+                break
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = []
+    if slug_key:
+        candidates.append(os.path.join(base_dir, "nft_assets", "gifts_lottie", f"{slug_key}.json"))
+    candidates.append(os.path.join(base_dir, "nft_assets", "gifts_lottie", f"{clean_id}.json"))
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "rb") as f:
+                    data = f.read()
+                if data and len(data) > 200:
+                    return data
+            except Exception:
+                pass
+    return None
+
 async def handle_api_telegram_file(request):
     """Telegramdan file_id orqali faylni (TGS/WEBM/PNG/JPG) yuklab, frontendga uzatuvchi proxy API (RAM LRU kesh va Zero-404 fallback bilan)"""
     file_id = request.match_info.get("file_id", "").strip()
@@ -2475,6 +2571,7 @@ async def handle_api_telegram_file(request):
     is_gift = (
         file_id in _GIFT_ID_TO_FILE_ID
         or file_id in _GIFT_ID_TO_LOCAL_WEBP
+        or file_id in _LOCAL_LOTTIE_KEY_MAP
         or actual_file_id in _GIFT_ID_TO_FILE_ID.values()
         or file_id.startswith("CAAC")
     )
@@ -2483,6 +2580,16 @@ async def handle_api_telegram_file(request):
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=604800, immutable" if is_gift else "public, max-age=3600, stale-while-revalidate=86400"
     }
+
+    # 0. Mahalliy rasmiy Telegram Lottie (.tgs -> JSON) fayllaridan tezkor uzatish (Render va har qanday BOT_TOKEN da 100% ishlaydi)
+    local_lottie = _get_local_gift_lottie_bytes(file_id) or _get_local_gift_lottie_bytes(actual_file_id)
+    if local_lottie:
+        _TELEGRAM_FILE_CACHE[file_id] = (local_lottie, "application/json", now)
+        return web.Response(
+            body=local_lottie,
+            content_type="application/json",
+            headers=headers
+        )
 
     # 1. RAM keshdan tekshirish
     cached = _TELEGRAM_FILE_CACHE.get(file_id)
@@ -2787,52 +2894,62 @@ async def handle_api_stars_user_inventory(request):
 
         STANDARD_GIFT_MEDIA = {
             "cake": {
-                "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+                "file_id": "5170144170496491616",
                 "slug": "delicious-cake",
                 "image_url": "/api/nft/image/delicious_cake.webp",
             },
             "star": {
-                "file_id": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
-                "slug": "green-star",
+                "file_id": "5170250947678437525",
+                "slug": "gift-box",
+                "image_url": "/api/nft/image/gift_star.webp",
+            },
+            "heart": {
+                "file_id": "5170145012310081615",
+                "slug": "heart-box",
                 "image_url": "/api/nft/image/gift_star.webp",
             },
             "teddy": {
-                "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",
+                "file_id": "5170233102089322756",
                 "slug": "teddy-bear",
                 "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
             },
             "bouquet": {
-                "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
+                "file_id": "5170314324215857265",
                 "slug": "bouquet-flowers",
                 "image_url": "/api/nft/image/gift_bouquet.webp",
             },
             "champagne": {
-                "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
+                "file_id": "6028601630662853006",
                 "slug": "champagne-bottle",
                 "image_url": "/api/nft/image/champagne_bottle.webp",
             },
             "diamond_ring": {
-                "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
+                "file_id": "5170690322832818290",
                 "slug": "diamond-ring",
                 "image_url": "/api/nft/image/diamond_ring.webp",
             },
+            "blue_diamond": {
+                "file_id": "5170521118301225164",
+                "slug": "blue-diamond",
+                "image_url": "/api/nft/image/diamond_ring.webp",
+            },
             "trophy": {
-                "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+                "file_id": "5168043875654172773",
                 "slug": "golden-trophy",
                 "image_url": "/api/nft/image/star_trophy.webp",
             },
             "rocket": {
-                "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
+                "file_id": "5170564780938756245",
                 "slug": "space-rocket",
                 "image_url": "/api/nft/image/gift_rocket.webp",
             },
             "rose": {
-                "file_id": "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ",
+                "file_id": "5168103777563050263",
                 "slug": "red-rose",
                 "image_url": "/api/nft/image/gift_bouquet.webp",
             },
             "package": {
-                "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ",
+                "file_id": "5170250947678437525",
                 "slug": "gift-box",
                 "image_url": "/api/nft/image/delicious_cake.webp",
             },
@@ -2865,13 +2982,19 @@ async def handle_api_stars_user_inventory(request):
             raw_gid = str(g.get("gift_id") or "").strip()
             p_lower = p_name.lower()
 
+            if p_lower == "green star":
+                p_name = "Gift Box"
+                p_lower = "gift box"
+
             icon = "package"
             if "cake" in p_lower: icon = "cake"
+            elif "heart" in p_lower: icon = "heart"
             elif "star" in p_lower: icon = "star"
             elif "teddy" in p_lower or "bear" in p_lower: icon = "teddy"
             elif "bouquet" in p_lower or "flower" in p_lower: icon = "bouquet"
             elif "rose" in p_lower: icon = "rose"
             elif "champagne" in p_lower: icon = "champagne"
+            elif "blue diamond" in p_lower: icon = "blue_diamond"
             elif "ring" in p_lower or "diamond" in p_lower: icon = "diamond_ring"
             elif "trophy" in p_lower: icon = "trophy"
             elif "rocket" in p_lower: icon = "rocket"
@@ -2927,27 +3050,24 @@ async def handle_api_stars_user_inventory(request):
                 if "telegram sovg" in p_lower or p_name == "Telegram Gift":
                     distinct_gifts = [
                         ("Delicious Cake", "cake", 15),
-                        ("Green Star", "star", 25),
+                        ("Gift Box", "package", 25),
                         ("Teddy Bear", "teddy", 50),
                         ("Bouquet of Flowers", "bouquet", 50),
+                        ("Red Rose", "rose", 25),
+                        ("Champagne Bottle", "champagne", 50),
                     ]
                     chosen = distinct_gifts[g_idx % len(distinct_gifts)]
                     p_name, icon, stars = chosen[0], chosen[1], chosen[2]
 
-                if raw_gid in _GIFT_ID_TO_FILE_ID:
-                    resolved_file_id = _GIFT_ID_TO_FILE_ID[raw_gid]
-
                 std_meta = STANDARD_GIFT_MEDIA.get(icon, STANDARD_GIFT_MEDIA["cake"])
-                if not resolved_file_id:
-                    resolved_file_id = std_meta["file_id"]
-                if not resolved_slug:
-                    resolved_slug = std_meta["slug"]
+                resolved_file_id = std_meta["file_id"]
+                resolved_slug = std_meta["slug"]
                 if not image_url:
                     image_url = std_meta["image_url"]
 
             formatted.append({
                 "id": g.get("id"),
-                "gift_id": raw_gid or resolved_slug,
+                "gift_id": resolved_file_id or raw_gid or resolved_slug,
                 "prize_name": p_name,
                 "prize_stars": stars,
                 "rarity": rarity,
@@ -2980,7 +3100,8 @@ _STANDARD_GIFT_SLUGS_TO_FILE_ID = {
     "diamond-ring": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
     "space-rocket": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
     "blue-diamond": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",
-    "green-star": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
+    "heart-box": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
+    "green-star": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ",
     "red-heart": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
     "teddy-bear": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",
     "gift-box": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ",
@@ -3003,6 +3124,16 @@ async def handle_api_nft_animation(request):
         "Access-Control-Allow-Origin": "*",
         "Cache-Control": "public, max-age=604800, immutable"
     }
+
+    # 0. Mahalliy rasmiy Telegram Lottie (.tgs -> JSON) fayllaridan tezkor uzatish
+    local_lottie = _get_local_gift_lottie_bytes(slug)
+    if local_lottie:
+        _NFT_ANIMATION_CACHE[slug] = local_lottie
+        return web.Response(
+            body=local_lottie,
+            content_type="application/json",
+            headers=headers
+        )
 
     if slug in _NFT_ANIMATION_CACHE:
         return web.Response(
@@ -3086,32 +3217,38 @@ async def handle_api_stars_upgrader_inventory(request):
         # 1. Asosiy barcha multiplikator diapazonlarini qamrab oluvchi rasmiy katalog (har biri haqiqiy .tgs animatsiyaga ega)
         base_catalog = [
             {
-                "id": "5170145012310081615", "stars": 15, "name": "Green Star", "icon": "star",
-                "file_id": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
-                "slug": "green-star", "file_type": "tgs", "image_url": "/api/nft/image/gift_star.webp",
-                "is_nft": False, "rarity": "common"
-            },
-            {
-                "id": "5170233102089322756", "stars": 25, "name": "Teddy Bear", "icon": "teddy",
-                "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",
+                "id": "5170233102089322756", "stars": 15, "name": "Teddy Bear", "icon": "teddy",
+                "file_id": "5170233102089322756",
                 "slug": "teddy-bear", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
                 "is_nft": False, "rarity": "common"
             },
             {
+                "id": "5170145012310081615", "stars": 15, "name": "Heart Box", "icon": "heart",
+                "file_id": "5170145012310081615",
+                "slug": "heart-box", "file_type": "tgs", "image_url": "/api/nft/image/gift_star.webp",
+                "is_nft": False, "rarity": "common"
+            },
+            {
+                "id": "5170250947678437525", "stars": 25, "name": "Gift Box", "icon": "package",
+                "file_id": "5170250947678437525",
+                "slug": "gift-box", "file_type": "tgs", "image_url": "/api/nft/image/delicious_cake.webp",
+                "is_nft": False, "rarity": "common"
+            },
+            {
                 "id": "5168103777563050263", "stars": 35, "name": "Red Rose", "icon": "rose",
-                "file_id": "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ",
+                "file_id": "5168103777563050263",
                 "slug": "red-rose", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp",
                 "is_nft": False, "rarity": "common"
             },
             {
                 "id": "5170144170496491616", "stars": 50, "name": "Delicious Cake", "icon": "cake",
-                "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+                "file_id": "5170144170496491616",
                 "slug": "delicious-cake", "file_type": "tgs", "image_url": "/api/nft/image/delicious_cake.webp",
                 "is_nft": False, "rarity": "common"
             },
             {
                 "id": "5170314324215857265", "stars": 75, "name": "Bouquet of Flowers", "icon": "bouquet",
-                "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
+                "file_id": "5170314324215857265",
                 "slug": "bouquet-flowers", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp",
                 "is_nft": False, "rarity": "rare"
             },

@@ -1003,8 +1003,9 @@
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
         const TelegramGiftMedia = ({ fileId, fileType, imageUrl, videoUrl, icon, name = "", size = "80px", style = {}, slug = "", isHovered = false, hoverOnly = false }) => {
+            const [fileError, setFileError] = React.useState(false);
+            const [slugError, setSlugError] = React.useState(false);
             const [hasError, setHasError] = React.useState(false);
-            const [lottieLoaded, setLottieLoaded] = React.useState(false);
             const sz = typeof size === 'number' ? `${size}px` : size;
             const mergedStyle = { 
                 width: sz, 
@@ -1019,8 +1020,9 @@
             };
 
             React.useEffect(() => {
+                setFileError(false);
+                setSlugError(false);
                 setHasError(false);
-                setLottieLoaded(false);
             }, [fileId, slug, imageUrl]);
 
             const isPremiumItem = Boolean(
@@ -1030,7 +1032,7 @@
             );
 
             // 1. Official Telegram Animated Sticker (/api/telegram-file/{file_id})
-            if (fileId && !isPremiumItem && !hasError) {
+            if (fileId && !isPremiumItem && !fileError) {
                 const src = `/api/telegram-file/${fileId}`;
 
                 if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
@@ -1043,7 +1045,7 @@
                             playsInline 
                             preload="metadata" 
                             style={mergedStyle} 
-                            onError={() => setHasError(true)}
+                            onError={() => setFileError(true)}
                         />
                     );
                 }
@@ -1051,22 +1053,12 @@
                 if (fileType !== "webp" && fileType !== "png" && fileType !== "jpg" && fileType !== "image") {
                     return (
                         <div style={{ position: "relative", width: sz, height: sz, margin: "0 auto" }}>
-                            {imageUrl && !lottieLoaded && (
-                                <img
-                                    src={imageUrl}
-                                    style={{ ...mergedStyle, position: "absolute", inset: 0 }}
-                                    alt={name || "Gift"}
-                                    loading="lazy"
-                                />
-                            )}
                             <lottie-player 
                                 key={`tg-lottie-${fileId}`}
                                 ref={el => {
                                     if (el && !el._errBound) {
                                         el._errBound = true;
-                                        el.addEventListener('error', () => setHasError(true));
-                                        el.addEventListener('load', () => setLottieLoaded(true));
-                                        el.addEventListener('ready', () => setLottieLoaded(true));
+                                        el.addEventListener('error', () => setFileError(true));
                                     }
                                 }}
                                 src={src} 
@@ -1083,25 +1075,15 @@
             }
 
             // 2. Live 60fps Lottie Vector Animation for Fragment Collectibles & Standard Gifts with slug
-            if (slug && !isPremiumItem && (!hoverOnly || isHovered) && !hasError) {
+            if (slug && !isPremiumItem && (!hoverOnly || isHovered) && !slugError) {
                 return (
                     <div style={{ position: "relative", width: sz, height: sz, margin: "0 auto" }}>
-                        {imageUrl && !lottieLoaded && (
-                            <img 
-                                src={imageUrl || `/api/nft/fragment-image/${slug}`} 
-                                style={{ ...mergedStyle, position: "absolute", inset: 0 }} 
-                                alt={name || "Gift"} 
-                                loading="lazy" 
-                            />
-                        )}
                         <lottie-player 
                             key={`nft-lottie-${slug}`}
                             ref={el => {
                                 if (el && !el._errBound) {
                                     el._errBound = true;
-                                    el.addEventListener('error', () => setHasError(true));
-                                    el.addEventListener('load', () => setLottieLoaded(true));
-                                    el.addEventListener('ready', () => setLottieLoaded(true));
+                                    el.addEventListener('error', () => setSlugError(true));
                                 }
                             }}
                             src={`/api/nft/animation/${slug}`} 
@@ -2795,7 +2777,7 @@
                     if (res.ok) {
                         const clearWheelTicks = scheduleWheelDeceleratingTicks(3800);
                         const spins = 1800; // 5 full turns
-                        const currentBase = Math.floor(upgraderAngle / 360) * 360;
+                        const currentBase = Math.floor(upgraderAngle / 360) * 360 + 360;
                         const targetAngle = currentBase + spins + res.final_angle;
                         setUpgraderAngle(targetAngle);
 
@@ -5101,143 +5083,15 @@
                                         <div>
                                             <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(115, 66, 226, 0.08)", color: "#7342E2", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, marginBottom: "8px" }}>
                                                 <SvgZap size={13} color="#7342E2" />
-                                                <span>YouTube Studio • Hold Preview & Avto-Yuklash (Auto-Post)</span>
+                                                <span>YouTube Studio • Hold Preview & Yuklab Olish</span>
                                             </div>
                                             <h2 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", color: "#18181b", marginBottom: "6px" }}>
-                                                YouTube Video Qidiruv, Preview & Auto-Post
+                                                YouTube Video Qidiruv & Yuklab Olish
                                             </h2>
                                             <p style={{ color: "#71717a", fontSize: "14px" }}>
-                                                Istalgan video ustiga <strong>bosib turing (Hold)</strong> — jonli preview ko'rish uchun, yuklab oling yoki 1-bosishda kanalingizga <strong>Auto-Post</strong> qiling!
+                                                Istalgan video ustiga <strong>bosib turing (Hold)</strong> — jonli preview ko'rish uchun, yuklab oling yoki <strong>Auto-Post</strong> tugmasi orqali kanalingizga yuboring!
                                             </p>
                                         </div>
-                                        {selectedAutoPostIds.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleCreateAutoPost({ videoIds: selectedAutoPostIds })}
-                                                disabled={autoPostSubmitting}
-                                                style={{
-                                                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                                                    color: "#ffffff",
-                                                    border: "none",
-                                                    padding: "12px 22px",
-                                                    borderRadius: "14px",
-                                                    fontWeight: 800,
-                                                    fontSize: "13px",
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px",
-                                                    boxShadow: "0 8px 20px rgba(16, 185, 129, 0.28)"
-                                                }}
-                                            >
-                                                <SvgZap size={16} color="#ffffff" />
-                                                <span>{autoPostSubmitting ? "Yuborilmoqda..." : `Tanlanganlarni Auto-Post Qilish (${selectedAutoPostIds.length} ta)`}</span>
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Auto-Post Control Panel */}
-                                    <div style={{
-                                        background: "linear-gradient(135deg, #18181b 0%, #09090b 100%)",
-                                        border: "1px solid rgba(255,255,255,0.08)",
-                                        borderRadius: "22px",
-                                        padding: "22px 24px",
-                                        marginBottom: "24px",
-                                        color: "#ffffff",
-                                        boxShadow: "0 12px 32px rgba(0,0,0,0.12)"
-                                    }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "14px" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(115, 66, 226, 0.25)", border: "1px solid rgba(115, 66, 226, 0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                    <SvgZap size={18} color="#a78bfa" />
-                                                </div>
-                                                <div>
-                                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#ffffff" }}>YouTube Shorts Avtomatik Yuklash (Auto-Post)</div>
-                                                    <div style={{ fontSize: "12px", color: "#a1a1aa" }}>Mavzu bo'yicha avtomatik qidirib kanalingizga yuklash yoki quyidagi videolardan tanlab yuborish</div>
-                                                </div>
-                                            </div>
-                                            {autoPostTasks.length > 0 && (
-                                                <div style={{ fontSize: "12px", fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", padding: "5px 12px", borderRadius: "999px" }}>
-                                                    Faol vazifalar: {autoPostTasks.length} ta
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                                            <input
-                                                type="text"
-                                                value={autoPostTopic}
-                                                onChange={(e) => setAutoPostTopic(e.target.value)}
-                                                placeholder="Auto-Post mavzusi (masalan: 'luxury cars shorts', 'funny cats', 'minecraft')..."
-                                                style={{
-                                                    flex: "1 1 280px",
-                                                    padding: "12px 16px",
-                                                    borderRadius: "12px",
-                                                    border: "1px solid rgba(255,255,255,0.14)",
-                                                    background: "rgba(255,255,255,0.06)",
-                                                    color: "#ffffff",
-                                                    fontSize: "13px",
-                                                    outline: "none"
-                                                }}
-                                            />
-                                            <select
-                                                value={autoPostCount}
-                                                onChange={(e) => setAutoPostCount(Number(e.target.value))}
-                                                style={{
-                                                    padding: "12px 14px",
-                                                    borderRadius: "12px",
-                                                    border: "1px solid rgba(255,255,255,0.14)",
-                                                    background: "#18181b",
-                                                    color: "#ffffff",
-                                                    fontSize: "13px",
-                                                    fontWeight: 700,
-                                                    outline: "none",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                <option value={1}>1 ta video</option>
-                                                <option value={2}>2 ta video</option>
-                                                <option value={3}>3 ta video</option>
-                                                <option value={5}>5 ta video</option>
-                                            </select>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleCreateAutoPost({ topic: autoPostTopic || feedQuery, count: autoPostCount })}
-                                                disabled={autoPostSubmitting}
-                                                style={{
-                                                    background: "#7342E2",
-                                                    color: "#ffffff",
-                                                    border: "none",
-                                                    padding: "12px 22px",
-                                                    borderRadius: "12px",
-                                                    fontWeight: 800,
-                                                    fontSize: "13px",
-                                                    cursor: "pointer",
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    gap: "8px"
-                                                }}
-                                            >
-                                                <SvgZap size={15} color="#ffffff" />
-                                                <span>{autoPostSubmitting ? "Ishga tushmoqda..." : "Auto-Post Boshlash"}</span>
-                                            </button>
-                                        </div>
-
-                                        {autoPostTasks.length > 0 && (
-                                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                                                {autoPostTasks.slice(0, 4).map((tk, tIdx) => (
-                                                    <div key={tIdx} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "6px 12px", fontSize: "11px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                                        <span style={{ fontWeight: 700, color: "#a78bfa" }}>#{tk.id}</span>
-                                                        <span style={{ color: "#e4e4e7", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                            {String(tk.search_query || "").replace("__IDS__:", "Tanlangan: ")}
-                                                        </span>
-                                                        <span style={{ fontWeight: 800, color: tk.status === 'completed' ? "#10b981" : (tk.status === 'failed' ? "#ef4444" : "#fbbf24") }}>
-                                                            {tk.completed_count || 0}/{tk.total_count || 1} ({tk.status})
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
 
                                     {/* Search Bar */}
@@ -5321,13 +5175,12 @@
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(275px, 1fr))", gap: "20px" }}>
                                             {feedVideos.map((v, idx) => {
                                                 const isHoldingThis = (holdingVideoId === v.id);
-                                                const isSelectedForAuto = selectedAutoPostIds.includes(v.id);
                                                 return (
                                                     <div
                                                         key={idx}
                                                         style={{
                                                             background: "#ffffff",
-                                                            border: isSelectedForAuto ? "2px solid #10b981" : (isHoldingThis ? "2px solid #7342E2" : "1px solid #e4e4e7"),
+                                                            border: isHoldingThis ? "2px solid #7342E2" : "1px solid #e4e4e7",
                                                             borderRadius: "18px",
                                                             overflow: "hidden",
                                                             display: "flex",
@@ -5389,32 +5242,6 @@
                                                                     </div>
                                                                 </>
                                                             )}
-
-                                                            {/* Checkbox for Batch Auto-Post */}
-                                                            <button
-                                                                type="button"
-                                                                onMouseDown={(e) => e.stopPropagation()}
-                                                                onClick={(e) => { e.stopPropagation(); toggleSelectAutoPostVideo(v.id); }}
-                                                                title="Auto-Post uchun tanlash"
-                                                                style={{
-                                                                    position: "absolute",
-                                                                    top: "8px",
-                                                                    right: "8px",
-                                                                    width: "26px",
-                                                                    height: "26px",
-                                                                    borderRadius: "8px",
-                                                                    background: isSelectedForAuto ? "#10b981" : "rgba(0,0,0,0.7)",
-                                                                    border: "1.5px solid #ffffff",
-                                                                    color: "#ffffff",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center",
-                                                                    cursor: "pointer",
-                                                                    zIndex: 4
-                                                                }}
-                                                            >
-                                                                {isSelectedForAuto ? <SvgCheck size={14} color="#ffffff" /> : null}
-                                                            </button>
 
                                                             {v.duration && !isHoldingThis && (
                                                                 <span style={{ position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.8)", color: "#ffffff", fontSize: "11px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px" }}>
@@ -6400,313 +6227,85 @@
                                 )}
 
                                 {/* ==================== SUB-TAB 3: CONTROLLED UPGRADER ==================== */}
-                                {starsSubTab === 'upgrader' && (
-                                    <div className="tab-content-enter" style={{ maxWidth: "980px", margin: "0 auto" }}>
-                                        <div style={{
-                                            background: "#ffffff",
-                                            border: "1px solid var(--border-soft)",
-                                            borderRadius: "32px",
-                                            padding: "36px 28px",
-                                            boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
-                                            textAlign: "center"
-                                        }}>
-                                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(16, 185, 129, 0.1)", padding: "5px 14px", borderRadius: "999px", color: "#059669", fontSize: "12px", fontWeight: 800, marginBottom: "12px" }}>
-                                                <SvgZap size={14} color="#059669" />
-                                                <span>SHAXSIY INVENTAR UPGRADER • 0 SO'M TO'LOV (TEKIN)</span>
-                                            </div>
-                                            <h3 style={{ fontSize: "26px", fontWeight: 800, color: "var(--text)", marginBottom: "6px" }}>
-                                                Nazoratli Gift & NFT Upgrader (1.5x — 100x)
-                                            </h3>
-                                            <p style={{ color: "var(--muted)", fontSize: "14px", maxWidth: "640px", margin: "0 auto 24px" }}>
-                                                Keyslardan yutib olgan shaxsiy inventaringizdagi sovg'ani tanlang, <strong>1.5x dan 100x gacha</strong> ko'paytiruvchini suring va o'zingiz xohlagan yuqori darajali Gift yoki Fragment NFT ga bepul upgrade qiling!
-                                            </p>
+                                {starsSubTab === 'upgrader' && (() => {
+                                    const multNum = Math.max(1.5, Number(upgraderMultiplier || 2.0));
+                                    const winChanceRatio = Math.min(0.75, Math.max(0.01, 1.0 / multNum));
+                                    const winPercentDisplay = Number((winChanceRatio * 100).toFixed(1));
+                                    const greenSlice = upgradeResult?.green_slice_deg || Math.max(4, Math.min(270, Math.round(winChanceRatio * 360)));
+                                    const screwAngles = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+                                    const tickAngles = Array.from({ length: 60 }, (_, i) => i * 6);
+                                    const sourceStars = Number(upgraderItem?.prize_stars || upgraderItem?.stars || 15);
+                                    const targetStars = Math.round(sourceStars * multNum);
 
-                                            {/* Top 2-Column Inventory & Target Selector */}
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", marginBottom: "28px", textAlign: "left" }}>
-                                                {/* LEFT PANEL: User's Personal Inventory Items */}
-                                                <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "24px", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                                                    <div>
-                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                                                            <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                                                                1. Sizning Inventaringiz ({userGifts.length} ta)
-                                                            </span>
-                                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "3px 10px", borderRadius: "999px" }}>
-                                                                Bepul Tikish
-                                                            </span>
-                                                        </div>
-
-                                                        {upgraderItem ? (
-                                                            <div style={{ display: "flex", alignItems: "center", gap: "14px", background: "#ffffff", border: "2px solid #7342E2", borderRadius: "18px", padding: "14px", marginBottom: "14px", boxShadow: "0 4px 14px rgba(115,66,226,0.1)" }}>
-                                                                <div style={{ width: "64px", height: "64px", borderRadius: "14px", background: upgraderItem.backdrop || "linear-gradient(145deg, #18181b 0%, #09090b 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: "4px" }}>
-                                                                    <TelegramGiftMedia
-                                                                        fileId={upgraderItem.file_id}
-                                                                        fileType={upgraderItem.file_type || "tgs"}
-                                                                        slug={upgraderItem.slug}
-                                                                        imageUrl={upgraderItem.image_url}
-                                                                        icon={upgraderItem.icon || "cake"}
-                                                                        name={upgraderItem.name || upgraderItem.prize_name}
-                                                                        size={54}
-                                                                    />
-                                                                </div>
-                                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#7342E2", textTransform: "uppercase" }}>Tanlangan Sovg'a</div>
-                                                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                                        {upgraderItem.name || upgraderItem.prize_name}
-                                                                    </div>
-                                                                    <div style={{ fontSize: "13px", fontWeight: 800, color: "#eab308", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                                                                        <span>{upgraderItem.prize_stars || upgraderItem.stars || 15} Stars</span>
-                                                                        <SvgStar size={13} color="#eab308" />
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <div style={{ background: "#ffffff", border: "1px dashed #d4d4d8", borderRadius: "18px", padding: "24px 16px", textAlign: "center", marginBottom: "14px" }}>
-                                                                <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", marginBottom: "4px" }}>Inventaringiz bo'sh</div>
-                                                                <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "12px" }}>Upgrader'da o'ynash uchun avval Keys (Case) ochib sovg'a yutib oling!</div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setStarsSubTab('cases')}
-                                                                    style={{ background: "#7342E2", color: "#ffffff", border: "none", padding: "8px 18px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
-                                                                >
-                                                                    Keys Ochishga O'tish
-                                                                </button>
-                                                            </div>
-                                                        )}
-
-                                                        {userGifts.length > 0 && (
-                                                            <div>
-                                                                <div style={{ fontSize: "11px", fontWeight: 700, color: "#71717a", marginBottom: "8px" }}>
-                                                                    Inventaringizdan sovg'ani tanlang:
-                                                                </div>
-                                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(82px, 1fr))", gap: "8px", maxHeight: "175px", overflowY: "auto", paddingRight: "4px" }}>
-                                                                    {userGifts.map((g, idx) => {
-                                                                        const isSel = (upgraderItem && upgraderItem.id === g.id);
-                                                                        return (
-                                                                            <button
-                                                                                key={g.id || idx}
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const nextItem = {
-                                                                                        ...g,
-                                                                                        name: g.prize_name || g.name,
-                                                                                        stars: Number(g.prize_stars || g.stars || 15)
-                                                                                    };
-                                                                                    setUpgraderItem(nextItem);
-                                                                                    syncTargetForMultiplier(nextItem, upgraderMultiplier, upgraderInventory);
-                                                                                }}
-                                                                                style={{
-                                                                                    background: isSel ? "rgba(115,66,226,0.1)" : "#ffffff",
-                                                                                    border: isSel ? "2px solid #7342E2" : "1px solid #e4e4e7",
-                                                                                    borderRadius: "14px",
-                                                                                    padding: "8px 6px",
-                                                                                    cursor: "pointer",
-                                                                                    textAlign: "center",
-                                                                                    transition: "all 0.15s ease"
-                                                                                }}
-                                                                            >
-                                                                                <div style={{ height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                                                    <TelegramGiftMedia
-                                                                                        fileId={g.file_id}
-                                                                                        fileType={g.file_type || "tgs"}
-                                                                                        slug={g.slug}
-                                                                                        imageUrl={g.image_url}
-                                                                                        icon={g.icon}
-                                                                                        name={g.prize_name}
-                                                                                        size={38}
-                                                                                    />
-                                                                                </div>
-                                                                                <div style={{ fontSize: "10px", fontWeight: 700, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "4px" }}>
-                                                                                    {g.prize_name}
-                                                                                </div>
-                                                                                <div style={{ fontSize: "10px", fontWeight: 800, color: "#eab308" }}>
-                                                                                    {g.prize_stars} ★
-                                                                                </div>
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* RIGHT PANEL: Real-Time Target Gift / NFT Selection */}
-                                                <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "24px", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                                                    <div>
-                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                                                            <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                                                                2. Yutiladigan Maqsad ({upgraderMultiplier}x)
-                                                            </span>
-                                                            <span style={{ fontSize: "11px", fontWeight: 800, color: "#7342E2", background: "rgba(115,66,226,0.1)", padding: "3px 10px", borderRadius: "999px" }}>
-                                                                ≈ {Math.round((upgraderItem?.stars || 15) * upgraderMultiplier).toLocaleString()} Stars
-                                                            </span>
-                                                        </div>
-
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px", background: "#ffffff", border: "2px solid #10b981", borderRadius: "18px", padding: "14px", marginBottom: "14px", boxShadow: "0 4px 14px rgba(16,185,129,0.12)" }}>
-                                                            <div style={{ width: "64px", height: "64px", borderRadius: "14px", background: "linear-gradient(145deg, #18181b 0%, #09090b 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: "4px" }}>
-                                                                <TelegramGiftMedia
-                                                                    fileId={upgraderTarget?.file_id}
-                                                                    fileType={upgraderTarget?.file_type || "tgs"}
-                                                                    slug={upgraderTarget?.slug}
-                                                                    imageUrl={upgraderTarget?.image_url}
-                                                                    icon={upgraderTarget?.icon || "star"}
-                                                                    name={upgraderTarget?.name || "Target"}
-                                                                    size={54}
-                                                                />
-                                                            </div>
-                                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                                <div style={{ fontSize: "11px", fontWeight: 800, color: "#10b981", textTransform: "uppercase" }}>Yutib Olinadigan Sovg'a</div>
-                                                                <div style={{ fontSize: "15px", fontWeight: 800, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                                    {upgraderTarget?.name || "Delicious Cake"}
-                                                                </div>
-                                                                <div style={{ fontSize: "13px", fontWeight: 800, color: "#eab308", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                                                                    <span>{Math.round((upgraderItem?.stars || 15) * upgraderMultiplier).toLocaleString()} Stars</span>
-                                                                    <SvgStar size={13} color="#eab308" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#71717a", marginBottom: "8px" }}>
-                                                            Narxga mos sovg'a yoki NFT ni tanlang (Real-Time):
-                                                        </div>
-                                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(82px, 1fr))", gap: "8px", maxHeight: "175px", overflowY: "auto", paddingRight: "4px" }}>
-                                                            {getMatchingCatalogTargets(upgraderItem?.stars || 15, upgraderMultiplier, upgraderInventory).map((cand, cIdx) => {
-                                                                const isCandSel = (upgraderTarget?.slug && upgraderTarget.slug === cand.slug) || (upgraderTarget?.name === cand.name);
-                                                                const desiredStars = Math.round((upgraderItem?.stars || 15) * upgraderMultiplier);
-                                                                return (
-                                                                    <button
-                                                                        key={cand.slug || cand.id || cIdx}
-                                                                        type="button"
-                                                                        onClick={() => setUpgraderTarget({ ...cand, stars: desiredStars })}
-                                                                        style={{
-                                                                            background: isCandSel ? "rgba(16,185,129,0.12)" : "#ffffff",
-                                                                            border: isCandSel ? "2px solid #10b981" : "1px solid #e4e4e7",
-                                                                            borderRadius: "14px",
-                                                                            padding: "8px 6px",
-                                                                            cursor: "pointer",
-                                                                            textAlign: "center",
-                                                                            transition: "all 0.15s ease"
-                                                                        }}
-                                                                    >
-                                                                        <div style={{ height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                                                            <TelegramGiftMedia
-                                                                                fileId={cand.file_id}
-                                                                                fileType={cand.file_type || "tgs"}
-                                                                                slug={cand.slug}
-                                                                                imageUrl={cand.image_url}
-                                                                                icon={cand.icon}
-                                                                                name={cand.name}
-                                                                                size={38}
-                                                                            />
-                                                                        </div>
-                                                                        <div style={{ fontSize: "10px", fontWeight: 700, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "4px" }}>
-                                                                            {cand.name}
-                                                                        </div>
-                                                                        <div style={{ fontSize: "10px", fontWeight: 800, color: "#10b981" }}>
-                                                                            {cand.stars} ★
-                                                                        </div>
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Multiplier Slider & Quick Buttons (1.5x to 100x) */}
-                                            <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "22px", padding: "18px 22px", marginBottom: "30px" }}>
-                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "12px" }}>
-                                                    <span style={{ fontSize: "13px", fontWeight: 800, color: "#18181b" }}>
-                                                        Ko'paytiruvchi (Multiplier): <span style={{ color: "#7342E2", fontSize: "16px" }}>{upgraderMultiplier}x</span>
+                                    return (
+                                        <div className="tab-content-enter" style={{ maxWidth: "980px", margin: "0 auto" }}>
+                                            <div style={{
+                                                background: "radial-gradient(circle at 18% 22%, rgba(98, 28, 156, 0.38) 0%, rgba(15, 23, 42, 0.92) 48%, rgba(6, 78, 59, 0.25) 100%), #0c0d14",
+                                                border: "1px solid rgba(255, 255, 255, 0.09)",
+                                                borderRadius: "28px",
+                                                padding: "28px 26px",
+                                                boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08)",
+                                                color: "#ffffff"
+                                            }}>
+                                                {/* TOP HEADER: ↗ UPGRADER ? */}
+                                                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "26px" }}>
+                                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00e75c" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                                                        <line x1="7" y1="17" x2="17" y2="7" />
+                                                        <polyline points="7 7 17 7 17 17" />
+                                                    </svg>
+                                                    <span style={{ fontSize: "21px", fontWeight: 900, letterSpacing: "0.08em", color: "#ffffff", textTransform: "uppercase" }}>
+                                                        UPGRADER
                                                     </span>
-                                                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#10b981" }}>
-                                                        Yutish ehtimoli: {(Math.min(65, Math.max(1, (1 / upgraderMultiplier) * 93))).toFixed(1)}%
+                                                    <span
+                                                        title="Inventaringizdagi sovg'ani tanlang va yashil sektorga tushib 1.5x dan 100x gacha qimmatroq sovg'a yutib oling!"
+                                                        style={{
+                                                            width: "22px",
+                                                            height: "22px",
+                                                            borderRadius: "50%",
+                                                            background: "rgba(255,255,255,0.08)",
+                                                            border: "1px solid rgba(255,255,255,0.14)",
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            fontSize: "12px",
+                                                            fontWeight: 800,
+                                                            color: "#94a3b8",
+                                                            cursor: "help"
+                                                        }}
+                                                    >
+                                                        ?
                                                     </span>
                                                 </div>
 
-                                                {/* Draggable Slider 1.5x .. 100x */}
-                                                <input
-                                                    type="range"
-                                                    min="1.5"
-                                                    max="100"
-                                                    step="0.5"
-                                                    value={upgraderMultiplier}
-                                                    onChange={(e) => {
-                                                        const mVal = parseFloat(e.target.value);
-                                                        setUpgraderMultiplier(mVal);
-                                                        syncTargetForMultiplier(upgraderItem, mVal, upgraderInventory);
-                                                    }}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "8px",
-                                                        borderRadius: "999px",
-                                                        accentColor: "#10b981",
-                                                        cursor: "pointer",
-                                                        marginBottom: "14px"
-                                                    }}
-                                                />
-
-                                                {/* Quick Multiplier Pills */}
-                                                <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "8px" }}>
-                                                    {[1.5, 2, 3, 4, 5, 10, 25, 50, 100].map(m => {
-                                                        const isSel = (Number(upgraderMultiplier) === m);
-                                                        return (
-                                                            <button
-                                                                key={m}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setUpgraderMultiplier(m);
-                                                                    syncTargetForMultiplier(upgraderItem, m, upgraderInventory);
-                                                                }}
-                                                                style={{
-                                                                    padding: "7px 14px",
-                                                                    fontSize: "12px",
-                                                                    fontWeight: 800,
-                                                                    borderRadius: "999px",
-                                                                    border: isSel ? "2px solid #7342E2" : "1px solid #e4e4e7",
-                                                                    background: isSel ? "#7342E2" : "#ffffff",
-                                                                    color: isSel ? "#ffffff" : "#18181b",
-                                                                    cursor: "pointer",
-                                                                    transition: "all 0.15s ease",
-                                                                    boxShadow: isSel ? "0 4px 12px rgba(115,66,226,0.28)" : "none"
-                                                                }}
-                                                            >
-                                                                {m}x
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-
-                                            {/* Tactical Dark Metallic Precision Wheel (Green Win Zone / Red Loss Zone) */}
-                                            {(() => {
-                                                const nominalOdds = 1.0 / Math.max(1.5, Number(upgraderMultiplier || 2.0));
-                                                const winChance = Math.min(0.65, Math.max(0.01, nominalOdds * 0.93));
-                                                const greenSlice = upgradeResult?.green_slice_deg || Math.max(6, Math.min(234, Math.round(winChance * 360)));
-                                                const screwAngles = [0, 45, 90, 135, 180, 225, 270, 315];
-                                                const tickAngles = Array.from({ length: 60 }, (_, i) => i * 6);
-
-                                                return (
-                                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
+                                                {/* MAIN ARENA: LEFT = PRECISION WHEEL (WITH WIN % IN CENTER), RIGHT = SOURCE ITEM -> TARGET ITEM + UPGRADE BUTTON */}
+                                                <div style={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
+                                                    gap: "28px",
+                                                    alignItems: "center",
+                                                    marginBottom: "28px"
+                                                }}>
+                                                    {/* LEFT COLUMN: DARK METALLIC PRECISION WHEEL */}
+                                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                                         <div style={{
                                                             position: "relative",
-                                                            width: "310px",
-                                                            height: "310px",
+                                                            width: "312px",
+                                                            height: "312px",
                                                             borderRadius: "50%",
-                                                            background: "radial-gradient(circle at 35% 30%, #272935 0%, #14161f 60%, #0b0c12 100%)",
-                                                            boxShadow: "0 20px 50px rgba(0,0,0,0.35), inset 0 2px 4px rgba(255,255,255,0.12), inset 0 -6px 16px rgba(0,0,0,0.85)",
-                                                            border: "3px solid #1f222e",
+                                                            background: "radial-gradient(circle at 35% 30%, #2a2d3d 0%, #151722 62%, #090a0f 100%)",
+                                                            boxShadow: "0 22px 55px rgba(0,0,0,0.65), inset 0 2px 4px rgba(255,255,255,0.12), inset 0 -6px 16px rgba(0,0,0,0.9)",
+                                                            border: "3px solid #232736",
                                                             display: "flex",
                                                             alignItems: "center",
                                                             justifyContent: "center"
                                                         }}>
-                                                            {/* 8 Perimeter Metallic Screw Bolts */}
+                                                            {/* 12 Perimeter Slotted Metallic Screws */}
                                                             {screwAngles.map((deg) => (
                                                                 <div
                                                                     key={`screw-${deg}`}
                                                                     style={{
                                                                         position: "absolute",
-                                                                        inset: "8px",
+                                                                        inset: "7px",
                                                                         transform: `rotate(${deg}deg)`,
                                                                         pointerEvents: "none"
                                                                     }}
@@ -6716,33 +6315,43 @@
                                                                         height: "12px",
                                                                         margin: "0 auto",
                                                                         borderRadius: "50%",
-                                                                        background: "radial-gradient(circle at 35% 35%, #52566a 0%, #1c1e29 75%, #0d0e14 100%)",
-                                                                        border: "1px solid rgba(255,255,255,0.14)",
-                                                                        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.8)"
-                                                                    }} />
+                                                                        background: "radial-gradient(circle at 35% 35%, #5b6078 0%, #1f2230 75%, #0d0e14 100%)",
+                                                                        border: "1px solid rgba(255,255,255,0.16)",
+                                                                        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.85)",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center"
+                                                                    }}>
+                                                                        <div style={{
+                                                                            width: "7px",
+                                                                            height: "1.5px",
+                                                                            background: "rgba(9, 10, 15, 0.85)",
+                                                                            transform: `rotate(${deg + 35}deg)`
+                                                                        }} />
+                                                                    </div>
                                                                 </div>
                                                             ))}
 
-                                                            {/* Active Green (Win) & Red (Lose) Sector Ring */}
+                                                            {/* Active Green (#00e75c) & Red (#ff4655) Sector Ring */}
                                                             <div style={{
                                                                 position: "relative",
-                                                                width: "252px",
-                                                                height: "252px",
+                                                                width: "256px",
+                                                                height: "256px",
                                                                 borderRadius: "50%",
-                                                                background: `conic-gradient(#10b981 0deg ${greenSlice}deg, #ef4444 ${greenSlice}deg 360deg)`,
-                                                                boxShadow: "0 0 24px rgba(0,0,0,0.7), inset 0 0 16px rgba(0,0,0,0.55)",
+                                                                background: `conic-gradient(#00e75c 0deg ${greenSlice}deg, #ff4655 ${greenSlice}deg 360deg)`,
+                                                                boxShadow: "0 0 26px rgba(0,0,0,0.8), inset 0 0 16px rgba(0,0,0,0.55)",
                                                                 display: "flex",
                                                                 alignItems: "center",
                                                                 justifyContent: "center"
                                                             }}>
-                                                                {/* Inner Dark Bezel with 60 Precision Degree Tick Marks */}
+                                                                {/* Inner Dark Bezel with 60 Precision Tick Marks */}
                                                                 <div style={{
                                                                     position: "relative",
-                                                                    width: "218px",
-                                                                    height: "218px",
+                                                                    width: "224px",
+                                                                    height: "224px",
                                                                     borderRadius: "50%",
-                                                                    background: "radial-gradient(circle at 50% 50%, #151722 0%, #0b0c12 72%, #07080c 100%)",
-                                                                    boxShadow: "inset 0 0 24px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8)",
+                                                                    background: "radial-gradient(circle at 50% 50%, #171926 0%, #0d0f17 72%, #07080c 100%)",
+                                                                    boxShadow: "inset 0 0 26px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.85)",
                                                                     display: "flex",
                                                                     alignItems: "center",
                                                                     justifyContent: "center"
@@ -6766,39 +6375,52 @@
                                                                                     margin: "0 auto",
                                                                                     borderRadius: "2px",
                                                                                     background: isInWinZone
-                                                                                        ? (isMajor ? "#34d399" : "rgba(52,211,153,0.55)")
-                                                                                        : (isMajor ? "rgba(248,113,113,0.7)" : "rgba(255,255,255,0.18)")
+                                                                                        ? (isMajor ? "#00e75c" : "rgba(0, 231, 92, 0.55)")
+                                                                                        : (isMajor ? "rgba(255, 70, 85, 0.7)" : "rgba(255, 255, 255, 0.16)")
                                                                                 }} />
                                                                             </div>
                                                                         );
                                                                     })}
 
-                                                                    {/* Guilloche Dark Center Hub (Previewing Target Gift Animation) */}
+                                                                    {/* Guilloche Dark Center Hub: Bold White Win Percentage */}
                                                                     <div style={{
-                                                                        width: "146px",
-                                                                        height: "146px",
+                                                                        width: "152px",
+                                                                        height: "152px",
                                                                         borderRadius: "50%",
-                                                                        background: "radial-gradient(circle, #1c1f2e 0%, #0e1017 70%, #08090d 100%)",
+                                                                        background: "radial-gradient(circle, #1e2130 0%, #10121b 68%, #08090e 100%)",
                                                                         border: "1.5px solid rgba(255,255,255,0.08)",
-                                                                        boxShadow: "0 8px 24px rgba(0,0,0,0.85), inset 0 2px 6px rgba(255,255,255,0.05)",
+                                                                        boxShadow: "0 10px 28px rgba(0,0,0,0.9), inset 0 2px 6px rgba(255,255,255,0.05)",
                                                                         display: "flex",
+                                                                        flexDirection: "column",
                                                                         alignItems: "center",
                                                                         justifyContent: "center",
-                                                                        zIndex: 2
+                                                                        zIndex: 2,
+                                                                        userSelect: "none"
                                                                     }}>
-                                                                        <TelegramGiftMedia
-                                                                            fileId={upgraderTarget?.file_id}
-                                                                            fileType={upgraderTarget?.file_type || "tgs"}
-                                                                            slug={upgraderTarget?.slug}
-                                                                            imageUrl={upgraderTarget?.image_url}
-                                                                            icon={upgraderTarget?.icon || "star"}
-                                                                            name={upgraderTarget?.name || "Target"}
-                                                                            size={84}
-                                                                        />
+                                                                        <div style={{
+                                                                            fontSize: "38px",
+                                                                            fontWeight: 900,
+                                                                            color: "#ffffff",
+                                                                            letterSpacing: "-0.03em",
+                                                                            lineHeight: 1,
+                                                                            textShadow: "0 4px 16px rgba(0,0,0,0.65)"
+                                                                        }}>
+                                                                            {winPercentDisplay}%
+                                                                        </div>
+                                                                        <div style={{
+                                                                            marginTop: "6px",
+                                                                            fontSize: "11px",
+                                                                            fontWeight: 800,
+                                                                            color: "#94a3b8",
+                                                                            letterSpacing: "0.08em",
+                                                                            textTransform: "uppercase"
+                                                                        }}>
+                                                                            ×{upgraderMultiplier} CHANCE
+                                                                        </div>
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Sleek Perimeter Triangular Pointer */}
+                                                                {/* Sleek White Triangular Pointer */}
                                                                 <div
                                                                     className={isUpgrading ? "needle-spin-transition" : ""}
                                                                     style={{
@@ -6811,15 +6433,15 @@
                                                                 >
                                                                     <div style={{
                                                                         position: "absolute",
-                                                                        top: "-4px",
+                                                                        top: "-5px",
                                                                         left: "50%",
                                                                         transform: "translateX(-50%)",
                                                                         width: 0,
                                                                         height: 0,
-                                                                        borderLeft: "10px solid transparent",
-                                                                        borderRight: "10px solid transparent",
-                                                                        borderTop: "22px solid #f8fafc",
-                                                                        filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.9))"
+                                                                        borderLeft: "11px solid transparent",
+                                                                        borderRight: "11px solid transparent",
+                                                                        borderTop: "24px solid #ffffff",
+                                                                        filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.95))"
                                                                     }} />
                                                                 </div>
                                                             </div>
@@ -6828,44 +6450,468 @@
                                                         {/* Result Feedback Banner */}
                                                         {upgradeResult && (
                                                             <div style={{
-                                                                marginTop: "20px",
-                                                                padding: "12px 24px",
-                                                                borderRadius: "999px",
-                                                                fontSize: "14px",
+                                                                marginTop: "16px",
+                                                                padding: "10px 20px",
+                                                                borderRadius: "14px",
+                                                                fontSize: "13px",
                                                                 fontWeight: 800,
-                                                                background: upgradeResult.won ? "rgba(16,185,129,0.14)" : "rgba(239,68,68,0.14)",
-                                                                color: upgradeResult.won ? "#059669" : "#dc2626",
-                                                                border: `1.5px solid ${upgradeResult.won ? 'rgba(16,185,129,0.45)' : 'rgba(239,68,68,0.4)'}`
+                                                                textAlign: "center",
+                                                                background: upgradeResult.won ? "rgba(0, 231, 92, 0.16)" : "rgba(255, 70, 85, 0.16)",
+                                                                color: upgradeResult.won ? "#00e75c" : "#ff6b78",
+                                                                border: `1.5px solid ${upgradeResult.won ? 'rgba(0, 231, 92, 0.45)' : 'rgba(255, 70, 85, 0.4)'}`
                                                             }}>
                                                                 {upgradeResult.won
-                                                                    ? `Tabriklaymiz! Strelka yashil sektorga tushdi — ${upgradeResult.target_name} inventaringizga qo'shildi!`
-                                                                    : `Afsuski, strelka qizil sektorga tushdi (${upgradeResult.final_angle}°) va tikilgan sovg'a kuydi.`}
+                                                                    ? `G'ALABA! Strelka yashil sektorga tushdi — ${upgradeResult.target_name} yutib olindi!`
+                                                                    : `Strelka yashil chiziqqa juda yaqin kelib to'xtadi (${upgradeResult.final_angle}°) — omadingizni qayta sinab ko'ring!`}
                                                             </div>
                                                         )}
                                                     </div>
-                                                );
-                                            })()}
 
-                                            {/* Spin CTA Button */}
-                                            <TactileButton
-                                                variant="cyan"
-                                                size="lg"
-                                                onClick={handleRunUpgrade}
-                                                disabled={isUpgrading || !upgraderItem}
-                                                loading={isUpgrading}
-                                                loadingText="Aylanmoqda..."
-                                                icon={<SvgZap size={18} color="#000000" />}
-                                                style={{ minWidth: "300px" }}
-                                            >
-                                                <span>
-                                                    {upgraderItem
-                                                        ? `${upgraderMultiplier}x BEPUL UPGRADE QILISH (${upgraderItem.name || upgraderItem.prize_name})`
-                                                        : "AVVAL KEYS OCHIB SOVG'A YUTIB OLING"}
-                                                </span>
-                                            </TactileButton>
+                                                    {/* RIGHT COLUMN: SOURCE ITEM -> TARGET ITEM CARDS & NEON GREEN UPGRADE BUTTON */}
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                                                        <div style={{
+                                                            position: "relative",
+                                                            display: "grid",
+                                                            gridTemplateColumns: "1fr 1fr",
+                                                            gap: "16px",
+                                                            alignItems: "stretch"
+                                                        }}>
+                                                            {/* SOURCE ITEM CARD */}
+                                                            <div style={{
+                                                                background: "linear-gradient(180deg, rgba(30, 33, 48, 0.95) 0%, rgba(17, 19, 28, 0.98) 100%)",
+                                                                border: "1.5px solid rgba(255, 255, 255, 0.09)",
+                                                                borderRadius: "20px",
+                                                                padding: "16px 14px",
+                                                                display: "flex",
+                                                                flexDirection: "column",
+                                                                justifyContent: "space-between",
+                                                                minHeight: "230px",
+                                                                boxShadow: "0 12px 30px rgba(0,0,0,0.4)"
+                                                            }}>
+                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "6px" }}>
+                                                                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                                                                        SOURCE ITEM
+                                                                    </span>
+                                                                    <span style={{
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        gap: "4px",
+                                                                        background: "rgba(250, 204, 21, 0.14)",
+                                                                        border: "1px solid rgba(250, 204, 21, 0.32)",
+                                                                        color: "#facc15",
+                                                                        padding: "3px 8px",
+                                                                        borderRadius: "999px",
+                                                                        fontSize: "11px",
+                                                                        fontWeight: 800
+                                                                    }}>
+                                                                        <SvgStar size={11} color="#facc15" />
+                                                                        <span>{sourceStars}</span>
+                                                                    </span>
+                                                                </div>
+
+                                                                <div style={{
+                                                                    height: "118px",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    margin: "8px 0",
+                                                                    background: "radial-gradient(circle, rgba(139, 92, 246, 0.18) 0%, transparent 70%)"
+                                                                }}>
+                                                                    {upgraderItem ? (
+                                                                        <TelegramGiftMedia
+                                                                            fileId={upgraderItem.file_id}
+                                                                            fileType={upgraderItem.file_type || "tgs"}
+                                                                            slug={upgraderItem.slug}
+                                                                            imageUrl={upgraderItem.image_url}
+                                                                            icon={upgraderItem.icon || "cake"}
+                                                                            name={upgraderItem.name || upgraderItem.prize_name}
+                                                                            size={92}
+                                                                        />
+                                                                    ) : (
+                                                                        <div style={{ textAlign: "center", padding: "0 8px" }}>
+                                                                            <div style={{ fontSize: "12px", fontWeight: 800, color: "#cbd5e1", marginBottom: "6px" }}>
+                                                                                Sovg'a tanlanmagan
+                                                                            </div>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setStarsSubTab('cases')}
+                                                                                style={{
+                                                                                    background: "#7342E2",
+                                                                                    color: "#ffffff",
+                                                                                    border: "none",
+                                                                                    padding: "6px 12px",
+                                                                                    borderRadius: "999px",
+                                                                                    fontSize: "11px",
+                                                                                    fontWeight: 800,
+                                                                                    cursor: "pointer"
+                                                                                }}
+                                                                            >
+                                                                                Keys Ochish
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                <div style={{ textAlign: "left" }}>
+                                                                    <div style={{
+                                                                        fontSize: "14px",
+                                                                        fontWeight: 800,
+                                                                        color: "#ffffff",
+                                                                        whiteSpace: "nowrap",
+                                                                        overflow: "hidden",
+                                                                        textOverflow: "ellipsis"
+                                                                    }}>
+                                                                        {upgraderItem ? (upgraderItem.name || upgraderItem.prize_name) : "Inventar bo'sh"}
+                                                                    </div>
+                                                                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", marginTop: "2px" }}>
+                                                                        {upgraderItem ? "Shaxsiy inventardan" : "Avval keys oching"}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* CENTER OVERLAPPING GREEN ARROW BADGE (→) */}
+                                                            <div style={{
+                                                                position: "absolute",
+                                                                left: "50%",
+                                                                top: "50%",
+                                                                transform: "translate(-50%, -50%)",
+                                                                width: "36px",
+                                                                height: "36px",
+                                                                borderRadius: "50%",
+                                                                background: "#0f291e",
+                                                                border: "2px solid #00e75c",
+                                                                boxShadow: "0 0 18px rgba(0, 231, 92, 0.45)",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                zIndex: 6,
+                                                                pointerEvents: "none"
+                                                            }}>
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00e75c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                                                    <polyline points="12 5 19 12 12 19" />
+                                                                </svg>
+                                                            </div>
+
+                                                            {/* TARGET ITEM CARD */}
+                                                            <div style={{
+                                                                position: "relative",
+                                                                background: "linear-gradient(180deg, rgba(16, 46, 36, 0.92) 0%, rgba(12, 22, 20, 0.98) 100%)",
+                                                                border: "1.5px solid rgba(0, 231, 92, 0.48)",
+                                                                borderRadius: "20px",
+                                                                padding: "16px 14px",
+                                                                display: "flex",
+                                                                flexDirection: "column",
+                                                                justifyContent: "space-between",
+                                                                minHeight: "230px",
+                                                                boxShadow: "0 12px 32px rgba(0, 231, 92, 0.14)"
+                                                            }}>
+                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "4px" }}>
+                                                                    <span style={{ fontSize: "10px", fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                                                                        TARGET ITEM
+                                                                    </span>
+                                                                    <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                                                                        <span style={{
+                                                                            display: "inline-flex",
+                                                                            alignItems: "center",
+                                                                            gap: "3px",
+                                                                            background: "rgba(250, 204, 21, 0.14)",
+                                                                            border: "1px solid rgba(250, 204, 21, 0.32)",
+                                                                            color: "#facc15",
+                                                                            padding: "3px 7px",
+                                                                            borderRadius: "999px",
+                                                                            fontSize: "11px",
+                                                                            fontWeight: 800
+                                                                        }}>
+                                                                            <SvgStar size={11} color="#facc15" />
+                                                                            <span>{targetStars.toLocaleString()}</span>
+                                                                        </span>
+                                                                        <span style={{
+                                                                            background: "rgba(0, 231, 92, 0.18)",
+                                                                            border: "1px solid rgba(0, 231, 92, 0.5)",
+                                                                            color: "#00e75c",
+                                                                            padding: "3px 7px",
+                                                                            borderRadius: "8px",
+                                                                            fontSize: "11px",
+                                                                            fontWeight: 900
+                                                                        }}>
+                                                                            ×{upgraderMultiplier}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div style={{
+                                                                    height: "118px",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    margin: "8px 0",
+                                                                    background: "radial-gradient(circle, rgba(0, 231, 92, 0.2) 0%, transparent 70%)"
+                                                                }}>
+                                                                    <TelegramGiftMedia
+                                                                        fileId={upgraderTarget?.file_id}
+                                                                        fileType={upgraderTarget?.file_type || "tgs"}
+                                                                        slug={upgraderTarget?.slug}
+                                                                        imageUrl={upgraderTarget?.image_url}
+                                                                        icon={upgraderTarget?.icon || "star"}
+                                                                        name={upgraderTarget?.name || "Target"}
+                                                                        size={92}
+                                                                    />
+                                                                </div>
+
+                                                                <div style={{ textAlign: "left" }}>
+                                                                    <div style={{
+                                                                        fontSize: "14px",
+                                                                        fontWeight: 800,
+                                                                        color: "#ffffff",
+                                                                        whiteSpace: "nowrap",
+                                                                        overflow: "hidden",
+                                                                        textOverflow: "ellipsis"
+                                                                    }}>
+                                                                        {upgraderTarget?.name || "Delicious Cake"}
+                                                                    </div>
+                                                                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#00e75c", marginTop: "2px" }}>
+                                                                        Yutib olinadigan sovg'a
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* GLOWING NEON GREEN "↗ Upgrade" BUTTON */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleRunUpgrade}
+                                                            disabled={isUpgrading || !upgraderItem}
+                                                            style={{
+                                                                width: "100%",
+                                                                padding: "16px 24px",
+                                                                borderRadius: "16px",
+                                                                border: "none",
+                                                                background: (isUpgrading || !upgraderItem)
+                                                                    ? "linear-gradient(180deg, rgba(0, 231, 92, 0.45) 0%, rgba(0, 180, 72, 0.45) 100%)"
+                                                                    : "linear-gradient(180deg, #00f563 0%, #00c850 100%)",
+                                                                color: "#051b0c",
+                                                                fontSize: "16px",
+                                                                fontWeight: 900,
+                                                                letterSpacing: "0.02em",
+                                                                cursor: (isUpgrading || !upgraderItem) ? "not-allowed" : "pointer",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: "10px",
+                                                                boxShadow: (isUpgrading || !upgraderItem)
+                                                                    ? "none"
+                                                                    : "0 10px 28px rgba(0, 231, 92, 0.38), inset 0 1px 1px rgba(255, 255, 255, 0.45)",
+                                                                transition: "transform 0.15s ease, box-shadow 0.15s ease"
+                                                            }}
+                                                        >
+                                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#051b0c" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                                                                <line x1="7" y1="17" x2="17" y2="7" />
+                                                                <polyline points="7 7 17 7 17 17" />
+                                                            </svg>
+                                                            <span>
+                                                                {isUpgrading
+                                                                    ? "Aylanmoqda..."
+                                                                    : (upgraderItem ? "Upgrade" : "Avval Keys Ochib Sovg'a Yutib Oling")}
+                                                            </span>
+                                                        </button>
+
+                                                        {/* COMPACT MULTIPLIER BAR (1.5x — 100x) */}
+                                                        <div style={{
+                                                            background: "rgba(20, 22, 32, 0.9)",
+                                                            border: "1px solid rgba(255, 255, 255, 0.08)",
+                                                            borderRadius: "16px",
+                                                            padding: "12px 14px"
+                                                        }}>
+                                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", fontSize: "12px", fontWeight: 800 }}>
+                                                                <span style={{ color: "#94a3b8" }}>KO'PAYTIRUVCHI: <strong style={{ color: "#ffffff" }}>×{upgraderMultiplier}</strong></span>
+                                                                <span style={{ color: "#00e75c" }}>CHANCE: {winPercentDisplay}%</span>
+                                                            </div>
+                                                            <input
+                                                                type="range"
+                                                                min="1.5"
+                                                                max="100"
+                                                                step="0.5"
+                                                                value={upgraderMultiplier}
+                                                                onChange={(e) => {
+                                                                    const mVal = parseFloat(e.target.value);
+                                                                    setUpgraderMultiplier(mVal);
+                                                                    syncTargetForMultiplier(upgraderItem, mVal, upgraderInventory);
+                                                                }}
+                                                                style={{
+                                                                    width: "100%",
+                                                                    height: "6px",
+                                                                    borderRadius: "999px",
+                                                                    accentColor: "#00e75c",
+                                                                    cursor: "pointer",
+                                                                    marginBottom: "10px"
+                                                                }}
+                                                            />
+                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "space-between" }}>
+                                                                {[1.5, 2, 3, 5, 10, 25, 50, 100].map(m => {
+                                                                    const isSel = (Number(upgraderMultiplier) === m);
+                                                                    return (
+                                                                        <button
+                                                                            key={m}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setUpgraderMultiplier(m);
+                                                                                syncTargetForMultiplier(upgraderItem, m, upgraderInventory);
+                                                                            }}
+                                                                            style={{
+                                                                                flex: "1 1 auto",
+                                                                                padding: "6px 10px",
+                                                                                fontSize: "11px",
+                                                                                fontWeight: 800,
+                                                                                borderRadius: "10px",
+                                                                                border: isSel ? "1.5px solid #00e75c" : "1px solid rgba(255,255,255,0.1)",
+                                                                                background: isSel ? "rgba(0, 231, 92, 0.18)" : "rgba(255,255,255,0.04)",
+                                                                                color: isSel ? "#00e75c" : "#cbd5e1",
+                                                                                cursor: "pointer",
+                                                                                transition: "all 0.15s ease"
+                                                                            }}
+                                                                        >
+                                                                            ×{m}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* BOTTOM SELECTION GRIDS: 1. SIZNING INVENTARINGIZ & 2. MAQSAD SOVG'A / NFT TANLASH */}
+                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "18px", textAlign: "left" }}>
+                                                    {/* LEFT SELECTOR: USER INVENTORY */}
+                                                    <div style={{
+                                                        background: "rgba(18, 20, 30, 0.85)",
+                                                        border: "1px solid rgba(255,255,255,0.08)",
+                                                        borderRadius: "20px",
+                                                        padding: "16px"
+                                                    }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                            <span style={{ fontSize: "11px", fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                                                1. Sizning Inventaringiz ({userGifts.length} ta)
+                                                            </span>
+                                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#00e75c" }}>
+                                                                Tanlang
+                                                            </span>
+                                                        </div>
+                                                        {userGifts.length > 0 ? (
+                                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: "8px", maxHeight: "175px", overflowY: "auto", paddingRight: "4px" }}>
+                                                                {userGifts.map((g, idx) => {
+                                                                    const isSel = (upgraderItem && upgraderItem.id === g.id);
+                                                                    return (
+                                                                        <button
+                                                                            key={g.id || idx}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const nextItem = {
+                                                                                    ...g,
+                                                                                    name: g.prize_name || g.name,
+                                                                                    stars: Number(g.prize_stars || g.stars || 15)
+                                                                                };
+                                                                                setUpgraderItem(nextItem);
+                                                                                syncTargetForMultiplier(nextItem, upgraderMultiplier, upgraderInventory);
+                                                                            }}
+                                                                            style={{
+                                                                                background: isSel ? "rgba(139, 92, 246, 0.22)" : "rgba(255,255,255,0.04)",
+                                                                                border: isSel ? "1.5px solid #a78bfa" : "1px solid rgba(255,255,255,0.08)",
+                                                                                borderRadius: "14px",
+                                                                                padding: "8px 6px",
+                                                                                cursor: "pointer",
+                                                                                textAlign: "center",
+                                                                                color: "#ffffff"
+                                                                            }}
+                                                                        >
+                                                                            <div style={{ height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                                                <TelegramGiftMedia
+                                                                                    fileId={g.file_id}
+                                                                                    fileType={g.file_type || "tgs"}
+                                                                                    slug={g.slug}
+                                                                                    imageUrl={g.image_url}
+                                                                                    icon={g.icon}
+                                                                                    name={g.prize_name}
+                                                                                    size={38}
+                                                                                />
+                                                                            </div>
+                                                                            <div style={{ fontSize: "10px", fontWeight: 700, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "4px" }}>
+                                                                                {g.prize_name}
+                                                                            </div>
+                                                                            <div style={{ fontSize: "10px", fontWeight: 800, color: "#facc15" }}>
+                                                                                {g.prize_stars} ★
+                                                                            </div>
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ textAlign: "center", padding: "22px 12px", color: "#64748b", fontSize: "12px" }}>
+                                                                Inventaringizda hozircha sovg'a yo'q. Keys ochib sovg'a yutib oling!
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* RIGHT SELECTOR: TARGET GIFT / NFT CATALOG */}
+                                                    <div style={{
+                                                        background: "rgba(18, 20, 30, 0.85)",
+                                                        border: "1px solid rgba(255,255,255,0.08)",
+                                                        borderRadius: "20px",
+                                                        padding: "16px"
+                                                    }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                            <span style={{ fontSize: "11px", fontWeight: 800, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                                                2. Maqsad Sovg'a Tanlash (×{upgraderMultiplier})
+                                                            </span>
+                                                            <span style={{ fontSize: "11px", fontWeight: 800, color: "#00e75c" }}>
+                                                                ≈ {targetStars.toLocaleString()} Stars
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: "8px", maxHeight: "175px", overflowY: "auto", paddingRight: "4px" }}>
+                                                            {getMatchingCatalogTargets(sourceStars, upgraderMultiplier, upgraderInventory).map((cand, cIdx) => {
+                                                                const isCandSel = (upgraderTarget?.slug && upgraderTarget.slug === cand.slug) || (upgraderTarget?.name === cand.name);
+                                                                return (
+                                                                    <button
+                                                                        key={cand.slug || cand.id || cIdx}
+                                                                        type="button"
+                                                                        onClick={() => setUpgraderTarget({ ...cand, stars: targetStars })}
+                                                                        style={{
+                                                                            background: isCandSel ? "rgba(0, 231, 92, 0.18)" : "rgba(255,255,255,0.04)",
+                                                                            border: isCandSel ? "1.5px solid #00e75c" : "1px solid rgba(255,255,255,0.08)",
+                                                                            borderRadius: "14px",
+                                                                            padding: "8px 6px",
+                                                                            cursor: "pointer",
+                                                                            textAlign: "center",
+                                                                            color: "#ffffff"
+                                                                        }}
+                                                                    >
+                                                                        <div style={{ height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                                            <TelegramGiftMedia
+                                                                                fileId={cand.file_id}
+                                                                                fileType={cand.file_type || "tgs"}
+                                                                                slug={cand.slug}
+                                                                                imageUrl={cand.image_url}
+                                                                                icon={cand.icon}
+                                                                                name={cand.name}
+                                                                                size={38}
+                                                                            />
+                                                                        </div>
+                                                                        <div style={{ fontSize: "10px", fontWeight: 700, color: "#e2e8f0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "4px" }}>
+                                                                            {cand.name}
+                                                                        </div>
+                                                                        <div style={{ fontSize: "10px", fontWeight: 800, color: "#00e75c" }}>
+                                                                            {cand.stars} ★
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                                 {/* ==================== SUB-TAB 4: 7-KUNLIK DAVOMAT ==================== */}
                                 {starsSubTab === 'streak' && (
