@@ -743,12 +743,17 @@ def build_cases_from_gifts(raw_gifts: list = None) -> dict:
             img = item.get("image_url") or GIFT_FALLBACK_IMAGES.get(icon, GIFT_FALLBACK_IMAGES["package"])
             backdrop = item.get("backdrop") or "linear-gradient(145deg, #18181b 0%, #09090b 100%)"
             slug = item.get("slug") or ""
-            v_url = "" if ("premium" in icon or "tg_prem" in str(item.get("id", ""))) else item.get("video_url", "")
+            is_prem = bool(item.get("is_premium") or "premium" in icon or "tg_prem" in str(item.get("id", "")))
+            v_url = "" if is_prem else item.get("video_url", "")
+            f_id = item.get("file_id", "")
+            f_type = item.get("file_type", "webp")
+            if not is_prem and (f_id or (slug and not slug.startswith("tg-premium"))):
+                f_type = "tgs"
             
             formatted.append({
                 **item,
-                "file_id": item.get("file_id", ""),
-                "file_type": item.get("file_type", "webp"),
+                "file_id": f_id,
+                "file_type": f_type,
                 "image_url": img,
                 "backdrop": backdrop,
                 "slug": slug,
@@ -2066,85 +2071,141 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
     return {"ok": True, "battle": battle}
 
 
-# ==================== 10. CONTROLLED UPGRADER ====================
-def execute_upgrade_roll(user_id: int, item_stars: int, target_stars: int, target_name: str, target_icon: str, target_inventory_id: int = None) -> dict:
+# ==================== 10. CONTROLLED UPGRADER (INVENTORY-STAKED FREE UPGRADER) ====================
+def execute_upgrade_roll(
+    user_id: int,
+    item_stars: int,
+    target_stars: int,
+    target_name: str,
+    target_icon: str,
+    target_inventory_id: int = None,
+    source_inventory_id: int = None,
+    target_slug: str = None,
+    multiplier: float = None
+) -> dict:
     from config import OWNER_ID
-    from database import deduct_user_balance, add_user_balance, get_user_balance, claim_inventory_gift, save_gift_record
+    from database import (
+        get_user_balance,
+        get_user_gift_history,
+        get_user_inventory_gift_by_id,
+        process_inventory_upgrade_outcome,
+        get_user_upgrader_plays,
+        increment_user_upgrader_plays,
+    )
     import random
-    
+
     is_admin = False
     try:
         if OWNER_ID and int(user_id) == int(OWNER_ID):
             is_admin = True
     except Exception:
         pass
-        
-    item_stars = max(1, min(5000, int(item_stars)))
-    target_stars = max(item_stars + 1, min(10000, int(target_stars)))
-    stake_uzs = item_stars * 400
-    
-    # Foydalanuvchining hisobidan stavka (so'm) yechib olinadi
-    if user_id > 1000:
-        if not deduct_user_balance(user_id, stake_uzs):
-            curr_bal = get_user_balance(user_id)
-            return {
-                "ok": False,
-                "error": f"Balansingiz yetarli emas! Upgrade qilish uchun {stake_uzs:,} so'm kerak. Balansingiz: {curr_bal:,} so'm."
-            }
 
-    nominal_odds = item_stars / target_stars
-    # House edge: RTP ~70%, adolatli sektor taqsimoti
-    calc_odds = min(0.75, max(0.01, round(nominal_odds * 0.70, 4)))
-    green_slice_deg = max(10, min(300, int(calc_odds * 360)))
-    
-    # Barcha foydalanuvchilar (shu jumladan admin) uchun 100% adolatli matematik ehtimollik
-    won = (random.random() < calc_odds)
-    if won:
-        # Yashil sektor ichiga aniq tushadi (3 dan green_slice_deg - 4 gacha)
-        final_angle = random.randint(3, max(4, green_slice_deg - 4))
+    # 1. Foydalanuvchining shaxsiy inventaridan (pending_gifts) tikilayotgan sovg'ani tekshirish (0 UZS to'lov!)
+    source_item = None
+    if source_inventory_id:
+        source_item = get_user_inventory_gift_by_id(user_id, int(source_inventory_id))
+    if not source_item:
+        user_inv = get_user_gift_history(user_id, limit=50)
+        if user_inv:
+            # Agar aniq ID kelmagan bo'lsa, stars qiymati mos keladiganini yoki birinchisini olamiz
+            for g in user_inv:
+                if int(g.get("prize_stars") or 0) == int(item_stars):
+                    source_item = g
+                    break
+            if not source_item:
+                source_item = user_inv[0]
+
+    if not source_item:
+        return {
+            "ok": False,
+            "need_inventory": True,
+            "error": "Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling — Upgrader faqat inventardagi sovg'alar bilan bepul ishlaydi."
+        }
+
+    actual_source_id = int(source_item["id"])
+    item_stars = max(1, int(source_item.get("prize_stars") or item_stars or 15))
+    source_name = str(source_item.get("prize_name") or "Telegram Gift")
+
+    # 2. Multiplier (1.5x dan 100x gacha) va Target Stars hisoblash
+    if multiplier is not None:
+        try:
+            mult_val = max(1.5, min(100.0, float(multiplier)))
+        except Exception:
+            mult_val = max(1.5, min(100.0, round(float(target_stars) / max(1, item_stars), 2)))
     else:
-        # Yashil sektordan tashqaridagi to'q qizil/qora sektorga aniq tushadi
-        final_angle = random.randint(min(356, green_slice_deg + 4), 356)
+        mult_val = max(1.5, min(100.0, round(float(target_stars) / max(1, item_stars), 2)))
 
-    new_balance = None
-    if won:
-        # Double payout oldini olish: Agar real inventar sovg'asi tanlangan bo'lsa, inventardan olinadi
-        if target_inventory_id:
-            try:
-                claimed = claim_inventory_gift(target_inventory_id, user_id)
-                if not claimed:
-                    # Agar inventardagi sovg'a allaqachon olingan bo'lsa, pul ko'rinishida beriladi
-                    reward_uzs = target_stars * 400
-                    if user_id > 1000:
-                        new_balance = add_user_balance(user_id, reward_uzs)
-            except Exception as inv_err:
-                print(f"claim_inventory_gift note: {inv_err}")
-                reward_uzs = target_stars * 400
-                if user_id > 1000:
-                    new_balance = add_user_balance(user_id, reward_uzs)
-        else:
-            # Aks holda to'g'ridan-to'g'ri pul ko'rinishida qo'shiladi
-            reward_uzs = target_stars * 400
-            if user_id > 1000:
-                new_balance = add_user_balance(user_id, reward_uzs)
+    target_stars = max(int(round(item_stars * 1.5)), min(int(round(item_stars * 100.0)), int(target_stars or round(item_stars * mult_val))))
+    stake_uzs = 0  # Upgrader tekin (faqat inventardagi sovg'a tikiladi)
 
-        record_drop_event(f"user_{str(user_id)[-4:]}", f"Upgrade: {target_name}", target_stars, target_icon, "legendary", True)
+    # 3. Foiz va Yashil/Qizil sektor burchagini hisoblash (1.5x -> ~62%, 2x -> ~47%, ..., 100x -> ~1%)
+    nominal_odds = 1.0 / mult_val
+    calc_odds = min(0.65, max(0.01, round(nominal_odds * 0.93, 4)))
+    green_slice_deg = max(6, min(234, int(round(calc_odds * 360))))
+
+    # 4. Qat'iy ketma-ketlik qoidasi:
+    # Foydalanuvchi 1-marta boshida YUTADI (plays == 0), keyingi urinishlarida YUTQAZADI (plays >= 1)
+    plays_before = get_user_upgrader_plays(user_id)
+    if plays_before == 0:
+        won = True
     else:
-        if user_id > 1000:
-            new_balance = get_user_balance(user_id)
+        won = False
+    plays_after = increment_user_upgrader_plays(user_id)
+
+    if won:
+        # Yashil sektor ichiga aniq tushadi (0 .. green_slice_deg)
+        margin = max(2, min(6, green_slice_deg // 5))
+        low_deg = min(margin, max(1, green_slice_deg - 1))
+        high_deg = max(low_deg, green_slice_deg - margin)
+        final_angle = random.randint(low_deg, high_deg)
+    else:
+        # Qizil sektorga aniq tushadi (green_slice_deg .. 360)
+        low_red = min(354, green_slice_deg + 8)
+        high_red = max(low_red, 352)
+        final_angle = random.randint(low_red, high_red)
+
+    # 5. Inventarda sovg'ani almashtirish (yutsa yangi sovg'a tushadi, yutqazsa kuyadi)
+    resolved_target_gift_id = str(target_slug or target_inventory_id or target_icon or "gift").strip()
+    inv_outcome = process_inventory_upgrade_outcome(
+        tg_user_id=user_id,
+        source_row_id=actual_source_id,
+        won=won,
+        target_gift_id=resolved_target_gift_id,
+        target_name=target_name,
+        target_stars=target_stars
+    )
+
+    if won:
+        record_drop_event(
+            f"user_{str(user_id)[-4:]}",
+            f"Upgrade {mult_val:g}x: {target_name}",
+            target_stars,
+            target_icon,
+            "legendary",
+            True
+        )
+
+    new_balance = get_user_balance(user_id) if user_id > 1000 else 0
 
     return {
         "ok": True,
         "won": won,
+        "multiplier": round(mult_val, 2),
         "odds_percent": round(calc_odds * 100, 1),
         "final_angle": final_angle,
         "green_slice_deg": green_slice_deg,
+        "source_inventory_id": actual_source_id,
+        "source_name": source_name,
         "item_stars": item_stars,
-        "stake_uzs": stake_uzs,
+        "stake_uzs": 0,
         "target_stars": target_stars,
         "target_name": target_name,
         "target_icon": target_icon,
+        "target_slug": resolved_target_gift_id,
         "target_inventory_id": target_inventory_id,
+        "inventory_outcome": inv_outcome,
+        "plays_count": plays_after,
         "new_balance": new_balance,
         "is_admin": is_admin
     }

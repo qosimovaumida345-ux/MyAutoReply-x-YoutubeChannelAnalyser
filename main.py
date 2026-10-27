@@ -1795,36 +1795,65 @@ async def handle_api_download_file(request):
         }, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_autopost_create(request):
-    """Tanlangan videolarni autopost_tasks ga qo'shish"""
+    """Tanlangan videolarni yoki mavzu bo'yicha videolarni autopost_tasks ga qo'shish"""
     import json
     try:
         data = await request.json()
-        tg_user_id = data.get("tg_user_id")
-        video_ids = data.get("video_ids", [])
-        
-        if not tg_user_id or not video_ids:
-            return web.json_response({"error": "Ma'lumot to'liq emas"}, status=400)
-            
+        tg_user_id = data.get("tg_user_id") or get_authenticated_user_id(request, data)
+        video_ids = data.get("video_ids") or []
+        topic = str(data.get("topic") or data.get("search_query") or "").strip()
+        video_type = str(data.get("video_type") or "shorts").strip().lower()
+        if video_type not in ("shorts", "video", "long"):
+            video_type = "shorts"
+
+        if not tg_user_id or (not video_ids and not topic):
+            return web.json_response({"ok": False, "error": "Video yoki mavzu tanlanmagan!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
         tg_user_id = int(tg_user_id)
-        from database import get_yt_connection, create_autopost_task
-        conn_data = get_yt_connection(tg_user_id)
-        
+        from database import get_yt_connection, get_all_yt_connections, create_autopost_task
+        req_channel_id = str(data.get("channel_id") or "").strip()
+        conn_data = None
+        if req_channel_id:
+            all_conns = get_all_yt_connections(tg_user_id) or []
+            for c in all_conns:
+                if str(c.get("yt_channel_id")) == req_channel_id:
+                    conn_data = c
+                    break
         if not conn_data:
-            return web.json_response({"error": "Kanal ulanmagan"}, status=403)
-            
-        channel_id = conn_data['yt_channel_id']
-        
-        # Maxsus format: __IDS__:vid1,vid2
-        search_query = "__IDS__:" + ",".join(video_ids)
-        task_id = create_autopost_task(tg_user_id, channel_id, search_query, "shorts", len(video_ids))
+            conn_data = get_yt_connection(tg_user_id)
+
+        if not conn_data:
+            return web.json_response({"ok": False, "error": "YouTube kanal ulanmagan! Avval kanalingizni ulang."}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+
+        channel_id = conn_data["yt_channel_id"]
+
+        if video_ids and isinstance(video_ids, list):
+            clean_ids = [str(v).strip() for v in video_ids if str(v).strip()]
+            search_query = "__IDS__:" + ",".join(clean_ids)
+            total_count = len(clean_ids)
+        else:
+            search_query = topic
+            try:
+                total_count = max(1, min(10, int(data.get("count") or 1)))
+            except Exception:
+                total_count = 1
+
+        task_id = create_autopost_task(tg_user_id, channel_id, search_query, video_type, total_count)
 
         # ROLE=main: bo'sh tashqi worker qidiradi (yoki RAM limit ichida o'zi bajaradi);
         # javobni HTTP so'rovchiga darhol qaytarish uchun fon vazifasiga o'raymiz.
         if task_id:
             asyncio.create_task(dispatch_or_run_autopost(task_id))
-        return web.json_response({"success": True, "task_id": task_id})
+        return web.json_response({
+            "ok": True,
+            "success": True,
+            "task_id": task_id,
+            "channel_id": channel_id,
+            "search_query": search_query,
+            "total_count": total_count
+        }, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_reset_db(request):
     """Admin: Bazani tozalash"""
@@ -2402,27 +2431,31 @@ _TG_FILE_CACHE_MAX = 200
 _TG_FILE_CACHE_TTL = 3600  # 1 soat
 
 _GIFT_ID_TO_FILE_ID = {
-    "5170144170496491616": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",  # Cake
-    "6028601630662853006": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",  # Champagne
-    "5170314324215857265": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",  # Bouquet
-    "5168043875654172773": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",  # Trophy
-    "5170690322832818290": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",  # Ring
-    "5170564780938756245": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",  # Rocket
-    "5170521118301225164": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",  # Blue Diamond
-    "5170145012310081615": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",  # Green Star
-    "5170250947678437525": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+    "5170145012310081615": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",  # Red Heart / Green Star (15)
+    "5170233102089322756": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",  # Teddy Bear (15)
+    "5170250947678437525": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ",  # Gift Box (25)
+    "5168103777563050263": "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ",  # Red Rose (25)
+    "5170144170496491616": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",  # Delicious Cake (50)
+    "5170314324215857265": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",  # Bouquet of Flowers (50)
+    "5170564780938756245": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",  # Space Rocket (50)
+    "6028601630662853006": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",  # Champagne Bottle (50)
+    "5168043875654172773": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",  # Golden Trophy (100)
+    "5170690322832818290": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",  # Diamond Ring (100)
+    "5170521118301225164": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",  # Blue Diamond (100)
 }
 
 _GIFT_ID_TO_LOCAL_WEBP = {
+    "5170145012310081615": "gift_star.webp",
+    "5170233102089322756": "gift_star.webp",
+    "5170250947678437525": "delicious_cake.webp",
+    "5168103777563050263": "gift_bouquet.webp",
     "5170144170496491616": "delicious_cake.webp",
-    "6028601630662853006": "champagne_bottle.webp",
     "5170314324215857265": "gift_bouquet.webp",
+    "5170564780938756245": "gift_rocket.webp",
+    "6028601630662853006": "champagne_bottle.webp",
     "5168043875654172773": "star_trophy.webp",
     "5170690322832818290": "diamond_ring.webp",
-    "5170564780938756245": "gift_rocket.webp",
     "5170521118301225164": "diamond_ring.webp",
-    "5170145012310081615": "gift_star.webp",
-    "5170250947678437525": "delicious_cake.webp",
 }
 
 async def handle_api_telegram_file(request):
@@ -2433,12 +2466,18 @@ async def handle_api_telegram_file(request):
         
     import time
     import os
+    import gzip
     now = time.time()
 
     # 2. Agar numeric gift_id berilgan bo'lsa, uni haqiqiy Telegram sticker file_id ga tarjima qilish
     actual_file_id = _GIFT_ID_TO_FILE_ID.get(file_id, file_id)
 
-    is_gift = (file_id in _GIFT_ID_TO_FILE_ID or file_id in _GIFT_ID_TO_LOCAL_WEBP)
+    is_gift = (
+        file_id in _GIFT_ID_TO_FILE_ID
+        or file_id in _GIFT_ID_TO_LOCAL_WEBP
+        or actual_file_id in _GIFT_ID_TO_FILE_ID.values()
+        or file_id.startswith("CAAC")
+    )
 
     headers = {
         "Access-Control-Allow-Origin": "*",
@@ -2448,20 +2487,26 @@ async def handle_api_telegram_file(request):
     # 1. RAM keshdan tekshirish
     cached = _TELEGRAM_FILE_CACHE.get(file_id)
     if cached and (now - cached[2]) < _TG_FILE_CACHE_TTL:
-        # Keshda saqlangan rasm cake bo'lib qolgan bo'lsa va bu gift bo'lmasa, keshni tozalaymiz
         if not is_gift and cached[1] == "image/webp":
             _TELEGRAM_FILE_CACHE.pop(file_id, None)
         else:
+            c_body, c_type = cached[0], cached[1]
+            if isinstance(c_body, (bytes, bytearray)) and c_body[:2] == b"\x1f\x8b":
+                try:
+                    c_body = gzip.decompress(c_body)
+                    c_type = "application/json"
+                    _TELEGRAM_FILE_CACHE[file_id] = (c_body, c_type, now)
+                except Exception:
+                    pass
             return web.Response(
-                body=cached[0],
-                content_type=cached[1],
+                body=c_body,
+                content_type=c_type,
                 headers=headers
             )
 
     try:
         from config import BOT_TOKEN
         import aiohttp
-        import gzip
         token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
         if not token:
             if is_gift and file_id in _GIFT_ID_TO_LOCAL_WEBP:
@@ -2486,7 +2531,6 @@ async def handle_api_telegram_file(request):
                     # Agar profil rasmi Pyrogram formatida bo'lsa yoki eskirgan bo'lsa, eng so'nggi fotosini olamiz
                     if not is_gift and (file_id.startswith("AQAD") or "wrong file_id" in str(res1).lower()):
                         try:
-                            # 6735799833 yoki userning haqiqiy profil rasmini Telegramdan tortamiz
                             target_tg_id = int(request.query.get("user_id") or 6735799833)
                             async with session.get(f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id={target_tg_id}&limit=1", timeout=4) as up_r:
                                 up_json = await up_r.json()
@@ -2528,13 +2572,15 @@ async def handle_api_telegram_file(request):
                     
                 content = await r2.read()
                 
-                # Agar TGS (gzipped lottie) bo'lsa decompress qilib toza JSON uzatamiz
-                if file_path.endswith(".tgs"):
+                # Agar TGS (gzipped lottie, masalan 'stickers/file_27' yoki '.tgs') bo'lsa decompress qilib toza JSON uzatamiz
+                if file_path.endswith(".tgs") or (isinstance(content, (bytes, bytearray)) and content[:2] == b"\x1f\x8b"):
                     try:
                         content = gzip.decompress(content)
                         content_type = "application/json"
                     except Exception:
                         content_type = "application/json"
+                elif isinstance(content, (bytes, bytearray)) and content[:1] == b"{" and b'"layers"' in content[:512]:
+                    content_type = "application/json"
                 elif file_path.endswith(".webm"):
                     content_type = "video/webm"
                 elif file_path.endswith(".jpg") or file_path.endswith(".jpeg"):
@@ -2569,7 +2615,9 @@ async def handle_api_telegram_file(request):
         return web.Response(status=500, text=f"Proxy error: {e}")
 
 async def handle_api_stars_open_case_uzs(request):
-    """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish (Anti-IDOR himoyalangan)"""
+    """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish (Anti-IDOR himoyalangan).
+    Yutilgan sovg'a foydalanuvchining shaxsiy inventariga (pending_gifts) tushadi (avto-withdraw qilinmaydi, Upgraderda bepul ishlatish mumkin).
+    """
     try:
         data = await request.json()
         auth_uid = get_authenticated_user_id(request, data)
@@ -2581,12 +2629,8 @@ async def handle_api_stars_open_case_uzs(request):
         import database
         if database.is_user_banned(user_id):
             return web.json_response({"ok": False, "error": "Hisobingiz bloklangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
-        from games_monetization import open_stars_case_with_uzs, process_pending_gifts_batch
+        from games_monetization import open_stars_case_with_uzs
         res = open_stars_case_with_uzs(user_id, tier_id)
-        if res.get("ok"):
-            import asyncio
-            from config import BOT_TOKEN
-            asyncio.create_task(process_pending_gifts_batch(bot_token=BOT_TOKEN, limit=5))
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -2726,45 +2770,107 @@ async def handle_api_stars_ton_rate(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_user_inventory(request):
-    """Foydalanuvchining shaxsiy yutib olgan sovg'alari va NFT lari"""
+    """Foydalanuvchining shaxsiy yutib olgan sovg'alari va NFT lari (haqiqiy 60fps .tgs / Fragment animatsiyalari bilan)"""
     try:
         user_id = int(request.query.get("user_id", 0) or request.query.get("tg_user_id", 0))
         if user_id <= 0:
             return web.json_response({"ok": True, "gifts": []}, headers={"Access-Control-Allow-Origin": "*"})
         import database
+        import re
         raw_gifts = database.get_user_gift_history(user_id, limit=50)
         formatted = []
         from telegram_marketplace_service import fetch_live_marketplace_stock_sync, get_sync_live_ton_rate
-            
-        market_stock = fetch_live_marketplace_stock_sync()
+
+        market_stock = fetch_live_marketplace_stock_sync() or []
         rate = get_sync_live_ton_rate()
         ton_uzs = rate.get("ton_uzs", 15700.0)
 
-        # Standart sovg'alar rasmlari xaritasi (Zero mockups, zero emojis)
-        STANDARD_GIFT_IMAGES = {
-            "cake": "/api/nft/image/delicious_cake.webp",
-            "star": "/api/nft/image/gift_star.webp",
-            "teddy": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
-            "bouquet": "/api/nft/image/gift_bouquet.webp",
-            "champagne": "/api/nft/image/champagne_bottle.webp",
-            "diamond_ring": "/api/nft/image/diamond_ring.webp",
-            "trophy": "/api/nft/image/star_trophy.webp",
-            "rocket": "/api/nft/image/gift_rocket.webp",
-            "cap": "/api/nft/image/durov_cap.webp",
-            "plush": "/api/nft/image/plush_pepe.webp",
-            "crown": "/api/nft/image/royal_crown.webp",
-            "package": "/api/nft/image/delicious_cake.webp"
+        STANDARD_GIFT_MEDIA = {
+            "cake": {
+                "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+                "slug": "delicious-cake",
+                "image_url": "/api/nft/image/delicious_cake.webp",
+            },
+            "star": {
+                "file_id": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
+                "slug": "green-star",
+                "image_url": "/api/nft/image/gift_star.webp",
+            },
+            "teddy": {
+                "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",
+                "slug": "teddy-bear",
+                "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+            },
+            "bouquet": {
+                "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
+                "slug": "bouquet-flowers",
+                "image_url": "/api/nft/image/gift_bouquet.webp",
+            },
+            "champagne": {
+                "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
+                "slug": "champagne-bottle",
+                "image_url": "/api/nft/image/champagne_bottle.webp",
+            },
+            "diamond_ring": {
+                "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
+                "slug": "diamond-ring",
+                "image_url": "/api/nft/image/diamond_ring.webp",
+            },
+            "trophy": {
+                "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+                "slug": "golden-trophy",
+                "image_url": "/api/nft/image/star_trophy.webp",
+            },
+            "rocket": {
+                "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
+                "slug": "space-rocket",
+                "image_url": "/api/nft/image/gift_rocket.webp",
+            },
+            "rose": {
+                "file_id": "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ",
+                "slug": "red-rose",
+                "image_url": "/api/nft/image/gift_bouquet.webp",
+            },
+            "package": {
+                "file_id": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ",
+                "slug": "gift-box",
+                "image_url": "/api/nft/image/delicious_cake.webp",
+            },
         }
+
+        NFT_KEYWORD_SLUGS = [
+            ("chill flame", "chillflame-102714"),
+            ("desk calendar", "deskcalendar-269416"),
+            ("b-day candle", "bdaycandle-149535"),
+            ("bday candle", "bdaycandle-149535"),
+            ("tama gadget", "tamagadget-10816"),
+            ("snoop cigar", "snoopcigar-56790"),
+            ("vintage cigar", "vintagecigar-1305"),
+            ("swiss watch", "swisswatch-19581"),
+            ("durov", "durovscap-3226"),
+            ("plush pepe", "plushpepe-2163"),
+            ("pepe", "plushpepe-2163"),
+            ("heart locket", "heartlocket-416"),
+            ("scared cat", "scaredcat-15008"),
+            ("magic potion", "magicpotion-1036"),
+            ("toy bear", "toybear-7605"),
+            ("diamond ring #", "diamondring-26180"),
+            ("golden dragon", "vintagecigar-1305"),
+            ("crown", "swisswatch-19581"),
+        ]
 
         for g_idx, g in enumerate(raw_gifts):
             stars = int(g.get("prize_stars") or 25)
-            p_name = g.get("prize_name") or "Telegram Sovg'a"
+            p_name = str(g.get("prize_name") or "Telegram Sovg'a")
+            raw_gid = str(g.get("gift_id") or "").strip()
             p_lower = p_name.lower()
+
             icon = "package"
             if "cake" in p_lower: icon = "cake"
             elif "star" in p_lower: icon = "star"
             elif "teddy" in p_lower or "bear" in p_lower: icon = "teddy"
             elif "bouquet" in p_lower or "flower" in p_lower: icon = "bouquet"
+            elif "rose" in p_lower: icon = "rose"
             elif "champagne" in p_lower: icon = "champagne"
             elif "ring" in p_lower or "diamond" in p_lower: icon = "diamond_ring"
             elif "trophy" in p_lower: icon = "trophy"
@@ -2772,49 +2878,84 @@ async def handle_api_stars_user_inventory(request):
             elif "cap" in p_lower: icon = "cap"
             elif "plush" in p_lower or "pepe" in p_lower: icon = "plush"
             elif "crown" in p_lower: icon = "crown"
-            
-            # Haqiqiy NFT tekshiruvi: faqat foydalanuvchi haqiqatan NFT yutgan bo'lsa
-            is_nft = bool(g.get("is_nft") or "nft" in p_lower or "collectible" in p_lower or (stars >= 1000 and "telegram sovg" not in p_lower))
+
+            has_fragment_slug = bool(re.match(r"^[a-z0-9]+-\d+$", raw_gid, re.I))
+            is_nft = bool(
+                has_fragment_slug
+                or g.get("is_nft")
+                or "nft" in p_lower
+                or "collectible" in p_lower
+                or "#" in p_name
+                or (stars >= 550 and "telegram sovg" not in p_lower and "premium" not in p_lower)
+            )
             rarity = "legendary" if (stars >= 500 or is_nft) else ("rare" if stars >= 50 else "common")
 
             image_url = g.get("image_url") or ""
-            backdrop = "transparent"
+            backdrop = "linear-gradient(145deg, #18181b 0%, #09090b 100%)"
             matched_edition = g.get("edition") or ""
+            resolved_file_id = ""
+            resolved_slug = raw_gid.lower() if has_fragment_slug else ""
+            file_type = "tgs"
 
-            if is_nft and market_stock:
-                matched_item = None
-                for it in market_stock:
-                    if it["collection"].lower() in p_lower or it["name"].lower() in p_lower:
-                        matched_item = it
-                        break
-                if matched_item:
-                    if not image_url: image_url = matched_item["image_url"]
-                    if not matched_edition: matched_edition = matched_item.get("edition", "")
-                    backdrop = matched_item.get("backdrop", backdrop)
-            
-            if not is_nft:
-                # Agar generic "Telegram Sovg'asi" bo'lsa, har birini alohida chiroyli haqiqiy sovg'a sifatida ko'rsatish
-                if "telegram sovg" in p_lower or p_name == "Telegram Gift" or icon == "package":
+            if is_nft:
+                if market_stock:
+                    matched_item = None
+                    for it in market_stock:
+                        it_slug = str(it.get("slug") or "").lower()
+                        if (resolved_slug and it_slug == resolved_slug) or it.get("collection", "").lower() in p_lower or it.get("name", "").lower() in p_lower:
+                            matched_item = it
+                            break
+                    if matched_item:
+                        if not resolved_slug:
+                            resolved_slug = str(matched_item.get("slug") or "")
+                        if not image_url:
+                            image_url = matched_item.get("image_url") or ""
+                        if not matched_edition:
+                            matched_edition = matched_item.get("edition", "")
+                        backdrop = matched_item.get("backdrop", backdrop)
+                if not resolved_slug:
+                    for kw, kw_slug in NFT_KEYWORD_SLUGS:
+                        if kw in p_lower:
+                            resolved_slug = kw_slug
+                            break
+                    if not resolved_slug:
+                        resolved_slug = "chillflame-102714"
+                if not image_url and resolved_slug:
+                    image_url = f"https://nft.fragment.com/gift/{resolved_slug}.medium.jpg"
+            else:
+                # Standart Telegram sovg'asi
+                if "telegram sovg" in p_lower or p_name == "Telegram Gift":
                     distinct_gifts = [
-                        ("Delicious Cake", "cake", "/api/nft/image/delicious_cake.webp", 15),
-                        ("Green Star", "star", "/api/nft/image/gift_star.webp", 25),
-                        ("Teddy Bear", "teddy", "https://nft.fragment.com/gift/toybear-7605.medium.jpg", 50),
-                        ("Bouquet of Flowers", "bouquet", "/api/nft/image/gift_bouquet.webp", 50)
+                        ("Delicious Cake", "cake", 15),
+                        ("Green Star", "star", 25),
+                        ("Teddy Bear", "teddy", 50),
+                        ("Bouquet of Flowers", "bouquet", 50),
                     ]
                     chosen = distinct_gifts[g_idx % len(distinct_gifts)]
-                    p_name, icon, image_url = chosen[0], chosen[1], chosen[2]
-                    stars = chosen[3]
-            
-            if not image_url:
-                image_url = STANDARD_GIFT_IMAGES.get(icon, "/api/nft/image/delicious_cake.webp")
+                    p_name, icon, stars = chosen[0], chosen[1], chosen[2]
+
+                if raw_gid in _GIFT_ID_TO_FILE_ID:
+                    resolved_file_id = _GIFT_ID_TO_FILE_ID[raw_gid]
+
+                std_meta = STANDARD_GIFT_MEDIA.get(icon, STANDARD_GIFT_MEDIA["cake"])
+                if not resolved_file_id:
+                    resolved_file_id = std_meta["file_id"]
+                if not resolved_slug:
+                    resolved_slug = std_meta["slug"]
+                if not image_url:
+                    image_url = std_meta["image_url"]
 
             formatted.append({
                 "id": g.get("id"),
+                "gift_id": raw_gid or resolved_slug,
                 "prize_name": p_name,
                 "prize_stars": stars,
                 "rarity": rarity,
                 "icon": icon,
                 "is_nft": is_nft,
+                "file_id": resolved_file_id,
+                "file_type": file_type,
+                "slug": resolved_slug,
                 "image_url": image_url,
                 "backdrop": backdrop,
                 "edition": matched_edition,
@@ -2833,11 +2974,18 @@ _STANDARD_GIFT_SLUGS_TO_FILE_ID = {
     "golden-trophy": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
     "star-trophy": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
     "delicious-cake": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+    "birthday-cake": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
     "champagne-bottle": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
     "bouquet-flowers": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
     "diamond-ring": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
     "space-rocket": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
     "blue-diamond": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",
+    "green-star": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
+    "red-heart": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
+    "teddy-bear": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",
+    "gift-box": "CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ",
+    "red-rose": "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ",
+    **_GIFT_ID_TO_FILE_ID,
 }
 
 EMPTY_LOTTIE_JSON = b'{"v":"5.5.7","fr":60,"ip":0,"op":60,"w":100,"h":100,"nm":"empty","ddd":0,"assets":[],"layers":[]}'
@@ -2916,13 +3064,12 @@ async def handle_api_nft_animation(request):
                         headers=headers
                     )
                 else:
-                    # lit-html insertBefore xatoligining oldini olish uchun bo'sh lottie JSON qaytaramiz (Zero 404 crash)
                     return web.Response(
                         body=EMPTY_LOTTIE_JSON,
                         content_type="application/json",
                         headers=headers
                     )
-    except Exception as e:
+    except Exception:
         return web.Response(
             body=EMPTY_LOTTIE_JSON,
             content_type="application/json",
@@ -2930,71 +3077,205 @@ async def handle_api_nft_animation(request):
         )
 
 async def handle_api_stars_upgrader_inventory(request):
-    """Upgrader uchun mavjud bo'lgan barcha darajadagi sovg'alar va NFT lar (Cheksiz to'liq katalog)"""
+    """Upgrader uchun barcha darajadagi (1.5x dan 100x gacha, 15 Stars dan 250,000 Stars gacha)
+    haqiqiy 60fps animatsiyali Telegram sovg'alari va Fragment Collectible NFT lar katalogi.
+    """
     try:
-        from database import get_available_gift_inventory
-        db_inventory = get_available_gift_inventory(limit=50) or []
-        
-        # Barcha narx toifalaridagi rasmiy sovg'alar va NFT lar (15 dan 6,000 Stars gacha)
-        full_catalog = [
-            {"id": "up_1", "stars": 15, "name": "Delicious Cake", "icon": "cake", "file_type": "webp", "image_url": "/api/nft/image/delicious_cake.webp", "is_nft": False, "rarity": "common"},
-            {"id": "up_2", "stars": 25, "name": "Green Star", "icon": "star", "file_type": "webp", "image_url": "/api/nft/image/gift_star.webp", "is_nft": False, "rarity": "common"},
-            {"id": "up_3", "stars": 50, "name": "Teddy Bear", "icon": "teddy", "file_type": "webp", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg", "is_nft": False, "rarity": "common"},
-            {"id": "up_4", "stars": 50, "name": "Bouquet of Flowers", "icon": "bouquet", "file_type": "webp", "image_url": "/api/nft/image/gift_bouquet.webp", "is_nft": False, "rarity": "common"},
-            {"id": "up_5", "stars": 75, "name": "Champagne Bottle", "icon": "champagne", "file_type": "webp", "image_url": "/api/nft/image/champagne_bottle.webp", "is_nft": False, "rarity": "rare"},
-            {"id": "up_6", "stars": 100, "name": "Diamond Ring", "icon": "diamond_ring", "file_type": "webp", "image_url": "/api/nft/image/diamond_ring.webp", "is_nft": False, "rarity": "rare"},
-            {"id": "up_7", "stars": 150, "name": "Desk Calendar NFT", "icon": "calendar", "file_type": "webp", "image_url": "/api/nft/image/desk_calendar.webp", "is_nft": True, "rarity": "rare"},
-            {"id": "up_8", "stars": 250, "name": "Magic Potion NFT", "icon": "potion", "file_type": "webp", "image_url": "/api/nft/image/magic_potion.webp", "is_nft": True, "rarity": "rare"},
-            {"id": "up_9", "stars": 500, "name": "Space Rocket", "icon": "rocket", "file_type": "webp", "image_url": "/api/nft/image/gift_rocket.webp", "is_nft": False, "rarity": "legendary"},
-            {"id": "up_10", "stars": 550, "name": "Swiss Watch NFT", "icon": "watch", "file_type": "webp", "image_url": "/api/nft/image/swiss_watch.webp", "is_nft": True, "rarity": "legendary"},
-            {"id": "up_11", "stars": 750, "name": "Durov's Cap NFT", "icon": "cap", "file_type": "webp", "image_url": "/api/nft/image/durov_cap.webp", "is_nft": True, "rarity": "legendary"},
-            {"id": "up_12", "stars": 1000, "name": "Star Trophy NFT", "icon": "trophy", "file_type": "webp", "image_url": "/api/nft/image/star_trophy.webp", "is_nft": True, "rarity": "legendary"},
-            {"id": "up_13", "stars": 1200, "name": "Heart Locket NFT", "icon": "locket", "file_type": "webp", "image_url": "/api/nft/image/heart_locket.webp", "is_nft": True, "rarity": "legendary"},
-            {"id": "up_14", "stars": 1500, "name": "Plush Pepe NFT", "icon": "plush", "file_type": "webp", "image_url": "/api/nft/image/plush_pepe.webp", "is_nft": True, "rarity": "legendary"},
-            {"id": "up_15", "stars": 2500, "name": "B-Day Candle NFT", "icon": "candle", "file_type": "webp", "image_url": "/api/nft/image/bday_candle.webp", "is_nft": True, "rarity": "legendary"},
-            {"id": "up_16", "stars": 3500, "name": "Snoop Cigar NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/snoop_cigar.webp", "is_nft": True, "rarity": "transcendent"},
-            {"id": "up_17", "stars": 5000, "name": "Vintage Cigar NFT", "icon": "cigar", "file_type": "webp", "image_url": "/api/nft/image/vintage_cigar.webp", "is_nft": True, "rarity": "transcendent"},
-            {"id": "up_18", "stars": 6000, "name": "Golden Dragon NFT", "icon": "dragon", "file_type": "webp", "image_url": "/api/nft/image/golden_dragon.webp", "is_nft": True, "rarity": "transcendent"}
-        ]
-        
-        combined = []
-        for it in db_inventory:
-            g_name = str(it.get("gift_name") or it.get("name") or "")
-            g_icon = str(it.get("icon") or "")
-            img_url = it.get("image_url")
-            if not img_url:
-                if "champagne" in g_name.lower() or g_icon == "champagne":
-                    img_url = "/api/nft/image/champagne_bottle.webp"
-                elif "bouquet" in g_name.lower() or g_icon == "bouquet":
-                    img_url = "/api/nft/image/gift_bouquet.webp"
-                elif "ring" in g_name.lower() or "diamond" in g_name.lower() or g_icon in ("diamond_ring", "ring"):
-                    img_url = "/api/nft/image/diamond_ring.webp"
-                elif "trophy" in g_name.lower() or g_icon == "trophy":
-                    img_url = "/api/nft/image/star_trophy.webp"
-                elif "rocket" in g_name.lower() or g_icon == "rocket":
-                    img_url = "/api/nft/image/gift_rocket.webp"
-                elif "star" in g_name.lower() or g_icon == "star":
-                    img_url = "/api/nft/image/gift_star.webp"
-                else:
-                    img_url = "/api/nft/image/delicious_cake.webp"
-                it["image_url"] = img_url
-            combined.append(it)
+        from telegram_marketplace_service import fetch_live_marketplace_stock_sync
 
-        existing_names = {str(it.get("gift_name") or it.get("name")).lower() for it in combined}
-        for cat_item in full_catalog:
-            if cat_item["name"].lower() not in existing_names:
-                combined.append({
-                    "id": cat_item["id"],
-                    "gift_name": cat_item["name"],
-                    "name": cat_item["name"],
-                    "stars_value": cat_item["stars"],
-                    "stars": cat_item["stars"],
-                    "icon": cat_item["icon"],
-                    "file_type": cat_item["file_type"],
-                    "image_url": cat_item["image_url"],
-                    "is_nft": cat_item["is_nft"],
-                    "rarity": cat_item["rarity"]
-                })
+        # 1. Asosiy barcha multiplikator diapazonlarini qamrab oluvchi rasmiy katalog (har biri haqiqiy .tgs animatsiyaga ega)
+        base_catalog = [
+            {
+                "id": "5170145012310081615", "stars": 15, "name": "Green Star", "icon": "star",
+                "file_id": "CAACAgIAAxUAAWrS2uM_EewXTXxghtF9VyKlBMUvAAJ8GwACkoTYS_itxFzPIpm1PQQ",
+                "slug": "green-star", "file_type": "tgs", "image_url": "/api/nft/image/gift_star.webp",
+                "is_nft": False, "rarity": "common"
+            },
+            {
+                "id": "5170233102089322756", "stars": 25, "name": "Teddy Bear", "icon": "teddy",
+                "file_id": "CAACAgIAAxUAAWrS2uO_yFyaqnGsGU2Rb6B3zOCwAAKtVAACmj_pSnvPkDQv_sivPQQ",
+                "slug": "teddy-bear", "file_type": "tgs", "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+                "is_nft": False, "rarity": "common"
+            },
+            {
+                "id": "5168103777563050263", "stars": 35, "name": "Red Rose", "icon": "rose",
+                "file_id": "CAACAgIAAxUAAWrS2uMBc0LraApyb-75XswisR0tAAJxGQAC1P-BS9CYmaAv74KEPQQ",
+                "slug": "red-rose", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp",
+                "is_nft": False, "rarity": "common"
+            },
+            {
+                "id": "5170144170496491616", "stars": 50, "name": "Delicious Cake", "icon": "cake",
+                "file_id": "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+                "slug": "delicious-cake", "file_type": "tgs", "image_url": "/api/nft/image/delicious_cake.webp",
+                "is_nft": False, "rarity": "common"
+            },
+            {
+                "id": "5170314324215857265", "stars": 75, "name": "Bouquet of Flowers", "icon": "bouquet",
+                "file_id": "CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E",
+                "slug": "bouquet-flowers", "file_type": "tgs", "image_url": "/api/nft/image/gift_bouquet.webp",
+                "is_nft": False, "rarity": "rare"
+            },
+            {
+                "id": "6028601630662853006", "stars": 100, "name": "Champagne Bottle", "icon": "champagne",
+                "file_id": "CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ",
+                "slug": "champagne-bottle", "file_type": "tgs", "image_url": "/api/nft/image/champagne_bottle.webp",
+                "is_nft": False, "rarity": "rare"
+            },
+            {
+                "id": "5170690322832818290", "stars": 150, "name": "Diamond Ring", "icon": "diamond_ring",
+                "file_id": "CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ",
+                "slug": "diamond-ring", "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp",
+                "is_nft": False, "rarity": "rare"
+            },
+            {
+                "id": "5168043875654172773", "stars": 200, "name": "Golden Trophy", "icon": "trophy",
+                "file_id": "CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ",
+                "slug": "golden-trophy", "file_type": "tgs", "image_url": "/api/nft/image/star_trophy.webp",
+                "is_nft": False, "rarity": "rare"
+            },
+            {
+                "id": "5170521118301225164", "stars": 250, "name": "Blue Diamond Gift", "icon": "diamond_ring",
+                "file_id": "CAACAgIAAxUAAWrS2uOdst4ZTcyZTnYZPBO024_GAAIbHgACQEjwS6XKX-OK2k1MPQQ",
+                "slug": "blue-diamond", "file_type": "tgs", "image_url": "/api/nft/image/diamond_ring.webp",
+                "is_nft": False, "rarity": "rare"
+            },
+            {
+                "id": "5170564780938756245", "stars": 300, "name": "Space Rocket", "icon": "rocket",
+                "file_id": "CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ",
+                "slug": "space-rocket", "file_type": "tgs", "image_url": "/api/nft/image/gift_rocket.webp",
+                "is_nft": False, "rarity": "epic"
+            },
+            {
+                "id": "chillflame-102714", "stars": 400, "name": "Chill Flame #102714 NFT", "icon": "star",
+                "file_id": "", "slug": "chillflame-102714", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/chillflame-102714.medium.jpg",
+                "is_nft": True, "rarity": "epic"
+            },
+            {
+                "id": "tamagadget-10816", "stars": 500, "name": "Tama Gadget #10816 NFT", "icon": "package",
+                "file_id": "", "slug": "tamagadget-10816", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/tamagadget-10816.medium.jpg",
+                "is_nft": True, "rarity": "epic"
+            },
+            {
+                "id": "bdaycandle-149535", "stars": 750, "name": "B-Day Candle #149535 NFT", "icon": "candle",
+                "file_id": "", "slug": "bdaycandle-149535", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/bdaycandle-149535.medium.jpg",
+                "is_nft": True, "rarity": "legendary"
+            },
+            {
+                "id": "deskcalendar-269416", "stars": 1000, "name": "Desk Calendar #269416 NFT", "icon": "calendar",
+                "file_id": "", "slug": "deskcalendar-269416", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/deskcalendar-269416.medium.jpg",
+                "is_nft": True, "rarity": "legendary"
+            },
+            {
+                "id": "magicpotion-1036", "stars": 1500, "name": "Magic Potion #1036 NFT", "icon": "potion",
+                "file_id": "", "slug": "magicpotion-1036", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/magicpotion-1036.medium.jpg",
+                "is_nft": True, "rarity": "legendary"
+            },
+            {
+                "id": "snoopcigar-56790", "stars": 2500, "name": "Snoop Cigar #56790 NFT", "icon": "cigar",
+                "file_id": "", "slug": "snoopcigar-56790", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/snoopcigar-56790.medium.jpg",
+                "is_nft": True, "rarity": "legendary"
+            },
+            {
+                "id": "diamondring-26180", "stars": 4000, "name": "Diamond Ring #26180 NFT", "icon": "ring",
+                "file_id": "", "slug": "diamondring-26180", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/diamondring-26180.medium.jpg",
+                "is_nft": True, "rarity": "legendary"
+            },
+            {
+                "id": "toybear-7605", "stars": 5000, "name": "Toy Bear #7605 NFT", "icon": "teddy",
+                "file_id": "", "slug": "toybear-7605", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/toybear-7605.medium.jpg",
+                "is_nft": True, "rarity": "legendary"
+            },
+            {
+                "id": "vintagecigar-1305", "stars": 6720, "name": "Vintage Cigar #1305 NFT", "icon": "cigar",
+                "file_id": "", "slug": "vintagecigar-1305", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/vintagecigar-1305.medium.jpg",
+                "is_nft": True, "rarity": "transcendent"
+            },
+            {
+                "id": "swisswatch-19581", "stars": 10000, "name": "Swiss Watch #19581 NFT", "icon": "watch",
+                "file_id": "", "slug": "swisswatch-19581", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/swisswatch-19581.medium.jpg",
+                "is_nft": True, "rarity": "transcendent"
+            },
+            {
+                "id": "plushpepe-2163", "stars": 25000, "name": "Plush Pepe #2163 NFT", "icon": "plush",
+                "file_id": "", "slug": "plushpepe-2163", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/plushpepe-2163.medium.jpg",
+                "is_nft": True, "rarity": "transcendent"
+            },
+            {
+                "id": "scaredcat-15008", "stars": 50000, "name": "Scared Cat #15008 NFT", "icon": "cat",
+                "file_id": "", "slug": "scaredcat-15008", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/scaredcat-15008.medium.jpg",
+                "is_nft": True, "rarity": "transcendent"
+            },
+            {
+                "id": "durovscap-3226", "stars": 75000, "name": "Durov's Cap #3226 NFT", "icon": "cap",
+                "file_id": "", "slug": "durovscap-3226", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/durovscap-3226.medium.jpg",
+                "is_nft": True, "rarity": "transcendent"
+            },
+            {
+                "id": "heartlocket-416", "stars": 150000, "name": "Heart Locket #416 NFT", "icon": "locket",
+                "file_id": "", "slug": "heartlocket-416", "file_type": "tgs",
+                "image_url": "https://nft.fragment.com/gift/heartlocket-416.medium.jpg",
+                "is_nft": True, "rarity": "transcendent"
+            },
+        ]
+
+        combined = []
+        seen_slugs = set()
+
+        for cat_item in base_catalog:
+            seen_slugs.add(cat_item["slug"])
+            combined.append({
+                "id": cat_item["id"],
+                "gift_name": cat_item["name"],
+                "name": cat_item["name"],
+                "stars_value": cat_item["stars"],
+                "stars": cat_item["stars"],
+                "icon": cat_item["icon"],
+                "file_id": cat_item["file_id"],
+                "slug": cat_item["slug"],
+                "file_type": "tgs",
+                "image_url": cat_item["image_url"],
+                "is_nft": cat_item["is_nft"],
+                "rarity": cat_item["rarity"],
+            })
+
+        # 2. Live Fragment Marketplace stock'dan ham qo'shimcha real NFT larni qo'shish
+        market_stock = fetch_live_marketplace_stock_sync() or []
+        for m_item in market_stock[:60]:
+            m_slug = str(m_item.get("slug") or "").strip()
+            if not m_slug or m_slug in seen_slugs:
+                continue
+            seen_slugs.add(m_slug)
+            m_stars = int(m_item.get("stars") or 840)
+            m_name = f"{m_item.get('name', 'NFT')} {m_item.get('edition', '')}".strip()
+            combined.append({
+                "id": m_slug,
+                "gift_name": m_name,
+                "name": m_name,
+                "stars_value": m_stars,
+                "stars": m_stars,
+                "icon": "star",
+                "file_id": "",
+                "slug": m_slug,
+                "file_type": "tgs",
+                "image_url": m_item.get("image_url") or f"https://nft.fragment.com/gift/{m_slug}.medium.jpg",
+                "is_nft": True,
+                "rarity": "legendary" if m_stars < 5000 else "transcendent",
+            })
+
+        combined.sort(key=lambda x: int(x.get("stars") or 0))
         return web.json_response({"ok": True, "inventory": combined}, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
@@ -3176,7 +3457,7 @@ async def handle_api_stars_marketplace_buy(request):
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
 async def handle_api_stars_upgrader(request):
-    """Nazoratli Upgrader aylanishi (Anti-IDOR)"""
+    """Nazoratli Upgrader aylanishi (Shaxsiy Inventardagi sovg'a bilan bepul upgrade, 1.5x..100x)"""
     try:
         data = await request.json()
         auth_uid = get_authenticated_user_id(request, data)
@@ -3191,6 +3472,14 @@ async def handle_api_stars_upgrader(request):
         target_stars = int(data.get("target_stars", 50))
         target_name = str(data.get("target_name", "Gift")).strip()
         target_icon = str(data.get("target_icon", "package")).strip()
+        target_slug = str(data.get("target_slug") or "").strip()
+        multiplier = data.get("multiplier")
+        source_inventory_id = data.get("source_inventory_id")
+        if source_inventory_id is not None:
+            try:
+                source_inventory_id = int(source_inventory_id)
+            except Exception:
+                source_inventory_id = None
         target_inventory_id = data.get("target_inventory_id")
         if target_inventory_id is not None:
             try:
@@ -3198,7 +3487,17 @@ async def handle_api_stars_upgrader(request):
             except Exception:
                 target_inventory_id = None
         from games_monetization import execute_upgrade_roll
-        res = execute_upgrade_roll(user_id, item_stars, target_stars, target_name, target_icon, target_inventory_id)
+        res = execute_upgrade_roll(
+            user_id=user_id,
+            item_stars=item_stars,
+            target_stars=target_stars,
+            target_name=target_name,
+            target_icon=target_icon,
+            target_inventory_id=target_inventory_id,
+            source_inventory_id=source_inventory_id,
+            target_slug=target_slug,
+            multiplier=multiplier,
+        )
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})

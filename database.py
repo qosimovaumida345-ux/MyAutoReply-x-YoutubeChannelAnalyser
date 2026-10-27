@@ -5871,8 +5871,8 @@ def update_gift_record_status(record_id: int, status: str, error_message: str = 
         conn.close()
 
 
-def get_user_gift_history(tg_user_id: int, limit: int = 20) -> list:
-    """Foydalanuvchining sovg'alar tarixi"""
+def get_user_gift_history(tg_user_id: int, limit: int = 50) -> list:
+    """Foydalanuvchining aktiv sovg'alar inventari (burned/upgraded_used kirmaydi)"""
     conn = get_db()
     if not conn:
         return []
@@ -5882,6 +5882,7 @@ def get_user_gift_history(tg_user_id: int, limit: int = 20) -> list:
             SELECT id, gift_id, case_name, prize_name, prize_stars, status, created_at, sent_at
             FROM pending_gifts
             WHERE tg_user_id = %s
+              AND COALESCE(status, 'pending') NOT IN ('burned', 'upgraded_used', 'recycled', 'withdrawn')
             ORDER BY id DESC
             LIMIT %s
         """, (tg_user_id, limit))
@@ -5907,6 +5908,129 @@ def get_user_gift_history(tg_user_id: int, limit: int = 20) -> list:
         return []
     finally:
         conn.close()
+
+
+def get_user_inventory_gift_by_id(tg_user_id: int, gift_row_id: int) -> dict | None:
+    """Foydalanuvchining inventaridagi bitta sovg'ani ID bo'yicha tekshirib olish"""
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, gift_id, case_name, prize_name, prize_stars, status, created_at
+            FROM pending_gifts
+            WHERE id = %s AND tg_user_id = %s
+              AND COALESCE(status, 'pending') NOT IN ('burned', 'upgraded_used', 'recycled', 'withdrawn')
+            LIMIT 1
+        """, (int(gift_row_id), int(tg_user_id)))
+        r = cur.fetchone()
+        if not r:
+            return None
+        if isinstance(r, dict):
+            return dict(r)
+        return {
+            "id": r[0],
+            "gift_id": r[1],
+            "case_name": r[2],
+            "prize_name": r[3],
+            "prize_stars": r[4],
+            "status": r[5],
+            "created_at": r[6],
+        }
+    except Exception as e:
+        print(f"get_user_inventory_gift_by_id error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def process_inventory_upgrade_outcome(
+    tg_user_id: int,
+    source_row_id: int,
+    won: bool,
+    target_gift_id: str,
+    target_name: str,
+    target_stars: int,
+) -> dict | None:
+    """Upgrader natijasini inventarda (pending_gifts) atomik tarzda yangilash:
+    - won=True: eski sovg'a status='upgraded_used' bo'ladi va yangi yutilgan sovg'a qo'shiladi.
+    - won=False: tikilgan sovg'a status='burned' qilinadi va inventardan o'chadi.
+    """
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, gift_id, prize_name, prize_stars, status
+            FROM pending_gifts
+            WHERE id = %s AND tg_user_id = %s
+              AND COALESCE(status, 'pending') NOT IN ('burned', 'upgraded_used', 'recycled', 'withdrawn')
+            FOR UPDATE
+        """, (int(source_row_id), int(tg_user_id)))
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return None
+
+        if won:
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = 'upgraded_used', error_msg = %s
+                WHERE id = %s AND tg_user_id = %s
+            """, (f"Upgraded to {target_name} ({target_stars} Stars)", int(source_row_id), int(tg_user_id)))
+            cur.execute("""
+                INSERT INTO pending_gifts (tg_user_id, gift_id, case_name, prize_name, prize_stars, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, 'inventory', CURRENT_TIMESTAMP)
+                RETURNING id
+            """, (int(tg_user_id), str(target_gift_id), "Stars Upgrader", str(target_name), int(target_stars)))
+            new_row = cur.fetchone()
+            new_id = new_row["id"] if isinstance(new_row, dict) else (new_row[0] if new_row else 0)
+            conn.commit()
+            return {
+                "action": "upgraded",
+                "consumed_id": int(source_row_id),
+                "new_inventory_id": int(new_id),
+                "gift_id": str(target_gift_id),
+                "prize_name": str(target_name),
+                "prize_stars": int(target_stars),
+                "status": "inventory",
+            }
+        else:
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = 'burned', error_msg = 'Lost in Upgrader'
+                WHERE id = %s AND tg_user_id = %s
+            """, (int(source_row_id), int(tg_user_id)))
+            conn.commit()
+            return {
+                "action": "burned",
+                "consumed_id": int(source_row_id),
+            }
+    except Exception as e:
+        conn.rollback()
+        print(f"process_inventory_upgrade_outcome error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def get_user_upgrader_plays(tg_user_id: int) -> int:
+    """Foydalanuvchining Upgrader'da necha marta o'ynaganini qaytaradi (0 = hali o'ynamagan, 1-urinish yutuq)"""
+    val = get_bot_config(f"upgrader_plays_{int(tg_user_id)}", "0")
+    try:
+        return max(0, int(val or 0))
+    except Exception:
+        return 0
+
+
+def increment_user_upgrader_plays(tg_user_id: int) -> int:
+    """Foydalanuvchining Upgrader urinishlar sonini +1 ga oshiradi"""
+    current = get_user_upgrader_plays(tg_user_id)
+    nxt = current + 1
+    set_bot_config(f"upgrader_plays_{int(tg_user_id)}", str(nxt))
+    return nxt
 
 
 def get_user_total_stars_spent(tg_user_id: int) -> int:

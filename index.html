@@ -1002,8 +1002,9 @@
         };
 
         // ==================== UNIFIED TELEGRAM GIFTS MEDIA COMPONENT ====================
-        const TelegramGiftMedia = ({ fileId, fileType, imageUrl, videoUrl, icon, name = "", size = "80px", style = {}, slug = "", isHovered = false }) => {
+        const TelegramGiftMedia = ({ fileId, fileType, imageUrl, videoUrl, icon, name = "", size = "80px", style = {}, slug = "", isHovered = false, hoverOnly = false }) => {
             const [hasError, setHasError] = React.useState(false);
+            const [lottieLoaded, setLottieLoaded] = React.useState(false);
             const sz = typeof size === 'number' ? `${size}px` : size;
             const mergedStyle = { 
                 width: sz, 
@@ -1017,65 +1018,19 @@
                 ...style 
             };
 
-            // 0. Live Hover 3D Lottie Vector Animation for Collectibles with slug
-            if (isHovered && slug && !hasError) {
-                return (
-                    <div style={{ position: "relative", width: sz, height: sz }}>
-                        <img 
-                            src={imageUrl || `/api/nft/fragment-image/${slug}`} 
-                            style={{ ...mergedStyle, position: "absolute", inset: 0 }} 
-                            alt={name || "Gift"} 
-                            loading="lazy" 
-                        />
-                        <lottie-player 
-                            ref={el => {
-                                if (el && !el._errBound) {
-                                    el._errBound = true;
-                                    el.addEventListener('error', () => {
-                                        el.style.display = 'none';
-                                    });
-                                    el.addEventListener('load', () => {
-                                        el.style.opacity = '1';
-                                    });
-                                }
-                            }}
-                            src={`/api/nft/animation/${slug}`} 
-                            background="transparent" 
-                            speed="1" 
-                            loop 
-                            autoplay 
-                            style={{
-                                width: sz,
-                                height: sz,
-                                objectFit: "contain",
-                                position: "absolute",
-                                inset: 0,
-                                display: "block",
-                                opacity: 1
-                            }}
-                        />
-                    </div>
-                );
-            }
+            React.useEffect(() => {
+                setHasError(false);
+                setLottieLoaded(false);
+            }, [fileId, slug, imageUrl]);
 
-            // 1. Direct Video URL (Zero unowned TG_PREMIUM video)
-            if (videoUrl && !videoUrl.includes("TG_PREMIUM") && !videoUrl.includes("premium") && !hasError) {
-                return (
-                    <video 
-                        src={videoUrl} 
-                        autoPlay 
-                        loop 
-                        muted 
-                        playsInline 
-                        preload="metadata" 
-                        style={mergedStyle} 
-                        onError={() => setHasError(true)}
-                    />
-                );
-            }
+            const isPremiumItem = Boolean(
+                (slug && String(slug).startsWith("tg-premium")) ||
+                (icon && String(icon).includes("premium")) ||
+                (imageUrl && String(imageUrl).includes("TG_PREMIUM"))
+            );
 
-            // 2. Official Telegram Animated Sticker / Video (/api/telegram-file/{file_id})
-            if (fileId && !hasError) {
+            // 1. Official Telegram Animated Sticker (/api/telegram-file/{file_id})
+            if (fileId && !isPremiumItem && !hasError) {
                 const src = `/api/telegram-file/${fileId}`;
 
                 if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
@@ -1093,54 +1048,90 @@
                     );
                 }
 
-                if (fileType === "tgs") {
+                if (fileType !== "webp" && fileType !== "png" && fileType !== "jpg" && fileType !== "image") {
                     return (
+                        <div style={{ position: "relative", width: sz, height: sz, margin: "0 auto" }}>
+                            {imageUrl && !lottieLoaded && (
+                                <img
+                                    src={imageUrl}
+                                    style={{ ...mergedStyle, position: "absolute", inset: 0 }}
+                                    alt={name || "Gift"}
+                                    loading="lazy"
+                                />
+                            )}
+                            <lottie-player 
+                                key={`tg-lottie-${fileId}`}
+                                ref={el => {
+                                    if (el && !el._errBound) {
+                                        el._errBound = true;
+                                        el.addEventListener('error', () => setHasError(true));
+                                        el.addEventListener('load', () => setLottieLoaded(true));
+                                        el.addEventListener('ready', () => setLottieLoaded(true));
+                                    }
+                                }}
+                                src={src} 
+                                background="transparent" 
+                                speed="1" 
+                                style={{ ...mergedStyle, position: "relative", zIndex: 2 }} 
+                                loop 
+                                autoplay
+                                renderer="svg"
+                            />
+                        </div>
+                    );
+                }
+            }
+
+            // 2. Live 60fps Lottie Vector Animation for Fragment Collectibles & Standard Gifts with slug
+            if (slug && !isPremiumItem && (!hoverOnly || isHovered) && !hasError) {
+                return (
+                    <div style={{ position: "relative", width: sz, height: sz, margin: "0 auto" }}>
+                        {imageUrl && !lottieLoaded && (
+                            <img 
+                                src={imageUrl || `/api/nft/fragment-image/${slug}`} 
+                                style={{ ...mergedStyle, position: "absolute", inset: 0 }} 
+                                alt={name || "Gift"} 
+                                loading="lazy" 
+                            />
+                        )}
                         <lottie-player 
+                            key={`nft-lottie-${slug}`}
                             ref={el => {
                                 if (el && !el._errBound) {
                                     el._errBound = true;
                                     el.addEventListener('error', () => setHasError(true));
+                                    el.addEventListener('load', () => setLottieLoaded(true));
+                                    el.addEventListener('ready', () => setLottieLoaded(true));
                                 }
                             }}
-                            src={src} 
+                            src={`/api/nft/animation/${slug}`} 
                             background="transparent" 
                             speed="1" 
-                            style={mergedStyle} 
                             loop 
-                            autoplay
+                            autoplay 
                             renderer="svg"
+                            style={{
+                                ...mergedStyle,
+                                position: "relative",
+                                zIndex: 2
+                            }}
                         />
-                    );
-                }
+                    </div>
+                );
+            }
 
-                if (fileType === "webp" || fileType === "png" || fileType === "jpg" || fileType === "image") {
-                    return (
-                        <img 
-                            src={src} 
-                            style={mergedStyle} 
-                            alt={name || "Gift"} 
-                            loading="lazy" 
-                            decoding="async" 
-                            onError={() => setHasError(true)}
-                        />
-                    );
-                }
-
+            // 3. Direct Video URL
+            if (videoUrl && !isPremiumItem && !hasError) {
                 return (
-                    <lottie-player 
-                        ref={el => {
-                            if (el && !el._errBound) {
-                                el._errBound = true;
-                                el.addEventListener('error', () => setHasError(true));
-                            }
-                        }}
-                        src={src} 
-                        background="transparent" 
-                        speed="1" 
-                        style={mergedStyle} 
+                    <video 
+                        src={videoUrl} 
+                        autoPlay 
                         loop 
-                        autoplay
-                        renderer="svg"
+                        muted 
+                        playsInline 
+                        preload="metadata" 
+                        style={mergedStyle} 
+                        onError={() => setHasError(true)}
                     />
                 );
             }
@@ -2210,15 +2201,35 @@
             const [isBattleRolling, setIsBattleRolling] = useState(false);
             const [battleWinner, setBattleWinner] = useState(null);
             
-            // Upgrader (Zero-Loss Protected)
-            const [upgraderItem, setUpgraderItem] = useState({ name: "Desk Calendar NFT", stars: 150, icon: "calendar", image_url: "/api/nft/image/desk_calendar.webp" });
-            const [upgraderTarget, setUpgraderTarget] = useState({ name: "2x Sovg'a (300 Stars)", stars: 300, icon: "watch", image_url: "/api/nft/image/swiss_watch.webp" });
+            // Upgrader (Shaxsiy Inventardagi sovg'a bilan bepul upgrade: 1.5x .. 100x)
+            const [upgraderItem, setUpgraderItem] = useState(null);
+            const [upgraderTarget, setUpgraderTarget] = useState({
+                id: "5170144170496491616",
+                name: "Delicious Cake",
+                stars: 50,
+                icon: "cake",
+                file_id: "CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E",
+                slug: "delicious-cake",
+                file_type: "tgs",
+                image_url: "/api/nft/image/delicious_cake.webp",
+                is_nft: false
+            });
             const [upgraderAngle, setUpgraderAngle] = useState(0);
             const [isUpgrading, setIsUpgrading] = useState(false);
             const [upgradeResult, setUpgradeResult] = useState(null);
             const [upgraderInventory, setUpgraderInventory] = useState([]);
             const [upgraderMultiplier, setUpgraderMultiplier] = useState(2.0);
-            
+
+            // YouTube Hold-to-Preview & Auto-Post States
+            const [holdingVideoId, setHoldingVideoId] = useState(null);
+            const [previewModalVideo, setPreviewModalVideo] = useState(null);
+            const holdTimerRef = useRef(null);
+            const [selectedAutoPostIds, setSelectedAutoPostIds] = useState([]);
+            const [autoPostTopic, setAutoPostTopic] = useState('');
+            const [autoPostCount, setAutoPostCount] = useState(1);
+            const [autoPostTasks, setAutoPostTasks] = useState([]);
+            const [autoPostSubmitting, setAutoPostSubmitting] = useState(false);
+
             // Daily Streak (Faqat raqamli xizmatlar)
             const [streakData, setStreakData] = useState(null);
             const [streakClaimedModal, setStreakClaimedModal] = useState(null);
@@ -2452,20 +2463,199 @@
                     .catch(() => {});
             };
 
-            // Fetch Upgrader Real Inventory (from aiko_64 and bot received gifts)
+            const playLossSound = () => {
+                try {
+                    const ctx = getSharedAudioContext();
+                    if (!ctx) return;
+                    [310, 235, 165].forEach((f, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = "sawtooth";
+                        osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.13);
+                        osc.frequency.exponentialRampToValueAtTime(Math.max(60, f * 0.65), ctx.currentTime + i * 0.13 + 0.25);
+                        gain.gain.setValueAtTime(0.14, ctx.currentTime + i * 0.13);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.13 + 0.26);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + i * 0.13);
+                        osc.stop(ctx.currentTime + i * 0.13 + 0.27);
+                    });
+                } catch(e) {}
+            };
+
+            const scheduleWheelDeceleratingTicks = (durationMs = 3800) => {
+                const timers = [];
+                let elapsed = 0;
+                let step = 45;
+                while (elapsed < durationMs - 140) {
+                    const tId = setTimeout(() => {
+                        playTickSound();
+                    }, elapsed);
+                    timers.push(tId);
+                    elapsed += step;
+                    const progress = elapsed / durationMs;
+                    step = Math.round(45 + Math.pow(progress, 2.2) * 240);
+                }
+                return () => timers.forEach(t => clearTimeout(t));
+            };
+
+            // Helper: Find closest matching gifts/NFTs for (baseStars * multiplier)
+            const getMatchingCatalogTargets = (baseStars, mult, catalog) => {
+                const list = (catalog && catalog.length > 0) ? catalog : [];
+                if (list.length === 0) return [];
+                const desiredStars = Math.round(Math.max(15, Number(baseStars || 15)) * Number(mult || 2.0));
+                const sorted = [...list].sort((a, b) => {
+                    const da = Math.abs(Number(a.stars || a.stars_value || 50) - desiredStars);
+                    const db = Math.abs(Number(b.stars || b.stars_value || 50) - desiredStars);
+                    return da - db;
+                });
+                return sorted.slice(0, 6);
+            };
+
+            const syncTargetForMultiplier = (sourceGift, mult, catalog) => {
+                const baseStars = Number(sourceGift?.prize_stars || sourceGift?.stars || 15);
+                const matches = getMatchingCatalogTargets(baseStars, mult, catalog || upgraderInventory);
+                const desiredStars = Math.round(baseStars * Number(mult || 2.0));
+                if (matches.length > 0) {
+                    const best = matches[0];
+                    setUpgraderTarget({
+                        ...best,
+                        name: best.name || best.gift_name || "Telegram Gift",
+                        stars: desiredStars,
+                        catalog_stars: Number(best.stars || best.stars_value || desiredStars)
+                    });
+                } else {
+                    setUpgraderTarget(prev => ({
+                        ...prev,
+                        stars: desiredStars
+                    }));
+                }
+            };
+
+            // Fetch Upgrader Real Catalog (15 Stars .. 150,000+ Stars with .tgs animations)
             const fetchUpgraderInventory = () => {
                 fetch('/api/stars/upgrader/inventory')
                     .then(r => r.json())
                     .then(data => {
                         if (data.ok && data.inventory && data.inventory.length > 0) {
                             setUpgraderInventory(data.inventory);
-                            setUpgraderTarget(prev => {
-                                const exists = data.inventory.some(it => it.name === prev.name || it.id === prev.id);
-                                return exists ? prev : data.inventory[0];
-                            });
+                            syncTargetForMultiplier(upgraderItem, upgraderMultiplier, data.inventory);
                         }
                     })
                     .catch(() => {});
+            };
+
+            // Auto-sync userGifts inventory -> upgraderItem
+            useEffect(() => {
+                if (Array.isArray(userGifts) && userGifts.length > 0) {
+                    setUpgraderItem(prev => {
+                        if (prev && prev.id && userGifts.some(g => g.id === prev.id)) {
+                            const updated = userGifts.find(g => g.id === prev.id);
+                            return {
+                                ...updated,
+                                name: updated.prize_name || updated.name,
+                                stars: Number(updated.prize_stars || updated.stars || 15)
+                            };
+                        }
+                        const first = userGifts[0];
+                        const nextItem = {
+                            ...first,
+                            name: first.prize_name || first.name,
+                            stars: Number(first.prize_stars || first.stars || 15)
+                        };
+                        syncTargetForMultiplier(nextItem, upgraderMultiplier, upgraderInventory);
+                        return nextItem;
+                    });
+                } else {
+                    setUpgraderItem(null);
+                }
+            }, [userGifts]);
+
+            // YouTube Press-and-Hold Preview & Auto-Post Handlers
+            const startVideoHoldPreview = (videoId) => {
+                if (!videoId) return;
+                if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+                holdTimerRef.current = setTimeout(() => {
+                    setHoldingVideoId(videoId);
+                }, 180);
+            };
+
+            const stopVideoHoldPreview = () => {
+                if (holdTimerRef.current) {
+                    clearTimeout(holdTimerRef.current);
+                    holdTimerRef.current = null;
+                }
+                setHoldingVideoId(null);
+            };
+
+            const loadAutoPostTasks = (uid) => {
+                const targetUid = uid || tgUser?.id;
+                if (!targetUid || targetUid <= 0) return;
+                fetch(`/api/autopost-tasks?tg_user_id=${targetUid}`)
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d && Array.isArray(d.tasks)) {
+                            setAutoPostTasks(d.tasks);
+                        }
+                    })
+                    .catch(() => {});
+            };
+
+            useEffect(() => {
+                if (activeTab === 'videos' && tgUser?.id > 0) {
+                    loadAutoPostTasks(tgUser.id);
+                }
+            }, [activeTab, tgUser?.id]);
+
+            const toggleSelectAutoPostVideo = (videoId) => {
+                if (!videoId) return;
+                setSelectedAutoPostIds(prev =>
+                    prev.includes(videoId) ? prev.filter(id => id !== videoId) : [...prev, videoId]
+                );
+            };
+
+            const handleCreateAutoPost = async ({ videoIds = null, topic = null, count = 1 }) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
+                if (autoPostSubmitting) return;
+                const payload = {
+                    tg_user_id: tgUser.id,
+                    channel_id: selectedChannelId || undefined,
+                    video_type: "shorts"
+                };
+                if (Array.isArray(videoIds) && videoIds.length > 0) {
+                    payload.video_ids = videoIds;
+                } else if (topic && String(topic).trim()) {
+                    payload.topic = String(topic).trim();
+                    payload.count = Number(count || 1);
+                } else {
+                    alert("Auto-Post uchun video tanlang yoki mavzu kiriting!");
+                    return;
+                }
+                setAutoPostSubmitting(true);
+                try {
+                    const res = await fetch('/api/autopost-create', {
+                        method: 'POST',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+                    if (data && (data.ok || data.success)) {
+                        alert(`Auto-Post vazifasi (#${data.task_id}) navbatga qo'shildi! Videolar avtomatik ravishda YouTube kanalingizga yuklanadi.`);
+                        setSelectedAutoPostIds([]);
+                        setAutoPostTopic('');
+                        loadAutoPostTasks(tgUser.id);
+                        loadStudioStats(tgUser.id, true);
+                    } else {
+                        alert((data && data.error) || "Auto-Post yaratishda xatolik! YouTube kanalingiz ulanganligini tekshiring.");
+                    }
+                } catch (e) {
+                    alert("Server bilan ulanishda xatolik: " + e);
+                } finally {
+                    setAutoPostSubmitting(false);
+                }
             };
 
             const handleCreateBattle = (tierId) => {
@@ -2567,56 +2757,69 @@
                 .catch(err => alert("Jangni bekor qilishda xatolik: " + err));
             };
 
-            // Controlled Upgrader Run (Haqiqiy garov stavkasi va balans to'lovi)
+            // Controlled Upgrader Run (Faqat shaxsiy inventardagi sovg'a bilan bepul ishlaydi!)
             const handleRunUpgrade = () => {
                 if (!tgUser || !tgUser.id || tgUser.id <= 0) {
                     setShowLoginModal(true);
                     return;
                 }
                 if (isUpgrading) return;
+                if (!upgraderItem || !upgraderItem.id) {
+                    alert("Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling.");
+                    return;
+                }
                 setIsUpgrading(true);
                 setUpgradeResult(null);
+
+                const baseStars = Number(upgraderItem.prize_stars || upgraderItem.stars || 15);
+                const computedTargetStars = Math.round(baseStars * Number(upgraderMultiplier || 2.0));
+                const chosenTargetName = upgraderTarget?.name || `${upgraderMultiplier}x Sovg'a`;
 
                 fetch('/api/stars/upgrader', {
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: JSON.stringify({
                         user_id: tgUser.id,
-                        item_stars: upgraderItem.stars,
-                        target_stars: Math.round(upgraderItem.stars * upgraderMultiplier),
-                        target_name: `${upgraderMultiplier}x Sovg'a (${Math.round(upgraderItem.stars * upgraderMultiplier)} Stars)`,
+                        source_inventory_id: upgraderItem.id,
+                        item_stars: baseStars,
+                        multiplier: Number(upgraderMultiplier || 2.0),
+                        target_stars: computedTargetStars,
+                        target_name: chosenTargetName,
                         target_icon: upgraderTarget?.icon || "star",
+                        target_slug: upgraderTarget?.slug || upgraderTarget?.id || "",
                         target_inventory_id: null
                     })
                 })
                 .then(r => r.json())
                 .then(res => {
                     if (res.ok) {
-                        const tickTimer = setInterval(playTickSound, 100);
+                        const clearWheelTicks = scheduleWheelDeceleratingTicks(3800);
                         const spins = 1800; // 5 full turns
                         const currentBase = Math.floor(upgraderAngle / 360) * 360;
                         const targetAngle = currentBase + spins + res.final_angle;
                         setUpgraderAngle(targetAngle);
 
                         setTimeout(() => {
-                            clearInterval(tickTimer);
+                            clearWheelTicks();
                             setIsUpgrading(false);
                             setUpgradeResult(res);
                             if (res.new_balance !== undefined) {
                                 setUserStats(prev => ({ ...prev, balance_uzs: res.new_balance }));
                             }
-                            loadUserStats(tgUser.id, true);
                             if (res.won) {
                                 playWinFanfare();
-                                if (window.confetti) window.confetti({ particleCount: 150 });
-                                setUserGifts(prev => [{ prize_name: res.target_name, prize_stars: res.target_stars, rarity: "legendary", icon: res.target_icon, date: "Hozir" }, ...prev]);
+                                if (window.confetti) window.confetti({ particleCount: 150, spread: 85, origin: { y: 0.6 } });
+                            } else {
+                                playLossSound();
                             }
+                            // Inventarni bazadan qayta sinxronlash (yutsa yangi sovg'a tushadi, yutqazsa eski sovg'a o'chadi)
+                            loadUserStats(tgUser.id, true);
                             fetchRecentDrops();
                             fetchUpgraderInventory();
                         }, 3800);
                     } else {
                         setIsUpgrading(false);
-                        alert(res.error || "Upgrader xatosi: Hisobingizda mablag' yetarli emas!");
+                        alert(res.error || "Upgrader xatosi: Inventaringizda sovg'a topilmadi!");
                     }
                 })
                 .catch(err => {
@@ -4787,11 +4990,18 @@
                                         </div>
                                     )}
 
-                                    {/* Oxirgi Videolar Jadvali */}
+                                    {/* Oxirgi Videolar Jadvali (Hold-to-Preview & Auto-Post bilan) */}
                                     <div style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "24px", padding: "28px", boxShadow: "0 4px 24px rgba(0,0,0,0.03)" }}>
-                                        <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", marginBottom: "20px" }}>
-                                            Oxirgi Yuklangan Videolar & Ko'rishlar
-                                        </h3>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+                                            <div>
+                                                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b" }}>
+                                                    Oxirgi Yuklangan Videolar & Ko'rishlar
+                                                </h3>
+                                                <p style={{ fontSize: "12px", color: "#71717a", marginTop: "2px" }}>
+                                                    Video ustiga bosib turing (Hold) — jonli preview ko'rish uchun
+                                                </p>
+                                            </div>
+                                        </div>
                                         {studioStats.recent_videos && studioStats.recent_videos.length > 0 ? (
                                             <div style={{ overflowX: "auto" }}>
                                                 <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
@@ -4801,30 +5011,72 @@
                                                             <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thViews')}</th>
                                                             <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thLikes')}</th>
                                                             <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>{t('thDate')}</th>
+                                                            <th style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 700, color: "#71717a", textTransform: "uppercase" }}>Amallar</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                        {studioStats.recent_videos.map((vid, vIdx) => (
-                                                            <tr key={vIdx} style={{ borderBottom: "1px solid #f4f4f5" }}>
-                                                                <td style={{ padding: "14px 16px" }}>
-                                                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                                                                        {vid.thumbnail && <img src={vid.thumbnail} alt="" style={{ width: "56px", height: "36px", borderRadius: "6px", objectFit: "cover" }} />}
-                                                                        <span style={{ fontWeight: 600, fontSize: "14px", color: "#18181b", maxWidth: "340px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                                                            {vid?.title || "Video"}
-                                                                        </span>
-                                                                    </div>
-                                                                </td>
-                                                                <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 700, color: "#0284c7" }}>
-                                                                    {(vid.views || 0).toLocaleString()}
-                                                                </td>
-                                                                <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#16a34a" }}>
-                                                                    {(vid.likes || 0).toLocaleString()}
-                                                                </td>
-                                                                <td style={{ padding: "14px 16px", fontSize: "13px", color: "#71717a" }}>
-                                                                    {String(vid.published_at || "").slice(0, 10)}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                        {studioStats.recent_videos.map((vid, vIdx) => {
+                                                            const rVidId = vid.id || vid.video_id || "";
+                                                            return (
+                                                                <tr key={vIdx} style={{ borderBottom: "1px solid #f4f4f5" }}>
+                                                                    <td style={{ padding: "14px 16px" }}>
+                                                                        <div
+                                                                            style={{ display: "flex", alignItems: "center", gap: "12px", cursor: rVidId ? "pointer" : "default" }}
+                                                                            onMouseDown={() => rVidId && startVideoHoldPreview(rVidId)}
+                                                                            onMouseUp={stopVideoHoldPreview}
+                                                                            onMouseLeave={stopVideoHoldPreview}
+                                                                            onTouchStart={() => rVidId && startVideoHoldPreview(rVidId)}
+                                                                            onTouchEnd={stopVideoHoldPreview}
+                                                                        >
+                                                                            {vid.thumbnail && (
+                                                                                <div style={{ position: "relative", width: "68px", height: "42px", borderRadius: "8px", overflow: "hidden", flexShrink: 0, background: "#000" }}>
+                                                                                    <img src={vid.thumbnail} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                                                </div>
+                                                                            )}
+                                                                            <div>
+                                                                                <span style={{ fontWeight: 600, fontSize: "14px", color: "#18181b", maxWidth: "320px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
+                                                                                    {vid?.title || "Video"}
+                                                                                </span>
+                                                                                {rVidId && <span style={{ fontSize: "11px", color: "#7342E2", fontWeight: 600 }}>Bosib turing (Hold) — Preview</span>}
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 700, color: "#0284c7" }}>
+                                                                        {(vid.views || 0).toLocaleString()}
+                                                                    </td>
+                                                                    <td style={{ padding: "14px 16px", fontSize: "14px", fontWeight: 600, color: "#16a34a" }}>
+                                                                        {(vid.likes || 0).toLocaleString()}
+                                                                    </td>
+                                                                    <td style={{ padding: "14px 16px", fontSize: "13px", color: "#71717a" }}>
+                                                                        {String(vid.published_at || "").slice(0, 10)}
+                                                                    </td>
+                                                                    <td style={{ padding: "14px 16px" }}>
+                                                                        {rVidId && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setPreviewModalVideo({ id: rVidId, title: vid.title, channel: studioStats.channel_title || "" })}
+                                                                                style={{
+                                                                                    background: "#f4f4f5",
+                                                                                    border: "1px solid #e4e4e7",
+                                                                                    borderRadius: "8px",
+                                                                                    padding: "6px 12px",
+                                                                                    fontSize: "12px",
+                                                                                    fontWeight: 700,
+                                                                                    color: "#18181b",
+                                                                                    cursor: "pointer",
+                                                                                    display: "inline-flex",
+                                                                                    alignItems: "center",
+                                                                                    gap: "5px"
+                                                                                }}
+                                                                            >
+                                                                                <SvgVideo size={13} color="#7342E2" />
+                                                                                <span>Preview</span>
+                                                                            </button>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -4840,18 +5092,152 @@
                             )}
 
                             {/* =========================================================================
-                                TAB 2: YOUTUBE VIDEO SEARCH & DOWNLOAD
+                                TAB 2: YOUTUBE VIDEO SEARCH, HOLD-TO-PREVIEW, DOWNLOAD & AUTO-POST STUDIO
                                 ========================================================================= */}
                             {activeTab === 'videos' && (
                                 <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 24px 80px" }}>
                                     {/* Section Header */}
-                                    <div style={{ marginBottom: "28px" }}>
-                                        <h2 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", color: "#18181b", marginBottom: "6px" }}>
-                                            YouTube Video Qidiruv & Yuklab Olish
-                                        </h2>
-                                        <p style={{ color: "#71717a", fontSize: "14px" }}>
-                                            Istalgan mavzudagi videolarni qidiring va eng yuqori sifatda (1080p, 720p, audio) yuklab oling
-                                        </p>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
+                                        <div>
+                                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(115, 66, 226, 0.08)", color: "#7342E2", padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, marginBottom: "8px" }}>
+                                                <SvgZap size={13} color="#7342E2" />
+                                                <span>YouTube Studio • Hold Preview & Avto-Yuklash (Auto-Post)</span>
+                                            </div>
+                                            <h2 style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.03em", color: "#18181b", marginBottom: "6px" }}>
+                                                YouTube Video Qidiruv, Preview & Auto-Post
+                                            </h2>
+                                            <p style={{ color: "#71717a", fontSize: "14px" }}>
+                                                Istalgan video ustiga <strong>bosib turing (Hold)</strong> — jonli preview ko'rish uchun, yuklab oling yoki 1-bosishda kanalingizga <strong>Auto-Post</strong> qiling!
+                                            </p>
+                                        </div>
+                                        {selectedAutoPostIds.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCreateAutoPost({ videoIds: selectedAutoPostIds })}
+                                                disabled={autoPostSubmitting}
+                                                style={{
+                                                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                                    color: "#ffffff",
+                                                    border: "none",
+                                                    padding: "12px 22px",
+                                                    borderRadius: "14px",
+                                                    fontWeight: 800,
+                                                    fontSize: "13px",
+                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "8px",
+                                                    boxShadow: "0 8px 20px rgba(16, 185, 129, 0.28)"
+                                                }}
+                                            >
+                                                <SvgZap size={16} color="#ffffff" />
+                                                <span>{autoPostSubmitting ? "Yuborilmoqda..." : `Tanlanganlarni Auto-Post Qilish (${selectedAutoPostIds.length} ta)`}</span>
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Auto-Post Control Panel */}
+                                    <div style={{
+                                        background: "linear-gradient(135deg, #18181b 0%, #09090b 100%)",
+                                        border: "1px solid rgba(255,255,255,0.08)",
+                                        borderRadius: "22px",
+                                        padding: "22px 24px",
+                                        marginBottom: "24px",
+                                        color: "#ffffff",
+                                        boxShadow: "0 12px 32px rgba(0,0,0,0.12)"
+                                    }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "14px" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "rgba(115, 66, 226, 0.25)", border: "1px solid rgba(115, 66, 226, 0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                    <SvgZap size={18} color="#a78bfa" />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#ffffff" }}>YouTube Shorts Avtomatik Yuklash (Auto-Post)</div>
+                                                    <div style={{ fontSize: "12px", color: "#a1a1aa" }}>Mavzu bo'yicha avtomatik qidirib kanalingizga yuklash yoki quyidagi videolardan tanlab yuborish</div>
+                                                </div>
+                                            </div>
+                                            {autoPostTasks.length > 0 && (
+                                                <div style={{ fontSize: "12px", fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", padding: "5px 12px", borderRadius: "999px" }}>
+                                                    Faol vazifalar: {autoPostTasks.length} ta
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                                            <input
+                                                type="text"
+                                                value={autoPostTopic}
+                                                onChange={(e) => setAutoPostTopic(e.target.value)}
+                                                placeholder="Auto-Post mavzusi (masalan: 'luxury cars shorts', 'funny cats', 'minecraft')..."
+                                                style={{
+                                                    flex: "1 1 280px",
+                                                    padding: "12px 16px",
+                                                    borderRadius: "12px",
+                                                    border: "1px solid rgba(255,255,255,0.14)",
+                                                    background: "rgba(255,255,255,0.06)",
+                                                    color: "#ffffff",
+                                                    fontSize: "13px",
+                                                    outline: "none"
+                                                }}
+                                            />
+                                            <select
+                                                value={autoPostCount}
+                                                onChange={(e) => setAutoPostCount(Number(e.target.value))}
+                                                style={{
+                                                    padding: "12px 14px",
+                                                    borderRadius: "12px",
+                                                    border: "1px solid rgba(255,255,255,0.14)",
+                                                    background: "#18181b",
+                                                    color: "#ffffff",
+                                                    fontSize: "13px",
+                                                    fontWeight: 700,
+                                                    outline: "none",
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                <option value={1}>1 ta video</option>
+                                                <option value={2}>2 ta video</option>
+                                                <option value={3}>3 ta video</option>
+                                                <option value={5}>5 ta video</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleCreateAutoPost({ topic: autoPostTopic || feedQuery, count: autoPostCount })}
+                                                disabled={autoPostSubmitting}
+                                                style={{
+                                                    background: "#7342E2",
+                                                    color: "#ffffff",
+                                                    border: "none",
+                                                    padding: "12px 22px",
+                                                    borderRadius: "12px",
+                                                    fontWeight: 800,
+                                                    fontSize: "13px",
+                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "8px"
+                                                }}
+                                            >
+                                                <SvgZap size={15} color="#ffffff" />
+                                                <span>{autoPostSubmitting ? "Ishga tushmoqda..." : "Auto-Post Boshlash"}</span>
+                                            </button>
+                                        </div>
+
+                                        {autoPostTasks.length > 0 && (
+                                            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "14px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                                                {autoPostTasks.slice(0, 4).map((tk, tIdx) => (
+                                                    <div key={tIdx} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", padding: "6px 12px", fontSize: "11px", display: "flex", alignItems: "center", gap: "8px" }}>
+                                                        <span style={{ fontWeight: 700, color: "#a78bfa" }}>#{tk.id}</span>
+                                                        <span style={{ color: "#e4e4e7", maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                            {String(tk.search_query || "").replace("__IDS__:", "Tanlangan: ")}
+                                                        </span>
+                                                        <span style={{ fontWeight: 800, color: tk.status === 'completed' ? "#10b981" : (tk.status === 'failed' ? "#ef4444" : "#fbbf24") }}>
+                                                            {tk.completed_count || 0}/{tk.total_count || 1} ({tk.status})
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Search Bar */}
@@ -4926,62 +5312,269 @@
                                         ))}
                                     </div>
 
-                                    {/* Video Grid */}
+                                    {/* Video Grid with Hold-to-Preview & Auto-Post */}
                                     {feedLoading ? (
                                         <div style={{ textAlign: "center", padding: "60px 0", color: "#71717a" }}>
                                             <div style={{ fontSize: "14px", fontWeight: 600 }}>Videolar yuklanmoqda...</div>
                                         </div>
                                     ) : feedVideos.length > 0 ? (
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
-                                            {feedVideos.map((v, idx) => (
-                                                <div key={idx} style={{ background: "#ffffff", border: "1px solid #e4e4e7", borderRadius: "18px", overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 4px 16px rgba(0,0,0,0.03)" }}>
-                                                    <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#000000" }}>
-                                                        <img src={v.thumbnail} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                                                        {v.duration && (
-                                                            <span style={{ position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.8)", color: "#ffffff", fontSize: "11px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px" }}>
-                                                                {v.duration}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
-                                                        <div>
-                                                            <h4 title={v?.title || ""} style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", lineHeight: "1.4", height: "40px", overflow: "hidden", marginBottom: "8px" }}>
-                                                                {v?.title || "Video"}
-                                                            </h4>
-                                                            <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "6px" }}>{v?.channel || ""}</div>
-                                                            <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#a1a1aa", marginBottom: "14px" }}>
-                                                                <span>{Number(v.views || 0).toLocaleString()} ko'rish</span>
-                                                            </div>
-                                                        </div>
-                                                        <button
-                                                            onClick={() => openFormatModal(v)}
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(275px, 1fr))", gap: "20px" }}>
+                                            {feedVideos.map((v, idx) => {
+                                                const isHoldingThis = (holdingVideoId === v.id);
+                                                const isSelectedForAuto = selectedAutoPostIds.includes(v.id);
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        style={{
+                                                            background: "#ffffff",
+                                                            border: isSelectedForAuto ? "2px solid #10b981" : (isHoldingThis ? "2px solid #7342E2" : "1px solid #e4e4e7"),
+                                                            borderRadius: "18px",
+                                                            overflow: "hidden",
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            boxShadow: isHoldingThis ? "0 14px 34px rgba(115,66,226,0.22)" : "0 4px 16px rgba(0,0,0,0.03)",
+                                                            transition: "transform 0.18s ease, box-shadow 0.18s ease",
+                                                            transform: isHoldingThis ? "scale(1.02)" : "scale(1)"
+                                                        }}
+                                                    >
+                                                        <div
+                                                            onMouseDown={() => startVideoHoldPreview(v.id)}
+                                                            onMouseUp={stopVideoHoldPreview}
+                                                            onMouseLeave={stopVideoHoldPreview}
+                                                            onTouchStart={() => startVideoHoldPreview(v.id)}
+                                                            onTouchEnd={stopVideoHoldPreview}
                                                             style={{
+                                                                position: "relative",
                                                                 width: "100%",
-                                                                padding: "10px 0",
-                                                                borderRadius: "12px",
-                                                                background: "#7342E2",
-                                                                color: "#ffffff",
-                                                                border: "none",
-                                                                fontWeight: 700,
-                                                                fontSize: "13px",
+                                                                paddingTop: "56.25%",
+                                                                background: "#000000",
                                                                 cursor: "pointer",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                gap: "6px"
+                                                                userSelect: "none"
                                                             }}
                                                         >
-                                                            <SvgDownload size={15} color="#ffffff" />
-                                                            <span>Yuklab Olish</span>
-                                                        </button>
+                                                            {isHoldingThis ? (
+                                                                <iframe
+                                                                    src={`https://www.youtube.com/embed/${v.id}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1`}
+                                                                    title={v.title || "Preview"}
+                                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                    style={{
+                                                                        position: "absolute",
+                                                                        top: 0,
+                                                                        left: 0,
+                                                                        width: "100%",
+                                                                        height: "100%",
+                                                                        border: "none"
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <>
+                                                                    <img src={v.thumbnail} alt="" style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                                                                    <div style={{
+                                                                        position: "absolute",
+                                                                        top: "8px",
+                                                                        left: "8px",
+                                                                        background: "rgba(9, 9, 11, 0.78)",
+                                                                        backdropFilter: "blur(6px)",
+                                                                        color: "#ffffff",
+                                                                        fontSize: "10px",
+                                                                        fontWeight: 700,
+                                                                        padding: "4px 8px",
+                                                                        borderRadius: "999px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        gap: "4px"
+                                                                    }}>
+                                                                        <SvgVideo size={11} color="#a78bfa" />
+                                                                        <span>Bosib turing (Hold) — Preview</span>
+                                                                    </div>
+                                                                </>
+                                                            )}
+
+                                                            {/* Checkbox for Batch Auto-Post */}
+                                                            <button
+                                                                type="button"
+                                                                onMouseDown={(e) => e.stopPropagation()}
+                                                                onClick={(e) => { e.stopPropagation(); toggleSelectAutoPostVideo(v.id); }}
+                                                                title="Auto-Post uchun tanlash"
+                                                                style={{
+                                                                    position: "absolute",
+                                                                    top: "8px",
+                                                                    right: "8px",
+                                                                    width: "26px",
+                                                                    height: "26px",
+                                                                    borderRadius: "8px",
+                                                                    background: isSelectedForAuto ? "#10b981" : "rgba(0,0,0,0.7)",
+                                                                    border: "1.5px solid #ffffff",
+                                                                    color: "#ffffff",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    cursor: "pointer",
+                                                                    zIndex: 4
+                                                                }}
+                                                            >
+                                                                {isSelectedForAuto ? <SvgCheck size={14} color="#ffffff" /> : null}
+                                                            </button>
+
+                                                            {v.duration && !isHoldingThis && (
+                                                                <span style={{ position: "absolute", bottom: "8px", right: "8px", background: "rgba(0,0,0,0.8)", color: "#ffffff", fontSize: "11px", fontWeight: 700, padding: "2px 6px", borderRadius: "4px" }}>
+                                                                    {v.duration}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ padding: "16px", display: "flex", flexDirection: "column", flex: 1, justifyContent: "space-between" }}>
+                                                            <div>
+                                                                <h4 title={v?.title || ""} style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", lineHeight: "1.4", height: "40px", overflow: "hidden", marginBottom: "8px" }}>
+                                                                    {v?.title || "Video"}
+                                                                </h4>
+                                                                <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "6px" }}>{v?.channel || ""}</div>
+                                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", color: "#a1a1aa", marginBottom: "14px" }}>
+                                                                    <span>{Number(v.views || 0).toLocaleString()} ko'rish</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPreviewModalVideo(v)}
+                                                                        style={{
+                                                                            background: "transparent",
+                                                                            border: "none",
+                                                                            color: "#7342E2",
+                                                                            fontSize: "12px",
+                                                                            fontWeight: 700,
+                                                                            cursor: "pointer",
+                                                                            padding: 0
+                                                                        }}
+                                                                    >
+                                                                        To'liq Preview
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openFormatModal(v)}
+                                                                    style={{
+                                                                        width: "100%",
+                                                                        padding: "10px 0",
+                                                                        borderRadius: "12px",
+                                                                        background: "#7342E2",
+                                                                        color: "#ffffff",
+                                                                        border: "none",
+                                                                        fontWeight: 700,
+                                                                        fontSize: "12px",
+                                                                        cursor: "pointer",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        gap: "5px"
+                                                                    }}
+                                                                >
+                                                                    <SvgDownload size={14} color="#ffffff" />
+                                                                    <span>Yuklab Olish</span>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleCreateAutoPost({ videoIds: [v.id] })}
+                                                                    disabled={autoPostSubmitting}
+                                                                    style={{
+                                                                        width: "100%",
+                                                                        padding: "10px 0",
+                                                                        borderRadius: "12px",
+                                                                        background: "#18181b",
+                                                                        color: "#ffffff",
+                                                                        border: "none",
+                                                                        fontWeight: 700,
+                                                                        fontSize: "12px",
+                                                                        cursor: "pointer",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        gap: "5px"
+                                                                    }}
+                                                                >
+                                                                    <SvgZap size={14} color="#10b981" />
+                                                                    <span>Auto-Post</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <div style={{ textAlign: "center", padding: "60px 0", color: "#a1a1aa" }}>
                                             <SvgSearch size={40} color="#d4d4d8" />
-                                            <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>Video qidirish uchun so'rov kiriting</div>
+                                            <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>Video qidirish uchun so'rov kiriting yoki Trendlardan birini tanlang</div>
+                                        </div>
+                                    )}
+
+                                    {/* Full Video Preview Modal */}
+                                    {previewModalVideo && (
+                                        <div
+                                            onClick={() => setPreviewModalVideo(null)}
+                                            style={{
+                                                position: "fixed",
+                                                inset: 0,
+                                                background: "rgba(0,0,0,0.78)",
+                                                backdropFilter: "blur(8px)",
+                                                zIndex: 9999,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                padding: "20px"
+                                            }}
+                                        >
+                                            <div
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
+                                                    background: "#18181b",
+                                                    border: "1px solid rgba(255,255,255,0.12)",
+                                                    borderRadius: "24px",
+                                                    maxWidth: "820px",
+                                                    width: "100%",
+                                                    overflow: "hidden",
+                                                    boxShadow: "0 24px 64px rgba(0,0,0,0.6)"
+                                                }}
+                                            >
+                                                <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#000" }}>
+                                                    <iframe
+                                                        src={`https://www.youtube.com/embed/${previewModalVideo.id}?autoplay=1&rel=0&modestbranding=1`}
+                                                        title={previewModalVideo.title || "YouTube Video Preview"}
+                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                        allowFullScreen
+                                                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
+                                                    />
+                                                </div>
+                                                <div style={{ padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", color: "#fff" }}>
+                                                    <div style={{ flex: 1, minWidth: "200px" }}>
+                                                        <div style={{ fontSize: "15px", fontWeight: 800 }}>{previewModalVideo.title || "YouTube Video"}</div>
+                                                        <div style={{ fontSize: "12px", color: "#a1a1aa", marginTop: "2px" }}>{previewModalVideo.channel || ""}</div>
+                                                    </div>
+                                                    <div style={{ display: "flex", gap: "8px" }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { const vid = previewModalVideo; setPreviewModalVideo(null); openFormatModal(vid); }}
+                                                            style={{ background: "#7342E2", color: "#fff", border: "none", padding: "9px 16px", borderRadius: "10px", fontSize: "12px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+                                                        >
+                                                            <SvgDownload size={14} color="#fff" />
+                                                            <span>Yuklab Olish</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { const vidId = previewModalVideo.id; setPreviewModalVideo(null); handleCreateAutoPost({ videoIds: [vidId] }); }}
+                                                            style={{ background: "#10b981", color: "#fff", border: "none", padding: "9px 16px", borderRadius: "10px", fontSize: "12px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
+                                                        >
+                                                            <SvgZap size={14} color="#fff" />
+                                                            <span>Auto-Post</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPreviewModalVideo(null)}
+                                                            style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", padding: "9px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                                                        >
+                                                            Yopish
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -5633,7 +6226,7 @@
                                                         }}
                                                     >
                                                         <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "8px" }}>
-                                                            <TelegramGiftMedia fileId={g.file_id} fileType={g.file_type} imageUrl={g.image_url} videoUrl={g.video_url} icon={g.icon} name={g.prize_name} size="56px" />
+                                                            <TelegramGiftMedia fileId={g.file_id} fileType={g.file_type} slug={g.slug} imageUrl={g.image_url} videoUrl={g.video_url} icon={g.icon} name={g.prize_name} size="56px" />
                                                         </div>
                                                         <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>
                                                             {g.prize_name}
@@ -5808,7 +6401,7 @@
 
                                 {/* ==================== SUB-TAB 3: CONTROLLED UPGRADER ==================== */}
                                 {starsSubTab === 'upgrader' && (
-                                    <div className="tab-content-enter" style={{ maxWidth: "880px", margin: "0 auto" }}>
+                                    <div className="tab-content-enter" style={{ maxWidth: "980px", margin: "0 auto" }}>
                                         <div style={{
                                             background: "#ffffff",
                                             border: "1px solid var(--border-soft)",
@@ -5817,272 +6410,436 @@
                                             boxShadow: "0 8px 32px rgba(0,0,0,0.06)",
                                             textAlign: "center"
                                         }}>
-                                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(115, 66, 226, 0.08)", padding: "4px 14px", borderRadius: "999px", color: "#7342E2", fontSize: "12px", fontWeight: 700, marginBottom: "12px" }}>
-                                                <SvgZap size={14} color="#7342E2" />
-                                                <span>2x Ko'paytiruvchi Standart Rejim</span>
+                                            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", background: "rgba(16, 185, 129, 0.1)", padding: "5px 14px", borderRadius: "999px", color: "#059669", fontSize: "12px", fontWeight: 800, marginBottom: "12px" }}>
+                                                <SvgZap size={14} color="#059669" />
+                                                <span>SHAXSIY INVENTAR UPGRADER • 0 SO'M TO'LOV (TEKIN)</span>
                                             </div>
-                                            <h3 style={{ fontSize: "24px", fontWeight: 700, color: "var(--text)", marginBottom: "6px" }}>
-                                                Nazoratli Item Upgrader
+                                            <h3 style={{ fontSize: "26px", fontWeight: 800, color: "var(--text)", marginBottom: "6px" }}>
+                                                Nazoratli Gift & NFT Upgrader (1.5x — 100x)
                                             </h3>
-                                            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "16px" }}>
-                                                Tikilayotgan sovg'angizni 2x (yoki tanlangan ko'paytiruvchi) ga oshiring! Dumaloq g'ildirakda strelka aylanadi.
+                                            <p style={{ color: "var(--muted)", fontSize: "14px", maxWidth: "640px", margin: "0 auto 24px" }}>
+                                                Keyslardan yutib olgan shaxsiy inventaringizdagi sovg'ani tanlang, <strong>1.5x dan 100x gacha</strong> ko'paytiruvchini suring va o'zingiz xohlagan yuqori darajali Gift yoki Fragment NFT ga bepul upgrade qiling!
                                             </p>
 
-                                            {/* Shaffof Qoidalar & Garov Narxi Eslatmasi */}
-                                            <div style={{
-                                                background: "rgba(245, 158, 11, 0.08)",
-                                                border: "1px solid rgba(245, 158, 11, 0.3)",
-                                                borderRadius: "16px",
-                                                padding: "12px 18px",
-                                                maxWidth: "520px",
-                                                margin: "0 auto 24px",
-                                                textAlign: "center"
-                                            }}>
-                                                <div style={{ fontSize: "13px", fontWeight: 700, color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "4px" }}>
-                                                    <SvgZap size={15} color="#d97706" />
-                                                    <span>DIQQAT: Garov Asosiy UZS Balansingizdan Yechiladi!</span>
+                                            {/* Top 2-Column Inventory & Target Selector */}
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", marginBottom: "28px", textAlign: "left" }}>
+                                                {/* LEFT PANEL: User's Personal Inventory Items */}
+                                                <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "24px", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                                    <div>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                            <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                                                1. Sizning Inventaringiz ({userGifts.length} ta)
+                                                            </span>
+                                                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "3px 10px", borderRadius: "999px" }}>
+                                                                Bepul Tikish
+                                                            </span>
+                                                        </div>
+
+                                                        {upgraderItem ? (
+                                                            <div style={{ display: "flex", alignItems: "center", gap: "14px", background: "#ffffff", border: "2px solid #7342E2", borderRadius: "18px", padding: "14px", marginBottom: "14px", boxShadow: "0 4px 14px rgba(115,66,226,0.1)" }}>
+                                                                <div style={{ width: "64px", height: "64px", borderRadius: "14px", background: upgraderItem.backdrop || "linear-gradient(145deg, #18181b 0%, #09090b 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: "4px" }}>
+                                                                    <TelegramGiftMedia
+                                                                        fileId={upgraderItem.file_id}
+                                                                        fileType={upgraderItem.file_type || "tgs"}
+                                                                        slug={upgraderItem.slug}
+                                                                        imageUrl={upgraderItem.image_url}
+                                                                        icon={upgraderItem.icon || "cake"}
+                                                                        name={upgraderItem.name || upgraderItem.prize_name}
+                                                                        size={54}
+                                                                    />
+                                                                </div>
+                                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#7342E2", textTransform: "uppercase" }}>Tanlangan Sovg'a</div>
+                                                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                                        {upgraderItem.name || upgraderItem.prize_name}
+                                                                    </div>
+                                                                    <div style={{ fontSize: "13px", fontWeight: 800, color: "#eab308", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                                                                        <span>{upgraderItem.prize_stars || upgraderItem.stars || 15} Stars</span>
+                                                                        <SvgStar size={13} color="#eab308" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{ background: "#ffffff", border: "1px dashed #d4d4d8", borderRadius: "18px", padding: "24px 16px", textAlign: "center", marginBottom: "14px" }}>
+                                                                <div style={{ fontSize: "14px", fontWeight: 700, color: "#18181b", marginBottom: "4px" }}>Inventaringiz bo'sh</div>
+                                                                <div style={{ fontSize: "12px", color: "#71717a", marginBottom: "12px" }}>Upgrader'da o'ynash uchun avval Keys (Case) ochib sovg'a yutib oling!</div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setStarsSubTab('cases')}
+                                                                    style={{ background: "#7342E2", color: "#ffffff", border: "none", padding: "8px 18px", borderRadius: "999px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                                                                >
+                                                                    Keys Ochishga O'tish
+                                                                </button>
+                                                            </div>
+                                                        )}
+
+                                                        {userGifts.length > 0 && (
+                                                            <div>
+                                                                <div style={{ fontSize: "11px", fontWeight: 700, color: "#71717a", marginBottom: "8px" }}>
+                                                                    Inventaringizdan sovg'ani tanlang:
+                                                                </div>
+                                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(82px, 1fr))", gap: "8px", maxHeight: "175px", overflowY: "auto", paddingRight: "4px" }}>
+                                                                    {userGifts.map((g, idx) => {
+                                                                        const isSel = (upgraderItem && upgraderItem.id === g.id);
+                                                                        return (
+                                                                            <button
+                                                                                key={g.id || idx}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const nextItem = {
+                                                                                        ...g,
+                                                                                        name: g.prize_name || g.name,
+                                                                                        stars: Number(g.prize_stars || g.stars || 15)
+                                                                                    };
+                                                                                    setUpgraderItem(nextItem);
+                                                                                    syncTargetForMultiplier(nextItem, upgraderMultiplier, upgraderInventory);
+                                                                                }}
+                                                                                style={{
+                                                                                    background: isSel ? "rgba(115,66,226,0.1)" : "#ffffff",
+                                                                                    border: isSel ? "2px solid #7342E2" : "1px solid #e4e4e7",
+                                                                                    borderRadius: "14px",
+                                                                                    padding: "8px 6px",
+                                                                                    cursor: "pointer",
+                                                                                    textAlign: "center",
+                                                                                    transition: "all 0.15s ease"
+                                                                                }}
+                                                                            >
+                                                                                <div style={{ height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                                                    <TelegramGiftMedia
+                                                                                        fileId={g.file_id}
+                                                                                        fileType={g.file_type || "tgs"}
+                                                                                        slug={g.slug}
+                                                                                        imageUrl={g.image_url}
+                                                                                        icon={g.icon}
+                                                                                        name={g.prize_name}
+                                                                                        size={38}
+                                                                                    />
+                                                                                </div>
+                                                                                <div style={{ fontSize: "10px", fontWeight: 700, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "4px" }}>
+                                                                                    {g.prize_name}
+                                                                                </div>
+                                                                                <div style={{ fontSize: "10px", fontWeight: 800, color: "#eab308" }}>
+                                                                                    {g.prize_stars} ★
+                                                                                </div>
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div style={{ fontSize: "12px", color: "var(--text)", lineHeight: 1.5 }}>
-                                                    Sovg'ani upgrade qilish uchun uning Stars qiymatiga teng so'm balansi (<strong>1 Stars = 400 so'm</strong>) yechib olinadi. 
-                                                    Hozirgi stavka: <span style={{ color: "#7342E2", fontWeight: 800 }}>{((upgraderItem?.stars || 15) * 400).toLocaleString()} so'm</span> ({upgraderItem?.stars || 15} Stars). 
-                                                    Yutgan taqdiringizda <strong>{Math.round((upgraderItem?.stars || 15) * upgraderMultiplier * 400).toLocaleString()} so'm</strong> qiymatidagi sovg'a beriladi!
+
+                                                {/* RIGHT PANEL: Real-Time Target Gift / NFT Selection */}
+                                                <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "24px", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                                    <div>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                                            <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                                                2. Yutiladigan Maqsad ({upgraderMultiplier}x)
+                                                            </span>
+                                                            <span style={{ fontSize: "11px", fontWeight: 800, color: "#7342E2", background: "rgba(115,66,226,0.1)", padding: "3px 10px", borderRadius: "999px" }}>
+                                                                ≈ {Math.round((upgraderItem?.stars || 15) * upgraderMultiplier).toLocaleString()} Stars
+                                                            </span>
+                                                        </div>
+
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px", background: "#ffffff", border: "2px solid #10b981", borderRadius: "18px", padding: "14px", marginBottom: "14px", boxShadow: "0 4px 14px rgba(16,185,129,0.12)" }}>
+                                                            <div style={{ width: "64px", height: "64px", borderRadius: "14px", background: "linear-gradient(145deg, #18181b 0%, #09090b 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: "4px" }}>
+                                                                <TelegramGiftMedia
+                                                                    fileId={upgraderTarget?.file_id}
+                                                                    fileType={upgraderTarget?.file_type || "tgs"}
+                                                                    slug={upgraderTarget?.slug}
+                                                                    imageUrl={upgraderTarget?.image_url}
+                                                                    icon={upgraderTarget?.icon || "star"}
+                                                                    name={upgraderTarget?.name || "Target"}
+                                                                    size={54}
+                                                                />
+                                                            </div>
+                                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                                <div style={{ fontSize: "11px", fontWeight: 800, color: "#10b981", textTransform: "uppercase" }}>Yutib Olinadigan Sovg'a</div>
+                                                                <div style={{ fontSize: "15px", fontWeight: 800, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                                    {upgraderTarget?.name || "Delicious Cake"}
+                                                                </div>
+                                                                <div style={{ fontSize: "13px", fontWeight: 800, color: "#eab308", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                                                                    <span>{Math.round((upgraderItem?.stars || 15) * upgraderMultiplier).toLocaleString()} Stars</span>
+                                                                    <SvgStar size={13} color="#eab308" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ fontSize: "11px", fontWeight: 700, color: "#71717a", marginBottom: "8px" }}>
+                                                            Narxga mos sovg'a yoki NFT ni tanlang (Real-Time):
+                                                        </div>
+                                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(82px, 1fr))", gap: "8px", maxHeight: "175px", overflowY: "auto", paddingRight: "4px" }}>
+                                                            {getMatchingCatalogTargets(upgraderItem?.stars || 15, upgraderMultiplier, upgraderInventory).map((cand, cIdx) => {
+                                                                const isCandSel = (upgraderTarget?.slug && upgraderTarget.slug === cand.slug) || (upgraderTarget?.name === cand.name);
+                                                                const desiredStars = Math.round((upgraderItem?.stars || 15) * upgraderMultiplier);
+                                                                return (
+                                                                    <button
+                                                                        key={cand.slug || cand.id || cIdx}
+                                                                        type="button"
+                                                                        onClick={() => setUpgraderTarget({ ...cand, stars: desiredStars })}
+                                                                        style={{
+                                                                            background: isCandSel ? "rgba(16,185,129,0.12)" : "#ffffff",
+                                                                            border: isCandSel ? "2px solid #10b981" : "1px solid #e4e4e7",
+                                                                            borderRadius: "14px",
+                                                                            padding: "8px 6px",
+                                                                            cursor: "pointer",
+                                                                            textAlign: "center",
+                                                                            transition: "all 0.15s ease"
+                                                                        }}
+                                                                    >
+                                                                        <div style={{ height: "42px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                                            <TelegramGiftMedia
+                                                                                fileId={cand.file_id}
+                                                                                fileType={cand.file_type || "tgs"}
+                                                                                slug={cand.slug}
+                                                                                imageUrl={cand.image_url}
+                                                                                icon={cand.icon}
+                                                                                name={cand.name}
+                                                                                size={38}
+                                                                            />
+                                                                        </div>
+                                                                        <div style={{ fontSize: "10px", fontWeight: 700, color: "#18181b", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: "4px" }}>
+                                                                            {cand.name}
+                                                                        </div>
+                                                                        <div style={{ fontSize: "10px", fontWeight: 800, color: "#10b981" }}>
+                                                                            {cand.stars} ★
+                                                                        </div>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            {/* Upgrader Controls: Selected Item vs 2x Multiplier Target */}
-                                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "32px", width: "100%", boxSizing: "border-box" }}>
-                                                {/* Left: Your Item */}
-                                                <div style={{ flex: "1 1 280px", maxWidth: "360px", background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: "260px", boxSizing: "border-box" }}>
-                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "6px" }}>
-                                                        Siz Tikayotgan Sovg'a:
-                                                    </div>
-                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}>
-                                                        <TelegramGiftMedia imageUrl={upgraderItem?.image_url} icon={upgraderItem?.icon || "cake"} name={upgraderItem?.name || "Sovg'a"} size="56px" />
-                                                    </div>
-                                                    <div style={{ fontWeight: 700, fontSize: "15px" }}>{upgraderItem?.name || "Sovg'a tanlang"}</div>
-                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
-                                                        <span>{upgraderItem?.stars || 0} Stars</span>
-                                                        <SvgStar size={13} color="#ffd700" />
-                                                    </div>
-                                                    
-                                                    {/* Tikilayotgan Sovg'a Tanlovi (4 ta aniq stavka) */}
-                                                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
-                                                        {[
-                                                            { name: "Desk Calendar NFT", stars: 150, icon: "calendar", image_url: "/api/nft/image/desk_calendar.webp" },
-                                                            { name: "Durov's Black Cap NFT", stars: 250, icon: "cap", image_url: "/api/nft/image/durov_cap.webp" },
-                                                            { name: "Swiss Watch NFT", stars: 500, icon: "watch", image_url: "/api/nft/image/swiss_watch.webp" },
-                                                            { name: "Plush Pepe NFT", stars: 1000, icon: "plush", image_url: "/api/nft/image/plush_pepe.webp" }
-                                                        ].map((it, idx) => {
-                                                            const isSel = (upgraderItem?.name === it.name);
-                                                            return (
-                                                                <button
-                                                                    key={idx}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setUpgraderItem(it);
-                                                                        const tStars = Math.round(it.stars * upgraderMultiplier);
-                                                                        const tIcon = tStars >= 100 ? "diamond_ring" : (tStars >= 50 ? "teddy" : "star");
-                                                                        const tImg = tStars >= 100 ? "/api/nft/image/diamond_ring.webp" : (tStars >= 50 ? "https://nft.fragment.com/gift/toybear-7605.medium.jpg" : "/api/nft/image/gift_star.webp");
-                                                                        setUpgraderTarget({
-                                                                            name: `${upgraderMultiplier}x Sovg'a (${tStars} Stars)`,
-                                                                            stars: tStars,
-                                                                            icon: tIcon,
-                                                                            image_url: tImg
-                                                                        });
-                                                                    }}
-                                                                    style={{
-                                                                        padding: "6px 12px",
-                                                                        fontSize: "12px",
-                                                                        fontWeight: 700,
-                                                                        borderRadius: "999px",
-                                                                        border: isSel ? "2px solid #7342E2" : "1px solid var(--border-soft)",
-                                                                        background: isSel ? "#7342E2" : "#ffffff",
-                                                                        color: isSel ? "#ffffff" : "var(--text)",
-                                                                        cursor: "pointer",
-                                                                        transition: "all 0.15s ease"
-                                                                    }}
-                                                                >
-                                                                    {it.stars} Stars
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
+                                            {/* Multiplier Slider & Quick Buttons (1.5x to 100x) */}
+                                            <div style={{ background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "22px", padding: "18px 22px", marginBottom: "30px" }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px", marginBottom: "12px" }}>
+                                                    <span style={{ fontSize: "13px", fontWeight: 800, color: "#18181b" }}>
+                                                        Ko'paytiruvchi (Multiplier): <span style={{ color: "#7342E2", fontSize: "16px" }}>{upgraderMultiplier}x</span>
+                                                    </span>
+                                                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#10b981" }}>
+                                                        Yutish ehtimoli: {(Math.min(65, Math.max(1, (1 / upgraderMultiplier) * 93))).toFixed(1)}%
+                                                    </span>
                                                 </div>
 
-                                                {/* Middle: Arrow with Multiplier Badge */}
-                                                <div style={{ flexShrink: 0, textAlign: "center", padding: "8px 12px" }}>
-                                                    <SvgArrowRight size={28} color="#7342E2" />
-                                                    <div style={{
-                                                        fontSize: "13px",
-                                                        fontWeight: 800,
-                                                        color: "#ffffff",
-                                                        background: "#7342E2",
-                                                        padding: "4px 12px",
+                                                {/* Draggable Slider 1.5x .. 100x */}
+                                                <input
+                                                    type="range"
+                                                    min="1.5"
+                                                    max="100"
+                                                    step="0.5"
+                                                    value={upgraderMultiplier}
+                                                    onChange={(e) => {
+                                                        const mVal = parseFloat(e.target.value);
+                                                        setUpgraderMultiplier(mVal);
+                                                        syncTargetForMultiplier(upgraderItem, mVal, upgraderInventory);
+                                                    }}
+                                                    style={{
+                                                        width: "100%",
+                                                        height: "8px",
                                                         borderRadius: "999px",
-                                                        marginTop: "6px",
-                                                        display: "inline-block",
-                                                        boxShadow: "0 2px 10px rgba(115,66,226,0.35)"
-                                                    }}>
-                                                        {upgraderMultiplier}x
-                                                    </div>
-                                                </div>
+                                                        accentColor: "#10b981",
+                                                        cursor: "pointer",
+                                                        marginBottom: "14px"
+                                                    }}
+                                                />
 
-                                                {/* Right: Target Goal based on Multiplier */}
-                                                <div style={{ flex: "1 1 280px", maxWidth: "360px", background: "#f8f8fa", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "20px", textAlign: "center", minWidth: "260px", boxSizing: "border-box" }}>
-                                                    <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "6px" }}>
-                                                        Kutilayotgan Sovg'a:
-                                                    </div>
-                                                    <div style={{ height: "54px", display: "flex", alignItems: "center", justifyContent: "center", margin: "6px 0" }}>
-                                                        <TelegramGiftMedia imageUrl={upgraderTarget?.image_url} icon={upgraderTarget?.icon || "star"} name={upgraderTarget?.name || "Sovg'a"} size="56px" />
-                                                    </div>
-                                                    <div style={{ fontWeight: 700, fontSize: "15px" }}>
-                                                        {upgraderMultiplier}x Sovg'a ({Math.round((upgraderItem?.stars || 15) * upgraderMultiplier)} Stars)
-                                                    </div>
-                                                    <div style={{ color: "#ffd700", fontWeight: 700, fontSize: "14px", marginTop: "4px", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
-                                                        <span>{Math.round((upgraderItem?.stars || 15) * upgraderMultiplier)} Stars</span>
-                                                        <SvgStar size={13} color="#ffd700" />
-                                                    </div>
-
-                                                    {/* Multiplier Pills (Standart 2x as primary) */}
-                                                    <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "6px", marginTop: "12px" }}>
-                                                        {[
-                                                            { mul: 1.5, label: "1.5x" },
-                                                            { mul: 2.0, label: "2x (Standart)" },
-                                                            { mul: 3.0, label: "3x" },
-                                                            { mul: 5.0, label: "5x" },
-                                                            { mul: 10.0, label: "10x" }
-                                                        ].map(m => {
-                                                            const isSel = (upgraderMultiplier === m.mul);
-                                                            return (
-                                                                <button
-                                                                    key={m.mul}
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        setUpgraderMultiplier(m.mul);
-                                                                        const tStars = Math.round((upgraderItem?.stars || 15) * m.mul);
-                                                                        const tIcon = tStars >= 100 ? "diamond_ring" : (tStars >= 50 ? "teddy" : "star");
-                                                                        const tImg = tStars >= 100 ? "/api/nft/image/diamond_ring.webp" : (tStars >= 50 ? "https://nft.fragment.com/gift/toybear-7605.medium.jpg" : "/api/nft/image/gift_star.webp");
-                                                                        setUpgraderTarget({
-                                                                            name: `${m.label} Sovg'a (${tStars} Stars)`,
-                                                                            stars: tStars,
-                                                                            icon: tIcon,
-                                                                            image_url: tImg
-                                                                        });
-                                                                    }}
-                                                                    style={{
-                                                                        padding: "6px 12px",
-                                                                        fontSize: "12px",
-                                                                        fontWeight: isSel ? 800 : 600,
-                                                                        borderRadius: "999px",
-                                                                        border: isSel ? "2px solid #7342E2" : "1px solid var(--border-soft)",
-                                                                        background: isSel ? "#7342E2" : "#ffffff",
-                                                                        color: isSel ? "#ffffff" : "var(--text)",
-                                                                        cursor: "pointer",
-                                                                        transition: "all 0.15s ease",
-                                                                        boxShadow: isSel ? "0 4px 12px rgba(115,66,226,0.25)" : "none"
-                                                                    }}
-                                                                >
-                                                                    {m.label}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
+                                                {/* Quick Multiplier Pills */}
+                                                <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: "8px" }}>
+                                                    {[1.5, 2, 3, 4, 5, 10, 25, 50, 100].map(m => {
+                                                        const isSel = (Number(upgraderMultiplier) === m);
+                                                        return (
+                                                            <button
+                                                                key={m}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setUpgraderMultiplier(m);
+                                                                    syncTargetForMultiplier(upgraderItem, m, upgraderInventory);
+                                                                }}
+                                                                style={{
+                                                                    padding: "7px 14px",
+                                                                    fontSize: "12px",
+                                                                    fontWeight: 800,
+                                                                    borderRadius: "999px",
+                                                                    border: isSel ? "2px solid #7342E2" : "1px solid #e4e4e7",
+                                                                    background: isSel ? "#7342E2" : "#ffffff",
+                                                                    color: isSel ? "#ffffff" : "#18181b",
+                                                                    cursor: "pointer",
+                                                                    transition: "all 0.15s ease",
+                                                                    boxShadow: isSel ? "0 4px 12px rgba(115,66,226,0.28)" : "none"
+                                                                }}
+                                                            >
+                                                                {m}x
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
 
-                                            {/* Circular Dial Wheel with Pointer Needle */}
+                                            {/* Tactical Dark Metallic Precision Wheel (Green Win Zone / Red Loss Zone) */}
                                             {(() => {
-                                                const targetStars = Math.round((upgraderItem?.stars || 15) * upgraderMultiplier);
-                                                const nominalOdds = (upgraderItem?.stars || 15) / Math.max(1, targetStars);
-                                                const winChance = Math.min(0.75, Math.max(0.01, nominalOdds * 0.70));
-                                                const greenSlice = upgradeResult?.green_slice_deg || Math.max(10, Math.min(300, Math.round(winChance * 360)));
-                                                const oddsPct = Math.round(winChance * 1000) / 10;
+                                                const nominalOdds = 1.0 / Math.max(1.5, Number(upgraderMultiplier || 2.0));
+                                                const winChance = Math.min(0.65, Math.max(0.01, nominalOdds * 0.93));
+                                                const greenSlice = upgradeResult?.green_slice_deg || Math.max(6, Math.min(234, Math.round(winChance * 360)));
+                                                const screwAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+                                                const tickAngles = Array.from({ length: 60 }, (_, i) => i * 6);
+
                                                 return (
-                                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "32px" }}>
-                                                        {/* Wheel Outer */}
+                                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "30px" }}>
                                                         <div style={{
                                                             position: "relative",
-                                                            width: "240px",
-                                                            height: "240px",
+                                                            width: "310px",
+                                                            height: "310px",
                                                             borderRadius: "50%",
-                                                            background: `conic-gradient(#00ff88 0deg ${greenSlice}deg, #181a20 ${greenSlice}deg 360deg)`,
-                                                            boxShadow: "0 0 30px rgba(0,0,0,0.15), inset 0 0 20px rgba(0,0,0,0.5)",
+                                                            background: "radial-gradient(circle at 35% 30%, #272935 0%, #14161f 60%, #0b0c12 100%)",
+                                                            boxShadow: "0 20px 50px rgba(0,0,0,0.35), inset 0 2px 4px rgba(255,255,255,0.12), inset 0 -6px 16px rgba(0,0,0,0.85)",
+                                                            border: "3px solid #1f222e",
                                                             display: "flex",
                                                             alignItems: "center",
                                                             justifyContent: "center"
                                                         }}>
-                                                            {/* Wheel Inner Cutout */}
-                                                            <div style={{
-                                                                width: "186px",
-                                                                height: "186px",
-                                                                borderRadius: "50%",
-                                                                background: "#0d0e14",
-                                                                display: "flex",
-                                                                flexDirection: "column",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                color: "#ffffff",
-                                                                zIndex: 2,
-                                                                boxShadow: "0 0 15px rgba(0,0,0,0.8)"
-                                                            }}>
-                                                                <span style={{ fontSize: "28px", fontWeight: 800, color: "#00ff88" }}>
-                                                                    {oddsPct}%
-                                                                </span>
-                                                                <span style={{ fontSize: "11px", color: "#8e8e93", textTransform: "uppercase", fontWeight: 700, letterSpacing: "0.08em" }}>
-                                                                    Yashil Sektor ({upgraderMultiplier}x)
-                                                                </span>
-                                                            </div>
+                                                            {/* 8 Perimeter Metallic Screw Bolts */}
+                                                            {screwAngles.map((deg) => (
+                                                                <div
+                                                                    key={`screw-${deg}`}
+                                                                    style={{
+                                                                        position: "absolute",
+                                                                        inset: "8px",
+                                                                        transform: `rotate(${deg}deg)`,
+                                                                        pointerEvents: "none"
+                                                                    }}
+                                                                >
+                                                                    <div style={{
+                                                                        width: "12px",
+                                                                        height: "12px",
+                                                                        margin: "0 auto",
+                                                                        borderRadius: "50%",
+                                                                        background: "radial-gradient(circle at 35% 35%, #52566a 0%, #1c1e29 75%, #0d0e14 100%)",
+                                                                        border: "1px solid rgba(255,255,255,0.14)",
+                                                                        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.8)"
+                                                                    }} />
+                                                                </div>
+                                                            ))}
 
-                                                            {/* Rotating Needle Pointer */}
-                                                            <div
-                                                                className={isUpgrading ? "needle-spin-transition" : ""}
-                                                                style={{
-                                                                    position: "absolute",
-                                                                    inset: 0,
-                                                                    zIndex: 3,
-                                                                    transform: `rotate(${upgraderAngle}deg)`,
-                                                                    pointerEvents: "none"
-                                                                }}
-                                                            >
+                                                            {/* Active Green (Win) & Red (Lose) Sector Ring */}
+                                                            <div style={{
+                                                                position: "relative",
+                                                                width: "252px",
+                                                                height: "252px",
+                                                                borderRadius: "50%",
+                                                                background: `conic-gradient(#10b981 0deg ${greenSlice}deg, #ef4444 ${greenSlice}deg 360deg)`,
+                                                                boxShadow: "0 0 24px rgba(0,0,0,0.7), inset 0 0 16px rgba(0,0,0,0.55)",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center"
+                                                            }}>
+                                                                {/* Inner Dark Bezel with 60 Precision Degree Tick Marks */}
                                                                 <div style={{
-                                                                    position: "absolute",
-                                                                    top: "10px",
-                                                                    left: "50%",
-                                                                    transform: "translateX(-50%)",
-                                                                    width: "0",
-                                                                    height: "0",
-                                                                    borderLeft: "8px solid transparent",
-                                                                    borderRight: "8px solid transparent",
-                                                                    borderBottom: "22px solid #ffd700",
-                                                                    filter: "drop-shadow(0 0 6px rgba(255,215,0,0.8))"
-                                                                }} />
-                                                                <div style={{
-                                                                    position: "absolute",
-                                                                    top: "28px",
-                                                                    left: "50%",
-                                                                    transform: "translateX(-50%)",
-                                                                    width: "3px",
-                                                                    height: "92px",
-                                                                    background: "linear-gradient(to bottom, #ffd700, transparent)"
-                                                                }} />
+                                                                    position: "relative",
+                                                                    width: "218px",
+                                                                    height: "218px",
+                                                                    borderRadius: "50%",
+                                                                    background: "radial-gradient(circle at 50% 50%, #151722 0%, #0b0c12 72%, #07080c 100%)",
+                                                                    boxShadow: "inset 0 0 24px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8)",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center"
+                                                                }}>
+                                                                    {tickAngles.map((tDeg) => {
+                                                                        const isMajor = (tDeg % 30 === 0);
+                                                                        const isInWinZone = (tDeg <= greenSlice);
+                                                                        return (
+                                                                            <div
+                                                                                key={`tick-${tDeg}`}
+                                                                                style={{
+                                                                                    position: "absolute",
+                                                                                    inset: "7px",
+                                                                                    transform: `rotate(${tDeg}deg)`,
+                                                                                    pointerEvents: "none"
+                                                                                }}
+                                                                            >
+                                                                                <div style={{
+                                                                                    width: isMajor ? "2.5px" : "1.5px",
+                                                                                    height: isMajor ? "10px" : "5px",
+                                                                                    margin: "0 auto",
+                                                                                    borderRadius: "2px",
+                                                                                    background: isInWinZone
+                                                                                        ? (isMajor ? "#34d399" : "rgba(52,211,153,0.55)")
+                                                                                        : (isMajor ? "rgba(248,113,113,0.7)" : "rgba(255,255,255,0.18)")
+                                                                                }} />
+                                                                            </div>
+                                                                        );
+                                                                    })}
+
+                                                                    {/* Guilloche Dark Center Hub (Previewing Target Gift Animation) */}
+                                                                    <div style={{
+                                                                        width: "146px",
+                                                                        height: "146px",
+                                                                        borderRadius: "50%",
+                                                                        background: "radial-gradient(circle, #1c1f2e 0%, #0e1017 70%, #08090d 100%)",
+                                                                        border: "1.5px solid rgba(255,255,255,0.08)",
+                                                                        boxShadow: "0 8px 24px rgba(0,0,0,0.85), inset 0 2px 6px rgba(255,255,255,0.05)",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        zIndex: 2
+                                                                    }}>
+                                                                        <TelegramGiftMedia
+                                                                            fileId={upgraderTarget?.file_id}
+                                                                            fileType={upgraderTarget?.file_type || "tgs"}
+                                                                            slug={upgraderTarget?.slug}
+                                                                            imageUrl={upgraderTarget?.image_url}
+                                                                            icon={upgraderTarget?.icon || "star"}
+                                                                            name={upgraderTarget?.name || "Target"}
+                                                                            size={84}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Sleek Perimeter Triangular Pointer */}
+                                                                <div
+                                                                    className={isUpgrading ? "needle-spin-transition" : ""}
+                                                                    style={{
+                                                                        position: "absolute",
+                                                                        inset: 0,
+                                                                        zIndex: 5,
+                                                                        transform: `rotate(${upgraderAngle}deg)`,
+                                                                        pointerEvents: "none"
+                                                                    }}
+                                                                >
+                                                                    <div style={{
+                                                                        position: "absolute",
+                                                                        top: "-4px",
+                                                                        left: "50%",
+                                                                        transform: "translateX(-50%)",
+                                                                        width: 0,
+                                                                        height: 0,
+                                                                        borderLeft: "10px solid transparent",
+                                                                        borderRight: "10px solid transparent",
+                                                                        borderTop: "22px solid #f8fafc",
+                                                                        filter: "drop-shadow(0 3px 8px rgba(0,0,0,0.9))"
+                                                                    }} />
+                                                                </div>
                                                             </div>
                                                         </div>
 
                                                         {/* Result Feedback Banner */}
                                                         {upgradeResult && (
                                                             <div style={{
-                                                                marginTop: "24px",
+                                                                marginTop: "20px",
                                                                 padding: "12px 24px",
                                                                 borderRadius: "999px",
                                                                 fontSize: "14px",
-                                                                fontWeight: 700,
-                                                                background: upgradeResult.won ? "rgba(0,255,136,0.15)" : "rgba(255,59,48,0.12)",
-                                                                color: upgradeResult.won ? "#00c853" : "#ff3b30",
-                                                                border: `1px solid ${upgradeResult.won ? 'rgba(0,255,136,0.4)' : 'rgba(255,59,48,0.3)'}`
+                                                                fontWeight: 800,
+                                                                background: upgradeResult.won ? "rgba(16,185,129,0.14)" : "rgba(239,68,68,0.14)",
+                                                                color: upgradeResult.won ? "#059669" : "#dc2626",
+                                                                border: `1.5px solid ${upgradeResult.won ? 'rgba(16,185,129,0.45)' : 'rgba(239,68,68,0.4)'}`
                                                             }}>
                                                                 {upgradeResult.won
-                                                                    ? `Tabriklaymiz! Siz ${upgradeResult.target_name} yutib oldingiz!`
-                                                                    : `Afsuski, strelka qizil sektorga tushdi (${upgradeResult.final_angle}° ga to'xtadi). Yana bir bor urinib ko'ring.`}
+                                                                    ? `Tabriklaymiz! Strelka yashil sektorga tushdi — ${upgradeResult.target_name} inventaringizga qo'shildi!`
+                                                                    : `Afsuski, strelka qizil sektorga tushdi (${upgradeResult.final_angle}°) va tikilgan sovg'a kuydi.`}
                                                             </div>
                                                         )}
                                                     </div>
@@ -6094,13 +6851,17 @@
                                                 variant="cyan"
                                                 size="lg"
                                                 onClick={handleRunUpgrade}
-                                                disabled={isUpgrading}
+                                                disabled={isUpgrading || !upgraderItem}
                                                 loading={isUpgrading}
                                                 loadingText="Aylanmoqda..."
                                                 icon={<SvgZap size={18} color="#000000" />}
-                                                style={{ minWidth: "280px" }}
+                                                style={{ minWidth: "300px" }}
                                             >
-                                                <span>{`${upgraderMultiplier}x UPGRADE QILISH (${((upgraderItem?.stars || 15) * 400).toLocaleString()} so'm tikish)`}</span>
+                                                <span>
+                                                    {upgraderItem
+                                                        ? `${upgraderMultiplier}x BEPUL UPGRADE QILISH (${upgraderItem.name || upgraderItem.prize_name})`
+                                                        : "AVVAL KEYS OCHIB SOVG'A YUTIB OLING"}
+                                                </span>
                                             </TactileButton>
                                         </div>
                                     </div>
@@ -7703,7 +8464,7 @@
                                                         {ownedNfts.map((g, gIdx) => (
                                                             <div key={gIdx} style={{ background: "#fcfcfd", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "16px", textAlign: "center" }}>
                                                                 <div style={{ width: "100%", aspectRatio: "1", borderRadius: "16px", overflow: "hidden", position: "relative", marginBottom: "10px", background: g.backdrop || "linear-gradient(145deg, #18181b 0%, #09090b 100%)" }}>
-                                                                    <img src={g.image_url} alt={g.prize_name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                                                    <TelegramGiftMedia fileId={g.file_id} fileType={g.file_type} slug={g.slug} imageUrl={g.image_url} icon={g.icon} name={g.prize_name} size="100%" />
                                                                 </div>
                                                                 <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)" }}>{g.prize_name}</div>
                                                                 {g.edition && <div style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>{g.edition}</div>}
