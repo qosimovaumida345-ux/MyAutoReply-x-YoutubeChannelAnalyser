@@ -930,6 +930,12 @@
             </svg>
         );
 
+        const SvgSend = ({ size = 16, color = "currentColor" }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+        );
         const SvgExternalLink = ({ size = 14, color = "currentColor" }) => (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -2197,6 +2203,9 @@
                 is_nft: false
             });
             const [upgraderAngle, setUpgraderAngle] = useState(0);
+            const upgraderAngleRef = useRef(0);
+            const upgraderAnimRef = useRef(null);
+            const upgraderNeedleRef = useRef(null);
             const [isUpgrading, setIsUpgrading] = useState(false);
             const [upgradeResult, setUpgradeResult] = useState(null);
             const [upgraderInventory, setUpgraderInventory] = useState([]);
@@ -2750,6 +2759,7 @@
                     alert("Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling.");
                     return;
                 }
+
                 setIsUpgrading(true);
                 setUpgradeResult(null);
 
@@ -2757,6 +2767,97 @@
                 const computedTargetStars = Math.round(baseStars * Number(upgraderMultiplier || 2.0));
                 const chosenTargetName = upgraderTarget?.name || `${upgraderMultiplier}x Sovg'a`;
 
+                // 0ms Real-Time Instant Spin Engine (requestAnimationFrame + direct GPU compositing)
+                const spinStartTime = performance.now();
+                let currentAngle = upgraderAngleRef.current || upgraderAngle || 0;
+                let lastTickAngle = currentAngle;
+                let resolvedData = null;
+                let decelerationStartTime = null;
+                let startDecelAngle = null;
+                let targetLandingAngle = null;
+                const decelDuration = 3200; // 3.2s smooth deceleration
+
+                if (upgraderAnimRef.current) {
+                    cancelAnimationFrame(upgraderAnimRef.current);
+                }
+
+                playTickSound();
+
+                const spinFrame = (now) => {
+                    if (!decelerationStartTime) {
+                        // 1. Tezyurar aylanma (backend javobini kutayotganda 0ms kechikishsiz darhol aylanadi)
+                        const elapsed = now - spinStartTime;
+                        currentAngle += 16; // ~960 deg/sec = 2.6 rev/sec
+                        
+                        if (Math.abs(currentAngle - lastTickAngle) >= 30) {
+                            playTickSound();
+                            lastTickAngle = currentAngle;
+                        }
+
+                        if (upgraderNeedleRef.current) {
+                            upgraderNeedleRef.current.style.transform = `translate3d(0,0,0) rotate(${currentAngle}deg)`;
+                        }
+
+                        // Backend javobi kelgan va kamida 650ms dramatik hayajonli aylanish o'tgan bo'lsa
+                        if (resolvedData && elapsed >= 650) {
+                            decelerationStartTime = now;
+                            startDecelAngle = currentAngle;
+                            const turns = 1080; // 3 to'liq aylanish
+                            const currentMod = ((currentAngle % 360) + 360) % 360;
+                            const diffToFinal = (resolvedData.final_angle - currentMod + 360) % 360;
+                            targetLandingAngle = currentAngle + turns + diffToFinal;
+                        }
+
+                        upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+                    } else {
+                        // 2. Sekinlashuvchi Quintic Ease-Out (dramatik near-miss to'xtash)
+                        const decelElapsed = now - decelerationStartTime;
+                        const progress = Math.min(1, decelElapsed / decelDuration);
+                        const ease = 1 - Math.pow(1 - progress, 3.8);
+                        const frameAngle = startDecelAngle + (targetLandingAngle - startDecelAngle) * ease;
+
+                        if (Math.abs(frameAngle - lastTickAngle) >= 30) {
+                            playTickSound();
+                            lastTickAngle = frameAngle;
+                        }
+
+                        if (upgraderNeedleRef.current) {
+                            upgraderNeedleRef.current.style.transform = `translate3d(0,0,0) rotate(${frameAngle}deg)`;
+                        }
+
+                        if (progress < 1) {
+                            upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+                        } else {
+                            // To'xtadi (Landing finish)
+                            if (upgraderAnimRef.current) {
+                                cancelAnimationFrame(upgraderAnimRef.current);
+                                upgraderAnimRef.current = null;
+                            }
+                            upgraderAngleRef.current = targetLandingAngle;
+                            setUpgraderAngle(targetLandingAngle);
+                            setIsUpgrading(false);
+                            setUpgradeResult(resolvedData);
+
+                            if (resolvedData.new_balance !== undefined) {
+                                setUserStats(prev => ({ ...prev, balance_uzs: resolvedData.new_balance }));
+                            }
+                            if (resolvedData.won) {
+                                playWinFanfare();
+                                if (window.confetti) window.confetti({ particleCount: 150, spread: 85, origin: { y: 0.6 } });
+                            } else {
+                                playLossSound();
+                            }
+                            // Inventarni bazadan qayta sinxronlash (yutsa yangi sovg'a tushadi, yutqazsa eski sovg'a o'chadi)
+                            loadUserStats(tgUser.id, true);
+                            fetchRecentDrops();
+                            fetchUpgraderInventory();
+                        }
+                    }
+                };
+
+                upgraderAnimRef.current = requestAnimationFrame(spinFrame);
+
+                // Parallel backend chaqiruvi
                 fetch('/api/stars/upgrader', {
                     method: 'POST',
                     headers: getAuthHeaders(),
@@ -2775,39 +2876,91 @@
                 .then(r => r.json())
                 .then(res => {
                     if (res.ok) {
-                        const clearWheelTicks = scheduleWheelDeceleratingTicks(3800);
-                        const spins = 1800; // 5 full turns
-                        const currentBase = Math.floor(upgraderAngle / 360) * 360 + 360;
-                        const targetAngle = currentBase + spins + res.final_angle;
-                        setUpgraderAngle(targetAngle);
-
-                        setTimeout(() => {
-                            clearWheelTicks();
-                            setIsUpgrading(false);
-                            setUpgradeResult(res);
-                            if (res.new_balance !== undefined) {
-                                setUserStats(prev => ({ ...prev, balance_uzs: res.new_balance }));
-                            }
-                            if (res.won) {
-                                playWinFanfare();
-                                if (window.confetti) window.confetti({ particleCount: 150, spread: 85, origin: { y: 0.6 } });
-                            } else {
-                                playLossSound();
-                            }
-                            // Inventarni bazadan qayta sinxronlash (yutsa yangi sovg'a tushadi, yutqazsa eski sovg'a o'chadi)
-                            loadUserStats(tgUser.id, true);
-                            fetchRecentDrops();
-                            fetchUpgraderInventory();
-                        }, 3800);
+                        resolvedData = res;
                     } else {
+                        if (upgraderAnimRef.current) {
+                            cancelAnimationFrame(upgraderAnimRef.current);
+                            upgraderAnimRef.current = null;
+                        }
                         setIsUpgrading(false);
                         alert(res.error || "Upgrader xatosi: Inventaringizda sovg'a topilmadi!");
                     }
                 })
                 .catch(err => {
+                    if (upgraderAnimRef.current) {
+                        cancelAnimationFrame(upgraderAnimRef.current);
+                        upgraderAnimRef.current = null;
+                    }
                     setIsUpgrading(false);
                     alert("Tarmoq xatosi: " + err);
                 });
+            };
+
+            // Shaxsiy inventardagi sovg'ani Telegram profiliga qabul qilish (Yechib Olish)
+            const handleWithdrawGift = (gift) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
+                if (!gift || !gift.id) return;
+                const pName = gift.prize_name || gift.name || "Telegram Sovg'a";
+                if (!window.confirm(`${pName} sovg'asini Telegram profilingizga yechib olishni tasdiqlaysizmi?`)) {
+                    return;
+                }
+                fetch('/api/stars/withdraw-gift', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        user_id: tgUser.id,
+                        record_id: gift.id
+                    })
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.ok) {
+                        alert(res.message || "Sovg'angiz Telegram profilingizga yuborilmoqda!");
+                        loadUserStats(tgUser.id, true);
+                        fetchUpgraderInventory();
+                    } else {
+                        alert(res.error || "Yechib olishda xatolik yuz berdi!");
+                    }
+                })
+                .catch(err => alert("Tarmoq xatosi: " + err));
+            };
+
+            // Shaxsiy inventardagi sovg'ani 75% keshbek evaziga sotish
+            const handleRecycleGift = (gift) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
+                if (!gift || !gift.id) return;
+                const pName = gift.prize_name || gift.name || "Telegram Sovg'a";
+                const pStars = Number(gift.prize_stars || gift.stars || 15);
+                const refundUzs = Math.round(pStars * 0.75 * 400);
+                if (!window.confirm(`${pName} sovg'asini ${refundUzs.toLocaleString()} so'm keshbek evaziga sotishni tasdiqlaysizmi?`)) {
+                    return;
+                }
+                fetch('/api/stars/recycle-gift', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        user_id: tgUser.id,
+                        record_id: gift.id,
+                        prize_stars: pStars
+                    })
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.ok) {
+                        alert(`Sovg'a sotildi! Balansingizga +${(res.refund_uzs || refundUzs).toLocaleString()} so'm qo'shildi.`);
+                        loadUserStats(tgUser.id, true);
+                        fetchUpgraderInventory();
+                    } else {
+                        alert(res.error || "Sotishda xatolik yuz berdi!");
+                    }
+                })
+                .catch(err => alert("Tarmoq xatosi: " + err));
             };
 
             // Real Fragment & Getgems Marketplace Fetcher
@@ -6086,6 +6239,49 @@
                                                                 </span>
                                                             )}
                                                         </div>
+
+                                                        {/* Yechib Olish & Sotish Tugmalari */}
+                                                        <div style={{ display: "flex", gap: "6px", marginTop: "12px", width: "100%" }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleWithdrawGift(g)}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    padding: "7px 10px",
+                                                                    borderRadius: "10px",
+                                                                    background: "linear-gradient(135deg, #0088cc 0%, #0077b5 100%)",
+                                                                    color: "#ffffff",
+                                                                    fontSize: "11px",
+                                                                    fontWeight: 800,
+                                                                    border: "none",
+                                                                    cursor: "pointer",
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    gap: "4px"
+                                                                }}
+                                                            >
+                                                                <SvgSend size={{11}} color="#ffffff" />
+                                                                <span>Yechib Olish</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRecycleGift(g)}
+                                                                title="75% keshbek evaziga sotish"
+                                                                style={{
+                                                                    padding: "7px 10px",
+                                                                    borderRadius: "10px",
+                                                                    background: "rgba(234, 179, 8, 0.12)",
+                                                                    border: "1px solid rgba(234, 179, 8, 0.35)",
+                                                                    color: "#ca8a04",
+                                                                    fontSize: "11px",
+                                                                    fontWeight: 800,
+                                                                    cursor: "pointer"
+                                                                }}
+                                                            >
+                                                                Sotish
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )))}
                                             </div>
@@ -6231,7 +6427,7 @@
                                     const multNum = Math.max(1.5, Number(upgraderMultiplier || 2.0));
                                     const winChanceRatio = Math.min(0.75, Math.max(0.01, 1.0 / multNum));
                                     const winPercentDisplay = Number((winChanceRatio * 100).toFixed(1));
-                                    const greenSlice = upgradeResult?.green_slice_deg || Math.max(4, Math.min(270, Math.round(winChanceRatio * 360)));
+                                    const greenSlice = Math.max(6, Math.min(270, Math.round(winChanceRatio * 360)));
                                     const screwAngles = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
                                     const tickAngles = Array.from({ length: 60 }, (_, i) => i * 6);
                                     const sourceStars = Number(upgraderItem?.prize_stars || upgraderItem?.stars || 15);
@@ -6422,12 +6618,14 @@
 
                                                                 {/* Sleek White Triangular Pointer */}
                                                                 <div
-                                                                    className={isUpgrading ? "needle-spin-transition" : ""}
+                                                                    ref={upgraderNeedleRef}
                                                                     style={{
                                                                         position: "absolute",
                                                                         inset: 0,
                                                                         zIndex: 5,
-                                                                        transform: `rotate(${upgraderAngle}deg)`,
+                                                                        transform: `translate3d(0,0,0) rotate(${upgraderAngle}deg)`,
+                                                                        willChange: "transform",
+                                                                        backfaceVisibility: "hidden",
                                                                         pointerEvents: "none"
                                                                     }}
                                                                 >
@@ -6566,6 +6764,29 @@
                                                                     <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", marginTop: "2px" }}>
                                                                         {upgraderItem ? "Shaxsiy inventardan" : "Avval keys oching"}
                                                                     </div>
+                                                                    {upgraderItem && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleWithdrawGift(upgraderItem)}
+                                                                            style={{
+                                                                                marginTop: "6px",
+                                                                                background: "rgba(0, 136, 204, 0.16)",
+                                                                                border: "1px solid rgba(0, 136, 204, 0.45)",
+                                                                                color: "#38bdf8",
+                                                                                borderRadius: "8px",
+                                                                                padding: "4px 8px",
+                                                                                fontSize: "10px",
+                                                                                fontWeight: 800,
+                                                                                cursor: "pointer",
+                                                                                display: "inline-flex",
+                                                                                alignItems: "center",
+                                                                                gap: "4px"
+                                                                            }}
+                                                                        >
+                                                                            <SvgSend size={{10}} color="#38bdf8" />
+                                                                            <span>Yechib Olish</span>
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             </div>
 
@@ -6735,6 +6956,7 @@
                                                                 value={upgraderMultiplier}
                                                                 onChange={(e) => {
                                                                     const mVal = parseFloat(e.target.value);
+                                                                    setUpgradeResult(null);
                                                                     setUpgraderMultiplier(mVal);
                                                                     syncTargetForMultiplier(upgraderItem, mVal, upgraderInventory);
                                                                 }}
@@ -6755,6 +6977,7 @@
                                                                             key={m}
                                                                             type="button"
                                                                             onClick={() => {
+                                                                                setUpgradeResult(null);
                                                                                 setUpgraderMultiplier(m);
                                                                                 syncTargetForMultiplier(upgraderItem, m, upgraderInventory);
                                                                             }}
@@ -6811,6 +7034,7 @@
                                                                                     name: g.prize_name || g.name,
                                                                                     stars: Number(g.prize_stars || g.stars || 15)
                                                                                 };
+                                                                                setUpgradeResult(null);
                                                                                 setUpgraderItem(nextItem);
                                                                                 syncTargetForMultiplier(nextItem, upgraderMultiplier, upgraderInventory);
                                                                             }}

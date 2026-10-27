@@ -3639,6 +3639,85 @@ async def handle_api_stars_upgrader(request):
     except Exception as e:
         return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
 
+async def handle_api_stars_withdraw_gift(request):
+    """Foydalanuvchining shaxsiy inventaridagi sovg'ani Telegram profiliga qabul qilish (yechib olish)"""
+    try:
+        data = await request.json()
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
+        record_id = int(data.get("record_id", 0))
+        if not record_id:
+            return web.json_response({"ok": False, "error": "Sovg'a ID ko'rsatilmadi!"}, status=400, headers={"Access-Control-Allow-Origin": "*"})
+
+        from database import get_db
+        conn = get_db()
+        if not conn:
+            return web.json_response({"ok": False, "error": "Baza xatosi!"}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, gift_id, prize_name, prize_stars, status
+                FROM pending_gifts
+                WHERE id = %s AND tg_user_id = %s
+                  AND COALESCE(status, 'pending') NOT IN ('burned', 'upgraded_used', 'recycled', 'withdrawn', 'sent')
+                FOR UPDATE
+            """, (record_id, user_id))
+            row = cur.fetchone()
+            if not row:
+                conn.rollback()
+                return web.json_response({"ok": False, "error": "Sovg'a inventarda topilmadi yoki allaqachon yechib olingan!"}, status=404, headers={"Access-Control-Allow-Origin": "*"})
+
+            gift_id = row["gift_id"] if isinstance(row, dict) else row[1]
+            prize_name = row["prize_name"] if isinstance(row, dict) else row[2]
+
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = 'sent', sent_at = NOW(), updated_at = NOW()
+                WHERE id = %s AND tg_user_id = %s
+            """, (record_id, user_id))
+            conn.commit()
+
+            import asyncio
+            from games_monetization import send_telegram_gift
+            from config import BOT_TOKEN
+            async def _bg_send():
+                try:
+                    await send_telegram_gift(user_id=user_id, gift_id=gift_id, bot_token=BOT_TOKEN)
+                except Exception as _e:
+                    print(f"[Withdraw Send Error]: {_e}")
+            asyncio.create_task(_bg_send())
+
+            return web.json_response({
+                "ok": True,
+                "message": f"Tabriklaymiz! {prize_name} sovg'asi Telegram profilingizga muvaffaqiyatli yuborildi!",
+                "record_id": record_id
+            }, headers={"Access-Control-Allow-Origin": "*"})
+        finally:
+            conn.close()
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_api_stars_recycle_gift(request):
+    """Foydalanuvchining inventardagi sovg'ani 75% keshbek evaziga sotishi"""
+    try:
+        data = await request.json()
+        auth_uid = get_authenticated_user_id(request, data)
+        target_uid = int(data.get("user_id", 0))
+        if not auth_uid or (target_uid > 0 and auth_uid != target_uid):
+            return web.json_response({"ok": False, "error": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid
+        record_id = int(data.get("record_id", 0))
+        prize_stars = int(data.get("prize_stars", 15))
+        from games_monetization import recycle_pending_gift
+        res = recycle_pending_gift(record_id, user_id, prize_stars)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})
+
 async def handle_api_stars_daily_streak(request):
     """Foydalanuvchi kunlik streak holatini olish"""
     try:
@@ -4758,6 +4837,8 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/upgrader/inventory", handle_api_stars_upgrader_inventory)
     app.router.add_get("/api/stars/user-inventory", handle_api_stars_user_inventory)
     app.router.add_get("/api/stars/user-gifts", handle_api_stars_user_inventory)
+    app.router.add_post("/api/stars/withdraw-gift", handle_api_stars_withdraw_gift)
+    app.router.add_post("/api/stars/recycle-gift", handle_api_stars_recycle_gift)
     app.router.add_get("/api/stars/daily-streak", handle_api_stars_daily_streak)
     app.router.add_post("/api/stars/daily-streak/claim", handle_api_stars_daily_claim)
     app.router.add_post("/api/stars/scratch-card/play", handle_api_stars_scratch_card)

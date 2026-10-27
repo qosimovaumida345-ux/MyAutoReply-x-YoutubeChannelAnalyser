@@ -1046,7 +1046,7 @@ def open_stars_case_with_uzs(tg_user_id: int, tier_id: str, user_name: str = "")
         case_name=c_name,
         prize_name=p_name,
         prize_stars=p_stars,
-        status="pending",
+        status="inventory",
         cost_uzs=price_uzs,
         cost_stars=int(case.get("price_stars", 100)),
         payment_method="uzs"
@@ -2084,15 +2084,7 @@ def execute_upgrade_roll(
     multiplier: float = None
 ) -> dict:
     from config import OWNER_ID
-    from database import (
-        get_user_balance,
-        get_user_gift_history,
-        get_user_inventory_gift_by_id,
-        process_inventory_upgrade_outcome,
-        get_user_upgrader_plays,
-        increment_user_upgrader_plays,
-    )
-    import random
+    from database import execute_atomic_upgrade_transaction
 
     is_admin = False
     try:
@@ -2101,33 +2093,7 @@ def execute_upgrade_roll(
     except Exception:
         pass
 
-    # 1. Foydalanuvchining shaxsiy inventaridan (pending_gifts) tikilayotgan sovg'ani tekshirish (0 UZS to'lov!)
-    source_item = None
-    if source_inventory_id:
-        source_item = get_user_inventory_gift_by_id(user_id, int(source_inventory_id))
-    if not source_item:
-        user_inv = get_user_gift_history(user_id, limit=50)
-        if user_inv:
-            # Agar aniq ID kelmagan bo'lsa, stars qiymati mos keladiganini yoki birinchisini olamiz
-            for g in user_inv:
-                if int(g.get("prize_stars") or 0) == int(item_stars):
-                    source_item = g
-                    break
-            if not source_item:
-                source_item = user_inv[0]
-
-    if not source_item:
-        return {
-            "ok": False,
-            "need_inventory": True,
-            "error": "Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling — Upgrader faqat inventardagi sovg'alar bilan bepul ishlaydi."
-        }
-
-    actual_source_id = int(source_item["id"])
-    item_stars = max(1, int(source_item.get("prize_stars") or item_stars or 15))
-    source_name = str(source_item.get("prize_name") or "Telegram Gift")
-
-    # 2. Multiplier (1.5x dan 100x gacha) va Target Stars hisoblash
+    # 1. Multiplier (1.5x dan 100x gacha) va Target Stars hisoblash
     if multiplier is not None:
         try:
             mult_val = max(1.5, min(100.0, float(multiplier)))
@@ -2137,51 +2103,30 @@ def execute_upgrade_roll(
         mult_val = max(1.5, min(100.0, round(float(target_stars) / max(1, item_stars), 2)))
 
     target_stars = max(int(round(item_stars * 1.5)), min(int(round(item_stars * 100.0)), int(target_stars or round(item_stars * mult_val))))
-    stake_uzs = 0  # Upgrader tekin (faqat inventardagi sovg'a tikiladi)
 
-    # 3. Foiz va Yashil/Qizil sektor burchagini hisoblash (2x -> 50%, 4x -> 25%, 5x -> 20%, ..., 100x -> 1%)
+    # 2. Foiz va Yashil/Qizil sektor burchagini hisoblash
     nominal_odds = 1.0 / mult_val
     calc_odds = min(0.75, max(0.01, round(nominal_odds, 4)))
     green_slice_deg = max(6, min(270, int(round(calc_odds * 360))))
 
-    # 4. Qat'iy ketma-ketlik qoidasi (Past yutish foizi: 5 marta yutqazib, 1 marta yutadi):
-    # Urinishlar 0, 1, 2, 3, 4 -> YUTQAZADI (strelka yashilga juda yaqin keladi lekin kirmaydi — near-miss)
-    # Urinish 5 (har 6-urinish) -> YUTADI (strelka yashil sektorga tushadi)
-    plays_before = get_user_upgrader_plays(user_id)
-    if (plays_before % 6) == 5:
-        won = True
-    else:
-        won = False
-    plays_after = increment_user_upgrader_plays(user_id)
-
-    if won:
-        # Yashil sektor ichiga aniq tushadi (0 .. green_slice_deg)
-        margin = max(2, min(8, green_slice_deg // 5))
-        low_deg = min(margin, max(1, green_slice_deg - 1))
-        high_deg = max(low_deg, green_slice_deg - margin)
-        final_angle = random.randint(low_deg, high_deg)
-    else:
-        # Near-miss: strelka yashil sektorga juda yaqinlashadi, ammo kirmaydi!
-        # Yoki 360° (0° yashil boshlanish chizig'i) ga 2°..7° qolganda qizilda to'xtaydi (353°..358°),
-        # yoki yashil sektor tugagan chiziqdan 2°..7° o'tib qizilda to'xtaydi (green_slice_deg + 2 .. green_slice_deg + 7)
-        if plays_before % 2 == 0:
-            final_angle = random.randint(353, 358)
-        else:
-            near_after = min(352, green_slice_deg + random.randint(2, 7))
-            final_angle = max(green_slice_deg + 2, near_after)
-
-    # 5. Inventarda sovg'ani almashtirish (yutsa yangi sovg'a tushadi, yutqazsa kuyadi)
     resolved_target_gift_id = str(target_slug or target_inventory_id or target_icon or "gift").strip()
-    inv_outcome = process_inventory_upgrade_outcome(
+
+    # 3. Yagona o'ta tezkor atomik tranzaksiya (barcha tekshiruvlar, inventar almashtirish, 5:1 ketma-ketlik)
+    res = execute_atomic_upgrade_transaction(
         tg_user_id=user_id,
-        source_row_id=actual_source_id,
-        won=won,
-        target_gift_id=resolved_target_gift_id,
+        source_row_id=source_inventory_id,
+        item_stars=item_stars,
+        mult_val=mult_val,
+        calc_odds=calc_odds,
+        green_slice_deg=green_slice_deg,
+        target_stars=target_stars,
         target_name=target_name,
-        target_stars=target_stars
+        target_icon=target_icon,
+        target_slug=resolved_target_gift_id,
+        is_admin=is_admin
     )
 
-    if won:
+    if res.get("ok") and res.get("won"):
         record_drop_event(
             f"user_{str(user_id)[-4:]}",
             f"Upgrade {mult_val:g}x: {target_name}",
@@ -2191,29 +2136,7 @@ def execute_upgrade_roll(
             True
         )
 
-    new_balance = get_user_balance(user_id) if user_id > 1000 else 0
-
-    return {
-        "ok": True,
-        "won": won,
-        "multiplier": round(mult_val, 2),
-        "odds_percent": round(calc_odds * 100, 1),
-        "final_angle": final_angle,
-        "green_slice_deg": green_slice_deg,
-        "source_inventory_id": actual_source_id,
-        "source_name": source_name,
-        "item_stars": item_stars,
-        "stake_uzs": 0,
-        "target_stars": target_stars,
-        "target_name": target_name,
-        "target_icon": target_icon,
-        "target_slug": resolved_target_gift_id,
-        "target_inventory_id": target_inventory_id,
-        "inventory_outcome": inv_outcome,
-        "plays_count": plays_after,
-        "new_balance": new_balance,
-        "is_admin": is_admin
-    }
+    return res
 
 
 # ==================== 11. DAILY STREAK (POSTGRESQL BAZA SAQLANUVCHI) ====================

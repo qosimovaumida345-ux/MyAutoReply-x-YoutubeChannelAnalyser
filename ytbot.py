@@ -10781,15 +10781,11 @@ def create_ytbot():
                                     case_name=res.get("case_name", ""),
                                     prize_name=res.get("prize_name", ""),
                                     prize_stars=res.get("prize_stars", 0),
-                                    status="pending",
+                                    status="inventory",
                                     cost_uzs=cost_u,
                                     cost_stars=cost_s,
                                     payment_method="stars"
                                 )
-                                import asyncio
-                                bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
-                                asyncio.create_task(process_pending_gifts_batch(bot_token=bot_token, limit=5))
-                                
                                 p_name = res.get("prize_name", "Telegram Sovg'a")
                                 p_stars = res.get("prize_stars", 0)
                                 c_name = res.get("case_name", "Mystery Keys")
@@ -10797,7 +10793,7 @@ def create_ytbot():
                                     f"Tabriklaymiz! Siz <b>{c_name}</b> keysini Stars orqali ochdingiz va <b>{p_name}</b> yutib oldingiz!\n\n"
                                     f"Yutuq qiymati: {p_stars} Stars\n"
                                     f"Buyurtma ID: #{rec_id}\n\n"
-                                    f"<i>Sovg'angiz profilingizga yuborilmoqda!</i>"
+                                    f"<i>Sovg'angiz Shaxsiy Inventaringizga tushdi! Uni Upgraderda bepul ishlatishingiz yoki istalgan vaqt Yechib Olishingiz mumkin.</i>"
                                 )
                                 await client.send_message(u_id, notify_txt)
                         except Exception as box_pay_err:

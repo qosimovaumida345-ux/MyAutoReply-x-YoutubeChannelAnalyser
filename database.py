@@ -5791,7 +5791,8 @@ def get_pending_gifts(status: str = None, limit: int = 100) -> list:
             cur.execute("""
                 SELECT id, tg_user_id, gift_id, tier_key, case_name, prize_name, prize_stars, status, error_message, created_at
                 FROM pending_gifts
-                WHERE status NOT IN ('sent', 'refunded', 'recycled', 'cancelled')
+                WHERE status NOT IN ('sent', 'refunded', 'recycled', 'cancelled', 'inventory', 'burned', 'upgraded_used')
+                  AND status IN ('pending_withdrawal', 'withdrawal_requested')
                 ORDER BY prize_stars ASC, id ASC
                 LIMIT %s
             """, (limit,))
@@ -5977,7 +5978,7 @@ def process_inventory_upgrade_outcome(
         if won:
             cur.execute("""
                 UPDATE pending_gifts
-                SET status = 'upgraded_used', error_msg = %s
+                SET status = 'upgraded_used', error_message = %s
                 WHERE id = %s AND tg_user_id = %s
             """, (f"Upgraded to {target_name} ({target_stars} Stars)", int(source_row_id), int(tg_user_id)))
             cur.execute("""
@@ -6000,7 +6001,7 @@ def process_inventory_upgrade_outcome(
         else:
             cur.execute("""
                 UPDATE pending_gifts
-                SET status = 'burned', error_msg = 'Lost in Upgrader'
+                SET status = 'burned', error_message = 'Lost in Upgrader'
                 WHERE id = %s AND tg_user_id = %s
             """, (int(source_row_id), int(tg_user_id)))
             conn.commit()
@@ -6012,6 +6013,156 @@ def process_inventory_upgrade_outcome(
         conn.rollback()
         print(f"process_inventory_upgrade_outcome error: {e}")
         return None
+    finally:
+        conn.close()
+
+
+def execute_atomic_upgrade_transaction(
+    tg_user_id: int,
+    source_row_id: int | None,
+    item_stars: int,
+    mult_val: float,
+    calc_odds: float,
+    green_slice_deg: int,
+    target_stars: int,
+    target_name: str,
+    target_icon: str,
+    target_slug: str,
+    is_admin: bool = False
+) -> dict:
+    """O'ta tezkor (bitta atomik tranzaksiya) Upgrader aylanishi:
+    - Barcha tekshiruvlar, qulflash, 5:1 ketma-ketlik hisobi va yangilash bitta DB ulanishida bajariladi (~200ms).
+    """
+    import random
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Ma'lumotlar bazasiga ulanishda xatolik!"}
+    try:
+        cur = conn.cursor()
+        
+        # 1. Shaxsiy inventardan sovg'ani qidirish va qulflash (Atomic FOR UPDATE)
+        row = None
+        if source_row_id:
+            cur.execute("""
+                SELECT id, gift_id, prize_name, prize_stars, status
+                FROM pending_gifts
+                WHERE id = %s AND tg_user_id = %s
+                  AND COALESCE(status, 'pending') NOT IN ('burned', 'upgraded_used', 'recycled', 'withdrawn')
+                FOR UPDATE
+            """, (int(source_row_id), int(tg_user_id)))
+            row = cur.fetchone()
+        
+        if not row:
+            cur.execute("""
+                SELECT id, gift_id, prize_name, prize_stars, status
+                FROM pending_gifts
+                WHERE tg_user_id = %s
+                  AND COALESCE(status, 'pending') NOT IN ('burned', 'upgraded_used', 'recycled', 'withdrawn')
+                ORDER BY id DESC LIMIT 1
+                FOR UPDATE
+            """, (int(tg_user_id),))
+            row = cur.fetchone()
+
+        if not row:
+            conn.rollback()
+            return {
+                "ok": False,
+                "need_inventory": True,
+                "error": "Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling — Upgrader faqat inventardagi sovg'alar bilan bepul ishlaydi."
+            }
+
+        actual_source_id = int(row["id"] if isinstance(row, dict) else row[0])
+        source_name = str(row["prize_name"] if isinstance(row, dict) else (row[2] or "Telegram Gift"))
+        actual_item_stars = max(1, int(row["prize_stars"] if isinstance(row, dict) else (row[3] or item_stars or 15)))
+
+        # 2. Urinishlar sonini aniqlash (5 marta yutqazib, 1 marta yutadigan qat'iy sikl)
+        cfg_key = f"upgrader_plays_{int(tg_user_id)}"
+        cur.execute("SELECT value FROM bot_config WHERE key = %s FOR UPDATE", (cfg_key,))
+        cfg_row = cur.fetchone()
+        val_str = (cfg_row["value"] if isinstance(cfg_row, dict) else cfg_row[0]) if cfg_row else "0"
+        try:
+            plays_before = max(0, int(val_str or 0))
+        except Exception:
+            plays_before = 0
+
+        # Qoida: har 6-urinish (0,1,2,3,4 -> yutqazadi, 5 -> yutadi)
+        if (plays_before % 6) == 5:
+            won = True
+        else:
+            won = False
+        plays_after = plays_before + 1
+
+        cur.execute("""
+            INSERT INTO bot_config (key, value, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """, (cfg_key, str(plays_after)))
+
+        # 3. Final burchak (landing angle):
+        if won:
+            margin = max(2, min(8, green_slice_deg // 5))
+            low_deg = min(margin, max(1, green_slice_deg - 1))
+            high_deg = max(low_deg, green_slice_deg - margin)
+            final_angle = random.randint(low_deg, high_deg)
+        else:
+            # Near-miss: strelka yashil sektorga juda yaqin keladi, lekin kirmaydi!
+            if plays_before % 2 == 0:
+                final_angle = random.randint(353, 358)
+            else:
+                near_after = min(352, green_slice_deg + random.randint(2, 7))
+                final_angle = max(green_slice_deg + 2, near_after)
+
+        # 4. Inventarda sovg'ani yangilash
+        resolved_target_gift_id = str(target_slug or target_icon or "gift").strip()
+        if won:
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = 'upgraded_used', error_message = %s
+                WHERE id = %s AND tg_user_id = %s
+            """, (f"Upgraded to {target_name} ({target_stars} Stars)", actual_source_id, int(tg_user_id)))
+            cur.execute("""
+                INSERT INTO pending_gifts (tg_user_id, gift_id, case_name, prize_name, prize_stars, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, 'inventory', CURRENT_TIMESTAMP)
+                RETURNING id
+            """, (int(tg_user_id), resolved_target_gift_id, "Stars Upgrader", str(target_name), int(target_stars)))
+        else:
+            cur.execute("""
+                UPDATE pending_gifts
+                SET status = 'burned', error_message = 'Lost in Upgrader'
+                WHERE id = %s AND tg_user_id = %s
+            """, (actual_source_id, int(tg_user_id)))
+
+        # 5. User balansini olish
+        user_balance = 0
+        if int(tg_user_id) > 1000:
+            cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s", (int(tg_user_id),))
+            ub_row = cur.fetchone()
+            if ub_row:
+                user_balance = int(ub_row["balance_uzs"] if isinstance(ub_row, dict) else ub_row[0] or 0)
+
+        conn.commit()
+
+        return {
+            "ok": True,
+            "won": won,
+            "multiplier": round(mult_val, 2),
+            "odds_percent": round(calc_odds * 100, 1),
+            "final_angle": final_angle,
+            "green_slice_deg": green_slice_deg,
+            "source_inventory_id": actual_source_id,
+            "source_name": source_name,
+            "item_stars": actual_item_stars,
+            "stake_uzs": 0,
+            "target_stars": target_stars,
+            "target_name": target_name,
+            "target_icon": target_icon,
+            "target_slug": resolved_target_gift_id,
+            "plays_count": plays_after,
+            "new_balance": user_balance
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"ok": False, "error": f"Upgrader bazasi xatosi: {e}"}
     finally:
         conn.close()
 
