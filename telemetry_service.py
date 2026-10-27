@@ -18,9 +18,9 @@ _OUTGOING_API_BUFFER = collections.deque(maxlen=80)
 _DYNAMIC_CONFIG: Dict[str, Any] = {
     "product_cache_ttl": 60,       # VenteBot mahsulotlar kesh vaqti (soniya)
     "usd_cache_ttl": 1800,         # Valyuta kursi kesh vaqti (soniya)
-    "dos_burst_max": 30,           # DoS 2-soniyalik burst chegarasi
+    "dos_burst_max": 150,          # DoS 2-soniyalik burst chegarasi (media va assetlar uchun)
     "dos_burst_window": 2,         # DoS burst oyna vaqti (soniya)
-    "dos_minute_max": 90,          # 1 daqiqalik maksimal so'rovlar
+    "dos_minute_max": 600,         # 1 daqiqalik maksimal so'rovlar
     "otp_rate_limit_max": 3,       # 2 daqiqada maksimal OTP so'rovlar
     "db_slow_query_threshold_ms": 15 # Sekin so'rov chegarasi (sariq/qizil ogohlantirish)
 }

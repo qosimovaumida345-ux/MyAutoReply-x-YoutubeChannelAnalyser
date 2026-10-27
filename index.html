@@ -2881,9 +2881,9 @@
                         }
                         try { abortController.abort(); } catch(e) {}
                         setIsUpgrading(false);
-                        setUpgradeError("Tarmoq kutish vaqti tugadi (5.5s). Qaytadan urinib ko'ring.");
+                        setUpgradeError("Tarmoq kutish vaqti tugadi (15s). Iltimos, qaytadan urinib ko'ring.");
                     }
-                }, 5500);
+                }, 15000);
 
                 // Parallel backend chaqiruvi
                 fetch('/api/stars/upgrader', {
@@ -2902,9 +2902,19 @@
                         target_inventory_id: null
                     })
                 })
-                .then(r => r.json())
-                .then(res => {
+                .then(async r => {
                     clearTimeout(safetyTimer);
+                    if (r.status === 429) {
+                        isCancelled = true;
+                        if (upgraderAnimRef.current) {
+                            cancelAnimationFrame(upgraderAnimRef.current);
+                            upgraderAnimRef.current = null;
+                        }
+                        setIsUpgrading(false);
+                        setUpgradeError("Server band (429 DoS himoyasi). Iltimos 3 soniya kuting va qayta urinib ko'ring.");
+                        return;
+                    }
+                    const res = await r.json().catch(() => null);
                     if (res && res.ok && res.final_angle !== undefined) {
                         resolvedData = res;
                     } else {

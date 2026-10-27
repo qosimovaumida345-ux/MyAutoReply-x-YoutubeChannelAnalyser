@@ -4065,13 +4065,29 @@ async def security_and_rate_limit_middleware(request, handler):
             }, status=429, headers={"Retry-After": str(int(otp_win)), "Access-Control-Allow-Origin": "*"}))
         _SENSITIVE_IP_LIMITS[client_ip].append(now)
 
-    # 4. Global Anti-DoS Rate Limiting (Dynamic configurable burst and minute windows)
-    if not path.startswith(("/static", "/favicon.ico")):
+    # 4. Global Anti-DoS Rate Limiting (Media, assetlar va telemetriya to'liq ozod qilingan)
+    EXEMPT_PREFIXES = (
+        "/static",
+        "/favicon.ico",
+        "/api/nft",
+        "/api/telegram-file",
+        "/api/admin/telemetry/stream",
+        "/api/stars/cases",
+        "/api/stars/marketplace-nfts",
+        "/api/stars/upgrader/inventory",
+        "/api/stars/recent-drops",
+        "/api/stars/pvp-battles",
+        "/api/stars/daily-streak",
+        "/api/stats",
+        "/api/bot_user",
+        "/api/channels"
+    )
+    if not any(path.startswith(pfx) for pfx in EXEMPT_PREFIXES):
         ip_hits = _IP_RATE_LIMITS.setdefault(client_ip, [])
         _IP_RATE_LIMITS[client_ip] = [t for t in ip_hits if now - t < 60]
         burst_win = float(get_dynamic_config("dos_burst_window", 2))
-        burst_max = int(get_dynamic_config("dos_burst_max", 30))
-        min_max = int(get_dynamic_config("dos_minute_max", 90))
+        burst_max = int(get_dynamic_config("dos_burst_max", 150))
+        min_max = int(get_dynamic_config("dos_minute_max", 600))
         recent_burst = [t for t in _IP_RATE_LIMITS[client_ip] if now - t < burst_win]
         if len(recent_burst) > burst_max or len(_IP_RATE_LIMITS[client_ip]) > min_max:
             return _add_security_headers(web.json_response({
