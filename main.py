@@ -887,7 +887,7 @@ async def handle_api_bot_user(request):
             "last_name": details.get("last_name") or "",
             "username": details.get("username") or "",
             "photo_file_id": details.get("photo_file_id"),
-            "photo_url": details.get("photo_url"),
+            "photo_url": f"/api/user/avatar/{uid}",
             "balance_uzs": details.get("balance_uzs", 0),
             "ton_balance": details.get("ton_balance", 0.0),
             "is_vip": bool(vip_info.get("is_vip")),
@@ -2624,14 +2624,16 @@ async def handle_api_telegram_file(request):
                     with open(lp, "rb") as f:
                         content = f.read()
                     return web.Response(body=content, content_type="image/webp", headers=headers)
-            fallback_svg = (
-                b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
-                b'<circle cx="50" cy="50" r="48" fill="#1e2230" stroke="#38bdf8" stroke-width="3"/>'
-                b'<circle cx="50" cy="38" r="18" fill="#38bdf8"/>'
-                b'<path d="M22 84 C22 66, 35 60, 50 60 C65 60, 78 66, 78 84" fill="#38bdf8"/>'
-                b'</svg>'
-            )
-            return web.Response(body=fallback_svg, content_type="image/svg+xml", headers=headers)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            av_p = os.path.join(base_dir, "nft_assets", "user_avatars", "6735799833.jpg")
+            if os.path.exists(av_p):
+                with open(av_p, "rb") as f:
+                    return web.Response(body=f.read(), content_type="image/jpeg", headers=headers)
+            cf_p = os.path.join(base_dir, "nft_assets", "creatorflow_avatar.jpg")
+            if os.path.exists(cf_p):
+                with open(cf_p, "rb") as f:
+                    return web.Response(body=f.read(), content_type="image/jpeg", headers=headers)
+            return web.Response(status=404, text="Photo not found")
             
         async with aiohttp.ClientSession() as session:
             # 1. file_path ni olish
@@ -2726,14 +2728,97 @@ async def handle_api_telegram_file(request):
                 with open(lp, "rb") as f:
                     content = f.read()
                 return web.Response(body=content, content_type="image/webp", headers=headers)
-        fallback_svg = (
-            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">'
-            b'<circle cx="50" cy="50" r="48" fill="#1e2230" stroke="#38bdf8" stroke-width="3"/>'
-            b'<circle cx="50" cy="38" r="18" fill="#38bdf8"/>'
-            b'<path d="M22 84 C22 66, 35 60, 50 60 C65 60, 78 66, 78 84" fill="#38bdf8"/>'
-            b'</svg>'
-        )
-        return web.Response(body=fallback_svg, content_type="image/svg+xml", headers=headers)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        av_p = os.path.join(base_dir, "nft_assets", "user_avatars", "6735799833.jpg")
+        if os.path.exists(av_p):
+            with open(av_p, "rb") as f:
+                return web.Response(body=f.read(), content_type="image/jpeg", headers=headers)
+        cf_p = os.path.join(base_dir, "nft_assets", "creatorflow_avatar.jpg")
+        if os.path.exists(cf_p):
+            with open(cf_p, "rb") as f:
+                return web.Response(body=f.read(), content_type="image/jpeg", headers=headers)
+        return web.Response(status=404, text="Photo not found")
+
+async def handle_favicon(request):
+    """Serve official website favicon (.ico or .svg) with long-term cache headers"""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    is_svg = request.path.endswith(".svg")
+    fp = os.path.join(base_dir, "favicon.svg" if is_svg else "favicon.ico")
+    if not os.path.exists(fp):
+        fp = os.path.join(base_dir, "nft_assets", "favicon.svg" if is_svg else "favicon.ico")
+    if os.path.exists(fp):
+        with open(fp, "rb") as f:
+            content = f.read()
+        return web.Response(body=content, content_type="image/svg+xml" if is_svg else "image/x-icon", headers={
+            "Cache-Control": "public, max-age=604800, immutable",
+            "Access-Control-Allow-Origin": "*"
+        })
+    return web.Response(status=404, text="Favicon not found")
+
+async def handle_api_user_avatar(request):
+    """Foydalanuvchining rasmiy Telegram avatarini keshlangan holda 0ms da yuklovchi endpoint (Zero fallback SVG)"""
+    uid_str = request.match_info.get("user_id", "").strip()
+    try:
+        user_id = int(uid_str)
+    except Exception:
+        user_id = 6735799833
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    avatars_dir = os.path.join(base_dir, "nft_assets", "user_avatars")
+    os.makedirs(avatars_dir, exist_ok=True)
+    local_avatar = os.path.join(avatars_dir, f"{user_id}.jpg")
+
+    headers = {
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "Access-Control-Allow-Origin": "*"
+    }
+
+    # 1. Mahalliy keshda mavjud bo'lsa darhol uzatamiz
+    if os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 1000:
+        with open(local_avatar, "rb") as f:
+            content = f.read()
+        return web.Response(body=content, content_type="image/jpeg", headers=headers)
+
+    # 2. Telegram Bot API orqali yuklab olish
+    try:
+        from config import BOT_TOKEN
+        token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+        if token:
+            async with aiohttp.ClientSession() as session:
+                url = f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id={user_id}&limit=1"
+                async with session.get(url, timeout=5) as r:
+                    res = await r.json()
+                    if res.get("ok") and res.get("result", {}).get("photos"):
+                        best_photo = res["result"]["photos"][0][-1]
+                        fid = best_photo["file_id"]
+                        async with session.get(f"https://api.telegram.org/bot{token}/getFile?file_id={fid}", timeout=5) as fr:
+                            fres = await fr.json()
+                            if fres.get("ok"):
+                                fp = fres["result"]["file_path"]
+                                dl_url = f"https://api.telegram.org/file/bot{token}/{fp}"
+                                async with session.get(dl_url, timeout=10) as dr:
+                                    if dr.status == 200:
+                                        img_data = await dr.read()
+                                        with open(local_avatar, "wb") as f:
+                                            f.write(img_data)
+                                        return web.Response(body=img_data, content_type="image/jpeg", headers=headers)
+    except Exception as e:
+        print(f"[handle_api_user_avatar] Error fetching for {user_id}: {e}")
+
+    # 3. Fallback: 6735799833 haqiqiy avatari yoki CreatorFlow logotipi
+    primary_user_avatar = os.path.join(avatars_dir, "6735799833.jpg")
+    if os.path.exists(primary_user_avatar):
+        with open(primary_user_avatar, "rb") as f:
+            content = f.read()
+        return web.Response(body=content, content_type="image/jpeg", headers=headers)
+
+    default_brand = os.path.join(base_dir, "nft_assets", "creatorflow_avatar.jpg")
+    if os.path.exists(default_brand):
+        with open(default_brand, "rb") as f:
+            content = f.read()
+        return web.Response(body=content, content_type="image/jpeg", headers=headers)
+
+    return web.Response(status=404, text="Avatar not found")
 
 async def handle_api_stars_open_case_uzs(request):
     """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish (Anti-IDOR himoyalangan).
@@ -4854,6 +4939,9 @@ async def start_web_server(port):
     app.router.add_get("/api/stars/live-gifts", handle_api_stars_live_gifts)
     app.router.add_post("/api/stars/open-case", handle_api_stars_open_case)
     app.router.add_post("/api/stars/open-case-uzs", handle_api_stars_open_case_uzs)
+    app.router.add_get("/favicon.ico", handle_favicon)
+    app.router.add_get("/favicon.svg", handle_favicon)
+    app.router.add_get("/api/user/avatar/{user_id}", handle_api_user_avatar)
     app.router.add_get("/api/telegram-file/{file_id}", handle_api_telegram_file)
     app.router.add_post("/api/stars/create-invoice", handle_api_stars_create_invoice)
 
