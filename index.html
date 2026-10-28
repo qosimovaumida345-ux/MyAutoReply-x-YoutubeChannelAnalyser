@@ -21,7 +21,17 @@
     <!-- React 18 & Babel for standalone JSX execution -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.0/babel.min.js"></script>
+    <script>
+        // Optimal production config: filter out Babel generator 500KB styling note
+        (function() {
+            const _err = console.error;
+            console.error = function() {
+                if (arguments[0] && typeof arguments[0] === 'string' && arguments[0].includes('exceeds the max of 500KB')) return;
+                _err.apply(console, arguments);
+            };
+        })();
+    </script>
 
     <!-- Lottie Player -->
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
@@ -548,7 +558,7 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel" data-presets="react" data-compact="true">
+    <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
         
