@@ -180,6 +180,17 @@ class VenteBotClient:
 
 
     @staticmethod
+    def is_in_stock(p: Dict[str, Any]) -> bool:
+        """Tovar zaxirada mavjudligini aniqlash (None: cheksiz/aktivatsiya, >0: zaxira bor)."""
+        stock = p.get("stock")
+        if stock is None:
+            return True
+        try:
+            return int(stock) > 0
+        except (ValueError, TypeError):
+            return False
+
+    @staticmethod
     def categorize_product(p: Dict[str, Any]) -> str:
         """92+ ta tovarning har birini 6 ta qulay toifaga ajratadi (nomi bo'yicha birinchi navbatda)"""
         raw_name = (p.get("name") or "")
@@ -203,23 +214,23 @@ class VenteBotClient:
                 "muse ai", "bolt.new", "bolt", "arize"
             ]),
             ("design_video", [
-                "capcut", "supercut", "descript", "elevenlabs", "eleven labs", "brain.fm",
+                "capcut", "supercut", "descript", "eleven reader", "elevenlabs", "eleven labs", "eleven", "brain.fm",
                 "wispr", "gamma", "figma", "framer", "canva", "adobe", "magic patterns",
                 "mobbin", "miro", "autodesk", "speechify", "runway", "higgsfield", "pangram"
             ]),
             ("dev_tools", [
                 "supabase", "resend", "railway", "warp", "n8n", "linear", "jetbrains",
-                "ilovepdf", "wordwall", "quizlet", "quillbot", "posthog", "jam team",
-                "gumloop", "customer.io"
+                "posthog", "jam team", "gumloop", "customer.io"
             ]),
             ("vpn_security", [
                 "nordvpn", "nord vpn", "nord", "proton vpn", "protonvpn", "proton", "hma", "proxy", "vpn",
-                "zoom", "snapchat"
+                "surfshark", "expressvpn", "express vpn", "snapchat"
             ]),
             ("office_edu", [
                 "duolingo", "coursera", "cousera", "notion", "readwise", "granola", "microsoft",
                 "office 365", "office", "windows", "gmail", "google drive", "trading view",
-                "tradingview", "scribd", "airtable", "waking up", "mercury", "stripe"
+                "tradingview", "scribd", "airtable", "waking up", "mercury", "stripe atlas", "stripe",
+                "wordwall", "quizlet", "ilovepdf", "quillbot", "zoom"
             ])
         ]
 
@@ -289,11 +300,12 @@ class VenteBotClient:
     # -------------------------------------------------------------
     # 2. PRODUCTS CATALOG (/api/reseller/products)
     # -------------------------------------------------------------
-    async def get_products(self, lang: str = "uz", force_refresh: bool = False) -> Dict[str, Any]:
+    async def get_products(self, lang: str = "uz", force_refresh: bool = False, in_stock_only: bool = False) -> Dict[str, Any]:
         """
         Faol tovarlar katalogini olish.
         Kesh muddati: Dinamik (Admin panel orqali sozlanadi, odatiy: 60s).
         Barcha mahsulotlar toifaga ajratiladi va so'mdagi marjali narxi hisoblanadi.
+        Mavjud (in-stock) tovarlar avtomatik birinchi navbatda saralanadi.
         """
         cache_key = f"vb_products_{lang}"
         from telemetry_service import get_dynamic_config, record_outgoing_call
@@ -303,7 +315,10 @@ class VenteBotClient:
             cached = self.cache.get(cache_key)
             if cached:
                 record_outgoing_call("VenteBot", f"/api/reseller/products?lang={lang}", 0.4, status="ok", cached=True)
-                return cached
+                products = cached.get("products", [])
+                if in_stock_only:
+                    products = [p for p in products if self.is_in_stock(p)]
+                return {**cached, "products": products}
 
         await self.rate_limiter.acquire()
         url = f"{self.base_url}/api/reseller/products?lang={lang}"
@@ -332,9 +347,18 @@ class VenteBotClient:
                             p_copy["price_uzs"] = self.convert_usd_to_uzs(cost_usd, current_rate=live_rate, category=cat, stock=stock_val)
                             processed_products.append(p_copy)
 
+                        # Mavjud (in-stock) tovarlarni oldinga, zaxirasi tugaganlarni oxiriga saralash
+                        processed_products.sort(key=lambda p: 0 if self.is_in_stock(p) else 1)
+
                         res = {"success": True, "products": processed_products}
                         if dyn_ttl > 0:
                             self.cache.set(cache_key, res, ttl_seconds=dyn_ttl)
+
+                        if in_stock_only:
+                            return {
+                                "success": True,
+                                "products": [p for p in processed_products if self.is_in_stock(p)]
+                            }
                         return res
                     else:
                         err_data = await resp.json() if resp.content_type == 'application/json' else {}
@@ -432,7 +456,7 @@ class VenteBotClient:
             delivery_type = product.get("delivery_type", "stock")
             stock = product.get("stock")
 
-            if delivery_type == "stock" and stock is not None and stock < quantity:
+            if stock is not None and stock < quantity:
                 return {"success": False, "message": f"Kechirasiz, mahsulot zaxirada yetarli emas (Mavjud: {stock} ta)"}
 
             # Aktivatsiya tovarlari uchun identifikator tekshiruvi

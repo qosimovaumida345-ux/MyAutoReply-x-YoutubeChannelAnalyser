@@ -3930,7 +3930,20 @@ async def handle_api_reseller_products(request):
         from ventebot_service import ventebot_service
         lang = request.query.get("lang", "uz")
         force = request.query.get("refresh", "0") in ("1", "true")
-        res = await ventebot_service.get_products(lang=lang, force_refresh=force)
+
+        # in_stock query parametrini tahlil qilish
+        in_stock_raw = request.query.get("in_stock")
+        in_stock_only = False
+        if in_stock_raw is not None:
+            val = in_stock_raw.strip().lower()
+            if val in ("1", "true", "yes"):
+                in_stock_only = True
+
+        res = await ventebot_service.get_products(
+            lang=lang,
+            force_refresh=force,
+            in_stock_only=in_stock_only
+        )
         return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500, headers={"Access-Control-Allow-Origin": "*"})

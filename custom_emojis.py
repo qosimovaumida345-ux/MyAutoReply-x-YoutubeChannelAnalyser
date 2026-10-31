@@ -1,7 +1,7 @@
 """
 CreatorFlow Studio & AutoReply AI — Telegram Custom Emoji Master Registry
 
-Ushbu modulda bot, web dashboard va barcha tizimlar uchun 166 ta tasdiqlangan Master Reestr saqlanadi.
+Ushbu modulda bot, web dashboard va barcha tizimlar uchun 174 ta tasdiqlangan Master Reestr saqlanadi.
 Barcha xizmatlar (Instagram, YouTube, Video, Audio, Comment, Support, Dashboard, Web, /goal, /boost),
 barcha tovarlar va brendlar (92 ta mahsulot) to'liq qamrab olingan.
 Tasdiqlanmagan placeholder IDlar tozalangan. ID bo'lmaganda toza fallback piktogramma qaytariladi.
@@ -96,6 +96,7 @@ ALIASES = {
     "CRASH_BOOM": "GAME_CRASH_BOOM",
     "CRASH_PLANE": "GAME_CRASH_PLANE",
     "CRASH_ROCKET": "GAME_CRASH_PLANE",
+    "CRUNCHYROLL": "BRAND_CRUNCHYROLL",
     "CREATORFLOW_LOGO": "BRAND_CREATORFLOW",
     "CROSS": "STATUS_ERROR",
     "CROWN": "PAY_VIP_CROWN",
@@ -112,6 +113,8 @@ ALIASES = {
     "DOWNLOAD": "MEDIA_VIDEO_FHD",
     "DUEL": "GAME_COINFLIP",
     "ERROR": "STATUS_ERROR",
+    "EXPRESSVPN": "BRAND_EXPRESSVPN",
+    "EXPRESS_VPN": "BRAND_EXPRESSVPN",
     "EYE": "TOOL_VIEWS",
     "FIRE": "TOOL_TREND_FIRE",
     "FLUX": "BRAND_CREATORFLOW",
@@ -129,6 +132,7 @@ ALIASES = {
     "HAMYON": "BTN_WALLET",
     "HANDSHAKE": "BTN_REFERRAL",
     "HEART": "GIFT_HEART",
+    "HIGGSFIELD": "BRAND_HIGGSFIELD",
     "HELP": "BTN_SUPPORT",
     "HOME": "BTN_HOME",
     "IDEA": "TOOL_PROMPT_PACK",
@@ -163,6 +167,9 @@ ALIASES = {
     "MEDAL_GOLD": "BTN_LEADERBOARD",
     "MEDAL_SILVER": "BTN_LEADERBOARD",
     "MEMO": "DEV_API_DOCS",
+    "MERCURY": "BRAND_MERCURY",
+    "MUSEAI": "BRAND_MUSEAI",
+    "MUSE_AI": "BRAND_MUSEAI",
     "MINES_BOMB": "GAME_MINES_BOMB",
     "MINES_BOOM": "GAME_MINES_BOMB",
     "MINES_GEM": "GAME_MINES_GEM",
@@ -230,6 +237,9 @@ ALIASES = {
     "STORE": "BTN_SERVICES",
     "STREAM": "TOOL_LIVE_STREAM",
     "STREAMING": "BRAND_NETFLIX",
+    "STRIPE_ATLAS": "BRAND_STRIPE_ATLAS",
+    "STRIPEATLAS": "BRAND_STRIPE_ATLAS",
+    "SURFSHARK": "BRAND_SURFSHARK",
     "SUBS": "TOOL_SUBS",
     "SUCCESS": "STATUS_SUCCESS",
     "SUPPORT": "BTN_SUPPORT",
@@ -276,6 +286,8 @@ ALIASES = {
     "WEB": "TOOL_WEB",
     "WEBHOOK": "DEV_WEBHOOK",
     "WHEEL": "GAME_WHEEL_SPIN",
+    "WAKINGUP": "BRAND_WAKINGUP",
+    "WAKING_UP": "BRAND_WAKINGUP",
     "WINDOWS": "BRAND_WINDOWS",
     "YOUTUBE": "MEDIA_YOUTUBE",
     "OFFICE": "BRAND_OFFICE365",
@@ -348,7 +360,7 @@ class MasterRegistryDict(dict):
         return default
 
 # ==============================================================================
-# 4. ASOSIY 166 TA CUSTOM EMOJI MASTER REESTRI
+# 4. ASOSIY 174 TA CUSTOM EMOJI MASTER REESTRI
 # ==============================================================================
 CUSTOM_EMOJI_REGISTRY = MasterRegistryDict({
     "BTN_HOME": {
@@ -1845,6 +1857,78 @@ CUSTOM_EMOJI_REGISTRY = MasterRegistryDict({
         "fallback_name": "[HBOMax]",
         "fallback_icon": "📺"
     },
+    "BRAND_EXPRESSVPN": {
+        "num": 167,
+        "name": "ExpressVPN",
+        "location": "Xavfsiz va tezkor VPN xizmati",
+        "purpose": "VPN va xavfsizlik tovarlari",
+        "id": "5418095256719633735",
+        "fallback_name": "[ExpressVPN]",
+        "fallback_icon": "🛡️"
+    },
+    "BRAND_SURFSHARK": {
+        "num": 168,
+        "name": "Surfshark VPN",
+        "location": "Cheksiz qurilmalar uchun xavfsiz VPN",
+        "purpose": "VPN va maxfiylik tovarlari",
+        "id": "5417830390381456686",
+        "fallback_name": "[Surfshark]",
+        "fallback_icon": "🦈"
+    },
+    "BRAND_HIGGSFIELD": {
+        "num": 169,
+        "name": "Higgsfield AI",
+        "location": "AI video va visual generatsiya platformasi",
+        "purpose": "AI video generatsiya tovarlari",
+        "id": "5415617713424870892",
+        "fallback_name": "[Higgsfield]",
+        "fallback_icon": "🎥"
+    },
+    "BRAND_MERCURY": {
+        "num": 170,
+        "name": "Mercury Bank",
+        "location": "AQSH biznes bank hisobi va fintech",
+        "purpose": "Xalqaro biznes va fintech xizmatlari",
+        "id": "5418036918178851295",
+        "fallback_name": "[Mercury]",
+        "fallback_icon": "💳"
+    },
+    "BRAND_STRIPE_ATLAS": {
+        "num": 171,
+        "name": "Stripe Atlas",
+        "location": "AQSHda kompaniya (LLC/C-Corp) ochish xizmati",
+        "purpose": "Biznes va to'lov infratuzilmasi",
+        "id": "5415751574670587373",
+        "fallback_name": "[StripeAtlas]",
+        "fallback_icon": "🌐"
+    },
+    "BRAND_CRUNCHYROLL": {
+        "num": 172,
+        "name": "Crunchyroll",
+        "location": "Anime va manga striming xizmati",
+        "purpose": "Anime striming va obunalar",
+        "id": "5418134847728168399",
+        "fallback_name": "[Crunchyroll]",
+        "fallback_icon": "🎬"
+    },
+    "BRAND_MUSEAI": {
+        "num": 173,
+        "name": "Muse AI",
+        "location": "Zamonaviy AI video qidiruv va hosting platformasi",
+        "purpose": "AI video va media vositalari",
+        "id": "5418345906716058813",
+        "fallback_name": "[MuseAI]",
+        "fallback_icon": "🤖"
+    },
+    "BRAND_WAKINGUP": {
+        "num": 174,
+        "name": "Waking Up",
+        "location": "Sam Harris meditatsiya va ong ilovasi",
+        "purpose": "Salomatlik, meditatsiya va ta'lim tovarlari",
+        "id": "5417975255333383045",
+        "fallback_name": "[WakingUp]",
+        "fallback_icon": "🧠"
+    },
 })
 
 # ==============================================================================
@@ -1938,8 +2022,10 @@ BRAND_TO_REGISTRY_KEY = {
     "youtube": "MEDIA_YOUTUBE",
     "hbo max": "BRAND_HBOMAX",
     "hbo": "BRAND_HBOMAX",
-    "surfshark": CUSTOM_EMOJI_REGISTRY.get("BRAND_NORDVPN", {}).get("id", "5346134750417403743"),
-    "surfshark": "BRAND_NORDVPN",
+    "expressvpn": "BRAND_EXPRESSVPN",
+    "express vpn": "BRAND_EXPRESSVPN",
+    "surfshark": "BRAND_SURFSHARK",
+    "surf shark": "BRAND_SURFSHARK",
     "nordvpn": "BRAND_NORDVPN",
     "nord vpn": "BRAND_NORDVPN",
     "nord": "BRAND_NORDVPN",
@@ -2004,20 +2090,26 @@ BRAND_TO_REGISTRY_KEY = {
     "ai master pack": "BRAND_CHATGPT",
     "bolt.new": "DEV_CODE_SNIPPET",
     "bolt": "DEV_CODE_SNIPPET",
-    "muse ai": "BRAND_CHATGPT",
-    "muse": "BRAND_CHATGPT",
+    "muse ai": "BRAND_MUSEAI",
+    "muse": "BRAND_MUSEAI",
+    "museai": "BRAND_MUSEAI",
     "arize": "DEV_CODE_SNIPPET",
     "pangram": "BRAND_CANVA",
     "speechify": "BRAND_ELEVENLABS",
     "airtable": "BRAND_NOTION",
     "runway": "MEDIA_AI_VIDEO",
-    "higgsfield": "MEDIA_AI_VIDEO",
-    "mercury": "PAY_HUMO_UZCARD",
-    "stripe atlas": "PAY_HUMO_UZCARD",
-    "stripe": "PAY_HUMO_UZCARD",
-    "waking up": "BRAND_BRAINFM",
-    "crunchyroll": "BRAND_NETFLIX",
-    "ᴄʀᴜɴᴄʜʏʀᴏʟʟ": "BRAND_NETFLIX",
+    "higgsfield": "BRAND_HIGGSFIELD",
+    "higgsfield ai": "BRAND_HIGGSFIELD",
+    "mercury": "BRAND_MERCURY",
+    "mercury bank": "BRAND_MERCURY",
+    "stripe atlas": "BRAND_STRIPE_ATLAS",
+    "stripe": "BRAND_STRIPE_ATLAS",
+    "waking up": "BRAND_WAKINGUP",
+    "wakingup": "BRAND_WAKINGUP",
+    "waking": "BRAND_WAKINGUP",
+    "crunchyroll": "BRAND_CRUNCHYROLL",
+    "crunchy roll": "BRAND_CRUNCHYROLL",
+    "ᴄʀᴜɴᴄʜʏʀᴏʟʟ": "BRAND_CRUNCHYROLL",
     "autodesk": "BRAND_AUTODESK",
 }
 

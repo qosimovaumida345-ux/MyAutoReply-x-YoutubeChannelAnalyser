@@ -8595,6 +8595,23 @@ def create_ytbot():
             cat_products = all_products
             cat = "ai"
 
+        # Mavjud tovarlarni oldinga saralash, zaxirada yo'qlarini oxiriga surish
+        def _check_stock(p):
+            s = p.get("stock")
+            if s is None:
+                return True
+            try:
+                return int(s) > 0
+            except (ValueError, TypeError):
+                return False
+
+        in_stock_items = [p for p in cat_products if _check_stock(p)]
+        out_of_stock_items = [p for p in cat_products if not _check_stock(p)]
+        cat_products = in_stock_items + out_of_stock_items
+
+        available_count = len(in_stock_items)
+        out_of_stock_count = len(out_of_stock_items)
+
         # Flash sale tekshirish
         flash_sale = get_active_flash_sale()
         flash_banner = ""
@@ -8616,7 +8633,7 @@ def create_ytbot():
         cat_title, cat_icon = CATEGORY_META.get(cat, ("Raqamli Mahsulotlar", "STORE"))
 
         text = (
-            f"{ce(cat_icon)} <b>{cat_title}</b> ({total_items} ta mahsulot)\n"
+            f"{ce(cat_icon)} <b>{cat_title}</b> ({available_count} ta mavjud, {out_of_stock_count} ta tugagan)\n"
             f"{flash_banner}\n"
             f"{ce('MONEY')} <b>Joriy balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"<i>Kerakli tovar ustiga bosing va xaridni amalga oshiring:</i>"
@@ -8629,7 +8646,7 @@ def create_ytbot():
             raw_price = p.get("price_uzs", 0)
             price_uzs = int(raw_price * (100 - discount_pct) / 100) if discount_pct > 0 else raw_price
             stock = p.get("stock")
-            in_stock = (stock is None or stock > 0)
+            in_stock = _check_stock(p)
 
             if in_stock:
                 tag = f"{get_brand_emoji(name)} "
