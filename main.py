@@ -466,22 +466,49 @@ async def handle_terms_page(request):
 
 
 async def handle_google_verification(request):
-    """Google Search Console Site Verification file handler"""
+    """Google Search Console Site Verification file handler (Strict Path Traversal Protected)"""
     filename = request.match_info.get("filename", "")
-    import os
-    if filename and os.path.isfile(filename):
-        with open(filename, "r", encoding="utf-8") as f:
-            return web.Response(text=f.read().strip(), content_type="text/html", charset="utf-8")
+    import os, re
+    safe_filename = os.path.basename(filename)
+    if safe_filename == filename and re.match(r"^google[a-zA-Z0-9_\-]+\.html$", safe_filename):
+        full_path = os.path.join(os.getcwd(), safe_filename)
+        if os.path.isfile(full_path):
+            with open(full_path, "r", encoding="utf-8") as f:
+                return web.Response(text=f.read().strip(), content_type="text/html", charset="utf-8")
     return web.Response(status=404, text="404 Not Found", content_type="text/plain")
 
+
+async def handle_ads_txt(request):
+    """Google AdSense Authorized Digital Sellers (ads.txt) handler"""
+    content = "google.com, pub-4094396006908725, DIRECT, f08c47fec0942fa0\n"
+    import os
+    if os.path.isfile("ads.txt"):
+        try:
+            with open("ads.txt", "r", encoding="utf-8") as f:
+                content = f.read()
+        except Exception:
+            pass
+    return web.Response(
+        text=content,
+        content_type="text/plain",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Access-Control-Allow-Origin": "*"
+        }
+    )
 
 async def handle_robots(request):
     """robots.txt handler for search engines, AI agents (GPTBot, ClaudeBot, etc.) and crawlers"""
     content = """# Robots.txt for CreatorFlow / Bot Client
 # AI Agents and Web Crawlers Configuration
 
+User-agent: Mediapartners-Google
+Allow: /
+
 User-agent: *
 Allow: /
+Allow: /ads.txt
 Allow: /api/v1/docs
 Allow: /api/v1/products
 Allow: /api/v1/tariffs
@@ -720,6 +747,7 @@ async def handle_api_stats(request):
             "channel_thumbnail": ch_pfp_live,
             "channel_country":  snippet.get("country", ""),
             "subscribers":      total_subs,
+            "total_subscribers": total_subs,
             "total_views":      total_views,
             "total_videos":     total_videos,
             "avg_views":        avg_views,
@@ -1867,7 +1895,11 @@ async def handle_api_reset_db(request):
         expected_secret = get_admin_secret()
         
         from config import OWNER_ID
-        if tg_user_id != OWNER_ID or not admin_secret or admin_secret != expected_secret:
+        import hmac
+        is_admin = is_admin_request(request) or (
+            expected_secret and admin_secret and hmac.compare_digest(str(admin_secret).strip(), expected_secret)
+        )
+        if tg_user_id != OWNER_ID or not is_admin:
             return web.json_response({"error": "Ruxsat berilmagan!"}, status=403)
             
         from database import reset_all_data
@@ -3994,10 +4026,16 @@ async def handle_api_reseller_buy(request):
 
 
 async def handle_api_reseller_my_orders(request):
-    """Foydalanuvchining avvalgi xaridlari ro'yxati"""
+    """Foydalanuvchining avvalgi xaridlari ro'yxati (Anti-IDOR himoyalangan)"""
     try:
         from database import get_user_ventebot_orders
-        user_id = int(request.query.get("user_id", 0))
+        auth_uid = get_authenticated_user_id(request)
+        target_uid = int(request.query.get("user_id", 0))
+        if not auth_uid and not is_admin_request(request):
+            return web.json_response({"success": False, "message": "Autentifikatsiya talab qilinadi!"}, status=401, headers={"Access-Control-Allow-Origin": "*"})
+        if target_uid > 0 and auth_uid != target_uid and not is_admin_request(request):
+            return web.json_response({"success": False, "message": "Boshqa foydalanuvchi buyurtmalarini ko'rish taqiqlangan!"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+        user_id = auth_uid or target_uid
         if user_id <= 0:
             return web.json_response({"success": False, "orders": []}, headers={"Access-Control-Allow-Origin": "*"})
         orders = get_user_ventebot_orders(user_id)
@@ -4014,18 +4052,7 @@ async def handle_api_reseller_admin_wallet(request):
     try:
         from ventebot_service import ventebot_service
         from config import OWNER_ID
-        secret = request.headers.get("X-Admin-Secret") or request.query.get("secret")
-        user_id = int(request.query.get("user_id", 0))
-        from config import get_admin_secret
-        expected_secret = get_admin_secret()
-        
-        is_admin = bool(secret and expected_secret and secret == expected_secret)
-        if not is_admin and user_id and user_id == OWNER_ID:
-            auth_header = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
-            if auth_header and auth_header in _AUTH_TOKENS and _AUTH_TOKENS[auth_header].get("tg_user_id") == OWNER_ID:
-                is_admin = True
-
-        if not is_admin:
+        if not is_admin_request(request):
             return web.json_response({"success": False, "message": "Ruxsat berilmadi (Admin ruxsati zarur)"}, status=403, headers={"Access-Control-Allow-Origin": "*"})
 
         force = request.query.get("refresh", "0") in ("1", "true")
@@ -4119,13 +4146,13 @@ def get_authenticated_user_id(request, data=None) -> int:
 def _add_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     if response.content_type == "text/html":
+        # Supports Telegram WebApp iframes and Google AdSense previews seamlessly
         response.headers["Content-Security-Policy"] = (
             "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; "
-            "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org telegram:;"
+            "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org https://*.google.com telegram:;"
         )
     return response
 
@@ -4135,13 +4162,16 @@ async def security_and_rate_limit_middleware(request, handler):
     if request.method in ("TRACE", "TRACK", "CONNECT"):
         return _add_security_headers(web.Response(status=405, text="Method Not Allowed"))
 
-    # 2. Extract Real Client IP (handles proxies like Render / Cloudflare)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        client_ip = forwarded.split(",")[0].strip()
-    else:
-        peername = request.transport.get_extra_info('peername')
-        client_ip = peername[0] if peername else "unknown"
+    # 2. Extract Real Client IP (Anti-Spoofing: Cloudflare CF-Connecting-IP first, then trusted reverse proxy hop)
+    client_ip = request.headers.get("CF-Connecting-IP") or request.headers.get("True-Client-IP")
+    if not client_ip:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            # Take the last proxy hop added by the trusted frontend gateway (Render/Cloudflare)
+            client_ip = forwarded.split(",")[-1].strip()
+        else:
+            peername = request.transport.get_extra_info('peername')
+            client_ip = peername[0] if peername else "unknown"
 
     import time
     now = time.time()

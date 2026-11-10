@@ -15,6 +15,9 @@ def get_privacy_html():
     <meta name="google-site-verification" content="EW0VY9fhYQ7yzwrd8oqani_iNoDbRELBOsbpy4c2xUU">
     <meta name="google-site-verification" content="XSrhQq7tmTEbP4JLXAoPNIHfK3gZkuoZWCQi-_51dYk">
     <script async src="https://www.googletagmanager.com/gtag/js"></script>
+    <!-- Google AdSense -->
+    <meta name="google-adsense-account" content="ca-pub-4094396006908725">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4094396006908725" crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -675,6 +678,9 @@ def get_terms_html():
     <meta name="google-site-verification" content="EW0VY9fhYQ7yzwrd8oqani_iNoDbRELBOsbpy4c2xUU">
     <meta name="google-site-verification" content="XSrhQq7tmTEbP4JLXAoPNIHfK3gZkuoZWCQi-_51dYk">
     <script async src="https://www.googletagmanager.com/gtag/js"></script>
+    <!-- Google AdSense -->
+    <meta name="google-adsense-account" content="ca-pub-4094396006908725">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4094396006908725" crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">

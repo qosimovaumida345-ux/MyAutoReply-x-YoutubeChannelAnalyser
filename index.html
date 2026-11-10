@@ -8,6 +8,9 @@
     <meta name="google-site-verification" content="EW0VY9fhYQ7yzwrd8oqani_iNoDbRELBOsbpy4c2xUU">
     <meta name="google-site-verification" content="XSrhQq7tmTEbP4JLXAoPNIHfK3gZkuoZWCQi-_51dYk">
     <script async src="https://www.googletagmanager.com/gtag/js"></script>
+    <!-- Google AdSense -->
+    <meta name="google-adsense-account" content="ca-pub-4094396006908725">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4094396006908725" crossorigin="anonymous"></script>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5184,7 +5187,7 @@
                                                 </div>
                                             </div>
                                             <div style={{ fontSize: "32px", fontWeight: 800, color: "#18181b" }}>
-                                                {(studioStats.total_subscribers || 0).toLocaleString()}
+                                                {(studioStats.total_subscribers ?? studioStats.subscribers ?? 0).toLocaleString()}
                                             </div>
                                             <div style={{ fontSize: "12px", color: "#16a34a", marginTop: "4px", fontWeight: 600 }}>{t('regularSubs')}</div>
                                         </div>
