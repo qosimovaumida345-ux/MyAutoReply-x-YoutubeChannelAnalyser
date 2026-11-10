@@ -4938,6 +4938,7 @@ async def start_web_server(port):
     app.router.add_get("/terms-of-service", handle_terms_page)
     app.router.add_get("/terms.html", handle_terms_page)
     app.router.add_get("/robots.txt", handle_robots)
+    app.router.add_get("/ads.txt", handle_ads_txt)
     # Google Search Console Domain Verification File Handler
     app.router.add_get(r"/{filename:google[a-zA-Z0-9_\-]+\.html}", handle_google_verification)
     # Client-side SPA routes for /goal, /boost, /teamwork-preview
