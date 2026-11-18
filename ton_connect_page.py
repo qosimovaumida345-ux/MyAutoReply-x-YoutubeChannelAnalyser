@@ -5,11 +5,46 @@ Supports: Telegram Wallet (@wallet), Tonkeeper, MyTonWallet, OpenMask.
 """
 
 import json
+import re
+from urllib.parse import urlparse
+
+
+_SAFE_HOST_RE = re.compile(r"^[A-Za-z0-9.\-:]+$")
+
+
+def _sanitize_base_url(base_url: str, fallback: str = "") -> str:
+    """Validate base_url to strictly allow safe http(s) origins (prevents XSS/Host-header injection)."""
+    raw = str(base_url or "").strip().rstrip("/")
+    if not raw:
+        return fallback
+    try:
+        parsed = urlparse(raw)
+        if parsed.scheme not in ("http", "https"):
+            return fallback
+        if parsed.path or parsed.params or parsed.query or parsed.fragment or parsed.username or parsed.password:
+            return fallback
+        if not parsed.netloc or not _SAFE_HOST_RE.match(parsed.netloc):
+            return fallback
+        return f"{parsed.scheme}://{parsed.netloc}"
+    except Exception:
+        return fallback
+
+
+def _safe_json_for_script(obj) -> str:
+    """Serialize JSON safely for embedding inside an HTML <script> block."""
+    raw = json.dumps(obj, default=str, ensure_ascii=False)
+    return (
+        raw.replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def get_ton_manifest(base_url: str = "https://t.me") -> dict:
     """TON Connect manifest JSON"""
-    clean_url = base_url.rstrip("/")
+    clean_url = _sanitize_base_url(base_url, fallback="https://t.me")
     return {
         "url": clean_url,
         "name": "AutoReply & YouTube Studio",
@@ -24,20 +59,33 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
     Stunning, ultra-modern Cyberpunk / Web3 Telegram Mini App for TON Connect.
     Uses @tonconnect/ui CDN and Telegram WebApp SDK.
     """
-    clean_base = base_url.rstrip("/") if base_url else ""
+    clean_base = _sanitize_base_url(base_url, fallback="")
     manifest_url = f"{clean_base}/tonconnect-manifest.json" if clean_base else "/tonconnect-manifest.json"
-    
-    current_addr = current_wallet.get("wallet_address", "") if current_wallet else ""
-    current_name = current_wallet.get("wallet_name", "") if current_wallet else ""
+
+    try:
+        safe_uid = int(user_id or 0)
+    except (TypeError, ValueError):
+        safe_uid = 0
+
+    wallet_dict = current_wallet if isinstance(current_wallet, dict) else {}
+    current_addr = str(wallet_dict.get("wallet_address", "") or "").strip()
+    current_name = str(wallet_dict.get("wallet_name", "") or "").strip()
+
+    init_config_json = _safe_json_for_script({
+        "userId": safe_uid,
+        "currentAddr": current_addr,
+        "currentName": current_name,
+        "manifestUrl": manifest_url,
+    })
 
     html = f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TON Connect | AutoReply</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+    <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js" crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -103,6 +151,7 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             border-radius: 22px;
             background: linear-gradient(135deg, rgba(0,152,234,0.2) 0%, rgba(69,182,247,0.05) 100%);
             border: 1px solid rgba(0,152,234,0.4);
+            color: var(--ton-blue);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -261,11 +310,25 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             background: rgba(244, 63, 94, 0.2);
             transform: scale(0.98);
         }}
+        .btn:disabled {{
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none !important;
+        }}
+        .btn:focus-visible, .btn-copy:focus-visible {{
+            outline: 2px solid var(--ton-light);
+            outline-offset: 2px;
+        }}
         .features {{
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             width: 100%;
+        }}
+        @media (max-width: 360px) {{
+            .features {{
+                grid-template-columns: 1fr;
+            }}
         }}
         .feat-item {{
             background: rgba(255, 255, 255, 0.02);
@@ -347,22 +410,22 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
                 <div class="address-box">
                     <div class="address-header">
                         <span>Hamyon Manzili</span>
-                        <button class="btn-copy" onclick="copyAddress()">Nusxa olish</button>
+                        <button type="button" class="btn-copy" onclick="copyAddress()">Nusxa olish</button>
                     </div>
                     <span id="fullAddress">UQ...</span>
                 </div>
 
-                <button class="btn btn-primary" onclick="saveToBot(true)">
+                <button type="button" id="saveWalletBtn" class="btn btn-primary" onclick="saveToBot(true)">
                     <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        Hamyonni Botga Saqlash
+                        <span id="saveWalletBtnText">Hamyonni Botga Saqlash</span>
                     </span>
                 </button>
 
-                <button class="btn btn-danger" onclick="disconnectWallet()">
+                <button type="button" id="disconnectWalletBtn" class="btn btn-danger" onclick="disconnectWallet()">
                     <span style="display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        Hamyonni Uzish
+                        <span id="disconnectWalletBtnText">Hamyonni Uzish</span>
                     </span>
                 </button>
             </div>
@@ -400,33 +463,53 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
         </div>
     </div>
 
-    <div id="toast" class="toast"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
     <script>
+        const TON_CONFIG = {init_config_json};
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) {{
             tg.ready();
             tg.expand();
-            tg.setHeaderColor('#06090e');
-            tg.setBackgroundColor('#06090e');
+            try {{
+                tg.setHeaderColor('#06090e');
+                tg.setBackgroundColor('#06090e');
+            }} catch (e) {{}}
         }}
 
-        const USER_ID = parseInt("{user_id}") || (tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.id : 0);
-        let currentConnectedAddress = "{current_addr}";
-        let currentConnectedName = "{current_name}";
+        const USER_ID = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && parseInt(tg.initDataUnsafe.user.id, 10)) || parseInt(TON_CONFIG.userId, 10) || 0;
+        let currentConnectedAddress = String(TON_CONFIG.currentAddr || "");
+        let currentConnectedName = String(TON_CONFIG.currentName || "");
+        let toastTimer = null;
+        let isBusy = false;
 
-        const manifestUrl = "{manifest_url}";
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({{
-            manifestUrl: manifestUrl,
-            buttonRootId: 'ton-connect-btn'
-        }});
+        const manifestUrl = String(TON_CONFIG.manifestUrl || "/tonconnect-manifest.json");
+        let tonConnectUI = null;
+
+        function getTonAuthHeaders() {{
+            const headers = {{ 'Content-Type': 'application/json' }};
+            if (tg && tg.initData) {{
+                headers['X-Telegram-Init-Data'] = tg.initData;
+            }}
+            return headers;
+        }}
 
         function showToast(msg, isError = false) {{
             const t = document.getElementById('toast');
-            t.innerText = msg;
+            if (!t) return;
+            if (toastTimer) clearTimeout(toastTimer);
+            t.innerText = String(msg || "");
             t.style.borderColor = isError ? 'var(--rose)' : 'var(--emerald)';
             t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3500);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+        }}
+
+        function setButtonsDisabled(disabled) {{
+            isBusy = disabled;
+            const saveBtn = document.getElementById('saveWalletBtn');
+            const discBtn = document.getElementById('disconnectWalletBtn');
+            if (saveBtn) saveBtn.disabled = disabled;
+            if (discBtn) discBtn.disabled = disabled;
         }}
 
         function updateUI(wallet) {{
@@ -459,15 +542,30 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             }}
         }}
 
-        // Subscribe to wallet changes
-        tonConnectUI.onStatusChange(async (wallet) => {{
-            if (wallet) {{
-                updateUI(wallet);
-                await saveToBot(false);
-            }} else {{
-                updateUI(null);
+        if (window.TON_CONNECT_UI && window.TON_CONNECT_UI.TonConnectUI) {{
+            tonConnectUI = new window.TON_CONNECT_UI.TonConnectUI({{
+                manifestUrl: manifestUrl,
+                buttonRootId: 'ton-connect-btn'
+            }});
+
+            // Subscribe to wallet changes
+            tonConnectUI.onStatusChange(async (wallet) => {{
+                if (wallet) {{
+                    updateUI(wallet);
+                    await saveToBot(false);
+                }} else {{
+                    updateUI(null);
+                }}
+            }});
+        }} else {{
+            const btnRoot = document.getElementById('ton-connect-btn');
+            if (btnRoot) {{
+                const errEl = document.createElement('div');
+                errEl.style.cssText = 'color: var(--rose); font-size: 13px; text-align: center; padding: 10px;';
+                errEl.textContent = "TON Connect SDK yuklanmadi. Internet aloqasini tekshirib sahifani yangilang.";
+                btnRoot.appendChild(errEl);
             }}
-        }});
+        }}
 
         // If backend already had wallet saved, show it initially
         if (currentConnectedAddress) {{
@@ -475,24 +573,39 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
         }}
 
         async function saveToBot(manual = false) {{
+            if (isBusy) return;
             if (!currentConnectedAddress) {{
                 showToast("Avval hamyonni ulang!", true);
                 return;
             }}
 
+            setButtonsDisabled(true);
+            const saveTxt = document.getElementById('saveWalletBtnText');
+            if (saveTxt) saveTxt.textContent = "Saqlanmoqda...";
+
             try {{
+                const bodyPayload = {{
+                    user_id: USER_ID,
+                    address: currentConnectedAddress,
+                    wallet_name: currentConnectedName,
+                    chain: 'mainnet'
+                }};
+                if (tg && tg.initData) {{
+                    bodyPayload.initData = tg.initData;
+                }}
+
                 const res = await fetch('/api/tonconnect/save', {{
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{
-                        user_id: USER_ID,
-                        address: currentConnectedAddress,
-                        wallet_name: currentConnectedName,
-                        chain: 'mainnet'
-                    }})
+                    headers: getTonAuthHeaders(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify(bodyPayload)
                 }});
-                const data = await res.json();
-                if (data.ok) {{
+                let data = {{ ok: false, message: `Server xatosi (HTTP ${{res.status}})` }};
+                try {{
+                    data = await res.json();
+                }} catch (parseErr) {{}}
+
+                if (res.ok && data.ok) {{
                     showToast(manual ? "Hamyon botga saqlandi!" : "Hamyon muvaffaqiyatli ulandi va saqlandi!");
                     if (tg) {{
                         try {{
@@ -509,40 +622,92 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
                         }}
                     }}
                 }} else {{
-                    showToast(data.message || "Saqlashda xatolik", true);
+                    showToast(data.message || data.error || "Saqlashda xatolik", true);
                 }}
             }} catch (err) {{
                 console.error("Save error:", err);
-                showToast("Aloqa xatosi: " + err.message, true);
+                showToast("Aloqa xatosi: " + (err?.message || "Tarmoq xatosi"), true);
+            }} finally {{
+                setButtonsDisabled(false);
+                if (saveTxt) saveTxt.textContent = "Hamyonni Botga Saqlash";
             }}
         }}
 
         async function disconnectWallet() {{
+            if (isBusy) return;
+            setButtonsDisabled(true);
+            const discTxt = document.getElementById('disconnectWalletBtnText');
+            if (discTxt) discTxt.textContent = "Uzilmoqda...";
+
             try {{
-                await tonConnectUI.disconnect();
+                if (tonConnectUI && tonConnectUI.connected) {{
+                    try {{
+                        await tonConnectUI.disconnect();
+                    }} catch (sdkErr) {{
+                        console.warn("TON Connect SDK disconnect warning:", sdkErr);
+                    }}
+                }}
                 if (USER_ID) {{
-                    await fetch('/api/tonconnect/disconnect', {{
+                    const bodyPayload = {{ user_id: USER_ID }};
+                    if (tg && tg.initData) {{
+                        bodyPayload.initData = tg.initData;
+                    }}
+                    const res = await fetch('/api/tonconnect/disconnect', {{
                         method: 'POST',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ user_id: USER_ID }})
+                        headers: getTonAuthHeaders(),
+                        credentials: 'same-origin',
+                        body: JSON.stringify(bodyPayload)
                     }});
+                    let data = {{ ok: false, message: `Server xatosi (HTTP ${{res.status}})` }};
+                    try {{
+                        data = await res.json();
+                    }} catch (parseErr) {{}}
+                    if (!res.ok || !data.ok) {{
+                        showToast(data.message || data.error || "Serverdan uzishda xatolik", true);
+                        return;
+                    }}
                 }}
                 currentConnectedAddress = "";
+                currentConnectedName = "";
                 updateUI(null);
                 showToast("Hamyon uzildi");
             }} catch (e) {{
                 console.error(e);
                 showToast("Uzishda xatolik", true);
+            }} finally {{
+                setButtonsDisabled(false);
+                if (discTxt) discTxt.textContent = "Hamyonni Uzish";
             }}
         }}
 
         function copyAddress() {{
             if (!currentConnectedAddress) return;
-            navigator.clipboard.writeText(currentConnectedAddress).then(() => {{
-                showToast("Manzil nusxalandi!");
-            }}).catch(() => {{
+            if (navigator.clipboard && navigator.clipboard.writeText) {{
+                navigator.clipboard.writeText(currentConnectedAddress).then(() => {{
+                    showToast("Manzil nusxalandi!");
+                }}).catch(() => {{
+                    fallbackCopy(currentConnectedAddress);
+                }});
+            }} else {{
+                fallbackCopy(currentConnectedAddress);
+            }}
+        }}
+
+        function fallbackCopy(text) {{
+            try {{
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast(ok ? "Manzil nusxalandi!" : "Nusxalab bo'lmadi", !ok);
+            }} catch (e) {{
                 showToast("Nusxalab bo'lmadi", true);
-            }});
+            }}
         }}
     </script>
 </body>

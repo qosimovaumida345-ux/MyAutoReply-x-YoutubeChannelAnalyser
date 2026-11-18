@@ -6,6 +6,7 @@ Real-time database query tracing, dynamic TTL cache controls, live API node grap
 import time
 import os
 import re
+import html
 import collections
 from typing import Dict, Any, List, Optional
 
@@ -34,12 +35,30 @@ _METRICS = {
     "server_start_time": time.time(),
 }
 
+# Per-key numeric validation bounds (min, max)
+_DYNAMIC_CONFIG_BOUNDS: Dict[str, tuple] = {
+    "product_cache_ttl": (0, 86400),
+    "usd_cache_ttl": (10, 86400),
+    "dos_burst_max": (5, 2000),
+    "dos_burst_window": (1, 60),
+    "dos_minute_max": (10, 10000),
+    "otp_rate_limit_max": (1, 20),
+    "db_slow_query_threshold_ms": (1, 10000),
+}
+
 def sanitize_sql(sql_str: str) -> str:
     """SQL matnidan maxfiy ma'lumotlar va uzun whitespace larni tozalash"""
     if not sql_str:
         return ""
     # Whitespace normalization
     cleaned = re.sub(r'\s+', ' ', str(sql_str).strip())
+    # Redact sensitive key/column string literals and long opaque string values (tokens/hashes/phones)
+    cleaned = re.sub(
+        r"(?i)(\b(?:password|passwd|token|secret|api_key|auth|otp|hash|phone|session|cookie|key)\b\s*=\s*)'[^']*'",
+        r"\1'[REDACTED]'",
+        cleaned,
+    )
+    cleaned = re.sub(r"'[^']{16,}'", "'[REDACTED]'", cleaned)
     # Truncate if ultra long
     if len(cleaned) > 280:
         cleaned = cleaned[:277] + "..."
@@ -99,51 +118,64 @@ def get_dynamic_config(key: str, default: Any = None) -> Any:
     return _DYNAMIC_CONFIG.get(key, default)
 
 def update_dynamic_config(updates: Dict[str, Any]) -> Dict[str, Any]:
-    """Admin tomonidan parametrni jonli o'zgartirish"""
+    """Admin tomonidan parametrni jonli o'zgartirish (qat'iy tur va chegara tekshiruvi bilan)"""
+    if not isinstance(updates, dict):
+        raise ValueError("Konfiguratsiya obyekt formatida bo'lishi kerak")
     for k, v in updates.items():
-        if k in _DYNAMIC_CONFIG:
-            try:
-                _DYNAMIC_CONFIG[k] = type(_DYNAMIC_CONFIG[k])(v)
-            except Exception:
-                _DYNAMIC_CONFIG[k] = v
+        if k not in _DYNAMIC_CONFIG:
+            continue
+        if isinstance(v, bool):
+            raise ValueError(f"'{k}' uchun noto'g'ri qiymat")
+        try:
+            parsed_val = int(v)
+        except (TypeError, ValueError):
+            raise ValueError(f"'{k}' butun son bo'lishi kerak")
+        min_val, max_val = _DYNAMIC_CONFIG_BOUNDS.get(k, (0, 1000000))
+        if parsed_val < min_val or parsed_val > max_val:
+            raise ValueError(f"'{k}' {min_val} dan {max_val} gacha oraliqda bo'lishi kerak")
+        _DYNAMIC_CONFIG[k] = parsed_val
     return dict(_DYNAMIC_CONFIG)
 
 def purge_cache(category: str) -> Dict[str, Any]:
     """Keshni tozalash mexanizmi"""
+    allowed_categories = {"all", "products", "ventebot", "currency", "rate_limits"}
+    clean_cat = str(category or "").strip().lower()
+    if clean_cat not in allowed_categories:
+        raise ValueError("Noto'g'ri kesh kategoriyasi")
     purged_items = []
 
     # 1. VenteBot Mahsulotlar Keshi
-    if category in ("all", "products", "ventebot"):
+    if clean_cat in ("all", "products", "ventebot"):
         try:
             from ventebot_service import ventebot_service
             if hasattr(ventebot_service, "cache") and hasattr(ventebot_service.cache, "clear"):
                 ventebot_service.cache.clear()
             purged_items.append("VenteBot Mahsulotlar & Narxlar Keshi")
-        except Exception as e:
-            purged_items.append(f"VenteBot xatosi: {e}")
+        except Exception:
+            purged_items.append("VenteBot keshini tozalashda ichki xatolik")
 
     # 2. Valyuta Kursi Keshi
-    if category in ("all", "currency"):
+    if clean_cat in ("all", "currency"):
         try:
             from currency_service import currency_service
             currency_service._last_updated = 0.0
             purged_items.append("USD / UZS Valyuta Kursi Keshi")
-        except Exception as e:
-            purged_items.append(f"Valyuta kesh xatosi: {e}")
+        except Exception:
+            purged_items.append("Valyuta keshini tozalashda ichki xatolik")
 
     # 3. DoS Rate Limiting Xotirasi
-    if category in ("all", "rate_limits"):
+    if clean_cat in ("all", "rate_limits"):
         try:
             from main import _IP_RATE_LIMITS, _SENSITIVE_IP_LIMITS
             _IP_RATE_LIMITS.clear()
             _SENSITIVE_IP_LIMITS.clear()
             purged_items.append("DoS va Rate Limiting IP Ro'yxati")
-        except Exception as e:
-            purged_items.append(f"Rate limit xatosi: {e}")
+        except Exception:
+            purged_items.append("Rate limit keshini tozalashda ichki xatolik")
 
     return {
         "ok": True,
-        "category": category,
+        "category": clean_cat,
         "purged": purged_items,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
     }
@@ -228,7 +260,7 @@ def get_telemetry_snapshot(app=None) -> Dict[str, Any]:
         "ventebot_products_ttl": _DYNAMIC_CONFIG.get("product_cache_ttl", 60),
         "usd_cache_ttl": _DYNAMIC_CONFIG.get("usd_cache_ttl", 1800),
         "dos_burst_window": _DYNAMIC_CONFIG.get("dos_burst_window", 2),
-        "dos_burst_max": _DYNAMIC_CONFIG.get("dos_burst_max", 30),
+        "dos_burst_max": _DYNAMIC_CONFIG.get("dos_burst_max", 150),
         "tracked_ips_count": 0,
         "active_auth_tokens": 0
     }
@@ -264,10 +296,9 @@ def get_telemetry_snapshot(app=None) -> Dict[str, Any]:
 
 def render_telemetry_html(admin_key: str = "") -> str:
     """n8n uslubidagi interaktiv boshqaruv va telemetriya dashboard HTML shabloni"""
-    # Xavfsizlik: Bot tokeni (masalan 1234:ABC formatida) hech qachon HTML shablonga kiritilmaydi
-    safe_admin_key = str(admin_key or "").strip()
-    if ":" in safe_admin_key or "bot" in safe_admin_key.lower():
-        safe_admin_key = ""
+    # Xavfsizlik: Admin sessiya tokeni/paroli HECH QACHON inline HTML/JS ga yozilmaydi.
+    # Autentifikatsiya faqat HttpOnly 'cf_adm_sig' cookie (credentials: 'same-origin') orqali amalga oshiriladi.
+    _ = admin_key
     return f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -319,6 +350,8 @@ def render_telemetry_html(admin_key: str = "") -> str:
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
             position: sticky;
             top: 0;
             z-index: 100;
@@ -695,8 +728,31 @@ def render_telemetry_html(admin_key: str = "") -> str:
             font-family: var(--font-mono);
         }}
         .badge-200 {{ background: rgba(16, 185, 129, 0.15); color: var(--emerald); border: 1px solid rgba(16, 185, 129, 0.3); }}
-        .badge-401, .badge-403 {{ background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }}
+        .badge-300 {{ background: rgba(56, 189, 248, 0.15); color: var(--cyan); border: 1px solid rgba(56, 189, 248, 0.3); }}
+        .badge-401, .badge-403, .badge-400 {{ background: rgba(245, 158, 11, 0.15); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3); }}
         .badge-429, .badge-500 {{ background: rgba(239, 68, 68, 0.15); color: var(--rose); border: 1px solid rgba(239, 68, 68, 0.3); }}
+        .n8n-drawer-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }}
+        .tab-btn:focus-visible, .btn-3d:focus-visible, .config-input:focus-visible {{
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }}
+        .btn-3d:disabled {{
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none !important;
+        }}
+        @media (max-width: 768px) {{
+            header {{ padding: 12px 16px; }}
+            .stats-ribbon {{ padding: 16px 16px 8px; }}
+            .tab-bar {{ padding: 0 16px; }}
+            .main-container {{ padding: 16px 16px 48px; }}
+            .n8n-drawer-grid {{ grid-template-columns: 1fr; }}
+            .config-grid {{ grid-template-columns: 1fr; padding: 16px; }}
+        }}
         /* Config Form */
         .config-grid {{
             display: grid;
@@ -803,6 +859,9 @@ def render_telemetry_html(admin_key: str = "") -> str:
             z-index: 1000;
             animation: slideUp 0.25s ease;
         }}
+        #toast.toast-error {{
+            background: #ef4444;
+        }}
         @keyframes slideUp {{
             from {{ transform: translateY(20px); opacity: 0; }}
             to {{ transform: translateY(0); opacity: 1; }}
@@ -824,15 +883,15 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 <span>JONLI STREAM</span>
             </div>
         </div>
-        <div style="display: flex; gap: 10px; align-items: center;">
-            <button id="pollBtn" class="btn-3d btn-3d-dark" onclick="togglePolling()">
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="pollBtn" class="btn-3d btn-3d-dark" onclick="togglePolling()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
                 <span id="pollBtnTxt">Avto-Yangilanish: Faol (2.5s)</span>
             </button>
             <a href="/" class="btn-3d btn-3d-dark" style="text-decoration: none;">
                 Ilovaga qaytish
             </a>
-            <button onclick="adminLogout()" class="btn-3d btn-3d-dark" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.35);">
+            <button type="button" onclick="adminLogout()" class="btn-3d btn-3d-dark" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.35);">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 <span>Chiqish</span>
             </button>
@@ -885,23 +944,23 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
     <!-- Tabs Navigation -->
     <div class="tab-bar">
-        <button id="tabBtn_flow" class="tab-btn active" onclick="switchTab('flow', this)">
+        <button type="button" id="tabBtn_flow" class="tab-btn active" onclick="switchTab('flow', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
             <span>n8n Oqim & Pipeline</span>
         </button>
-        <button id="tabBtn_db" class="tab-btn" onclick="switchTab('db', this)">
+        <button type="button" id="tabBtn_db" class="tab-btn" onclick="switchTab('db', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
             <span>Baza So'rovlari (DB Inspector)</span>
         </button>
-        <button id="tabBtn_cache" class="tab-btn" onclick="switchTab('cache', this)">
+        <button type="button" id="tabBtn_cache" class="tab-btn" onclick="switchTab('cache', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             <span>Kesh & Dinamik TTL Sozlamalari</span>
         </button>
-        <button id="tabBtn_routes" class="tab-btn" onclick="switchTab('routes', this)">
+        <button type="button" id="tabBtn_routes" class="tab-btn" onclick="switchTab('routes', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             <span>Auto-Discovered Marshrutlar</span>
         </button>
-        <button id="tabBtn_api" class="tab-btn" onclick="switchTab('api', this)">
+        <button type="button" id="tabBtn_api" class="tab-btn" onclick="switchTab('api', this)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             <span>Kiruvchi / Chiquvchi API Jurnali</span>
         </button>
@@ -1134,9 +1193,9 @@ def render_telemetry_html(admin_key: str = "") -> str:
                             <span id="drawerNodeBadge" style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:4px; background:#ff6d5a; color:#fff;">n8n.node</span>
                             <span id="drawerNodeTitle" style="font-size:13px; font-weight:700; color:#fff;">Node Inspector</span>
                         </div>
-                        <button onclick="document.getElementById('n8nInspectorDrawer').style.display='none'" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">✕</button>
+                        <button type="button" aria-label="Inspektorni yopish" onclick="closeInspectorDrawer()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">✕</button>
                     </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+                    <div class="n8n-drawer-grid">
                         <div>
                             <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase;">Input Parameters (Payload)</div>
                             <pre id="drawerInputJson" style="background:#131420; padding:12px; border-radius:8px; font-family:var(--font-mono); font-size:11px; color:#38bdf8; overflow:auto; max-height:160px;">{{}}</pre>
@@ -1190,35 +1249,35 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 </div>
                 <div class="config-grid">
                     <div class="config-item">
-                        <label>VenteBot Mahsulotlar Keshi TTL (Soniya)</label>
+                        <label for="inputProductTtl">VenteBot Mahsulotlar Keshi TTL (Soniya)</label>
                         <small>Tovarlar katalogi keshda qancha saqlanishi. "0" kiritilsa kesh butunlay o'chiriladi va har bir kirishda VenteBotga yangi so'rov boradi.</small>
                         <div class="config-input-group">
                             <input type="number" id="inputProductTtl" class="config-input" min="0" max="86400">
-                            <button class="btn-3d btn-3d-cyan" onclick="saveConfig('product_cache_ttl', 'inputProductTtl')">Saqlash</button>
+                            <button type="button" class="btn-3d btn-3d-cyan" onclick="saveConfig('product_cache_ttl', 'inputProductTtl', this)">Saqlash</button>
                         </div>
                     </div>
                     <div class="config-item">
-                        <label>USD / UZS Valyuta Kursi TTL (Soniya)</label>
+                        <label for="inputUsdTtl">USD / UZS Valyuta Kursi TTL (Soniya)</label>
                         <small>Markaziy Bank API kursini yangilash oralig'i (standart: 1800 soniya / 30 daqiqa).</small>
                         <div class="config-input-group">
                             <input type="number" id="inputUsdTtl" class="config-input" min="10" max="86400">
-                            <button class="btn-3d btn-3d-cyan" onclick="saveConfig('usd_cache_ttl', 'inputUsdTtl')">Saqlash</button>
+                            <button type="button" class="btn-3d btn-3d-cyan" onclick="saveConfig('usd_cache_ttl', 'inputUsdTtl', this)">Saqlash</button>
                         </div>
                     </div>
                     <div class="config-item">
-                        <label>DoS 2-Soniyalik Burst Chegarasi</label>
-                        <small>Bitta IP dan 2 soniyada kelishi mumkin bo'lgan maksimal so'rovlar (standart: 30).</small>
+                        <label for="inputDosBurst">DoS 2-Soniyalik Burst Chegarasi</label>
+                        <small>Bitta IP dan 2 soniyada kelishi mumkin bo'lgan maksimal so'rovlar (standart: 150).</small>
                         <div class="config-input-group">
-                            <input type="number" id="inputDosBurst" class="config-input" min="5" max="200">
-                            <button class="btn-3d btn-3d-cyan" onclick="saveConfig('dos_burst_max', 'inputDosBurst')">Saqlash</button>
+                            <input type="number" id="inputDosBurst" class="config-input" min="5" max="2000">
+                            <button type="button" class="btn-3d btn-3d-cyan" onclick="saveConfig('dos_burst_max', 'inputDosBurst', this)">Saqlash</button>
                         </div>
                     </div>
                     <div class="config-item">
-                        <label>Sekin So'rov Chegarasi (ms)</label>
+                        <label for="inputSlowDb">Sekin So'rov Chegarasi (ms)</label>
                         <small>Ushbu vaqtdan oshgan SQL so'rovlar ogohlantiruvchi qizil/sariq rangda belgilanadi.</small>
                         <div class="config-input-group">
-                            <input type="number" id="inputSlowDb" class="config-input" min="1" max="1000">
-                            <button class="btn-3d btn-3d-cyan" onclick="saveConfig('db_slow_query_threshold_ms', 'inputSlowDb')">Saqlash</button>
+                            <input type="number" id="inputSlowDb" class="config-input" min="1" max="10000">
+                            <button type="button" class="btn-3d btn-3d-cyan" onclick="saveConfig('db_slow_query_threshold_ms', 'inputSlowDb', this)">Saqlash</button>
                         </div>
                     </div>
                 </div>
@@ -1233,16 +1292,16 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     </div>
                 </div>
                 <div style="padding: 24px; display: flex; gap: 14px; flex-wrap: wrap;">
-                    <button class="btn-3d btn-3d-rose" onclick="purgeCacheAction('products')">
+                    <button type="button" class="btn-3d btn-3d-rose" onclick="purgeCacheAction('products', this)">
                         VenteBot Tovar Keshini Tozalash
                     </button>
-                    <button class="btn-3d btn-3d-rose" onclick="purgeCacheAction('currency')">
+                    <button type="button" class="btn-3d btn-3d-rose" onclick="purgeCacheAction('currency', this)">
                         Valyuta Kursi Keshini Tozalash
                     </button>
-                    <button class="btn-3d btn-3d-rose" onclick="purgeCacheAction('rate_limits')">
+                    <button type="button" class="btn-3d btn-3d-rose" onclick="purgeCacheAction('rate_limits', this)">
                         DoS Rate Limit IP larini Tozalash
                     </button>
-                    <button class="btn-3d btn-3d-rose" onclick="purgeCacheAction('all')">
+                    <button type="button" class="btn-3d btn-3d-rose" onclick="purgeCacheAction('all', this)">
                         Barcha Keshlarni To'liq Tozalash
                     </button>
                 </div>
@@ -1312,34 +1371,39 @@ def render_telemetry_html(admin_key: str = "") -> str:
     <div id="toast">Operatsiya muvaffaqiyatli bajarildi!</div>
 
     <script>
-        const ADMIN_KEY = "{safe_admin_key}" || (function() {{
-            try {{
-                return localStorage.getItem('creatorflow_admin_sig') || '';
-            }} catch(e) {{
-                return '';
-            }}
-        }})();
+        // Clean up any legacy admin secret stored in localStorage; rely strictly on HttpOnly session cookie.
+        try {{ localStorage.removeItem('creatorflow_admin_sig'); }} catch(e) {{}}
 
         async function adminLogout() {{
             try {{
                 await fetch('/api/admin/logout', {{ method: 'POST', credentials: 'same-origin' }});
             }} catch(e) {{}}
-            localStorage.removeItem('creatorflow_admin_sig');
-            document.cookie = "cf_adm_sig=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-            document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-            document.cookie = "cf_auth_owner=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+            try {{ localStorage.removeItem('creatorflow_admin_sig'); }} catch(e) {{}}
+            const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = "cf_adm_sig=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax" + secureFlag;
+            document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax" + secureFlag;
+            document.cookie = "cf_auth_owner=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax" + secureFlag;
             window.location.href = '/admin/flow';
         }}
         let isPolling = true;
         let pollTimer = null;
+        let toastTimer = null;
         let curTab = 'flow';
 
-        function showToast(msg) {{
+        function showToast(msg, isError = false) {{
             const t = document.getElementById('toast');
             if (!t) return;
-            t.textContent = msg;
+            if (toastTimer) clearTimeout(toastTimer);
+            t.textContent = String(msg || '');
+            t.classList.toggle('toast-error', Boolean(isError));
             t.style.display = 'block';
-            setTimeout(() => {{ t.style.display = 'none'; }}, 2200);
+            toastTimer = setTimeout(() => {{ t.style.display = 'none'; }}, 2600);
+        }}
+
+        function closeInspectorDrawer() {{
+            const drawer = document.getElementById('n8nInspectorDrawer');
+            if (drawer) drawer.style.display = 'none';
+            document.querySelectorAll('.n8n-node').forEach(n => n.classList.remove('selected'));
         }}
 
         function switchTab(tabId, el) {{
@@ -1350,7 +1414,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
             const target = document.getElementById('tabContent_' + tabId);
             if (target) target.style.display = 'block';
 
-            const btn = el || document.getElementById('tabBtn_' + tabId) || (window.event ? (window.event.currentTarget || (window.event.target && window.event.target.closest ? window.event.target.closest('.tab-btn') : null)) : null);
+            const btn = el || document.getElementById('tabBtn_' + tabId);
             if (btn && btn.classList) btn.classList.add('active');
         }}
 
@@ -1366,25 +1430,27 @@ def render_telemetry_html(admin_key: str = "") -> str:
             }}
         }}
 
+        async function parseJsonSafe(res) {{
+            const text = await res.text();
+            try {{
+                return JSON.parse(text);
+            }} catch(e) {{
+                return {{ ok: false, error: `HTTP ${{res.status}}` }};
+            }}
+        }}
+
         async function fetchTelemetry() {{
             if (!isPolling) return;
             try {{
-                const headers = {{}};
-                if (ADMIN_KEY) {{
-                    headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
-                    headers['X-Admin-Secret'] = ADMIN_KEY;
-                    headers['X-Admin-Signature'] = ADMIN_KEY;
-                }}
                 const res = await fetch('/api/admin/telemetry/stream', {{
-                    headers: headers,
                     credentials: 'same-origin'
                 }});
                 if (res.status === 401 || res.status === 403) {{
                     window.location.reload();
                     return;
                 }}
-                const data = await res.json();
-                if (data.ok) {{
+                const data = await parseJsonSafe(res);
+                if (res.ok && data.ok) {{
                     updateDashboard(data);
                 }}
             }} catch(err) {{
@@ -1426,7 +1492,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     badge: 'n8n-nodes-base.filter',
                     color: '#20c997',
                     title: 'Security Guard & Rate Limiter',
-                    input: {{ burst_max: (d.config || {{}}).dos_burst_max || 100, tracking_ips: (d.cache || {{}}).tracked_ips_count || 0 }},
+                    input: {{ burst_max: (d.config || {{}}).dos_burst_max || 150, tracking_ips: (d.cache || {{}}).tracked_ips_count || 0 }},
                     output: {{ blocked_dos: (d.metrics || {{}}).total_blocked_dos || 0, status: 'SECURED' }}
                 }},
                 router: {{
@@ -1440,7 +1506,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     badge: 'n8n-nodes-base.cache',
                     color: '#f59e0b',
                     title: 'In-Memory Cache Layer',
-                    input: {{ product_ttl_s: (d.config || {{}}).product_cache_ttl || 60, usd_ttl_s: (d.config || {{}}).usd_cache_ttl || 300 }},
+                    input: {{ product_ttl_s: (d.config || {{}}).product_cache_ttl ?? 60, usd_ttl_s: (d.config || {{}}).usd_cache_ttl ?? 1800 }},
                     output: {{ in_memory_cached: true, hit_ratio: '98.4%' }}
                 }},
                 postgres: {{
@@ -1448,14 +1514,14 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     color: '#8054c7',
                     title: 'Neon PostgreSQL Pool',
                     input: {{ pool_max: (d.pool || {{}}).max || 20, slow_threshold_ms: (d.config || {{}}).db_slow_query_threshold_ms || 15 }},
-                    output: {{ avg_latency_ms: (d.metrics || {{}}).avg_db_latency_ms || 0, total_queries: (d.metrics || {{}}).total_db_queries || 0, pool_used: (d.pool || {{}}).used || 1 }}
+                    output: {{ avg_latency_ms: (d.metrics || {{}}).avg_db_latency_ms || 0, total_queries: (d.metrics || {{}}).total_db_queries || 0, pool_used: (d.pool || {{}}).used || 0 }}
                 }},
                 upstream: {{
                     badge: 'n8n-nodes-base.httpRequest',
                     color: '#ff6d5a',
                     title: 'External VenteBot & Telegram APIs',
                     input: {{ targets: ['api.telegram.org', 'ventebot.com'], timeout_s: 8 }},
-                    output: {{ status: 200, latency_ms: (d.metrics || {{}}).avg_api_latency_ms || 45, state: 'HEALTHY' }}
+                    output: {{ status: 200, latency_ms: (d.metrics || {{}}).avg_api_latency_ms || 0, state: 'HEALTHY' }}
                 }}
             }};
 
@@ -1467,147 +1533,273 @@ def render_telemetry_html(admin_key: str = "") -> str:
             outJson.textContent = JSON.stringify(info.output, null, 2);
         }}
 
+        function makeEmptyRow(colSpan, text) {{
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = colSpan;
+            td.style.textAlign = 'center';
+            td.style.color = 'var(--text-muted)';
+            td.style.padding = '30px';
+            td.textContent = text;
+            tr.appendChild(td);
+            return tr;
+        }}
+
+        function statusBadgeClass(code) {{
+            const n = Number(code) || 0;
+            if (n >= 200 && n < 300) return 'badge-200';
+            if (n >= 300 && n < 400) return 'badge-300';
+            if (n === 429 || n >= 500) return 'badge-500';
+            return 'badge-400';
+        }}
+
         function updateDashboard(data) {{
             _latestTelemetryData = data;
+            const metrics = data.metrics || {{}};
+            const pool = data.pool || {{}};
+            const cfg = data.config || {{}};
+            const cache = data.cache || {{}};
+
             // Top metrics
-            document.getElementById('metricDbQueries').textContent = (data.metrics.total_db_queries || 0).toLocaleString();
-            document.getElementById('metricDbLatency').textContent = (data.metrics.avg_db_latency_ms || 0) + ' ms';
-            document.getElementById('metricApiRequests').textContent = (data.metrics.total_api_requests || 0).toLocaleString();
-            document.getElementById('metricApiLatency').textContent = (data.metrics.avg_api_latency_ms || 0) + ' ms';
-            document.getElementById('metricBlockedDos').textContent = (data.metrics.total_blocked_dos || 0).toLocaleString();
-            document.getElementById('metricTrackedIps').textContent = data.cache.tracked_ips_count || 0;
-            document.getElementById('metricPoolStatus').textContent = data.pool.status || 'Active';
-            document.getElementById('metricPoolConns').textContent = `${{data.pool.used}} / ${{data.pool.max}}`;
+            document.getElementById('metricDbQueries').textContent = (metrics.total_db_queries || 0).toLocaleString();
+            document.getElementById('metricDbLatency').textContent = (metrics.avg_db_latency_ms || 0) + ' ms';
+            document.getElementById('metricApiRequests').textContent = (metrics.total_api_requests || 0).toLocaleString();
+            document.getElementById('metricApiLatency').textContent = (metrics.avg_api_latency_ms || 0) + ' ms';
+            document.getElementById('metricBlockedDos').textContent = (metrics.total_blocked_dos || 0).toLocaleString();
+            document.getElementById('metricTrackedIps').textContent = cache.tracked_ips_count || 0;
+            document.getElementById('metricPoolStatus').textContent = pool.status || 'Active';
+            document.getElementById('metricPoolConns').textContent = `${{pool.used ?? 0}} / ${{pool.max ?? 20}}`;
             document.getElementById('metricRoutesCount').textContent = data.discovered_routes_count || 0;
             document.getElementById('metricUptime').textContent = data.uptime_str || '-';
 
             // n8n Nodes
-            document.getElementById('nodeSecurityMetric').textContent = (data.metrics.total_blocked_dos || 0) + ' Blk';
+            document.getElementById('nodeSecurityMetric').textContent = (metrics.total_blocked_dos || 0) + ' Blk';
             document.getElementById('nodeRouterMetric').textContent = (data.discovered_routes_count || 0) + ' Routes';
-            document.getElementById('nodeCacheMetric').textContent = 'TTL: ' + (data.config.product_cache_ttl || 60) + 's';
-            document.getElementById('nodeDbMetric').textContent = (data.metrics.avg_db_latency_ms || 0) + ' ms';
+            document.getElementById('nodeCacheMetric').textContent = 'TTL: ' + (cfg.product_cache_ttl ?? 60) + 's';
+            document.getElementById('nodeDbMetric').textContent = (metrics.avg_db_latency_ms || 0) + ' ms';
 
             // Inputs (only if not focused)
             if (document.activeElement !== document.getElementById('inputProductTtl')) {{
-                document.getElementById('inputProductTtl').value = data.config.product_cache_ttl;
+                document.getElementById('inputProductTtl').value = cfg.product_cache_ttl ?? 60;
             }}
             if (document.activeElement !== document.getElementById('inputUsdTtl')) {{
-                document.getElementById('inputUsdTtl').value = data.config.usd_cache_ttl;
+                document.getElementById('inputUsdTtl').value = cfg.usd_cache_ttl ?? 1800;
             }}
             if (document.activeElement !== document.getElementById('inputDosBurst')) {{
-                document.getElementById('inputDosBurst').value = data.config.dos_burst_max;
+                document.getElementById('inputDosBurst').value = cfg.dos_burst_max ?? 150;
             }}
             if (document.activeElement !== document.getElementById('inputSlowDb')) {{
-                document.getElementById('inputSlowDb').value = data.config.db_slow_query_threshold_ms;
+                document.getElementById('inputSlowDb').value = cfg.db_slow_query_threshold_ms ?? 15;
             }}
 
-            // DB Table
+            // DB Table (pure DOM construction — zero innerHTML XSS)
             const dbTbody = document.getElementById('dbQueriesTableBody');
-            if (data.recent_db_queries && data.recent_db_queries.length > 0) {{
-                dbTbody.innerHTML = data.recent_db_queries.map(q => {{
-                    const durColor = q.duration_ms > 20 ? 'var(--rose)' : (q.duration_ms > 8 ? 'var(--amber)' : 'var(--emerald)');
-                    const badge = q.status === 'ok' ? '<span class="badge-status badge-200">OK</span>' : '<span class="badge-status badge-500">ERR</span>';
-                    return `<tr>
-                        <td style="color: var(--text-muted); font-family: var(--font-mono);">${{q.id}}</td>
-                        <td style="font-family: var(--font-mono); color: var(--text-muted);">${{q.timestamp}}</td>
-                        <td style="font-family: var(--font-mono); font-weight:700; color:${{durColor}};">${{q.duration_ms}} ms</td>
-                        <td>${{badge}}</td>
-                        <td><span class="code-pill">${{q.query}}</span></td>
-                    </tr>`;
-                }}).join('');
+            dbTbody.replaceChildren();
+            if (Array.isArray(data.recent_db_queries) && data.recent_db_queries.length > 0) {{
+                const frag = document.createDocumentFragment();
+                const slowThresh = Number(cfg.db_slow_query_threshold_ms) || 15;
+                data.recent_db_queries.forEach(q => {{
+                    const tr = document.createElement('tr');
+                    const durMs = Number(q.duration_ms) || 0;
+                    const durColor = durMs >= slowThresh ? 'var(--rose)' : (durMs >= slowThresh * 0.5 ? 'var(--amber)' : 'var(--emerald)');
+
+                    const tdId = document.createElement('td');
+                    tdId.style.cssText = 'color: var(--text-muted); font-family: var(--font-mono);';
+                    tdId.textContent = String(q.id ?? '');
+
+                    const tdTs = document.createElement('td');
+                    tdTs.style.cssText = 'font-family: var(--font-mono); color: var(--text-muted);';
+                    tdTs.textContent = String(q.timestamp ?? '');
+
+                    const tdDur = document.createElement('td');
+                    tdDur.style.cssText = `font-family: var(--font-mono); font-weight:700; color:${{durColor}};`;
+                    tdDur.textContent = `${{durMs}} ms`;
+
+                    const tdStatus = document.createElement('td');
+                    const badgeSpan = document.createElement('span');
+                    badgeSpan.className = q.status === 'ok' ? 'badge-status badge-200' : 'badge-status badge-500';
+                    badgeSpan.textContent = q.status === 'ok' ? 'OK' : 'ERR';
+                    tdStatus.appendChild(badgeSpan);
+
+                    const tdQuery = document.createElement('td');
+                    const codeSpan = document.createElement('span');
+                    codeSpan.className = 'code-pill';
+                    codeSpan.textContent = String(q.query ?? '');
+                    tdQuery.appendChild(codeSpan);
+
+                    tr.append(tdId, tdTs, tdDur, tdStatus, tdQuery);
+                    frag.appendChild(tr);
+                }});
+                dbTbody.appendChild(frag);
+            }} else {{
+                dbTbody.appendChild(makeEmptyRow(5, "Hozircha DB so'rovlari qayd etilmagan"));
             }}
 
-            // API Table
+            // API Table (pure DOM construction — zero innerHTML XSS)
             const apiTbody = document.getElementById('apiTableBody');
-            if (data.recent_api_requests && data.recent_api_requests.length > 0) {{
-                apiTbody.innerHTML = data.recent_api_requests.map(a => {{
-                    const stBadge = `<span class="badge-status badge-${{a.status}}">${{a.status}}</span>`;
-                    return `<tr>
-                        <td style="color: var(--text-muted); font-family: var(--font-mono);">${{a.id}}</td>
-                        <td style="font-family: var(--font-mono); color: var(--text-muted);">${{a.timestamp}}</td>
-                        <td><span class="code-pill" style="font-weight:700;">${{a.method}}</span></td>
-                        <td>${{stBadge}}</td>
-                        <td style="font-family: var(--font-mono);">${{a.latency_ms}} ms</td>
-                        <td style="font-family: var(--font-mono); color: var(--cyan);">${{a.path}}</td>
-                        <td style="font-family: var(--font-mono); color: var(--text-muted);">${{a.client_ip}}</td>
-                    </tr>`;
-                }}).join('');
+            apiTbody.replaceChildren();
+            if (Array.isArray(data.recent_api_requests) && data.recent_api_requests.length > 0) {{
+                const frag = document.createDocumentFragment();
+                data.recent_api_requests.forEach(a => {{
+                    const tr = document.createElement('tr');
+
+                    const tdId = document.createElement('td');
+                    tdId.style.cssText = 'color: var(--text-muted); font-family: var(--font-mono);';
+                    tdId.textContent = String(a.id ?? '');
+
+                    const tdTs = document.createElement('td');
+                    tdTs.style.cssText = 'font-family: var(--font-mono); color: var(--text-muted);';
+                    tdTs.textContent = String(a.timestamp ?? '');
+
+                    const tdMethod = document.createElement('td');
+                    const mSpan = document.createElement('span');
+                    mSpan.className = 'code-pill';
+                    mSpan.style.fontWeight = '700';
+                    mSpan.textContent = String(a.method ?? '');
+                    tdMethod.appendChild(mSpan);
+
+                    const tdStatus = document.createElement('td');
+                    const stSpan = document.createElement('span');
+                    const stCode = Number(a.status) || 0;
+                    stSpan.className = 'badge-status ' + statusBadgeClass(stCode);
+                    stSpan.textContent = String(stCode || a.status || '-');
+                    tdStatus.appendChild(stSpan);
+
+                    const tdLat = document.createElement('td');
+                    tdLat.style.fontFamily = 'var(--font-mono)';
+                    tdLat.textContent = `${{a.latency_ms ?? 0}} ms`;
+
+                    const tdPath = document.createElement('td');
+                    tdPath.style.cssText = 'font-family: var(--font-mono); color: var(--cyan); word-break: break-all;';
+                    tdPath.textContent = String(a.path ?? '');
+
+                    const tdIp = document.createElement('td');
+                    tdIp.style.cssText = 'font-family: var(--font-mono); color: var(--text-muted);';
+                    tdIp.textContent = String(a.client_ip ?? '');
+
+                    tr.append(tdId, tdTs, tdMethod, tdStatus, tdLat, tdPath, tdIp);
+                    frag.appendChild(tr);
+                }});
+                apiTbody.appendChild(frag);
+            }} else {{
+                apiTbody.appendChild(makeEmptyRow(7, "Hozircha kiruvchi HTTP so'rovlar qayd etilmagan"));
             }}
 
-            // Routes Table
+            // Routes Table (pure DOM construction — zero innerHTML XSS)
             const routesTbody = document.getElementById('routesTableBody');
+            routesTbody.replaceChildren();
             document.getElementById('routesCountSpan').textContent = `${{data.discovered_routes_count || 0}} ta faol marshrut`;
-            if (data.discovered_routes && data.discovered_routes.length > 0) {{
-                routesTbody.innerHTML = data.discovered_routes.map(r => {{
+            if (Array.isArray(data.discovered_routes) && data.discovered_routes.length > 0) {{
+                const frag = document.createDocumentFragment();
+                data.discovered_routes.forEach(r => {{
+                    const tr = document.createElement('tr');
                     const mColor = r.method === 'POST' ? 'var(--emerald)' : (r.method === 'GET' ? 'var(--cyan)' : 'var(--amber)');
-                    return `<tr>
-                        <td><span class="code-pill" style="color: ${{mColor}}; font-weight:700;">${{r.method}}</span></td>
-                        <td><span style="font-size: 11px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 999px;">${{r.category}}</span></td>
-                        <td style="font-family: var(--font-mono); font-weight:600; color: #fff;">${{r.path}}</td>
-                        <td style="font-family: var(--font-mono); color: var(--text-muted);">${{r.handler}}</td>
-                    </tr>`;
-                }}).join('');
+
+                    const tdMethod = document.createElement('td');
+                    const mSpan = document.createElement('span');
+                    mSpan.className = 'code-pill';
+                    mSpan.style.color = mColor;
+                    mSpan.style.fontWeight = '700';
+                    mSpan.textContent = String(r.method ?? '');
+                    tdMethod.appendChild(mSpan);
+
+                    const tdCat = document.createElement('td');
+                    const catSpan = document.createElement('span');
+                    catSpan.style.cssText = 'font-size: 11px; background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 999px;';
+                    catSpan.textContent = String(r.category ?? '');
+                    tdCat.appendChild(catSpan);
+
+                    const tdPath = document.createElement('td');
+                    tdPath.style.cssText = 'font-family: var(--font-mono); font-weight:600; color: #fff; word-break: break-all;';
+                    tdPath.textContent = String(r.path ?? '');
+
+                    const tdHandler = document.createElement('td');
+                    tdHandler.style.cssText = 'font-family: var(--font-mono); color: var(--text-muted);';
+                    tdHandler.textContent = String(r.handler ?? '');
+
+                    tr.append(tdMethod, tdCat, tdPath, tdHandler);
+                    frag.appendChild(tr);
+                }});
+                routesTbody.appendChild(frag);
+            }} else {{
+                routesTbody.appendChild(makeEmptyRow(4, "Marshrutlar topilmadi"));
             }}
         }}
 
-        async function saveConfig(key, inputId) {{
+        async function saveConfig(key, inputId, btnEl) {{
             const inputEl = document.getElementById(inputId);
             if (!inputEl) return;
             const val = inputEl.value;
             if (val === '' || isNaN(val)) {{
-                showToast("Iltimos, to'g'ri raqam kiriting!");
+                showToast("Iltimos, to'g'ri raqam kiriting!", true);
                 return;
             }}
+            const origText = btnEl ? btnEl.textContent : '';
+            if (btnEl) {{
+                btnEl.disabled = true;
+                btnEl.textContent = "Saqlanmoqda...";
+            }}
             try {{
-                const headers = {{ 'Content-Type': 'application/json' }};
-                if (ADMIN_KEY) {{
-                    headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
-                    headers['X-Admin-Secret'] = ADMIN_KEY;
-                    headers['X-Admin-Signature'] = ADMIN_KEY;
-                }}
                 const res = await fetch('/api/admin/telemetry/config', {{
                     method: 'POST',
-                    headers: headers,
+                    headers: {{ 'Content-Type': 'application/json' }},
                     credentials: 'same-origin',
                     body: JSON.stringify({{ [key]: Number(val) }})
                 }});
-                const d = await res.json();
-                if (d.ok) {{
+                if (res.status === 401 || res.status === 403) {{
+                    window.location.reload();
+                    return;
+                }}
+                const d = await parseJsonSafe(res);
+                if (res.ok && d.ok) {{
                     showToast(`Sozlama saqlandi: ${{key}} = ${{val}}`);
                     fetchTelemetry();
                 }} else {{
-                    showToast("Xatolik: " + (d.error || "Saqlab bo'lmadi"));
+                    showToast("Xatolik: " + (d.error || "Saqlab bo'lmadi"), true);
                 }}
             }} catch(e) {{
-                showToast("Tarmoq xatosi: " + e.message);
+                showToast("Tarmoq xatosi: " + e.message, true);
+            }} finally {{
+                if (btnEl) {{
+                    btnEl.disabled = false;
+                    btnEl.textContent = origText;
+                }}
             }}
         }}
 
-        async function purgeCacheAction(cat) {{
+        async function purgeCacheAction(cat, btnEl) {{
             if (!confirm(`Haqiqatan ham "${{cat}}" keshini tozalamoqchimisiz?`)) return;
+            const origText = btnEl ? btnEl.textContent : '';
+            if (btnEl) {{
+                btnEl.disabled = true;
+                btnEl.textContent = "Tozalanmoqda...";
+            }}
             try {{
-                const headers = {{ 'Content-Type': 'application/json' }};
-                if (ADMIN_KEY) {{
-                    headers['Authorization'] = 'Bearer ' + ADMIN_KEY;
-                    headers['X-Admin-Secret'] = ADMIN_KEY;
-                    headers['X-Admin-Signature'] = ADMIN_KEY;
-                }}
                 const res = await fetch('/api/admin/telemetry/purge', {{
                     method: 'POST',
-                    headers: headers,
+                    headers: {{ 'Content-Type': 'application/json' }},
                     credentials: 'same-origin',
                     body: JSON.stringify({{ category: cat }})
                 }});
-                const d = await res.json();
-                if (d.ok) {{
+                if (res.status === 401 || res.status === 403) {{
+                    window.location.reload();
+                    return;
+                }}
+                const d = await parseJsonSafe(res);
+                if (res.ok && d.ok) {{
                     const items = Array.isArray(d.purged) ? d.purged.join(', ') : cat;
                     showToast(`Kesh tozalandi: ${{items}}`);
                     fetchTelemetry();
                 }} else {{
-                    showToast("Xatolik: " + (d.error || "Keshni tozalab bo'lmadi"));
+                    showToast("Xatolik: " + (d.error || "Keshni tozalab bo'lmadi"), true);
                 }}
             }} catch(e) {{
-                showToast("Tarmoq xatosi: " + e.message);
+                showToast("Tarmoq xatosi: " + e.message, true);
+            }} finally {{
+                if (btnEl) {{
+                    btnEl.disabled = false;
+                    btnEl.textContent = origText;
+                }}
             }}
         }}
 
@@ -1620,6 +1812,9 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
 def render_admin_login_portal(error_msg: str = "") -> str:
     """Admin Observability uchun xavfsiz va chiroyli Figma-grade Kirish Portali"""
+    escaped_error = html.escape(str(error_msg or "").strip(), quote=True)
+    initial_status_cls = "status-msg error" if escaped_error else "status-msg"
+    initial_status_txt = escaped_error if escaped_error else "Kirish uchun maxfiy admin parolini kiriting."
     return f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -1641,10 +1836,11 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             justify-content: center;
             padding: 24px;
             position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }}
         .bg-grid {{
-            position: absolute;
+            position: fixed;
             inset: 0;
             background-image: 
                 radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.08) 0%, transparent 60%),
@@ -1746,6 +1942,10 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             transform: translateY(3px);
             box-shadow: 0 1px 0 #0077b6, 0 5px 10px rgba(0, 240, 255, 0.2);
         }}
+        .btn-3d:focus-visible {{
+            outline: 2px solid #ffffff;
+            outline-offset: 2px;
+        }}
         .btn-3d:disabled {{
             opacity: 0.6;
             cursor: not-allowed;
@@ -1813,7 +2013,7 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             </button>
         </form>
 
-        <div id="statusMsg" class="status-msg">Tizim holati tekshirilmoqda...</div>
+        <div id="statusMsg" class="{initial_status_cls}" role="status" aria-live="polite">{initial_status_txt}</div>
 
         <div class="footer-link">
             <a href="/">← CreatorFlow Bosh sahifasiga qaytish</a>
@@ -1821,40 +2021,97 @@ def render_admin_login_portal(error_msg: str = "") -> str:
     </div>
 
     <script>
-        async function sha256Hex(str) {{
-            const enc = new TextEncoder().encode(str);
-            const buf = await crypto.subtle.digest('SHA-256', enc);
-            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        // Purge any legacy client-side stored admin token; session is maintained solely via HttpOnly cookie.
+        try {{ localStorage.removeItem('creatorflow_admin_sig'); }} catch(e) {{}}
+
+        function sha256Fallback(ascii) {{
+            function rightRotate(value, amount) {{
+                return (value >>> amount) | (value << (32 - amount));
+            }}
+            const bytes = new TextEncoder().encode(ascii);
+            const bitLen = bytes.length * 8;
+            const withOne = new Uint8Array(bytes.length + 1);
+            withOne.set(bytes);
+            withOne[bytes.length] = 0x80;
+            let paddedLen = withOne.length;
+            while (paddedLen % 64 !== 56) paddedLen++;
+            const padded = new Uint8Array(paddedLen + 8);
+            padded.set(withOne);
+            const view = new DataView(padded.buffer);
+            view.setUint32(paddedLen, Math.floor(bitLen / 0x100000000), false);
+            view.setUint32(paddedLen + 4, bitLen >>> 0, false);
+
+            const hash = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+            const k = [
+                0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+                0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+                0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+                0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+                0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+                0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+                0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+                0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+            ];
+            const w = new Uint32Array(64);
+            for (let offset = 0; offset < padded.length; offset += 64) {{
+                for (let i = 0; i < 16; i++) w[i] = view.getUint32(offset + i * 4, false);
+                for (let i = 16; i < 64; i++) {{
+                    const s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                    const s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                    w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+                }}
+                let [a, b, c, d, e, f, g, h] = hash;
+                for (let i = 0; i < 64; i++) {{
+                    const S1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+                    const ch = (e & f) ^ ((~e) & g);
+                    const t1 = (h + S1 + ch + k[i] + w[i]) >>> 0;
+                    const S0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+                    const maj = (a & b) ^ (a & c) ^ (b & c);
+                    const t2 = (S0 + maj) >>> 0;
+                    h = g; g = f; f = e; e = (d + t1) >>> 0;
+                    d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+                }}
+                hash[0] = (hash[0] + a) >>> 0; hash[1] = (hash[1] + b) >>> 0;
+                hash[2] = (hash[2] + c) >>> 0; hash[3] = (hash[3] + d) >>> 0;
+                hash[4] = (hash[4] + e) >>> 0; hash[5] = (hash[5] + f) >>> 0;
+                hash[6] = (hash[6] + g) >>> 0; hash[7] = (hash[7] + h) >>> 0;
+            }}
+            return hash.map(v => v.toString(16).padStart(8, '0')).join('');
         }}
 
-        async function checkAutoAuth() {{
-            const statusEl = document.getElementById('statusMsg');
-            try {{
-                const adminSig = localStorage.getItem('creatorflow_admin_sig');
-                if (adminSig) {{
-                    statusEl.className = 'status-msg';
-                    statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Saqlangan admin sessiyasi tekshirilmoqda...</span>';
-                    const res = await fetch('/api/admin/verify', {{
-                        method: 'POST',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        credentials: 'same-origin',
-                        body: JSON.stringify({{ key: adminSig }})
-                    }});
-                    const d = await res.json();
-                    if (d.ok) {{
-                        if (d.token) {{
-                            localStorage.setItem('creatorflow_admin_sig', d.token);
-                        }}
-                        window.location.reload();
-                        return;
-                    }} else {{
-                        localStorage.removeItem('creatorflow_admin_sig');
-                    }}
-                }}
-            }} catch(e) {{
-                console.warn('Auto auth check error:', e);
+        async function sha256Hex(str) {{
+            if (window.crypto && window.crypto.subtle) {{
+                const enc = new TextEncoder().encode(str);
+                const buf = await window.crypto.subtle.digest('SHA-256', enc);
+                return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
             }}
-            statusEl.textContent = 'Kirish uchun maxfiy admin parolini kiriting.';
+            return sha256Fallback(str);
+        }}
+
+        function setLoadingStatus(statusEl, label) {{
+            statusEl.className = 'status-msg';
+            statusEl.replaceChildren();
+            const wrap = document.createElement('span');
+            wrap.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+            const ns = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('class', 'spin');
+            svg.setAttribute('width', '14');
+            svg.setAttribute('height', '14');
+            svg.setAttribute('viewBox', '0 0 24 24');
+            svg.setAttribute('fill', 'none');
+            svg.setAttribute('stroke', '#00F0FF');
+            svg.setAttribute('stroke-width', '2');
+            const circle = document.createElementNS(ns, 'circle');
+            circle.setAttribute('cx', '12');
+            circle.setAttribute('cy', '12');
+            circle.setAttribute('r', '10');
+            circle.setAttribute('stroke-opacity', '0.25');
+            const path = document.createElementNS(ns, 'path');
+            path.setAttribute('d', 'M12 2a10 10 0 0 1 10 10');
+            svg.append(circle, path);
+            wrap.append(svg, document.createTextNode(label));
+            statusEl.appendChild(wrap);
         }}
 
         async function submitAdminKey() {{
@@ -1870,8 +2127,7 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             }}
 
             if (btn) btn.disabled = true;
-            statusEl.className = 'status-msg';
-            statusEl.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;"><svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> Xavfsiz xeshlash va tasdiqlash...</span>';
+            setLoadingStatus(statusEl, "Xavfsiz xeshlash va tasdiqlash...");
 
             try {{
                 // Mijoz tomonida SHA-256 xeshlash (parol tarmoq orqali ochiq holda ketmaydi)
@@ -1883,13 +2139,15 @@ def render_admin_login_portal(error_msg: str = "") -> str:
                     credentials: 'same-origin',
                     body: JSON.stringify({{ key_hash: hashedKey }})
                 }});
-                const d = await res.json();
-                if (d.ok) {{
+                let d = {{ ok: false, error: `HTTP ${{res.status}}` }};
+                try {{
+                    d = await res.json();
+                }} catch(parseErr) {{}}
+
+                if (res.ok && d.ok) {{
                     statusEl.className = 'status-msg success';
                     statusEl.textContent = 'Ruxsat berildi! Telemetriya yuklanmoqda...';
-                    if (d.token) {{
-                        localStorage.setItem('creatorflow_admin_sig', d.token);
-                    }}
+                    if (input) input.value = '';
                     setTimeout(() => {{
                         window.location.reload();
                     }}, 350);
@@ -1907,8 +2165,6 @@ def render_admin_login_portal(error_msg: str = "") -> str:
                 return false;
             }}
         }}
-
-        window.addEventListener('DOMContentLoaded', checkAutoAuth);
     </script>
 </body>
 </html>"""

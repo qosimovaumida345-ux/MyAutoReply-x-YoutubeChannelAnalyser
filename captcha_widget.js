@@ -35,6 +35,86 @@
         }
     }
 
+    var widgetCounter = 0;
+
+    var SAFE_SVG_TAGS = {
+        svg: true, path: true, polygon: true, circle: true, rect: true,
+        line: true, polyline: true, ellipse: true, g: true
+    };
+    var SAFE_SVG_ATTRS = {
+        viewBox: true, width: true, height: true, fill: true, stroke: true,
+        "stroke-width": true, "stroke-linecap": true, "stroke-linejoin": true,
+        points: true, d: true, cx: true, cy: true, r: true, rx: true, ry: true,
+        x: true, y: true, x1: true, y1: true, x2: true, y2: true
+    };
+    var BLOCKED_CALLBACKS = {
+        eval: true, Function: true, setTimeout: true, setInterval: true,
+        execScript: true, alert: true, confirm: true, prompt: true,
+        open: true, close: true, fetch: true
+    };
+
+    function sanitizeImageSrc(src) {
+        if (typeof src !== "string") return "";
+        var trimmed = src.trim();
+        if (/^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(trimmed)) {
+            return trimmed;
+        }
+        if (/^https?:\/\/[^\s"'<>]+$/i.test(trimmed)) {
+            return trimmed;
+        }
+        return "";
+    }
+
+    function createSafeSvgNode(svgStr) {
+        if (typeof svgStr !== "string" || !svgStr.trim()) return null;
+        try {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(svgStr, "image/svg+xml");
+            if (doc.querySelector("parsererror")) return null;
+            var root = doc.documentElement;
+            if (!root || root.tagName.toLowerCase() !== "svg") return null;
+
+            function cloneSafe(node) {
+                var tag = node.tagName ? node.tagName.toLowerCase() : "";
+                if (!SAFE_SVG_TAGS[tag]) return null;
+                var el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+                if (node.attributes) {
+                    for (var i = 0; i < node.attributes.length; i++) {
+                        var attr = node.attributes[i];
+                        var name = attr.name;
+                        if (!SAFE_SVG_ATTRS[name]) continue;
+                        var val = String(attr.value || "");
+                        if (/javascript:|expression\s*\(|url\s*\(/i.test(val)) continue;
+                        el.setAttribute(name, val);
+                    }
+                }
+                for (var c = 0; c < node.childNodes.length; c++) {
+                    var child = node.childNodes[c];
+                    if (child.nodeType === 1) {
+                        var safeChild = cloneSafe(child);
+                        if (safeChild) el.appendChild(safeChild);
+                    }
+                }
+                return el;
+            }
+
+            return cloneSafe(root);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function resolveSafeCallback(name) {
+        if (typeof name !== "string") return null;
+        var clean = name.trim();
+        if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(clean)) return null;
+        if (BLOCKED_CALLBACKS[clean]) return null;
+        if (Object.prototype.hasOwnProperty.call(window, clean) && typeof window[clean] === "function") {
+            return window[clean];
+        }
+        return null;
+    }
+
     // High-precision SVGs
     var SVG_ICONS = {
         shield: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
@@ -72,6 +152,7 @@
             /* Authentic Trustworthy Checkbox Trigger (Standard reCAPTCHA / Cloudflare aesthetic) */
             .bsh-trigger-box {
                 width: 302px;
+                max-width: 100%;
                 height: 76px;
                 background: #FFFFFF;
                 border: 1px solid #D1D5DB;
@@ -83,6 +164,72 @@
                 cursor: pointer;
                 transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.03);
+            }
+            .bsh-trigger-box:focus-visible, .bsh-btn-icon:focus-visible, .bsh-btn-submit:focus-visible, .bsh-seq-reset-btn:focus-visible {
+                outline: 2px solid #7342E2;
+                outline-offset: 2px;
+            }
+            .bsh-btn-icon {
+                border: none;
+                padding: 0;
+            }
+            .bsh-btn-submit:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+                transform: none !important;
+            }
+            .bsh-theme-dark .bsh-trigger-box {
+                background: #0F172A;
+                border-color: #334155;
+            }
+            .bsh-theme-dark .bsh-trigger-label,
+            .bsh-theme-dark .bsh-brand-title {
+                color: #F8FAFC;
+            }
+            .bsh-theme-dark .bsh-brand-sub {
+                color: #94A3B8;
+            }
+            .bsh-theme-dark .bsh-checkbox {
+                background: #1E293B;
+                border-color: #475569;
+            }
+            .bsh-theme-dark .bsh-trigger-box.bsh-verified {
+                background: rgba(16, 185, 129, 0.14);
+                border-color: #10B981;
+            }
+            .bsh-theme-dark .bsh-trigger-box.bsh-verified .bsh-trigger-label {
+                color: #34D399;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-modal-card {
+                background: #0F172A;
+                border-color: #334155;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-card-body {
+                background: #0F172A;
+                color: #F8FAFC;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-card-footer,
+            .bsh-theme-dark.bsh-modal-overlay .bsh-visual-header,
+            .bsh-theme-dark.bsh-modal-overlay .bsh-seq-step-bar {
+                background: #1E293B;
+                border-color: #334155;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-visual-header-left,
+            .bsh-theme-dark.bsh-modal-overlay .bsh-footer-info {
+                color: #E2E8F0;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-slider-track {
+                background: #1E293B;
+                border-color: #334155;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-slider-text {
+                color: #94A3B8;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-seq-step-pill,
+            .bsh-theme-dark.bsh-modal-overlay .bsh-seq-reset-btn {
+                background: #0F172A;
+                border-color: #334155;
+                color: #E2E8F0;
             }
             .bsh-trigger-box:hover {
                 border-color: #9CA3AF;
@@ -334,6 +481,7 @@
             .bsh-slider-stage {
                 position: relative;
                 width: 320px;
+                max-width: 100%;
                 height: 170px;
                 border-radius: 10px;
                 overflow: hidden;
@@ -360,6 +508,7 @@
             }
             .bsh-slider-track {
                 width: 320px;
+                max-width: 100%;
                 height: 44px;
                 background: #F1F5F9;
                 border: 1px solid #CBD5E1;
@@ -416,12 +565,15 @@
             /* Variety 2: 9-Grid Styles */
             .bsh-grid-container {
                 display: grid;
-                grid-template-columns: repeat(3, 94px);
+                grid-template-columns: repeat(3, minmax(0, 94px));
                 gap: 8px;
+                max-width: 100%;
             }
             .bsh-grid-tile {
-                width: 94px;
-                height: 94px;
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                max-width: 94px;
+                max-height: 94px;
                 border-radius: 8px;
                 overflow: hidden;
                 position: relative;
@@ -500,6 +652,7 @@
                 align-items: center;
                 gap: 12px;
                 width: 290px;
+                max-width: 100%;
                 justify-content: space-between;
             }
             .bsh-dial-slider {
@@ -728,31 +881,64 @@
         this.options = options || {};
         this.sitekey = this.options.sitekey || container.getAttribute("data-sitekey") || "demo_key";
         this.type = this.options.type || container.getAttribute("data-type") || "auto";
-        this.onSuccess = this.options.onSuccess || window[container.getAttribute("data-callback")];
+        this.theme = (this.options.theme || container.getAttribute("data-theme") || "light").toLowerCase();
+        this.onSuccess = (typeof this.options.onSuccess === "function")
+            ? this.options.onSuccess
+            : resolveSafeCallback(container.getAttribute("data-callback"));
         this.isVerified = false;
+        this.isSubmitting = false;
         this.token = null;
         this.modal = null;
         this.challenge = null;
         this.startTime = 0;
         this.trajectory = [];
         this.clicks = [];
+        this._requestSeq = 0;
+        this._pendingTimers = [];
+        this._activeCleanups = [];
+        this._escListener = null;
 
         this.init();
     }
 
+    BotShieldInstance.prototype._trackTimer = function (fn, delayMs) {
+        var self = this;
+        var tid = setTimeout(function () {
+            self._pendingTimers = self._pendingTimers.filter(function (id) { return id !== tid; });
+            fn();
+        }, delayMs);
+        this._pendingTimers.push(tid);
+        return tid;
+    };
+
+    BotShieldInstance.prototype._clearModalActivity = function () {
+        this._pendingTimers.forEach(function (tid) { clearTimeout(tid); });
+        this._pendingTimers = [];
+        this._activeCleanups.forEach(function (fn) {
+            try { fn(); } catch (e) {}
+        });
+        this._activeCleanups = [];
+    };
+
     BotShieldInstance.prototype.init = function () {
         var self = this;
         injectStyles();
+        this.closeModal();
 
         this.isVerified = false;
+        this.isSubmitting = false;
         this.token = null;
         this.challenge = null;
         this.startTime = 0;
         this.trajectory = [];
         this.clicks = [];
 
+        this.container.classList.add("bsh-widget-container");
+        this.container.classList.toggle("bsh-theme-dark", this.theme === "dark");
+
+        widgetCounter += 1;
         this.container.innerHTML = `
-            <div class="bsh-trigger-box" id="bsh-trigger-${Date.now()}">
+            <div class="bsh-trigger-box" id="bsh-trigger-${widgetCounter}" role="button" tabindex="0" aria-label="Men insonman — BotShield tekshiruvi">
                 <div class="bsh-trigger-left">
                     <div class="bsh-checkbox">
                         ${SVG_ICONS.check}
@@ -776,9 +962,17 @@
         this.triggerBox = this.container.querySelector(".bsh-trigger-box");
         this.hiddenInput = this.container.querySelector('input[name="botshield_token"]');
 
-        this.triggerBox.addEventListener("click", function () {
+        function activateTrigger() {
             if (self.isVerified) return;
             self.openChallengeModal();
+        }
+
+        this.triggerBox.addEventListener("click", activateTrigger);
+        this.triggerBox.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                activateTrigger();
+            }
         });
     };
 
@@ -787,7 +981,10 @@
         if (this.modal) return;
 
         var overlay = document.createElement("div");
-        overlay.className = "bsh-modal-overlay";
+        overlay.className = "bsh-modal-overlay" + (this.theme === "dark" ? " bsh-theme-dark" : "");
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-label", "BotShield Xavfsizlik Tekshiruvi");
         overlay.innerHTML = `
             <div class="bsh-modal-card">
                 <div class="bsh-card-header">
@@ -799,12 +996,12 @@
                         <div class="bsh-card-instruction" id="bsh-instr-text">Xavfsizlik tekshiruvi yuklanmoqda...</div>
                     </div>
                     <div class="bsh-card-actions">
-                        <div class="bsh-btn-icon" id="bsh-btn-refresh" title="Yangilash">
+                        <button type="button" class="bsh-btn-icon" id="bsh-btn-refresh" title="Yangilash" aria-label="Tekshiruvni yangilash">
                             ${SVG_ICONS.refresh}
-                        </div>
-                        <div class="bsh-btn-icon" id="bsh-btn-close" title="Yopish">
+                        </button>
+                        <button type="button" class="bsh-btn-icon" id="bsh-btn-close" title="Yopish" aria-label="Oyna yopish">
                             ${SVG_ICONS.close}
-                        </div>
+                        </button>
                     </div>
                 </div>
                 <div class="bsh-card-body" id="bsh-body">
@@ -815,7 +1012,7 @@
                         ${SVG_ICONS.lock}
                         <span>BotShield AI Himoyasi</span>
                     </div>
-                    <button class="bsh-btn-submit" id="bsh-btn-verify">
+                    <button type="button" class="bsh-btn-submit" id="bsh-btn-verify">
                         <span>Tasdiqlash</span>
                         ${SVG_ICONS.arrowRight}
                     </button>
@@ -851,23 +1048,61 @@
     };
 
     BotShieldInstance.prototype.closeModal = function () {
+        this._requestSeq += 1;
+        this.isSubmitting = false;
+        this._clearModalActivity();
         if (this._escListener) {
             window.removeEventListener("keydown", this._escListener);
             this._escListener = null;
         }
         if (this.modal) {
-            document.body.removeChild(this.modal);
+            if (this.modal.parentNode) {
+                this.modal.parentNode.removeChild(this.modal);
+            }
             this.modal = null;
         }
     };
 
+    BotShieldInstance.prototype._renderErrorInBody = function (body, message) {
+        var self = this;
+        body.replaceChildren();
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; padding:16px 8px;";
+
+        var msgEl = document.createElement("div");
+        msgEl.style.cssText = "color: #DC2626; font-size: 13px; font-weight: 600;";
+        msgEl.textContent = String(message || "Yuklab bo'lmadi");
+
+        var retryBtn = document.createElement("button");
+        retryBtn.type = "button";
+        retryBtn.className = "bsh-btn-submit";
+        retryBtn.textContent = "Qayta urinish";
+        retryBtn.addEventListener("click", function () {
+            self.fetchChallenge();
+        });
+
+        wrap.append(msgEl, retryBtn);
+        body.appendChild(wrap);
+    };
+
     BotShieldInstance.prototype.fetchChallenge = function () {
         var self = this;
+        if (!this.modal) return;
+        this._clearModalActivity();
+        this.isSubmitting = false;
+
+        var seq = ++this._requestSeq;
         var body = this.modal.querySelector("#bsh-body");
         var footer = this.modal.querySelector("#bsh-footer");
         var instrText = this.modal.querySelector("#bsh-instr-text");
+        var verifyBtn = footer.querySelector("#bsh-btn-verify");
+        if (verifyBtn) verifyBtn.disabled = false;
 
-        body.innerHTML = '<div class="bsh-spinner"></div>';
+        body.replaceChildren();
+        var spinner = document.createElement("div");
+        spinner.className = "bsh-spinner";
+        body.appendChild(spinner);
+
         footer.style.display = "none";
         instrText.textContent = "Tekshiruv yuklanmoqda...";
 
@@ -876,22 +1111,34 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sitekey: this.sitekey, type: this.type })
         })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            if (!data.ok) {
-                body.innerHTML = '<div style="color: #DC2626; font-size: 13px;">Xatolik: ' + (data.message || "Yuklab bo'lmadi") + '</div>';
+        .then(function (res) {
+            return res.text().then(function (txt) {
+                try {
+                    return { ok: res.ok, status: res.status, data: JSON.parse(txt) };
+                } catch (e) {
+                    return { ok: false, status: res.status, data: { ok: false, message: "Server javobi noto'g'ri (HTTP " + res.status + ")" } };
+                }
+            });
+        })
+        .then(function (res) {
+            if (!self.modal || seq !== self._requestSeq) return;
+            var data = res.data;
+            if (!res.ok || !data || !data.ok) {
+                self._renderErrorInBody(body, "Xatolik: " + ((data && data.message) || "Yuklab bo'lmadi"));
                 return;
             }
             self.challenge = data;
             self.renderChallenge(data);
         })
-        .catch(function (err) {
-            body.innerHTML = '<div style="color: #DC2626; font-size: 13px;">Serverga ulanish xatosi</div>';
+        .catch(function () {
+            if (!self.modal || seq !== self._requestSeq) return;
+            self._renderErrorInBody(body, "Serverga ulanish xatosi");
         });
     };
 
     BotShieldInstance.prototype.renderChallenge = function (challenge) {
         var self = this;
+        if (!this.modal) return;
         var body = this.modal.querySelector("#bsh-body");
         var footer = this.modal.querySelector("#bsh-footer");
         var instrText = this.modal.querySelector("#bsh-instr-text");
@@ -899,70 +1146,135 @@
         this.startTime = Date.now();
         this.trajectory = [];
         this.clicks = [];
+        body.replaceChildren();
 
-        var p = challenge.payload;
+        var p = challenge.payload || {};
 
         if (challenge.type === "slider") {
             instrText.textContent = "Pazlni bo'sh joyga to'g'ri keltiring";
             footer.style.display = "none"; // Submits automatically on release
 
-            body.innerHTML = `
-                <div class="bsh-slider-stage" id="bsh-slider-stage">
-                    <img class="bsh-slider-bg" src="${p.bg_image}" />
-                    <img class="bsh-slider-piece" id="bsh-slider-piece" src="${p.piece_image}" style="top: ${p.y}px; left: 0px;" />
-                </div>
-                <div class="bsh-slider-track" id="bsh-slider-track">
-                    <div class="bsh-slider-fill" id="bsh-slider-fill"></div>
-                    <div class="bsh-slider-thumb" id="bsh-slider-thumb">
-                        ${SVG_ICONS.arrowRight}
-                    </div>
-                    <span class="bsh-slider-text">Tutqichni o'ngga suring</span>
-                </div>
-            `;
+            var stage = document.createElement("div");
+            stage.className = "bsh-slider-stage";
+            stage.id = "bsh-slider-stage";
+
+            var bgImg = document.createElement("img");
+            bgImg.className = "bsh-slider-bg";
+            bgImg.alt = "Captcha background";
+            bgImg.src = sanitizeImageSrc(p.bg_image);
+
+            var pieceY = Math.max(0, Math.min(170, Number(p.y) || 0));
+            var pieceImg = document.createElement("img");
+            pieceImg.className = "bsh-slider-piece";
+            pieceImg.id = "bsh-slider-piece";
+            pieceImg.alt = "Puzzle piece";
+            pieceImg.src = sanitizeImageSrc(p.piece_image);
+            pieceImg.style.top = pieceY + "px";
+            pieceImg.style.left = "0px";
+
+            stage.append(bgImg, pieceImg);
+
+            var track = document.createElement("div");
+            track.className = "bsh-slider-track";
+            track.id = "bsh-slider-track";
+
+            var fill = document.createElement("div");
+            fill.className = "bsh-slider-fill";
+            fill.id = "bsh-slider-fill";
+
+            var thumb = document.createElement("div");
+            thumb.className = "bsh-slider-thumb";
+            thumb.id = "bsh-slider-thumb";
+            var arrowSvg = createSafeSvgNode(SVG_ICONS.arrowRight);
+            if (arrowSvg) thumb.appendChild(arrowSvg);
+
+            var trackText = document.createElement("span");
+            trackText.className = "bsh-slider-text";
+            trackText.textContent = "Tutqichni o'ngga suring";
+
+            track.append(fill, thumb, trackText);
+            body.append(stage, track);
 
             self.setupSliderEvents(p);
 
         } else if (challenge.type === "grid") {
-            instrText.textContent = p.instruction || p.prompt;
+            instrText.textContent = p.instruction || p.prompt || "Mos kataklarni tanlang";
             footer.style.display = "flex";
 
-            var targetIconHtml = p.target_icon ? `<div style="display:inline-flex; align-items:center; gap:6px;">${p.target_icon} <span><b>${p.target_name || ''}</b></span></div>` : '';
+            var visualHeader = document.createElement("div");
+            visualHeader.className = "bsh-visual-header";
 
-            var tilesHtml = "";
-            for (var i = 0; i < p.tiles.length; i++) {
-                tilesHtml += `
-                    <div class="bsh-grid-tile" data-idx="${i}">
-                        <img src="${p.tiles[i]}" />
-                        <div class="bsh-tile-check">${SVG_ICONS.check}</div>
-                    </div>
-                `;
+            var headerLeft = document.createElement("div");
+            headerLeft.className = "bsh-visual-header-left";
+
+            if (p.target_icon || p.target_name) {
+                var targetWrap = document.createElement("div");
+                targetWrap.style.cssText = "display:inline-flex; align-items:center; gap:6px;";
+                var targetSvg = createSafeSvgNode(p.target_icon);
+                if (targetSvg) targetWrap.appendChild(targetSvg);
+                var nameSpan = document.createElement("span");
+                var nameBold = document.createElement("b");
+                nameBold.textContent = String(p.target_name || "");
+                nameSpan.appendChild(nameBold);
+                targetWrap.appendChild(nameSpan);
+                headerLeft.appendChild(targetWrap);
             }
 
-            body.innerHTML = `
-                <div class="bsh-visual-header">
-                    <div class="bsh-visual-header-left">
-                        ${targetIconHtml}
-                    </div>
-                    <span style="font-size: 11px; color: #64748B;">Mos kataklarni bosing</span>
-                </div>
-                <div class="bsh-grid-container" id="bsh-grid">${tilesHtml}</div>
-            `;
+            var hintSpan = document.createElement("span");
+            hintSpan.style.cssText = "font-size: 11px; color: #64748B;";
+            hintSpan.textContent = "Mos kataklarni bosing";
+            visualHeader.append(headerLeft, hintSpan);
 
+            var gridContainer = document.createElement("div");
+            gridContainer.className = "bsh-grid-container";
+            gridContainer.id = "bsh-grid";
+
+            var tileList = Array.isArray(p.tiles) ? p.tiles : [];
             var selectedIndices = [];
-            var tiles = body.querySelectorAll(".bsh-grid-tile");
-            tiles.forEach(function (tile) {
-                tile.addEventListener("click", function () {
-                    var idx = parseInt(tile.getAttribute("data-idx"), 10);
+
+            tileList.forEach(function (tileSrc, idx) {
+                var tile = document.createElement("div");
+                tile.className = "bsh-grid-tile";
+                tile.setAttribute("data-idx", String(idx));
+                tile.setAttribute("role", "checkbox");
+                tile.setAttribute("aria-checked", "false");
+                tile.setAttribute("tabindex", "0");
+
+                var tImg = document.createElement("img");
+                tImg.alt = "Captcha tile " + (idx + 1);
+                tImg.src = sanitizeImageSrc(tileSrc);
+
+                var checkDiv = document.createElement("div");
+                checkDiv.className = "bsh-tile-check";
+                var checkSvg = createSafeSvgNode(SVG_ICONS.check);
+                if (checkSvg) checkDiv.appendChild(checkSvg);
+
+                tile.append(tImg, checkDiv);
+
+                function toggleTile() {
                     if (tile.classList.contains("bsh-selected")) {
                         tile.classList.remove("bsh-selected");
+                        tile.setAttribute("aria-checked", "false");
                         selectedIndices = selectedIndices.filter(function (x) { return x !== idx; });
                     } else {
                         tile.classList.add("bsh-selected");
+                        tile.setAttribute("aria-checked", "true");
                         selectedIndices.push(idx);
                     }
                     self.clicks.push({ t: Date.now() - self.startTime, idx: idx });
+                }
+
+                tile.addEventListener("click", toggleTile);
+                tile.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleTile();
+                    }
                 });
+                gridContainer.appendChild(tile);
             });
+
+            body.append(visualHeader, gridContainer);
 
             var verifyBtn = footer.querySelector("#bsh-btn-verify");
             verifyBtn.onclick = function () {
@@ -970,25 +1282,44 @@
             };
 
         } else if (challenge.type === "rotate") {
-            instrText.textContent = p.instruction || p.prompt;
+            instrText.textContent = p.instruction || p.prompt || "Rasmni to'g'ri holatga aylantiring";
             footer.style.display = "flex";
 
-            body.innerHTML = `
-                <div class="bsh-rotate-wrap">
-                    <div class="bsh-rotate-disk" id="bsh-rotate-disk" title="Aylantirish uchun ushlab buring">
-                        <img class="bsh-rotate-img" id="bsh-rotate-img" src="${p.image}" />
-                    </div>
-                    <div class="bsh-rotate-controls">
-                        <input type="range" class="bsh-dial-slider" id="bsh-dial-slider" min="0" max="360" value="0" />
-                        <div class="bsh-dial-badge" id="bsh-dial-badge">0°</div>
-                    </div>
-                </div>
-            `;
+            var wrap = document.createElement("div");
+            wrap.className = "bsh-rotate-wrap";
 
-            var disk = body.querySelector("#bsh-rotate-disk");
-            var img = body.querySelector("#bsh-rotate-img");
-            var slider = body.querySelector("#bsh-dial-slider");
-            var badge = body.querySelector("#bsh-dial-badge");
+            var disk = document.createElement("div");
+            disk.className = "bsh-rotate-disk";
+            disk.id = "bsh-rotate-disk";
+            disk.title = "Aylantirish uchun ushlab buring";
+
+            var img = document.createElement("img");
+            img.className = "bsh-rotate-img";
+            img.id = "bsh-rotate-img";
+            img.alt = "Rotate subject";
+            img.src = sanitizeImageSrc(p.image);
+            disk.appendChild(img);
+
+            var controls = document.createElement("div");
+            controls.className = "bsh-rotate-controls";
+
+            var slider = document.createElement("input");
+            slider.type = "range";
+            slider.className = "bsh-dial-slider";
+            slider.id = "bsh-dial-slider";
+            slider.min = "0";
+            slider.max = "360";
+            slider.value = "0";
+            slider.setAttribute("aria-label", "Aylantirish burchagi");
+
+            var badge = document.createElement("div");
+            badge.className = "bsh-dial-badge";
+            badge.id = "bsh-dial-badge";
+            badge.textContent = "0°";
+
+            controls.append(slider, badge);
+            wrap.append(disk, controls);
+            body.appendChild(wrap);
 
             var currentDeg = 0;
             var isRotating = false;
@@ -997,7 +1328,7 @@
             function applyAngle(deg) {
                 currentDeg = Math.round(((deg % 360) + 360) % 360);
                 img.style.transform = "rotate(" + currentDeg + "deg)";
-                slider.value = currentDeg;
+                slider.value = String(currentDeg);
                 badge.textContent = currentDeg + "°";
             }
 
@@ -1006,11 +1337,19 @@
                 var cx = rect.left + rect.width / 2;
                 var cy = rect.top + rect.height / 2;
                 var isTouch = e.type.indexOf("touch") !== -1;
-                var clientX = isTouch ? e.touches[0].clientX : e.clientX;
-                var clientY = isTouch ? e.touches[0].clientY : e.clientY;
-                var rad = Math.atan2(clientY - cy, clientX - cx);
+                var pt = isTouch ? (e.touches[0] || e.changedTouches[0]) : e;
+                if (!pt) return currentDeg;
+                var rad = Math.atan2(pt.clientY - cy, pt.clientX - cx);
                 var deg = rad * (180 / Math.PI);
                 return (deg + 360) % 360;
+            }
+
+            function removeRotListeners() {
+                isRotating = false;
+                window.removeEventListener("mousemove", onRotMove);
+                window.removeEventListener("mouseup", onRotEnd);
+                window.removeEventListener("touchmove", onRotMove);
+                window.removeEventListener("touchend", onRotEnd);
             }
 
             function onRotStart(e) {
@@ -1034,18 +1373,15 @@
 
             function onRotEnd() {
                 if (!isRotating) return;
-                isRotating = false;
-                window.removeEventListener("mousemove", onRotMove);
-                window.removeEventListener("mouseup", onRotEnd);
-                window.removeEventListener("touchmove", onRotMove);
-                window.removeEventListener("touchend", onRotEnd);
+                removeRotListeners();
             }
 
+            this._activeCleanups.push(removeRotListeners);
             disk.addEventListener("mousedown", onRotStart);
             disk.addEventListener("touchstart", onRotStart, { passive: false });
 
             slider.addEventListener("input", function () {
-                applyAngle(parseInt(slider.value, 10));
+                applyAngle(parseInt(slider.value, 10) || 0);
                 self.trajectory.push({ t: Date.now() - self.startTime, angle: currentDeg });
             });
 
@@ -1058,57 +1394,97 @@
             instrText.textContent = "Belgilarni 1-2-3 ketma-ketlikda bosing";
             footer.style.display = "none";
 
-            // Visual step indicator with actual SVG icons
-            var stepsHtml = "";
-            if (p.sequence_steps && p.sequence_steps.length) {
-                for (var s = 0; s < p.sequence_steps.length; s++) {
-                    var st = p.sequence_steps[s];
-                    stepsHtml += `
-                        <div class="bsh-seq-step-pill">
-                            <span class="bsh-seq-step-num">${st.step}</span>
-                            ${st.svg}
-                            <span class="bsh-seq-step-name">${st.uz}</span>
-                        </div>
-                    `;
-                    if (s < p.sequence_steps.length - 1) {
-                        stepsHtml += '<span class="bsh-seq-arrow">➔</span>';
+            var seqCount = Math.max(1, Math.min(10, parseInt(p.count, 10) || 3));
+            var seqContainer = document.createElement("div");
+            seqContainer.className = "bsh-seq-container";
+
+            var stepBar = document.createElement("div");
+            stepBar.className = "bsh-seq-step-bar";
+
+            var stepsList = document.createElement("div");
+            stepsList.className = "bsh-seq-steps-list";
+
+            if (Array.isArray(p.sequence_steps) && p.sequence_steps.length) {
+                p.sequence_steps.forEach(function (st, sIdx) {
+                    var pill = document.createElement("div");
+                    pill.className = "bsh-seq-step-pill";
+
+                    var numSpan = document.createElement("span");
+                    numSpan.className = "bsh-seq-step-num";
+                    numSpan.textContent = String(st.step || (sIdx + 1));
+                    pill.appendChild(numSpan);
+
+                    var stSvg = createSafeSvgNode(st.svg);
+                    if (stSvg) pill.appendChild(stSvg);
+
+                    var nmSpan = document.createElement("span");
+                    nmSpan.className = "bsh-seq-step-name";
+                    nmSpan.textContent = String(st.uz || "");
+                    pill.appendChild(nmSpan);
+
+                    stepsList.appendChild(pill);
+                    if (sIdx < p.sequence_steps.length - 1) {
+                        var arr = document.createElement("span");
+                        arr.className = "bsh-seq-arrow";
+                        arr.textContent = "➔";
+                        stepsList.appendChild(arr);
                     }
-                }
-            } else if (p.sequence_uz) {
-                for (var s2 = 0; s2 < p.sequence_uz.length; s2++) {
-                    stepsHtml += `
-                        <div class="bsh-seq-step-pill">
-                            <span class="bsh-seq-step-num">${s2 + 1}</span>
-                            <span class="bsh-seq-step-name">${p.sequence_uz[s2]}</span>
-                        </div>
-                    `;
+                });
+            } else if (Array.isArray(p.sequence_uz)) {
+                p.sequence_uz.forEach(function (uzLabel, s2) {
+                    var pill = document.createElement("div");
+                    pill.className = "bsh-seq-step-pill";
+
+                    var numSpan = document.createElement("span");
+                    numSpan.className = "bsh-seq-step-num";
+                    numSpan.textContent = String(s2 + 1);
+
+                    var nmSpan = document.createElement("span");
+                    nmSpan.className = "bsh-seq-step-name";
+                    nmSpan.textContent = String(uzLabel || "");
+
+                    pill.append(numSpan, nmSpan);
+                    stepsList.appendChild(pill);
                     if (s2 < p.sequence_uz.length - 1) {
-                        stepsHtml += '<span class="bsh-seq-arrow">➔</span>';
+                        var arr = document.createElement("span");
+                        arr.className = "bsh-seq-arrow";
+                        arr.textContent = "➔";
+                        stepsList.appendChild(arr);
                     }
-                }
+                });
             }
 
-            body.innerHTML = `
-                <div class="bsh-seq-container">
-                    <div class="bsh-seq-step-bar">
-                        <div class="bsh-seq-steps-list">
-                            ${stepsHtml}
-                        </div>
-                        <button type="button" class="bsh-seq-reset-btn" id="bsh-seq-reset" title="Qaytadan bosish">
-                            ${SVG_ICONS.undo}
-                            <span>Tozalash</span>
-                        </button>
-                    </div>
-                    <div class="bsh-seq-canvas-wrap" id="bsh-seq-wrap">
-                        <img class="bsh-seq-bg" src="${p.bg_image}" />
-                    </div>
-                    <span style="font-size: 11px; color: #64748B;" id="bsh-seq-count">Bosildi: 0 / ${p.count}</span>
-                </div>
-            `;
+            var resetBtn = document.createElement("button");
+            resetBtn.type = "button";
+            resetBtn.className = "bsh-seq-reset-btn";
+            resetBtn.id = "bsh-seq-reset";
+            resetBtn.title = "Qaytadan bosish";
+            var undoSvg = createSafeSvgNode(SVG_ICONS.undo);
+            if (undoSvg) resetBtn.appendChild(undoSvg);
+            var resetLabel = document.createElement("span");
+            resetLabel.textContent = "Tozalash";
+            resetBtn.appendChild(resetLabel);
 
-            var wrap = body.querySelector("#bsh-seq-wrap");
-            var countLabel = body.querySelector("#bsh-seq-count");
-            var resetBtn = body.querySelector("#bsh-seq-reset");
+            stepBar.append(stepsList, resetBtn);
+
+            var wrap = document.createElement("div");
+            wrap.className = "bsh-seq-canvas-wrap";
+            wrap.id = "bsh-seq-wrap";
+
+            var seqBg = document.createElement("img");
+            seqBg.className = "bsh-seq-bg";
+            seqBg.alt = "Sequence captcha canvas";
+            seqBg.src = sanitizeImageSrc(p.bg_image);
+            wrap.appendChild(seqBg);
+
+            var countLabel = document.createElement("span");
+            countLabel.style.cssText = "font-size: 11px; color: #64748B;";
+            countLabel.id = "bsh-seq-count";
+            countLabel.textContent = "Bosildi: 0 / " + seqCount;
+
+            seqContainer.append(stepBar, wrap, countLabel);
+            body.appendChild(seqContainer);
+
             var clickSeq = [];
             var lastClickTime = 0;
 
@@ -1116,13 +1492,13 @@
                 clickSeq = [];
                 self.clicks = [];
                 wrap.querySelectorAll(".bsh-seq-badge").forEach(function (b) { b.remove(); });
-                countLabel.textContent = "Bosildi: 0 / " + p.count;
+                countLabel.textContent = "Bosildi: 0 / " + seqCount;
             }
 
             resetBtn.addEventListener("click", clearClicks);
 
             function handleCanvasInteraction(e) {
-                if (clickSeq.length >= p.count) return;
+                if (clickSeq.length >= seqCount || self.isSubmitting) return;
 
                 var now = Date.now();
                 // 250ms debouncer prevents simulated double clicks from firing in touch emulation or rapid taps
@@ -1164,13 +1540,13 @@
                 badge.className = "bsh-seq-badge";
                 badge.style.left = (cx / scaleX) + "px";
                 badge.style.top = (cy / scaleY) + "px";
-                badge.textContent = clickSeq.length;
+                badge.textContent = String(clickSeq.length);
                 wrap.appendChild(badge);
 
-                countLabel.textContent = "Bosildi: " + clickSeq.length + " / " + p.count;
+                countLabel.textContent = "Bosildi: " + clickSeq.length + " / " + seqCount;
 
-                if (clickSeq.length === p.count) {
-                    setTimeout(function () {
+                if (clickSeq.length === seqCount) {
+                    self._trackTimer(function () {
                         self.submitSolution({ clicks: clickSeq });
                     }, 250);
                 }
@@ -1186,12 +1562,23 @@
     };
 
     BotShieldInstance.prototype.showErrorToast = function (message) {
+        if (!this.modal) return;
         var existing = this.modal.querySelector(".bsh-error-toast");
         if (existing) existing.remove();
 
         var toast = document.createElement("div");
         toast.className = "bsh-error-toast";
-        toast.innerHTML = '<span class="bsh-error-toast-icon">' + SVG_ICONS.alert + '</span><span>' + message + '</span>';
+        toast.setAttribute("role", "alert");
+
+        var iconWrap = document.createElement("span");
+        iconWrap.className = "bsh-error-toast-icon";
+        var alertSvg = createSafeSvgNode(SVG_ICONS.alert);
+        if (alertSvg) iconWrap.appendChild(alertSvg);
+
+        var textSpan = document.createElement("span");
+        textSpan.textContent = String(message || "Xatolik yuz berdi");
+
+        toast.append(iconWrap, textSpan);
 
         var body = this.modal.querySelector(".bsh-card-body");
         if (body) {
@@ -1201,21 +1588,34 @@
 
     BotShieldInstance.prototype.setupSliderEvents = function (p) {
         var self = this;
+        if (!this.modal) return;
         var thumb = this.modal.querySelector("#bsh-slider-thumb");
         var fill = this.modal.querySelector("#bsh-slider-fill");
         var piece = this.modal.querySelector("#bsh-slider-piece");
-        var track = this.modal.querySelector("#bsh-slider-track");
+        var stage = this.modal.querySelector("#bsh-slider-stage");
 
         var isDragging = false;
         var startX = 0;
-        var maxSlide = p.width - p.piece_width;
+        var logicalWidth = Number(p.width) || 320;
+        var pieceWidth = Number(p.piece_width) || 46;
+        var maxSlide = Math.max(40, logicalWidth - pieceWidth);
+
+        function removeDragListeners() {
+            isDragging = false;
+            window.removeEventListener("mousemove", onMove);
+            window.removeEventListener("mouseup", onEnd);
+            window.removeEventListener("touchmove", onMove);
+            window.removeEventListener("touchend", onEnd);
+        }
 
         function onStart(e) {
+            if (self.isSubmitting) return;
             isDragging = true;
             var isTouch = e.type.indexOf("touch") !== -1;
-            startX = isTouch ? e.touches[0].clientX : e.clientX;
-            var startY = isTouch ? e.touches[0].clientY : e.clientY;
-            self.trajectory.push({ x: 0, y: startY, t: Date.now() - self.startTime });
+            var pt = isTouch ? (e.touches[0] || e.changedTouches[0]) : e;
+            if (!pt) return;
+            startX = pt.clientX;
+            self.trajectory.push({ x: 0, y: pt.clientY, t: Date.now() - self.startTime });
 
             window.addEventListener("mousemove", onMove);
             window.addEventListener("mouseup", onEnd);
@@ -1227,31 +1627,32 @@
         function onMove(e) {
             if (!isDragging) return;
             var isTouch = e.type.indexOf("touch") !== -1;
-            var clientX = isTouch ? e.touches[0].clientX : e.clientX;
-            var clientY = isTouch ? e.touches[0].clientY : e.clientY;
-            var deltaX = clientX - startX;
-            deltaX = Math.max(0, Math.min(deltaX, maxSlide));
+            var pt = isTouch ? (e.touches[0] || e.changedTouches[0]) : e;
+            if (!pt) return;
+            var renderedWidth = (stage && stage.getBoundingClientRect().width) || logicalWidth;
+            var ratio = renderedWidth / logicalWidth;
+            var maxRenderSlide = maxSlide * ratio;
+            var deltaRender = Math.max(0, Math.min(pt.clientX - startX, maxRenderSlide));
+            var logicalX = deltaRender / (ratio || 1);
 
-            thumb.style.left = (deltaX + 3) + "px";
-            fill.style.width = (deltaX + 18) + "px";
-            piece.style.left = deltaX + "px";
+            thumb.style.left = (deltaRender + 3) + "px";
+            fill.style.width = (deltaRender + 18) + "px";
+            piece.style.left = deltaRender + "px";
+            piece.setAttribute("data-logical-x", String(logicalX));
 
-            self.trajectory.push({ x: deltaX, y: clientY, t: Date.now() - self.startTime });
+            self.trajectory.push({ x: logicalX, y: pt.clientY, t: Date.now() - self.startTime });
             if (isTouch) e.preventDefault();
         }
 
-        function onEnd(e) {
+        function onEnd() {
             if (!isDragging) return;
-            isDragging = false;
-            window.removeEventListener("mousemove", onMove);
-            window.removeEventListener("mouseup", onEnd);
-            window.removeEventListener("touchmove", onMove);
-            window.removeEventListener("touchend", onEnd);
+            removeDragListeners();
 
-            var finalX = parseFloat(piece.style.left) || 0;
+            var finalX = parseFloat(piece.getAttribute("data-logical-x")) || parseFloat(piece.style.left) || 0;
             self.submitSolution({ x: finalX });
         }
 
+        this._activeCleanups.push(removeDragListeners);
         thumb.addEventListener("mousedown", onStart);
         thumb.addEventListener("touchstart", onStart, { passive: false });
         piece.addEventListener("mousedown", onStart);
@@ -1260,7 +1661,13 @@
 
     BotShieldInstance.prototype.submitSolution = function (solution) {
         var self = this;
+        if (!this.modal || !this.challenge || this.isSubmitting) return;
+        this.isSubmitting = true;
+
+        var seq = this._requestSeq;
         var durationMs = Date.now() - this.startTime;
+        var verifyBtn = this.modal.querySelector("#bsh-btn-verify");
+        if (verifyBtn) verifyBtn.disabled = true;
 
         var payload = {
             challenge_id: this.challenge.challenge_id,
@@ -1281,59 +1688,80 @@
             body: JSON.stringify(payload)
         })
         .then(function (res) {
-            return res.json().then(function (data) {
-                return { status: res.status, ok: res.ok, data: data };
+            return res.text().then(function (txt) {
+                try {
+                    return { status: res.status, ok: res.ok, data: JSON.parse(txt) };
+                } catch (e) {
+                    return { status: res.status, ok: false, data: { ok: false, message: "Server javobi noto'g'ri (HTTP " + res.status + ")" } };
+                }
             });
         })
         .then(function (result) {
+            if (!self.modal || seq !== self._requestSeq) return;
             var data = result.data;
-            if (data && data.ok) {
+            if (result.ok && data && data.ok) {
                 self.handleVerified(data);
             } else {
                 console.warn("[BotShield Verify Error]:", data || result);
-                var errMsg = (data && data.message) ? data.message : "Javob noto'g'ri. Belgilarni ko'rsatilgan 1-2-3 tartibda bosing!";
+                var fallbackMsg = (self.challenge && self.challenge.type === "sequence")
+                    ? "Javob noto'g'ri. Belgilarni ko'rsatilgan 1-2-3 tartibda bosing!"
+                    : "Javob noto'g'ri. Qaytadan urinib ko'ring!";
+                var errMsg = (data && data.message) ? data.message : fallbackMsg;
                 self.showErrorToast(errMsg);
-                card.classList.add("bsh-shake");
-                setTimeout(function () {
-                    card.classList.remove("bsh-shake");
-                }, 400);
-                setTimeout(function () {
-                    self.fetchChallenge();
+                if (card) {
+                    card.classList.add("bsh-shake");
+                    self._trackTimer(function () {
+                        if (card) card.classList.remove("bsh-shake");
+                    }, 400);
+                }
+                self._trackTimer(function () {
+                    if (self.modal && seq === self._requestSeq) {
+                        self.fetchChallenge();
+                    }
                 }, 1300);
             }
         })
         .catch(function (err) {
+            if (!self.modal || seq !== self._requestSeq) return;
             console.error("[BotShield Network Error]:", err);
             self.showErrorToast("Tarmoq xatosi. Qaytadan urinib ko'ring.");
-            card.classList.add("bsh-shake");
-            setTimeout(function () {
-                card.classList.remove("bsh-shake");
-            }, 400);
-            setTimeout(function () {
-                self.fetchChallenge();
+            if (card) {
+                card.classList.add("bsh-shake");
+                self._trackTimer(function () {
+                    if (card) card.classList.remove("bsh-shake");
+                }, 400);
+            }
+            self._trackTimer(function () {
+                if (self.modal && seq === self._requestSeq) {
+                    self.fetchChallenge();
+                }
             }, 1300);
         });
     };
 
     BotShieldInstance.prototype.handleVerified = function (data) {
-        var self = this;
         this.isVerified = true;
+        this.isSubmitting = false;
         this.token = data.token;
 
         if (this.hiddenInput) {
             this.hiddenInput.value = data.token;
         }
 
-        this.triggerBox.classList.add("bsh-verified");
-        var label = this.triggerBox.querySelector(".bsh-trigger-label");
-        if (label) {
-            label.textContent = "Inson ekanligingiz tasdiqlandi";
+        if (this.triggerBox) {
+            this.triggerBox.classList.add("bsh-verified");
+            var label = this.triggerBox.querySelector(".bsh-trigger-label");
+            if (label) {
+                label.textContent = "Inson ekanligingiz tasdiqlandi";
+            }
         }
 
         this.closeModal();
 
-        // Custom Event
+        // Custom Event (bubbles so document-level listeners receive it)
         var event = new CustomEvent("botshield:success", {
+            bubbles: true,
+            composed: true,
             detail: { token: data.token, score: data.score, type: data.type }
         });
         this.container.dispatchEvent(event);

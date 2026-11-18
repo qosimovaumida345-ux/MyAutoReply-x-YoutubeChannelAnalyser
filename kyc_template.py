@@ -7,6 +7,19 @@ and verified state presentation.
 """
 import json
 
+
+def _safe_json_for_script(obj) -> str:
+    """Serialize JSON safely for embedding inside an HTML <script> block."""
+    raw = json.dumps(obj, default=str, ensure_ascii=False)
+    return (
+        raw.replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
+
+
 def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
     clean_kyc = {}
     if kyc_data and isinstance(kyc_data, dict):
@@ -22,19 +35,24 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         if fh and len(fh) > 18:
             clean_kyc["face_hash"] = fh[:12] + "..." + fh[-6:]
 
+    try:
+        safe_uid = int(user_id or 0)
+    except (TypeError, ValueError):
+        safe_uid = 0
+
     initial_state = {
-        "user_id": int(user_id or 0),
+        "user_id": safe_uid,
         "is_verified": bool(is_verified),
         "kyc_data": clean_kyc,
-        "phone": str(phone or "")
+        "phone": str(phone or "").strip()
     }
-    state_json = json.dumps(initial_state, default=str)
+    state_json = _safe_json_for_script(initial_state)
     
     return f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -327,6 +345,11 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             transform: none !important;
         }}
 
+        .btn:focus-visible, .input-box:focus-visible {{
+            outline: 2px solid var(--accent-cyan);
+            outline-offset: 2px;
+        }}
+
         .alert-box {{
             display: none;
             padding: 12px 14px;
@@ -479,8 +502,8 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             <span class="step-badge">Qadam 1: Telefon raqamingiz</span>
             
             <div class="form-group">
-                <label>Telefon raqamingiz</label>
-                <input type="tel" id="phoneInput" class="input-box" placeholder="+998 90 123 45 67">
+                <label for="phoneInput">Telefon raqamingiz</label>
+                <input type="tel" id="phoneInput" class="input-box" placeholder="+998 90 123 45 67" autocomplete="tel">
             </div>
 
             <button type="button" id="startScanBtn" class="btn btn-primary" onclick="initiateCamera()">
@@ -510,9 +533,12 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                 Tasdiqlash va Saqlash
             </button>
+            <button type="button" id="cancelScanBtn" class="btn btn-secondary" onclick="cancelScan()">
+                Bekor qilish va orqaga qaytish
+            </button>
         </div>
 
-        <div id="alertBox" class="alert-box"></div>
+        <div id="alertBox" class="alert-box" role="alert" aria-live="polite"></div>
     </div>
 
     <script>
@@ -524,12 +550,14 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         }}
 
         const urlParams = new URLSearchParams(window.location.search);
-        let userId = parseInt(urlParams.get('user_id')) || parseInt(tg?.initDataUnsafe?.user?.id) || INITIAL_STATE.user_id || 0;
+        let userId = parseInt(tg?.initDataUnsafe?.user?.id, 10) || INITIAL_STATE.user_id || parseInt(urlParams.get('user_id'), 10) || 0;
 
         let videoStream = null;
         let faceMesh = null;
         let animationFrameId = null;
+        let resizeHandler = null;
         let isSubmitting = false;
+        let autoSubmitScheduled = false;
 
         // Challenge-Response Interactive Liveness State Machine
         const STAGE_SEARCHING = 0;
@@ -546,28 +574,98 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         let yawTurnDetected = false;
         let capturedLandmarks = null;
 
+        function getKycAuthHeaders(includeJson = false) {{
+            const headers = {{}};
+            if (includeJson) headers['Content-Type'] = 'application/json';
+            if (tg && tg.initData) {{
+                headers['X-Telegram-Init-Data'] = tg.initData;
+            }}
+            return headers;
+        }}
+
+        function maskPhone(raw) {{
+            const s = String(raw || '').trim();
+            if (!s) return 'Mavjud';
+            return s.length > 6 ? (s.slice(0, 4) + ' *** ** ' + s.slice(-2)) : s;
+        }}
+
+        function applyLockedPhone(phoneStr) {{
+            const clean = String(phoneStr || '').trim();
+            if (!/^\\+?[0-9\\s\\-()]{{9,20}}$/.test(clean)) return;
+            const pInput = document.getElementById('phoneInput');
+            if (!pInput) return;
+            pInput.value = clean;
+            pInput.readOnly = true;
+            pInput.style.backgroundColor = 'rgba(16, 185, 129, 0.12)';
+            pInput.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+            pInput.style.color = '#10b981';
+            pInput.style.fontWeight = '700';
+
+            const group = pInput.parentElement;
+            if (group && !document.getElementById('phoneLockBadge')) {{
+                const lockBadge = document.createElement('div');
+                lockBadge.id = 'phoneLockBadge';
+                lockBadge.style.cssText = 'font-size: 11px; color: #10b981; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px;';
+                const ns = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('width', '12');
+                svg.setAttribute('height', '12');
+                svg.setAttribute('viewBox', '0 0 24 24');
+                svg.setAttribute('fill', 'none');
+                svg.setAttribute('stroke', 'currentColor');
+                svg.setAttribute('stroke-width', '2');
+                svg.setAttribute('stroke-linecap', 'round');
+                svg.setAttribute('stroke-linejoin', 'round');
+                const rect = document.createElementNS(ns, 'rect');
+                rect.setAttribute('x', '3');
+                rect.setAttribute('y', '11');
+                rect.setAttribute('width', '18');
+                rect.setAttribute('height', '11');
+                rect.setAttribute('rx', '2');
+                rect.setAttribute('ry', '2');
+                const path = document.createElementNS(ns, 'path');
+                path.setAttribute('d', 'M7 11V7a5 5 0 0 1 10 0v4');
+                svg.append(rect, path);
+                lockBadge.append(svg, document.createTextNode(" Telegram orqali tasdiqlangan (O'zgartirib bo'lmaydi)"));
+                group.appendChild(lockBadge);
+            }}
+        }}
+
+        function stopCamera() {{
+            if (animationFrameId) {{
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }}
+            if (resizeHandler) {{
+                window.removeEventListener('resize', resizeHandler);
+                resizeHandler = null;
+            }}
+            if (faceMesh) {{
+                try {{
+                    if (typeof faceMesh.close === 'function') faceMesh.close();
+                }} catch (e) {{}}
+                faceMesh = null;
+            }}
+            if (videoStream) {{
+                try {{
+                    videoStream.getTracks().forEach(t => t.stop());
+                }} catch (e) {{}}
+                videoStream = null;
+            }}
+            const videoEl = document.getElementById('videoEl');
+            if (videoEl) {{
+                videoEl.srcObject = null;
+            }}
+        }}
+
+        window.addEventListener('beforeunload', stopCamera);
+        window.addEventListener('pagehide', stopCamera);
+
         // Auto-check verified state on start
         window.addEventListener('DOMContentLoaded', async () => {{
-            const verifiedPhone = urlParams.get('phone') || INITIAL_STATE.phone || '';
+            const verifiedPhone = INITIAL_STATE.phone || urlParams.get('phone') || '';
             if (verifiedPhone) {{
-                const pInput = document.getElementById('phoneInput');
-                if (pInput) {{
-                    pInput.value = verifiedPhone;
-                    pInput.readOnly = true;
-                    pInput.style.backgroundColor = 'rgba(16, 185, 129, 0.12)';
-                    pInput.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-                    pInput.style.color = '#10b981';
-                    pInput.style.fontWeight = '700';
-                    
-                    const group = pInput.parentElement;
-                    if (!document.getElementById('phoneLockBadge')) {{
-                        const lockBadge = document.createElement('div');
-                        lockBadge.id = 'phoneLockBadge';
-                        lockBadge.style.cssText = 'font-size: 11px; color: #10b981; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px;';
-                        lockBadge.innerHTML = "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'></rect><path d='M7 11V7a5 5 0 0 1 10 0v4'></path></svg> Telegram orqali tasdiqlangan (O'zgartirib bo'lmaydi)";
-                        group.appendChild(lockBadge);
-                    }}
-                }}
+                applyLockedPhone(verifiedPhone);
             }}
 
             if (INITIAL_STATE.is_verified) {{
@@ -576,7 +674,11 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }}
             if (userId) {{
                 try {{
-                    const res = await fetch(`/kyc/status?user_id=${{userId}}&_t=${{Date.now()}}`);
+                    const res = await fetch(`/kyc/status?user_id=${{encodeURIComponent(userId)}}&_t=${{Date.now()}}`, {{
+                        headers: getKycAuthHeaders(false),
+                        credentials: 'same-origin'
+                    }});
+                    if (!res.ok) return;
                     const data = await res.json();
                     if (data.ok && data.is_verified) {{
                         showVerifiedView(data);
@@ -589,29 +691,47 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         }});
 
         function showVerifiedView(data) {{
+            stopCamera();
+            hideAlert();
             document.getElementById('formCard').style.display = 'none';
             document.getElementById('scannerCard').style.display = 'none';
             document.getElementById('verifiedCard').style.display = 'block';
 
             document.getElementById('vTgId').innerText = userId || "-";
-            document.getElementById('vPhone').innerText = data?.phone_masked || data?.phone_number || "Mavjud";
+            document.getElementById('vPhone').innerText = data?.phone_masked || maskPhone(data?.phone_number);
             document.getElementById('vFaceHash').innerText = data?.face_hash || "face_3d_verified";
-            document.getElementById('vDate').innerText = (data?.verified_at || new Date().toISOString()).slice(0, 16).replace('T', ' ');
+            const dtStr = String(data?.verified_at || new Date().toISOString());
+            document.getElementById('vDate').innerText = dtStr.slice(0, 16).replace('T', ' ');
         }}
 
         function showScanForm() {{
+            stopCamera();
+            hideAlert();
             isSubmitting = false;
+            autoSubmitScheduled = false;
             livenessProgress = 0;
             currentStage = STAGE_SEARCHING;
+            consecutiveCenteringFrames = 0;
             blinkPhase = 0;
             yawTurnDetected = false;
             capturedLandmarks = null;
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {{
+                submitBtn.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Tasdiqlash va Saqlash';
+            }}
             document.getElementById('verifiedCard').style.display = 'none';
             document.getElementById('formCard').style.display = 'block';
             document.getElementById('scannerCard').style.display = 'none';
         }}
 
+        function cancelScan() {{
+            showScanForm();
+        }}
+
         function closeWebApp() {{
+            stopCamera();
             if (tg) {{
                 tg.close();
             }} else {{
@@ -622,17 +742,34 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         async function initiateCamera() {{
             const phone = document.getElementById('phoneInput').value.trim();
 
-            if (!phone || phone.length < 9) {{
+            if (!phone || !/^\\+?[0-9\\s\\-()]{{9,20}}$/.test(phone)) {{
                 showAlert("Iltimos, to'g'ri telefon raqamingizni kiriting!", "danger");
                 return;
             }}
 
+            stopCamera();
             hideAlert();
+            isSubmitting = false;
+            autoSubmitScheduled = false;
+            currentStage = STAGE_SEARCHING;
+            livenessProgress = 0;
+            consecutiveCenteringFrames = 0;
+            blinkPhase = 0;
+            yawTurnDetected = false;
+            capturedLandmarks = null;
+
+            const submitBtn = document.getElementById('submitBtn');
+            if (submitBtn) {{
+                submitBtn.style.display = 'none';
+                submitBtn.disabled = false;
+            }}
+
             document.getElementById('formCard').style.display = 'none';
             document.getElementById('scannerCard').style.display = 'block';
 
             const videoEl = document.getElementById('videoEl');
             const guidance = document.getElementById('guidanceText');
+            guidance.className = "guidance-text warning";
             guidance.innerText = "Kameraga ruxsat so'ralmoqda...";
 
             try {{
@@ -653,7 +790,8 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 initFaceMeshTracker();
             }} catch (err) {{
                 console.error("Camera error:", err);
-                showAlert("Kamera ochilmadi! Iltimos, kameraga ruxsat bering: " + err.message, "danger");
+                stopCamera();
+                showAlert("Kamera ochilmadi! Iltimos, kameraga ruxsat bering: " + (err?.message || "Ruxsat rad etildi"), "danger");
                 document.getElementById('formCard').style.display = 'block';
                 document.getElementById('scannerCard').style.display = 'none';
             }}
@@ -664,16 +802,15 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             const canvas = document.getElementById('overlayCanvas');
             const ctx = canvas.getContext('2d');
             const guidance = document.getElementById('guidanceText');
-            const guidanceStep = document.getElementById('guidanceStep');
 
-            function resizeCanvas() {{
+            resizeHandler = function resizeCanvas() {{
                 if (canvas.parentElement) {{
                     canvas.width = canvas.parentElement.clientWidth || 360;
                     canvas.height = canvas.parentElement.clientHeight || 450;
                 }}
-            }}
-            resizeCanvas();
-            window.addEventListener('resize', resizeCanvas);
+            }};
+            resizeHandler();
+            window.addEventListener('resize', resizeHandler);
 
             guidance.className = "guidance-text warning";
             guidance.innerText = "3D FaceMesh neyrotarmog'i yuklanmoqda...";
@@ -685,7 +822,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }}
 
             if (!window.FaceMesh) {{
+                stopCamera();
                 showAlert("3D FaceMesh yuklanmadi. Internet aloqasini tekshirib qayta urinib ko'ring!", "danger");
+                guidance.className = "guidance-text danger";
                 guidance.innerText = "Xatolik: FaceMesh yuklanmadi";
                 return;
             }}
@@ -708,7 +847,8 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
                 let isProcessing = false;
                 async function processFrame() {{
-                    if (videoEl.readyState >= 2 && !isProcessing && faceMesh) {{
+                    if (!faceMesh || !videoStream) return;
+                    if (videoEl.readyState >= 2 && !isProcessing) {{
                         isProcessing = true;
                         try {{
                             await faceMesh.send({{ image: videoEl }});
@@ -717,12 +857,15 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                         }}
                         isProcessing = false;
                     }}
-                    animationFrameId = requestAnimationFrame(processFrame);
+                    if (faceMesh && videoStream) {{
+                        animationFrameId = requestAnimationFrame(processFrame);
+                    }}
                 }}
                 processFrame();
             }} catch (err) {{
                 console.error("FaceMesh init error:", err);
-                showAlert("3D FaceMesh xatosi: " + err.message, "danger");
+                stopCamera();
+                showAlert("3D FaceMesh xatosi: " + (err?.message || "Yuklashda xatolik"), "danger");
             }}
         }}
 
@@ -751,7 +894,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 if (guidanceStep) guidanceStep.innerText = "1-BOSQICH: YUZNI QIDIRISH";
                 if (guidance) {{
                     guidance.className = "guidance-text warning";
-                    guidance.innerText = "⚠️ YUZ ANIQLANMADI — Iltimos, yuzingizni kameraga to'g'rilang";
+                    guidance.innerText = "YUZ ANIQLANMADI — Iltimos, yuzingizni kameraga to'g'rilang";
                 }}
                 drawSearchingHUD(ctx, width, height);
                 return;
@@ -812,10 +955,10 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             if (currentStage === STAGE_CENTERING) {{
                 consecutiveCenteringFrames++;
                 livenessProgress = Math.min(25, (consecutiveCenteringFrames / 14) * 25);
-                if (guidanceStep) guidanceStep.innerText = "1-BOSQICH: YUZNI FOQUSLASH";
+                if (guidanceStep) guidanceStep.innerText = "1-BOSQICH: YUZNI FOKUSLASH";
                 if (guidance) {{
                     guidance.className = "guidance-text live-active";
-                    guidance.innerText = "🟢 Yuz aniqlandi. Kameraga qarab turing...";
+                    guidance.innerText = "Yuz aniqlandi. Kameraga qarab turing...";
                 }}
                 if (consecutiveCenteringFrames >= 14) {{
                     currentStage = STAGE_BLINK;
@@ -828,7 +971,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 if (guidanceStep) guidanceStep.innerText = "2-BOSQICH: JONLI INSON TESTI";
                 if (guidance) {{
                     guidance.className = "guidance-text live-active";
-                    guidance.innerText = "👁️ Ko'zingizni bir marta yumib oching (Blink)";
+                    guidance.innerText = "Ko'zingizni bir marta yumib oching (Blink)";
                 }}
 
                 // Blink Phase Machine: Wait for Close -> Detect Closed -> Detect Reopen
@@ -850,7 +993,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 if ((now - stageStartTime) > 4500 && blinkPhase < 2) {{
                     if (guidance) {{
                         guidance.className = "guidance-text danger";
-                        guidance.innerText = "❌ QIMIRLAMAS RASM ANIQLANDI! Haqiqiy jonli ko'zingizni miltillating.";
+                        guidance.innerText = "QIMIRLAMAS RASM ANIQLANDI! Haqiqiy jonli ko'zingizni miltillating.";
                     }}
                     livenessProgress = Math.max(0, livenessProgress - 1.5);
                 }} else {{
@@ -862,7 +1005,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 if (guidance) {{
                     guidance.className = "guidance-text live-active";
                     if (!yawTurnDetected) {{
-                        guidance.innerText = "👤 Boshingizni sekin o'ngga yoki chapga buring";
+                        guidance.innerText = "Boshingizni sekin o'ngga yoki chapga buring";
                     }} else {{
                         guidance.innerText = "Endi boshingizni markazga to'g'rilang";
                     }}
@@ -888,7 +1031,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                     livenessProgress = 25;
                     if (guidance) {{
                         guidance.className = "guidance-text danger";
-                        guidance.innerText = "❌ 3D HARAKAT ANIQLANMADI. Boshingizni o'ngga yoki chapga buring!";
+                        guidance.innerText = "3D HARAKAT ANIQLANMADI. Boshingizni o'ngga yoki chapga buring!";
                     }}
                 }}
             }}
@@ -897,12 +1040,13 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 if (guidanceStep) guidanceStep.innerText = "MUVAFFAQIYATLI!";
                 if (guidance) {{
                     guidance.className = "guidance-text success";
-                    guidance.innerText = "🟢 3D BIOMETRIK YUZ TASDIQLANDI!";
+                    guidance.innerText = "3D BIOMETRIK YUZ TASDIQLANDI!";
                 }}
                 const submitBtn = document.getElementById('submitBtn');
                 if (submitBtn) submitBtn.style.display = 'flex';
 
-                if (!isSubmitting) {{
+                if (!isSubmitting && !autoSubmitScheduled) {{
+                    autoSubmitScheduled = true;
                     setTimeout(() => {{
                         submitVerification();
                     }}, 400);
@@ -1001,25 +1145,29 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             }}
 
             try {{
+                const payload = {{
+                    user_id: userId,
+                    phone: phone,
+                    face_hash: faceSignature
+                }};
+                if (tg && tg.initData) {{
+                    payload.initData = tg.initData;
+                }}
                 const response = await fetch('/kyc/submit', {{
                     method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{
-                        user_id: userId,
-                        phone: phone,
-                        face_hash: faceSignature
-                    }})
+                    headers: getKycAuthHeaders(true),
+                    credentials: 'same-origin',
+                    body: JSON.stringify(payload)
                 }});
 
-                const result = await response.json();
+                let result = {{ ok: false, message: `Server xatosi (HTTP ${{response.status}})` }};
+                try {{
+                    result = await response.json();
+                }} catch (parseErr) {{}}
+
                 if (response.ok && result.ok) {{
-                    showAlert(result.message, "success");
-                    if (videoStream) {{
-                        videoStream.getTracks().forEach(t => t.stop());
-                    }}
-                    if (animationFrameId) {{
-                        cancelAnimationFrame(animationFrameId);
-                    }}
+                    showAlert(result.message || "Identifikatsiya tasdiqlandi!", "success");
+                    stopCamera();
 
                     setTimeout(() => {{
                         showVerifiedView({{
@@ -1029,7 +1177,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                         }});
                     }}, 1000);
                 }} else {{
-                    showAlert(result.message || "Xatolik yuz berdi!", "danger");
+                    showAlert(result.message || result.error || "Xatolik yuz berdi!", "danger");
                     isSubmitting = false;
                     if (submitBtn) {{
                         submitBtn.disabled = false;
@@ -1037,7 +1185,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                     }}
                 }}
             }} catch (err) {{
-                showAlert("Tarmoq xatosi: " + err.message, "danger");
+                showAlert("Tarmoq xatosi: " + (err?.message || "Aloqa uzildi"), "danger");
                 isSubmitting = false;
                 if (submitBtn) {{
                     submitBtn.disabled = false;
@@ -1048,8 +1196,10 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
         function showAlert(msg, type) {{
             const box = document.getElementById('alertBox');
-            box.innerText = msg;
-            box.className = 'alert-box alert-' + type;
+            if (!box) return;
+            const safeType = (type === 'success') ? 'success' : 'danger';
+            box.innerText = String(msg || '');
+            box.className = 'alert-box alert-' + safeType;
             box.style.display = 'block';
         }}
 

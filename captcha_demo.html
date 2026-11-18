@@ -53,6 +53,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 14px;
             padding-bottom: 24px;
             border-bottom: 1px solid var(--border-subtle);
             margin-bottom: 36px;
@@ -129,7 +131,7 @@
         }
 
         .hero h1 {
-            font-size: 38px;
+            font-size: clamp(26px, 4.5vw, 38px);
             font-weight: 800;
             letter-spacing: -1px;
             margin-bottom: 14px;
@@ -399,9 +401,34 @@
             box-shadow: 0 2px 8px rgba(115, 66, 226, 0.3);
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-1px);
             box-shadow: 0 4px 14px rgba(115, 66, 226, 0.45);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        button:focus-visible, a:focus-visible {
+            outline: 2px solid var(--accent-purple);
+            outline-offset: 2px;
+        }
+
+        .siteverify-box {
+            margin-top: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11.5px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            padding: 12px;
+            border-radius: 8px;
+            background: #F8FAFC;
+            border: 1px solid var(--border-subtle);
+            display: none;
         }
 
         .btn-outline {
@@ -498,7 +525,7 @@
 
         <div class="header-links">
             <a href="/api/v1/docs" class="header-link-btn">REST API Docs</a>
-            <a href="https://t.me/aiko_64" target="_blank" class="header-link-btn" style="display:inline-flex; align-items:center; gap:6px;">
+            <a href="https://t.me/aiko_64" target="_blank" rel="noopener noreferrer" class="header-link-btn" style="display:inline-flex; align-items:center; gap:6px;">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                 Admin / Aloqa (@aiko_64)
             </a>
@@ -539,11 +566,11 @@
             <div class="panel-desc">Quyidagi turlardan birini tanlang va vidjet ustiga bosib tekshirib ko'ring:</div>
 
             <div class="type-selector-bar">
-                <button class="type-btn active" data-type="auto">Avtomatik (Auto)</button>
-                <button class="type-btn" data-type="slider">Slider (Pazl)</button>
-                <button class="type-btn" data-type="grid">9 talik Rasmlar</button>
-                <button class="type-btn" data-type="rotate">Aylantirish (Dial)</button>
-                <button class="type-btn" data-type="sequence">Ketma-ketlik (1-2-3)</button>
+                <button type="button" class="type-btn active" data-type="auto">Avtomatik (Auto)</button>
+                <button type="button" class="type-btn" data-type="slider">Slider (Pazl)</button>
+                <button type="button" class="type-btn" data-type="grid">9 talik Rasmlar</button>
+                <button type="button" class="type-btn" data-type="rotate">Aylantirish (Dial)</button>
+                <button type="button" class="type-btn" data-type="sequence">Ketma-ketlik (1-2-3)</button>
             </div>
 
             <div class="widget-stage">
@@ -588,15 +615,15 @@
             <div class="panel-desc">Istalgan HTML sayt, React, Vue yoki PHP sahifangizga 2 qatorda ulanadi:</div>
 
             <div class="snippet-tabs">
-                <button class="snippet-tab-btn active" data-tab="html">1. HTML Vidjet</button>
-                <button class="snippet-tab-btn" data-tab="secret_nonce">2. Maxfiy Rejim (Session Nonce)</button>
-                <button class="snippet-tab-btn" data-tab="python">3. Python Backend</button>
-                <button class="snippet-tab-btn" data-tab="nodejs">4. Node.js Backend</button>
-                <button class="snippet-tab-btn" data-tab="curl">5. cURL</button>
+                <button type="button" class="snippet-tab-btn active" data-tab="html">1. HTML Vidjet</button>
+                <button type="button" class="snippet-tab-btn" data-tab="secret_nonce">2. Maxfiy Rejim (Session Nonce)</button>
+                <button type="button" class="snippet-tab-btn" data-tab="python">3. Python Backend</button>
+                <button type="button" class="snippet-tab-btn" data-tab="nodejs">4. Node.js Backend</button>
+                <button type="button" class="snippet-tab-btn" data-tab="curl">5. cURL</button>
             </div>
 
             <div class="code-block" id="snippet-display">
-                <button class="copy-btn" id="btn-copy">Nusxalash</button>
+                <button type="button" class="copy-btn" id="btn-copy">Nusxalash</button>
                 <pre><code id="code-content">&lt;!-- 1. Captcha konteyneri --&gt;
 &lt;div id="botshield-captcha" data-sitekey="bsh_live_SIZNING_SITE_KEY"&gt;&lt;/div&gt;
 
@@ -617,7 +644,7 @@
                     Tokenni Serverda Tekshirib Ko'rish (Simulyator)
                 </button>
             </div>
-            <div id="siteverify-result" style="margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; display: none;"></div>
+            <div id="siteverify-result" class="siteverify-box" role="status" aria-live="polite"></div>
         </div>
     </div>
 
@@ -651,7 +678,7 @@
     <footer>
         <div>BotShield Captcha Engine &copy; 2026 AutoReply AI. Barcha huquqlar himoyalangan.</div>
         <div style="margin-top: 8px; font-size: 13px; color: #64748B;">
-            Admin va Texnik Yordam: <a href="https://t.me/aiko_64" target="_blank" style="color: #7342E2; font-weight: 700; text-decoration: none;">@aiko_64</a>
+            Admin va Texnik Yordam: <a href="https://t.me/aiko_64" target="_blank" rel="noopener noreferrer" style="color: #7342E2; font-weight: 700; text-decoration: none;">@aiko_64</a>
         </div>
     </footer>
 </div>
@@ -665,20 +692,47 @@
     var currentType = "auto";
     var widgetInstance = null;
 
+    function resetTelemetryUI() {
+        currentToken = null;
+        currentScore = null;
+        var statusEl = document.getElementById("tel-status");
+        statusEl.textContent = "Kutilmoqda (Idle)";
+        statusEl.className = "tel-val";
+        document.getElementById("tel-score").textContent = "-";
+        document.getElementById("tel-type").textContent = "-";
+        document.getElementById("tel-token-preview").textContent = "-";
+        document.getElementById("btn-run-siteverify").disabled = true;
+        document.getElementById("siteverify-result").style.display = "none";
+    }
+
     function mountWidget(type) {
         var container = document.getElementById("demo-captcha-container");
-        container.innerHTML = "";
+        if (widgetInstance && typeof widgetInstance.closeModal === "function") {
+            widgetInstance.closeModal();
+        }
+        container.replaceChildren();
         container.removeAttribute("data-sitekey");
         container._botshield = null;
-        
+
+        if (!window.BotShield || typeof window.BotShield.render !== "function") {
+            var errMsg = document.createElement("div");
+            errMsg.style.cssText = "color: #DC2626; font-size: 13px; font-weight: 600;";
+            errMsg.textContent = "BotShield SDK yuklanmadi. Sahifani yangilab ko'ring.";
+            container.appendChild(errMsg);
+            return;
+        }
+
         container.setAttribute("data-sitekey", "demo_key");
         container.setAttribute("data-type", type);
 
-        widgetInstance = BotShield.render(container, {
+        widgetInstance = window.BotShield.render(container, {
             sitekey: "demo_key",
             type: type,
             onSuccess: function (token, score) {
-                console.log("Verified:", token, score);
+                if (token && !currentToken) {
+                    currentToken = token;
+                    currentScore = score;
+                }
             }
         });
     }
@@ -692,77 +746,79 @@
         btn.addEventListener("click", function () {
             typeButtons.forEach(function (b) { b.classList.remove("active"); });
             btn.classList.add("active");
-            currentType = btn.getAttribute("data-type");
+            currentType = btn.getAttribute("data-type") || "auto";
+            resetTelemetryUI();
             mountWidget(currentType);
-            
-            document.getElementById("tel-status").textContent = "Kutilmoqda (Idle)";
-            document.getElementById("tel-status").className = "tel-val";
-            document.getElementById("tel-score").textContent = "-";
-            document.getElementById("tel-type").textContent = "-";
-            document.getElementById("tel-token-preview").textContent = "-";
-            document.getElementById("btn-run-siteverify").disabled = true;
-            document.getElementById("siteverify-result").style.display = "none";
         });
     });
 
     document.getElementById("btn-reset-widget").addEventListener("click", function () {
+        resetTelemetryUI();
         mountWidget(currentType);
-        document.getElementById("tel-status").textContent = "Kutilmoqda (Idle)";
-        document.getElementById("tel-status").className = "tel-val";
-        document.getElementById("tel-score").textContent = "-";
-        document.getElementById("tel-type").textContent = "-";
-        document.getElementById("tel-token-preview").textContent = "-";
-        document.getElementById("btn-run-siteverify").disabled = true;
-        document.getElementById("siteverify-result").style.display = "none";
     });
 
-    // Custom event listener from BotShield SDK
+    // Custom event listener from BotShield SDK (bubbles from widget container)
     document.addEventListener("botshield:success", function (e) {
-        currentToken = e.detail.token;
-        currentScore = e.detail.score;
+        var detail = (e && e.detail) ? e.detail : {};
+        currentToken = detail.token || null;
+        currentScore = detail.score;
 
         var statusEl = document.getElementById("tel-status");
         statusEl.textContent = "Muvaffaqiyatli Tasdiqlandi (Inson)";
         statusEl.className = "tel-val success";
 
-        document.getElementById("tel-score").textContent = e.detail.score + " / 1.00";
-        document.getElementById("tel-type").textContent = e.detail.type.toUpperCase();
-        document.getElementById("tel-token-preview").textContent = currentToken.substring(0, 32) + "...";
+        document.getElementById("tel-score").textContent = (detail.score !== undefined && detail.score !== null) ? (detail.score + " / 1.00") : "-";
+        document.getElementById("tel-type").textContent = detail.type ? String(detail.type).toUpperCase() : "-";
+        document.getElementById("tel-token-preview").textContent = currentToken ? (String(currentToken).substring(0, 32) + "...") : "-";
 
         var simBtn = document.getElementById("btn-run-siteverify");
-        simBtn.disabled = false;
+        simBtn.disabled = !currentToken;
     });
 
     // Run siteverify simulator
     document.getElementById("btn-run-siteverify").addEventListener("click", function () {
         if (!currentToken) return;
 
+        var simBtn = document.getElementById("btn-run-siteverify");
         var resBox = document.getElementById("siteverify-result");
+        simBtn.disabled = true;
         resBox.style.display = "block";
-        resBox.style.color = "#64748B";
+        resBox.style.color = "#475569";
         resBox.textContent = "Serverga so'rov yuborilmoqda (POST /api/v1/captcha/siteverify)...";
 
         fetch("/api/v1/captcha/siteverify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
             body: JSON.stringify({
                 secret: "demo_secret",
                 token: currentToken
             })
         })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            if (data.success) {
+        .then(function (r) {
+            return r.text().then(function (txt) {
+                try {
+                    return { ok: r.ok, status: r.status, data: JSON.parse(txt) };
+                } catch (e) {
+                    return { ok: false, status: r.status, data: { success: false, error: "HTTP " + r.status } };
+                }
+            });
+        })
+        .then(function (res) {
+            var data = res.data;
+            if (res.ok && data && data.success) {
                 resBox.style.color = "#059669";
-                resBox.textContent = "Muvaffaqiyatli: " + JSON.stringify(data, null, 2);
+                resBox.textContent = "Muvaffaqiyatli:\n" + JSON.stringify(data, null, 2);
             } else {
                 resBox.style.color = "#DC2626";
-                resBox.textContent = "Rad etildi: " + JSON.stringify(data, null, 2);
+                resBox.textContent = "Rad etildi:\n" + JSON.stringify(data, null, 2);
             }
+            simBtn.disabled = false;
         })
         .catch(function (err) {
             resBox.style.color = "#DC2626";
-            resBox.textContent = "Xatolik: " + err.message;
+            resBox.textContent = "Xatolik: " + (err && err.message ? err.message : "Tarmoq xatosi");
+            simBtn.disabled = false;
         });
     });
 
@@ -836,16 +892,46 @@ app.post('/register', async (req, res) => {
             tabBtns.forEach(function (b) { b.classList.remove("active"); });
             btn.classList.add("active");
             var tab = btn.getAttribute("data-tab");
-            codeContent.textContent = snippets[tab];
+            if (tab && Object.prototype.hasOwnProperty.call(snippets, tab)) {
+                codeContent.textContent = snippets[tab];
+            }
         });
     });
 
     document.getElementById("btn-copy").addEventListener("click", function () {
-        navigator.clipboard.writeText(codeContent.textContent).then(function () {
-            var btn = document.getElementById("btn-copy");
+        var btn = document.getElementById("btn-copy");
+        var text = codeContent.textContent || "";
+        function markCopied() {
             btn.textContent = "Nusxalandi!";
             setTimeout(function () { btn.textContent = "Nusxalash"; }, 1500);
-        });
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(markCopied).catch(function () {
+                try {
+                    var ta = document.createElement("textarea");
+                    ta.value = text;
+                    ta.style.position = "fixed";
+                    ta.style.opacity = "0";
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    markCopied();
+                } catch (e) {}
+            });
+        } else {
+            try {
+                var ta = document.createElement("textarea");
+                ta.value = text;
+                ta.style.position = "fixed";
+                ta.style.opacity = "0";
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand("copy");
+                document.body.removeChild(ta);
+                markCopied();
+            } catch (e) {}
+        }
     });
 </script>
 

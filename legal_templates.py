@@ -54,6 +54,8 @@ def get_privacy_html():
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
             border-bottom: 1px solid var(--card-border);
             margin-bottom: 36px;
         }
@@ -245,6 +247,17 @@ def get_privacy_html():
             padding: 2px 8px;
             border-radius: 6px;
             margin: 2px 0;
+            max-width: 100%;
+            word-break: break-all;
+            overflow-wrap: anywhere;
+        }
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12.5px;
+            background: rgba(255, 255, 255, 0.07);
+            padding: 1px 6px;
+            border-radius: 5px;
+            color: var(--cyan);
         }
         .footer-nav {
             margin-top: 48px;
@@ -271,6 +284,15 @@ def get_privacy_html():
         .lang-content.active {
             display: block;
         }
+        .lang-btn:focus-visible, a:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }
+        @media (max-width: 600px) {
+            .hero { padding: 24px 18px; }
+            .section-card { padding: 20px 18px; }
+            .limited-use-box, .highlight-box { padding: 16px 18px; }
+        }
     </style>
 </head>
 <body>
@@ -291,10 +313,10 @@ def get_privacy_html():
                 </div>
             </a>
             
-            <div class="lang-switch">
-                <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
-                <button class="lang-btn" data-lang="ru" onclick="setLang('ru')">RU</button>
-                <button class="lang-btn" data-lang="uz" onclick="setLang('uz')">UZ</button>
+            <div class="lang-switch" role="group" aria-label="Language switcher">
+                <button type="button" class="lang-btn active" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
+                <button type="button" class="lang-btn" data-lang="ru" aria-pressed="false" onclick="setLang('ru')">RU</button>
+                <button type="button" class="lang-btn" data-lang="uz" aria-pressed="false" onclick="setLang('uz')">UZ</button>
             </div>
         </header>
 
@@ -335,7 +357,7 @@ def get_privacy_html():
                     Google API Services User Data Policy Compliance
                 </h4>
                 <p>
-                    <strong>Bot Client's (operating as CreatorFlow Studio) use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong>
+                    <strong>Bot Client's (operating as CreatorFlow Studio) use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong>
                 </p>
             </div>
 
@@ -391,13 +413,13 @@ def get_privacy_html():
                 </p>
                 <ul>
                     <li>
-                        <strong>Instant Access Revocation:</strong> You can revoke CreatorFlow Studio's access to your Google Account at any time directly through Google Account Security Settings at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">https://myaccount.google.com/permissions</a>. Once revoked, our application can no longer access your YouTube channel or data.
+                        <strong>Instant Access Revocation:</strong> You can revoke CreatorFlow Studio's access to your Google Account at any time directly through Google Account Security Settings at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">https://myaccount.google.com/permissions</a>. Once revoked, our application can no longer access your YouTube channel or data.
                     </li>
                     <li>
                         <strong>Account & Token Deletion:</strong> You can disconnect your channel inside the dashboard or send the <code>/disconnect</code> command to our bot, which instantly purges all stored OAuth tokens from our database.
                     </li>
                     <li>
-                        <strong>Full Data Erasure Request:</strong> To request complete erasure of all associated data, contact our support team at <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> or via Telegram at <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener" style="color:#00F0FF;">@CreatorFlow_Store</a>. We process all erasure requests within 48 hours.
+                        <strong>Full Data Erasure Request:</strong> To request complete erasure of all associated data, contact our support team at <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> or via Telegram at <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a>. We process all erasure requests within 48 hours.
                     </li>
                 </ul>
             </div>
@@ -416,7 +438,7 @@ def get_privacy_html():
                 </p>
                 <ul>
                     <li><strong>Email:</strong> <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a></li>
-                    <li><strong>Telegram Support:</strong> <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener" style="color:#00F0FF;">@CreatorFlow_Store</a></li>
+                    <li><strong>Telegram Support:</strong> <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a></li>
                     <li><strong>Authorized Web Domain:</strong> https://botclient-d1jn.onrender.com</li>
                 </ul>
             </div>
@@ -451,7 +473,7 @@ def get_privacy_html():
                     Соответствие Политике данных пользователей Google API
                 </h4>
                 <p>
-                    <strong>Использование и передача CreatorFlow Studio любой информации, полученной из API Google, в любое другое приложение соответствуют <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Политике в отношении данных пользователей Google API Services</a>, включая требования ограниченного использования (Limited Use).</strong>
+                    <strong>Использование и передача CreatorFlow Studio любой информации, полученной из API Google, в любое другое приложение соответствуют <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Политике в отношении данных пользователей Google API Services</a>, включая требования ограниченного использования (Limited Use).</strong>
                 </p>
             </div>
 
@@ -499,10 +521,10 @@ def get_privacy_html():
                 <h2>4. Отзыв доступа и удаление данных</h2>
                 <ul>
                     <li>
-                        <strong>Отзыв доступа Google:</strong> Вы можете отозвать доступ CreatorFlow Studio в любой момент на странице безопасности Google: <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">https://myaccount.google.com/permissions</a>.
+                        <strong>Отзыв доступа Google:</strong> Вы можете отозвать доступ CreatorFlow Studio в любой момент на странице безопасности Google: <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">https://myaccount.google.com/permissions</a>.
                     </li>
                     <li>
-                        <strong>Полное удаление:</strong> Отправьте запрос на удаление на <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> или в Telegram <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener" style="color:#00F0FF;">@CreatorFlow_Store</a>. Данные удаляются в течение 48 часов.
+                        <strong>Полное удаление:</strong> Отправьте запрос на удаление на <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> или в Telegram <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a>. Данные удаляются в течение 48 часов.
                     </li>
                 </ul>
             </div>
@@ -511,8 +533,8 @@ def get_privacy_html():
                 <h2>5. Контакты службы поддержки</h2>
                 <p>По любым вопросам конфиденциальности обращайтесь к нам:</p>
                 <ul>
-                    <li><strong>Email:</strong> support@creatorflow.app</li>
-                    <li><strong>Telegram:</strong> @CreatorFlow_Store</li>
+                    <li><strong>Email:</strong> <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a></li>
+                    <li><strong>Telegram:</strong> <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a></li>
                     <li><strong>Сайт:</strong> https://botclient-d1jn.onrender.com</li>
                 </ul>
             </div>
@@ -547,7 +569,7 @@ def get_privacy_html():
                     Google API Services Foydalanuvchi Ma'lumotlari Siyosatiga Muvofiqlik
                 </h4>
                 <p>
-                    <strong>CreatorFlow Studio ilovasining Google API orqali olingan har qanday axborotdan foydalanishi va uni boshqa ilovalarga uzatishi <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google API Services User Data Policy</a>, jumladan Cheklangan Foydalanish (Limited Use) talablariga qat'iy javob beradi.</strong>
+                    <strong>CreatorFlow Studio ilovasining Google API orqali olingan har qanday axborotdan foydalanishi va uni boshqa ilovalarga uzatishi <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Google API Services User Data Policy</a>, jumladan Cheklangan Foydalanish (Limited Use) talablariga qat'iy javob beradi.</strong>
                 </p>
             </div>
 
@@ -595,10 +617,10 @@ def get_privacy_html():
                 <h2>4. Ruxsatni Bekor Qilish va Ma'lumotlarni O'chirish</h2>
                 <ul>
                     <li>
-                        <strong>Google orqali bekor qilish:</strong> Istalgan vaqtda Google Xavfsizlik sahifasi orqali ilovaga berilgan ruxsatni bekor qilishingiz mumkin: <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">https://myaccount.google.com/permissions</a>.
+                        <strong>Google orqali bekor qilish:</strong> Istalgan vaqtda Google Xavfsizlik sahifasi orqali ilovaga berilgan ruxsatni bekor qilishingiz mumkin: <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">https://myaccount.google.com/permissions</a>.
                     </li>
                     <li>
-                        <strong>To'liq o'chirish talabi:</strong> Ma'lumotlaringizni to'liq o'chirish uchun <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> manziliga yoki Telegramdagi <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener" style="color:#00F0FF;">@CreatorFlow_Store</a> qo'llab-quvvatlash xizmatiga murojaat qiling.
+                        <strong>To'liq o'chirish talabi:</strong> Ma'lumotlaringizni to'liq o'chirish uchun <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> manziliga yoki Telegramdagi <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a> qo'llab-quvvatlash xizmatiga murojaat qiling.
                     </li>
                 </ul>
             </div>
@@ -606,8 +628,8 @@ def get_privacy_html():
             <div class="section-card">
                 <h2>5. Bog'lanish Ma'lumotlari</h2>
                 <ul>
-                    <li><strong>Elektron pochta:</strong> support@creatorflow.app</li>
-                    <li><strong>Telegram Support:</strong> @CreatorFlow_Store</li>
+                    <li><strong>Elektron pochta:</strong> <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a></li>
+                    <li><strong>Telegram Support:</strong> <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a></li>
                     <li><strong>Rasmiy Domen:</strong> https://botclient-d1jn.onrender.com</li>
                 </ul>
             </div>
@@ -621,34 +643,36 @@ def get_privacy_html():
             <div style="display:flex;gap:18px;">
                 <a href="/">Home</a>
                 <a href="/terms">Terms of Service</a>
-                <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Permissions</a>
+                <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">Google Permissions</a>
             </div>
         </div>
     </div>
 
     <script>
         function setLang(lang) {
+            const safeLang = ['en', 'ru', 'uz'].includes(lang) ? lang : 'en';
+            document.documentElement.lang = safeLang;
             try {
-                localStorage.setItem('cf_lang', lang);
+                localStorage.setItem('cf_lang', safeLang);
             } catch(e) {}
             document.querySelectorAll('.lang-btn').forEach(btn => {
-                if (btn.getAttribute('data-lang') === lang) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
+                const isActive = btn.getAttribute('data-lang') === safeLang;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
             document.querySelectorAll('.lang-content').forEach(c => {
                 c.classList.remove('active');
             });
-            const target = document.getElementById('content-' + lang);
+            const target = document.getElementById('content-' + safeLang);
             if (target) {
                 target.classList.add('active');
             }
+            const label = safeLang === 'uz' ? 'Maxfiylik Siyosati' : (safeLang === 'ru' ? 'Политика конфиденциальности' : 'Privacy Policy');
             const bc = document.getElementById('bc-title');
             if (bc) {
-                bc.innerText = lang === 'uz' ? 'Maxfiylik Siyosati' : (lang === 'ru' ? 'Политика конфиденциальности' : 'Privacy Policy');
+                bc.innerText = label;
             }
+            document.title = label + ' | Bot Client';
         }
 
         // Initialize from URL param, localStorage, or default to EN
@@ -716,6 +740,8 @@ def get_terms_html():
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
             border-bottom: 1px solid var(--card-border);
             margin-bottom: 36px;
         }
@@ -911,6 +937,15 @@ def get_terms_html():
         .lang-content.active {
             display: block;
         }
+        .lang-btn:focus-visible, a:focus-visible {
+            outline: 2px solid var(--cyan);
+            outline-offset: 2px;
+        }
+        @media (max-width: 600px) {
+            .hero { padding: 24px 18px; }
+            .section-card { padding: 20px 18px; }
+            .limited-use-box, .highlight-box { padding: 16px 18px; }
+        }
     </style>
 </head>
 <body>
@@ -931,10 +966,10 @@ def get_terms_html():
                 </div>
             </a>
             
-            <div class="lang-switch">
-                <button class="lang-btn active" data-lang="en" onclick="setLang('en')">EN</button>
-                <button class="lang-btn" data-lang="ru" onclick="setLang('ru')">RU</button>
-                <button class="lang-btn" data-lang="uz" onclick="setLang('uz')">UZ</button>
+            <div class="lang-switch" role="group" aria-label="Language switcher">
+                <button type="button" class="lang-btn active" data-lang="en" aria-pressed="true" onclick="setLang('en')">EN</button>
+                <button type="button" class="lang-btn" data-lang="ru" aria-pressed="false" onclick="setLang('ru')">RU</button>
+                <button type="button" class="lang-btn" data-lang="uz" aria-pressed="false" onclick="setLang('uz')">UZ</button>
             </div>
         </header>
 
@@ -963,7 +998,7 @@ def get_terms_html():
             <div class="highlight-box">
                 <h4>YouTube API Services Terms of Service Agreement</h4>
                 <p>
-                    Bot Client (CreatorFlow Studio) utilizes YouTube API Services to provide analytics and automation tools. By utilizing YouTube features within Bot Client, users agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">YouTube Terms of Service</a> and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google Privacy Policy</a>.
+                    Bot Client (CreatorFlow Studio) utilizes YouTube API Services to provide analytics and automation tools. By utilizing YouTube features within Bot Client, users agree to be bound by the <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">YouTube Terms of Service</a> and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Google Privacy Policy</a>.
                 </p>
             </div>
 
@@ -1026,7 +1061,7 @@ def get_terms_html():
                 </p>
                 <ul>
                     <li><strong>Email:</strong> <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a></li>
-                    <li><strong>Telegram Support:</strong> <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener" style="color:#00F0FF;">@CreatorFlow_Store</a></li>
+                    <li><strong>Telegram Support:</strong> <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a></li>
                 </ul>
             </div>
         </div>
@@ -1048,7 +1083,7 @@ def get_terms_html():
             <div class="highlight-box">
                 <h4>Согласие с Условиями использования YouTube API</h4>
                 <p>
-                    CreatorFlow Studio использует сервисы YouTube API. Используя функции YouTube в CreatorFlow Studio, вы соглашаетесь соблюдать <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Условия использования YouTube</a> и <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Политику конфиденциальности Google</a>.
+                    CreatorFlow Studio использует сервисы YouTube API. Используя функции YouTube в CreatorFlow Studio, вы соглашаетесь соблюдать <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Условия использования YouTube</a> и <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Политику конфиденциальности Google</a>.
                 </p>
             </div>
 
@@ -1077,7 +1112,7 @@ def get_terms_html():
             <div class="section-card">
                 <h2>4. Контактные данные</h2>
                 <p>
-                    По любым вопросам пишите нам на <strong>support@creatorflow.app</strong> или в Telegram <strong>@CreatorFlow_Store</strong>.
+                    По любым вопросам пишите нам на <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> или в Telegram <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a>.
                 </p>
             </div>
         </div>
@@ -1099,7 +1134,7 @@ def get_terms_html():
             <div class="highlight-box">
                 <h4>YouTube API Foydalanish Shartlari bilan Rozilik</h4>
                 <p>
-                    CreatorFlow Studio YouTube API xizmatlaridan foydalanadi. Ilovamizdagi YouTube funksiyalaridan foydalanish orqali siz <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">YouTube Foydalanish Shartlari</a> va <a href="https://policies.google.com/privacy" target="_blank" rel="noopener" style="color:#00F0FF;text-decoration:underline;">Google Maxfiylik Siyosati</a> ga rozilik bildirasiz.
+                    CreatorFlow Studio YouTube API xizmatlaridan foydalanadi. Ilovamizdagi YouTube funksiyalaridan foydalanish orqali siz <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">YouTube Foydalanish Shartlari</a> va <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;text-decoration:underline;">Google Maxfiylik Siyosati</a> ga rozilik bildirasiz.
                 </p>
             </div>
 
@@ -1128,7 +1163,7 @@ def get_terms_html():
             <div class="section-card">
                 <h2>4. Bog'lanish</h2>
                 <p>
-                    Savollar bo'yicha biz bilan bog'laning: <strong>support@creatorflow.app</strong> yoki Telegram: <strong>@CreatorFlow_Store</strong>.
+                    Savollar bo'yicha biz bilan bog'laning: <a href="mailto:support@creatorflow.app" style="color:#00F0FF;">support@creatorflow.app</a> yoki Telegram: <a href="https://t.me/CreatorFlow_Store" target="_blank" rel="noopener noreferrer" style="color:#00F0FF;">@CreatorFlow_Store</a>.
                 </p>
             </div>
         </div>
@@ -1141,34 +1176,36 @@ def get_terms_html():
             <div style="display:flex;gap:18px;">
                 <a href="/">Home</a>
                 <a href="/privacy">Privacy Policy</a>
-                <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms</a>
+                <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms</a>
             </div>
         </div>
     </div>
 
     <script>
         function setLang(lang) {
+            const safeLang = ['en', 'ru', 'uz'].includes(lang) ? lang : 'en';
+            document.documentElement.lang = safeLang;
             try {
-                localStorage.setItem('cf_lang', lang);
+                localStorage.setItem('cf_lang', safeLang);
             } catch(e) {}
             document.querySelectorAll('.lang-btn').forEach(btn => {
-                if (btn.getAttribute('data-lang') === lang) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
+                const isActive = btn.getAttribute('data-lang') === safeLang;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
             document.querySelectorAll('.lang-content').forEach(c => {
                 c.classList.remove('active');
             });
-            const target = document.getElementById('content-' + lang);
+            const target = document.getElementById('content-' + safeLang);
             if (target) {
                 target.classList.add('active');
             }
+            const label = safeLang === 'uz' ? 'Foydalanish Shartlari' : (safeLang === 'ru' ? 'Условия использования' : 'Terms of Service');
             const bc = document.getElementById('bc-title');
             if (bc) {
-                bc.innerText = lang === 'uz' ? 'Foydalanish Shartlari' : (lang === 'ru' ? 'Условия использования' : 'Terms of Service');
+                bc.innerText = label;
             }
+            document.title = label + ' | Bot Client';
         }
 
         (function() {
