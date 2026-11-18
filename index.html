@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bot Client | CreatorFlow Studio</title>
     <meta name="description" content="Bot Client (CreatorFlow Studio) - Premium creative suite, Telegram Stars mystery cases, and automated YouTube channel analytics studio.">
     <meta name="google-site-verification" content="EW0VY9fhYQ7yzwrd8oqani_iNoDbRELBOsbpy4c2xUU">
@@ -553,6 +553,51 @@
         .prize-bounce {
             animation: bounceIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+
+        /* Loading spinner utility classes */
+        .spin, .spin-animate {
+            animation: spinnerRotate 0.9s linear infinite;
+        }
+
+        /* Accessible keyboard focus indicators */
+        .tactile-btn:focus-visible,
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 2px solid #7342E2 !important;
+            outline-offset: 2px !important;
+        }
+
+        /* Responsive Upgrader wheel & header nav on narrow mobile viewports */
+        @media (max-width: 768px) {
+            .header-nav-links {
+                display: none !important;
+            }
+        }
+        @media (max-width: 390px) {
+            .upgrader-wheel-shell {
+                transform: scale(0.86);
+                transform-origin: center center;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .animate-marquee,
+            .ticker-track,
+            .shimmer-btn::after,
+            .neon-card,
+            .hero-anim-0,
+            .hero-anim-1,
+            .hero-anim-2 {
+                animation: none !important;
+                opacity: 1 !important;
+            }
+            html {
+                scroll-behavior: auto;
+            }
+        }
     </style>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="alternate icon" href="/favicon.ico">
@@ -1053,13 +1098,16 @@
                 (imageUrl && String(imageUrl).includes("TG_PREMIUM"))
             );
 
+            const safeFileId = fileId ? encodeURIComponent(String(fileId)) : "";
+            const safeSlug = slug ? encodeURIComponent(String(slug)) : "";
+
             // 1. Official Telegram Animated Sticker (/api/telegram-file/{file_id})
-            if (fileId && !isPremiumItem && !fileError) {
-                const src = `/api/telegram-file/${fileId}`;
+            if (safeFileId && !isPremiumItem && !fileError) {
+                const src = `/api/telegram-file/${safeFileId}`;
 
                 if (fileType === "video" || (typeof fileId === 'string' && fileId.endsWith('.webm'))) {
                     // Sayt qotishini yo'qotish uchun autoPlay video o'rniga 1 ta statik yuqori sifatli WebP kadr (Zero GPU lag)
-                    const posterSrc = imageUrl || (slug ? `/api/nft/image/${slug}.webp` : src);
+                    const posterSrc = imageUrl || (safeSlug ? `/api/nft/image/${safeSlug}.webp` : src);
                     return (
                         <img 
                             src={posterSrc} 
@@ -1068,8 +1116,9 @@
                             decoding="async" 
                             style={mergedStyle} 
                             onError={(e) => {
-                                if (imageUrl && e.target.src !== imageUrl) {
-                                    e.target.src = imageUrl;
+                                if (imageUrl && !e.currentTarget.dataset.fallbackApplied) {
+                                    e.currentTarget.dataset.fallbackApplied = "1";
+                                    e.currentTarget.src = imageUrl;
                                 } else {
                                     setFileError(true);
                                 }
@@ -1103,7 +1152,7 @@
             }
 
             // 2. Live 60fps Lottie Vector Animation for Fragment Collectibles & Standard Gifts with slug
-            if (slug && !isPremiumItem && (!hoverOnly || isHovered) && !slugError) {
+            if (safeSlug && !isPremiumItem && (!hoverOnly || isHovered) && !slugError) {
                 return (
                     <div style={{ position: "relative", width: sz, height: sz, margin: "0 auto" }}>
                         <lottie-player 
@@ -1114,7 +1163,7 @@
                                     el.addEventListener('error', () => setSlugError(true));
                                 }
                             }}
-                            src={`/api/nft/animation/${slug}`} 
+                            src={`/api/nft/animation/${safeSlug}`} 
                             background="transparent" 
                             speed="1" 
                             loop 
@@ -1132,7 +1181,7 @@
 
             // 3. Direct Video URL (Zero GPU lag: statik 1-frame WebP image)
             if (videoUrl && !isPremiumItem && !hasError) {
-                const poster = imageUrl || (slug ? `/api/nft/image/${slug}.webp` : "/api/nft/image/gift_star.webp");
+                const poster = imageUrl || (safeSlug ? `/api/nft/image/${safeSlug}.webp` : "/api/nft/image/gift_star.webp");
                 return (
                     <img 
                         src={poster} 
@@ -1155,6 +1204,8 @@
                         decoding="async" 
                         style={mergedStyle} 
                         onError={(e) => {
+                            if (e.currentTarget.dataset.fallbackApplied) return;
+                            e.currentTarget.dataset.fallbackApplied = "1";
                             const key = `${icon || ""} ${name || ""} package`.toLowerCase();
                             let fallbackSrc = FRAGMENT_FALLBACK_IMAGES.package;
                             for (const [k, url] of Object.entries(FRAGMENT_FALLBACK_IMAGES)) {
@@ -1163,9 +1214,7 @@
                                     break;
                                 }
                             }
-                            if (e.currentTarget.src !== fallbackSrc) {
-                                e.currentTarget.src = fallbackSrc;
-                            }
+                            e.currentTarget.src = fallbackSrc;
                         }}
                     />
                 );
@@ -1245,7 +1294,7 @@
                 syncing: "Sinxronlanmoqda...",
                 activeUploads: "Faol yuklanganlar",
                 recentVideos: "Oxirgi Yuklangan Videolar & Ko'rishlar",
-                noVideosNotice: "{t('uploadVideoHint')}.",
+                noVideosNotice: "Videolar topilmadi. Telegram bot orqali video yuklang yoki kanalingizni ulang.",
                 searchTitle: "YouTube Video Qidiruv & Yuklab Olish",
                 searchSubtitle: "Istalgan mavzudagi videolarni qidiring va eng yuqori sifatda (1080p, 720p, audio) yuklab oling",
                 searchPlaceholder: "Video qidirish yoki YouTube linki...",
@@ -1256,6 +1305,7 @@
                 selectQuality: "Formatni Tanlang",
                 enterSearchQuery: "Video qidirish uchun so'rov kiriting",
                 guestCreator: "Mehmon Muallif",
+                signIn: "Kirish",
                 logout: "Chiqish",
                 loginModalTitle: "Telegram Hisobini Sinxronlash",
                 loginModalDesc: "Botdagi hisobingiz, ulangan YouTube kanallaringiz va Stars balansini sinxronlash uchun Telegram User ID raqamingizni kiriting.",
@@ -1268,7 +1318,6 @@
                 subsText: "obunachi",
                 currency: "so'm",
                 refresh: "Yangilash",
-                activeUploads: "Faol yuklanganlar",
                 audienceReach: "Auditoriya qamrovi",
                 regularSubs: "Doimiy obunachi",
                 syncedChannels: "Sinxronlangan kanallar",
@@ -1276,8 +1325,8 @@
                 thViews: "Ko'rishlar",
                 thLikes: "Layklar",
                 thDate: "Sana",
-                noRecentVideos: "{t('noRecentVideos')}",
-                uploadVideoHint: "{t('uploadVideoHint')}"
+                noRecentVideos: "Hozircha tahlil qilingan videolar mavjud emas",
+                uploadVideoHint: "Telegram bot orqali video yuklang yoki kanalingizni ulang"
             },
             ru: {
                 brand: "Bot Client",
@@ -1339,6 +1388,7 @@
                 selectQuality: "Выберите формат",
                 enterSearchQuery: "Введите поисковый запрос для поиска видео YouTube",
                 guestCreator: "Гостевой автор",
+                signIn: "Войти",
                 logout: "Выйти",
                 loginModalTitle: "Синхронизация аккаунта Telegram",
                 loginModalDesc: "Введите свой Telegram User ID для синхронизации подключенных каналов YouTube и баланса Stars.",
@@ -1351,7 +1401,6 @@
                 subsText: "подписчиков",
                 currency: "сум",
                 refresh: "Обновить",
-                activeUploads: "Активные загрузки",
                 audienceReach: "Охват аудитории",
                 regularSubs: "Постоянные подписчики",
                 syncedChannels: "Синхронизированные каналы",
@@ -1422,6 +1471,7 @@
                 selectQuality: "Select Quality",
                 enterSearchQuery: "Enter a search query to find YouTube videos",
                 guestCreator: "Guest Creator",
+                signIn: "Sign In",
                 logout: "Sign Out",
                 loginModalTitle: "Sync Telegram Account",
                 loginModalDesc: "Enter your Telegram User ID to synchronize connected YouTube channels and Stars balance.",
@@ -1434,7 +1484,6 @@
                 subsText: "subscribers",
                 currency: "UZS",
                 refresh: "Refresh",
-                activeUploads: "Active Uploads",
                 audienceReach: "Audience Reach",
                 regularSubs: "Active Subscribers",
                 syncedChannels: "Synchronized Channels",
@@ -1505,6 +1554,7 @@
                 selectQuality: "Seleccionar calidad",
                 enterSearchQuery: "Ingrese una consulta para buscar videos de YouTube",
                 guestCreator: "Creador invitado",
+                signIn: "Iniciar sesión",
                 logout: "Cerrar sesión",
                 loginModalTitle: "Sincronizar cuenta de Telegram",
                 loginModalDesc: "Ingrese su Telegram User ID para sincronizar sus canales de YouTube conectados y saldo de Stars.",
@@ -1517,7 +1567,6 @@
                 subsText: "suscriptores",
                 currency: "UZS",
                 refresh: "Actualizar",
-                activeUploads: "Subidas Activas",
                 audienceReach: "Alcance de Audiencia",
                 regularSubs: "Suscriptores Activos",
                 syncedChannels: "Canales Sincronizados",
@@ -1588,6 +1637,7 @@
                 selectQuality: "Kalite Seçin",
                 enterSearchQuery: "YouTube videolarını aramak için bir sorgu girin",
                 guestCreator: "Misafir Üretici",
+                signIn: "Giriş Yap",
                 logout: "Çıkış Yap",
                 loginModalTitle: "Telegram Hesabını Senkronize Et",
                 loginModalDesc: "Bağlı YouTube kanallarınızı ve Stars bakiyenizi senkronize etmek için Telegram Kullanıcı ID'nizi girin.",
@@ -1600,7 +1650,6 @@
                 subsText: "abone",
                 currency: "UZS",
                 refresh: "Yenile",
-                activeUploads: "Aktif Yüklemeler",
                 audienceReach: "Kitle Erişimi",
                 regularSubs: "Aktif Aboneler",
                 syncedChannels: "Senkronize Kanallar",
@@ -1639,6 +1688,9 @@
                 <div ref={dropdownRef} style={{ position: "relative", display: "inline-block" }}>
                     <button
                         type="button"
+                        aria-label="Select language"
+                        aria-haspopup="listbox"
+                        aria-expanded={open}
                         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
                         style={{
                             display: "inline-flex",
@@ -1717,12 +1769,11 @@
             );
         };
 
-        // Centralized Authentication Header Injector (Anti-IDOR + Standalone Web Support)
-        const getAuthHeaders = (extraHeaders = {}) => {
-            const headers = {
-                'Content-Type': 'application/json',
-                ...extraHeaders
-            };
+        // Centralized Authentication Header Injector (Anti-IDOR + Standalone Web & Telegram WebApp Support)
+        const getAuthHeaders = (extraHeaders = {}, includeContentType = true) => {
+            const headers = includeContentType
+                ? { 'Content-Type': 'application/json', ...extraHeaders }
+                : { ...extraHeaders };
             try {
                 const token = localStorage.getItem('creatorflow_auth_token');
                 if (token) {
@@ -1735,6 +1786,36 @@
                 }
             } catch(e) {}
             return headers;
+        };
+
+        // Secure cookie helper: clears legacy non-HttpOnly cookies with Secure flag when on HTTPS
+        const clearClientCookie = (name) => {
+            try {
+                const isHttps = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+                document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+                if (isHttps) {
+                    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+                }
+            } catch(e) {}
+        };
+
+        // Safe external URL opener: validates https: protocol and enforces noopener,noreferrer
+        const safeOpenExternal = (rawUrl) => {
+            if (!rawUrl || typeof rawUrl !== 'string') return false;
+            try {
+                const parsed = new URL(rawUrl, window.location.origin);
+                if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false;
+                if (parsed.protocol === 'http:' && window.location.protocol === 'https:') return false;
+                window.open(parsed.href, '_blank', 'noopener,noreferrer');
+                return true;
+            } catch(e) {
+                return false;
+            }
+        };
+
+        // Strict YouTube Video ID sanitizer for embed iframes and API query params
+        const sanitizeYoutubeId = (rawId) => {
+            return String(rawId || '').replace(/[^A-Za-z0-9_-]/g, '');
         };
 
         // Master 3D Tactile Mechanical Action Button with State Morphing (Rule 2 & Rule 3 Compliant)
@@ -1982,9 +2063,13 @@
             return (
                 <div
                     key={dIdx}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${drop.name} (${(Number(drop.stars) || 0).toLocaleString()} Stars)`}
                     className="drop-mini-badge"
-                    title={`${drop.name} (${Number(drop.stars).toLocaleString()} Stars)`}
+                    title={`${drop.name} (${(Number(drop.stars) || 0).toLocaleString()} Stars)`}
                     onClick={onClick}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (onClick) onClick(e); } }}
                     style={{
                         position: "relative",
                         width: "66px",
@@ -2094,7 +2179,7 @@
                             </div>
                         </div>
                     </div>
-                    <span style={{ fontSize: "14px", fontWeight: 800, color: "#eab308" }}>{drop.stars.toLocaleString()} Stars</span>
+                    <span style={{ fontSize: "14px", fontWeight: 800, color: "#eab308" }}>{(Number(drop.stars) || 0).toLocaleString()} Stars</span>
                 </div>
             );
         };
@@ -2225,10 +2310,12 @@
             };
 
             // View state: 'login' (Dedicated CreatorFlow Login Gateway) vs 'dashboard' (CreatorFlow Studio)
+            // Require both a saved token and user ID before showing dashboard prior to server verification
             const [view, setView] = useState(() => {
                 try {
                     const uid = parseInt(localStorage.getItem('creatorflow_tg_user_id') || '0');
-                    return uid > 0 ? 'dashboard' : 'login';
+                    const token = localStorage.getItem('creatorflow_auth_token');
+                    return (uid > 0 && token) ? 'dashboard' : 'login';
                 } catch(e) { return 'login'; }
             });
             const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -2244,11 +2331,12 @@
             const [drawerOpen, setDrawerOpen] = useState(false);
             
 
-            // Telegram user context & Reactive Login
+            // Telegram user context & Reactive Login (only hydrate if auth token is also present)
             const [tgUser, setTgUser] = useState(() => {
                 try {
                     const uid = parseInt(localStorage.getItem('creatorflow_tg_user_id') || '0');
-                    if (uid > 0) {
+                    const token = localStorage.getItem('creatorflow_auth_token');
+                    if (uid > 0 && token) {
                         return {
                             id: uid,
                             first_name: localStorage.getItem('creatorflow_user_name') || `Creator #${uid}`,
@@ -2290,6 +2378,7 @@
             const [feedVideos, setFeedVideos] = useState([]);
             const [feedQuery, setFeedQuery] = useState('');
             const [feedLoading, setFeedLoading] = useState(false);
+            const [feedError, setFeedError] = useState('');
             const [selectedFormatsVideo, setSelectedFormatsVideo] = useState(null);
             const [formatsLoading, setFormatsLoading] = useState(false);
             const [downloadingFormat, setDownloadingFormat] = useState(null);
@@ -2354,7 +2443,7 @@
             const [scratchFoilCleared, setScratchFoilCleared] = useState(false);
             const [isScratching, setIsScratching] = useState(false);
             const scratchCanvasRef = useRef(null);
-            const [scratchedSlots, setScratchedSlots] = useState(new Set());
+            const scratchedSlotsRef = useRef(new Set());
             
             // Creator Store Redeem
             const [redeemModal, setRedeemModal] = useState(null);
@@ -2383,6 +2472,7 @@
                         const res = await fetch('/api/stars/marketplace/buy-invoice', {
                             method: 'POST',
                             headers: getAuthHeaders(),
+                            credentials: 'same-origin',
                             body: JSON.stringify({
                                 user_id: tgUser.id,
                                 slug: nft.slug
@@ -2399,7 +2489,9 @@
                                     }
                                 });
                             } else {
-                                window.open(data.invoice_link, '_blank');
+                                if (!safeOpenExternal(data.invoice_link)) {
+                                    alert("To'lov havolasi yaroqsiz.");
+                                }
                             }
                         } else {
                             alert((data && data.error) || "Stars to'lov hisobini yaratib bo'lmadi.");
@@ -2423,6 +2515,7 @@
                     const res = await fetch('/api/stars/marketplace/buy', {
                         method: 'POST',
                         headers: getAuthHeaders(),
+                        credentials: 'same-origin',
                         body: JSON.stringify({
                             user_id: tgUser.id,
                             slug: nft.slug,
@@ -2709,7 +2802,10 @@
             const loadAutoPostTasks = (uid) => {
                 const targetUid = uid || tgUser?.id;
                 if (!targetUid || targetUid <= 0) return;
-                fetch(`/api/autopost-tasks?tg_user_id=${targetUid}`)
+                fetch(`/api/autopost-tasks?tg_user_id=${encodeURIComponent(targetUid)}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
                     .then(r => r.json())
                     .then(d => {
                         if (d && Array.isArray(d.tasks)) {
@@ -2757,6 +2853,7 @@
                     const res = await fetch('/api/autopost-create', {
                         method: 'POST',
                         headers: getAuthHeaders(),
+                        credentials: 'same-origin',
                         body: JSON.stringify(payload)
                     });
                     const data = await res.json();
@@ -2785,6 +2882,7 @@
                 fetch('/api/stars/pvp-battle/create', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ user_id: tgUser.id, user_name: uName, tier_id: tierId })
                 })
                 .then(r => r.json())
@@ -2814,6 +2912,7 @@
                 fetch('/api/stars/pvp-battle/join', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ battle_id: b.id, user_id: tgUser.id, user_name: uName })
                 })
                 .then(r => r.json())
@@ -2857,6 +2956,7 @@
                 fetch('/api/stars/pvp-battle/cancel', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ battle_id: battleId, user_id: tgUser.id })
                 })
                 .then(r => r.json())
@@ -3011,6 +3111,7 @@
                 fetch('/api/stars/upgrader', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     signal: abortController.signal,
                     body: JSON.stringify({
                         user_id: tgUser.id,
@@ -3078,6 +3179,7 @@
                 fetch('/api/stars/withdraw-gift', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         user_id: tgUser.id,
                         record_id: gift.id
@@ -3112,6 +3214,7 @@
                 fetch('/api/stars/recycle-gift', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         user_id: tgUser.id,
                         record_id: gift.id,
@@ -3147,20 +3250,29 @@
             };
 
             // Daily Streak
-            const fetchDailyStreak = () => {
-                fetch(`/api/stars/daily-streak?user_id=${tgUser.id || 0}`)
+            const fetchDailyStreak = (uidOverride) => {
+                const targetUid = uidOverride !== undefined ? uidOverride : (tgUser.id || 0);
+                fetch(`/api/stars/daily-streak?user_id=${encodeURIComponent(targetUid)}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
                     .then(r => r.json())
                     .then(data => {
-                        if (data.ok) setStreakData(data);
+                        if (data && data.ok) setStreakData(data);
                     })
                     .catch(() => {});
             };
 
             const handleClaimStreak = () => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
                 fetch('/api/stars/daily-streak/claim', {
                     method: 'POST',
                     headers: getAuthHeaders(),
-                    body: JSON.stringify({ user_id: tgUser.id || 0 })
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ user_id: tgUser.id })
                 })
                 .then(r => r.json())
                 .then(res => {
@@ -3180,7 +3292,7 @@
             // Scratch Card (UI ni pul yechmasdan chipta tayyorlash va faqat o'ynaganda API chaqirish)
             const setupScratchCardUI = () => {
                 setScratchFoilCleared(false);
-                scratchedSlots.clear();
+                scratchedSlotsRef.current.clear();
                 setScratchData({
                     won: false,
                     slots: [
@@ -3203,14 +3315,15 @@
             const playScratchCard = () => {
                 const uid = tgUser?.id || 0;
                 if (!uid) {
-                    alert("Iltimos, avval Telegram orqali kiring!");
+                    setShowLoginModal(true);
                     return;
                 }
                 setScratchFoilCleared(false);
-                scratchedSlots.clear();
+                scratchedSlotsRef.current.clear();
                 fetch('/api/stars/scratch-card/play', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ user_id: uid, tg_user_id: uid })
                 })
                 .then(r => r.json())
@@ -3218,7 +3331,7 @@
                     if (data && data.ok) {
                         setScratchData(data);
                         if (typeof data.new_balance === 'number') {
-                            setTgUser(prev => ({ ...prev, balance_uzs: data.new_balance }));
+                            setUserStats(prev => ({ ...prev, balance_uzs: data.new_balance }));
                         }
                         setTimeout(drawScratchCanvas, 80);
                     } else {
@@ -3229,6 +3342,7 @@
                     }
                 })
                 .catch(() => {
+                    alert("Server bilan aloqa uzildi. Qaytadan urinib ko'ring.");
                     setupScratchCardUI();
                 });
             };
@@ -3273,11 +3387,15 @@
                 if (!canvas) return;
                 const ctx = canvas.getContext('2d');
                 const rect = canvas.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-                if (!clientX || !clientY) return;
-                const x = clientX - rect.left;
-                const y = clientY - rect.top;
+                if (!rect.width || !rect.height) return;
+                const touch = e.touches && e.touches[0];
+                const clientX = touch ? touch.clientX : e.clientX;
+                const clientY = touch ? touch.clientY : e.clientY;
+                if (clientX == null || clientY == null) return;
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (clientX - rect.left) * scaleX;
+                const y = (clientY - rect.top) * scaleY;
 
                 ctx.globalCompositeOperation = 'destination-out';
                 ctx.beginPath();
@@ -3293,9 +3411,9 @@
                 else if (x >= 215 && x <= 310) slotIdx = 2;
 
                 if (slotIdx >= 0) {
-                    scratchedSlots.add(slotIdx);
+                    scratchedSlotsRef.current.add(slotIdx);
                     // 3 ta katak ham tirnalganda avtomatik to'liq ochiladi
-                    if (scratchedSlots.size >= 3) {
+                    if (scratchedSlotsRef.current.size >= 3) {
                         setTimeout(clearScratchFoil, 250);
                     }
                 }
@@ -3322,6 +3440,7 @@
                 fetch('/api/stars/redeem-service', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ user_id: tgUser.id, service_id: serviceId })
                 })
                 .then(r => r.json())
@@ -3354,6 +3473,7 @@
                 fetch('/api/auth/request-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ tg_user_id: num })
                 })
                 .then(r => r.json())
@@ -3386,6 +3506,7 @@
                 fetch('/api/auth/verify-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         tg_user_id: num,
                         otp: code,
@@ -3398,10 +3519,7 @@
                     if (d.ok) {
                         localStorage.setItem('creatorflow_auth_token', d.token);
                         localStorage.setItem('creatorflow_tg_user_id', num);
-                        if (d.admin_token) {
-                            localStorage.setItem('creatorflow_admin_sig', d.admin_token);
-                            document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
-                        }
+                        localStorage.removeItem('creatorflow_admin_sig');
                         setTgUser(prev => ({
                             ...prev,
                             id: num,
@@ -3416,6 +3534,7 @@
                         loadStudioStats(num);
                         loadChannels(num);
                         loadUserStats(num, true);
+                        fetchDailyStreak(num);
                     } else {
                         setAuthError(d.error || "Kod noto'g'ri yoki muddati o'tgan!");
                     }
@@ -3426,25 +3545,42 @@
                 });
             };
 
-            const handleLogout = () => {
-                const token = localStorage.getItem('creatorflow_auth_token');
-                localStorage.removeItem('creatorflow_auth_token');
-                localStorage.removeItem('creatorflow_tg_user_id');
-                localStorage.removeItem('creatorflow_admin_sig');
-                document.cookie = "cf_adm_sig=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-                document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-                document.cookie = "cf_auth_owner=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-                document.cookie = "cf_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-                fetch('/api/admin/logout', { method: 'POST' }).catch(() => {});
-                if (token) {
-                    fetch('/api/auth/logout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ token: token })
-                    }).catch(() => {});
-                }
+            const clearAuthSession = () => {
+                try {
+                    localStorage.removeItem('creatorflow_auth_token');
+                    localStorage.removeItem('creatorflow_tg_user_id');
+                    localStorage.removeItem('creatorflow_user_name');
+                    localStorage.removeItem('creatorflow_admin_sig');
+                } catch(e) {}
+                clearClientCookie('cf_adm_sig');
+                clearClientCookie('admin_key');
+                clearClientCookie('cf_auth_owner');
+                clearClientCookie('cf_auth_token');
                 setTgUser({ id: 0, first_name: "Guest Creator", username: "", photo_url: null, is_vip: false, is_owner: false });
                 setUserStats({ balance_uzs: 0, ton_balance: 0, is_vip: false, is_owner: false });
+                setStudioStats({ total_videos: 0, total_views: 0, total_subscribers: 0, recent_videos: [] });
+                setChannels([]);
+                setSelectedChannelId(null);
+                setUserGifts([]);
+                setAutoPostTasks([]);
+                setStreakData(null);
+            };
+
+            const handleLogout = () => {
+                const token = localStorage.getItem('creatorflow_auth_token');
+                const logoutHeaders = getAuthHeaders();
+                clearAuthSession();
+                fetch('/api/admin/logout', {
+                    method: 'POST',
+                    headers: logoutHeaders,
+                    credentials: 'same-origin'
+                }).catch(() => {});
+                fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: logoutHeaders,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ token: token || '' })
+                }).catch(() => {});
                 setOtpStep(1);
                 setOtpInput('');
                 setAuthError('');
@@ -3455,7 +3591,10 @@
             const loadUserStats = (uid, forceRefresh = false) => {
                 const targetUid = uid || tgUser.id;
                 if (!targetUid) return;
-                fetch(`/api/bot_user?tg_user_id=${targetUid}${forceRefresh ? '&refresh=1' : ''}`)
+                fetch(`/api/bot_user?tg_user_id=${encodeURIComponent(targetUid)}${forceRefresh ? '&refresh=1' : ''}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
                     .then(r => r.json())
                     .then(d => {
                         if (d && (d.ok || d.balance_uzs !== undefined)) {
@@ -3476,15 +3615,14 @@
                                 is_vip: d.is_vip || false,
                                 is_owner: d.is_owner || false
                             }));
-                            if (d.admin_token) {
-                                localStorage.setItem('creatorflow_admin_sig', d.admin_token);
-                                document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
-                            }
                             if (forceRefresh) {
                                 setSyncSuccessToast(true);
                                 setTimeout(() => setSyncSuccessToast(false), 2500);
                             }
-                            fetch(`/api/stars/user-inventory?user_id=${targetUid}`)
+                            fetch(`/api/stars/user-inventory?user_id=${encodeURIComponent(targetUid)}`, {
+                                headers: getAuthHeaders({}, false),
+                                credentials: 'same-origin'
+                            })
                                 .then(ir => ir.json())
                                 .then(idat => {
                                     if (idat && idat.ok && Array.isArray(idat.gifts)) {
@@ -3501,7 +3639,10 @@
                 if (!targetUid) return;
                 const activeCh = chId || selectedChannelId;
                 const chParam = activeCh ? `&channel_id=${encodeURIComponent(activeCh)}` : '';
-                fetch(`/api/stats?tg_user_id=${targetUid}${chParam}${forceRefresh ? '&refresh=1' : ''}`)
+                fetch(`/api/stats?tg_user_id=${encodeURIComponent(targetUid)}${chParam}${forceRefresh ? '&refresh=1' : ''}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
                     .then(r => r.json())
                     .then(d => {
                         if (d && (d.ok || d.total_videos !== undefined || d.channel_title)) {
@@ -3517,7 +3658,10 @@
             const loadChannels = (uid) => {
                 const targetUid = uid || tgUser.id;
                 if (!targetUid) return;
-                fetch(`/api/channels?tg_user_id=${targetUid}`)
+                fetch(`/api/channels?tg_user_id=${encodeURIComponent(targetUid)}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
                     .then(r => r.json())
                     .then(d => {
                         if (d && d.channels) {
@@ -3538,7 +3682,8 @@
                 if (targetUid) {
                     fetch('/api/channels/select', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getAuthHeaders(),
+                        credentials: 'same-origin',
                         body: JSON.stringify({ tg_user_id: targetUid, channel_id: channelId })
                     }).catch(() => {});
                     loadStudioStats(targetUid, true, channelId);
@@ -3548,59 +3693,116 @@
 
             const searchVideos = (q) => {
                 const query = q !== undefined ? q : feedQuery;
-                if (!query) return;
+                if (!query || !String(query).trim()) return;
                 setFeedLoading(true);
-                fetch(`/api/videos?q=${encodeURIComponent(query)}&type=&maxResults=16`)
-                    .then(r => r.json())
+                setFeedError('');
+                fetch(`/api/videos?q=${encodeURIComponent(query)}&type=&maxResults=16`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        return r.json();
+                    })
                     .then(d => {
                         setFeedVideos(d.videos || []);
+                        if (d.error) setFeedError(d.error);
                         setFeedLoading(false);
                     })
-                    .catch(() => setFeedLoading(false));
+                    .catch(() => {
+                        setFeedError("Videolarni qidirishda xatolik yuz berdi. Qaytadan urinib ko'ring.");
+                        setFeedLoading(false);
+                    });
             };
 
             const loadTrending = (region) => {
                 setFeedLoading(true);
-                fetch(`/api/trending?region=${region}`)
-                    .then(r => r.json())
+                setFeedError('');
+                fetch(`/api/trending?region=${encodeURIComponent(region)}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        return r.json();
+                    })
                     .then(d => {
                         setFeedVideos(d.videos || []);
+                        if (d.error) setFeedError(d.error);
                         setFeedLoading(false);
                     })
-                    .catch(() => setFeedLoading(false));
+                    .catch(() => {
+                        setFeedError("Trend videolarni yuklab bo'lmadi. Qaytadan urinib ko'ring.");
+                        setFeedLoading(false);
+                    });
             };
 
             const openFormatModal = (video) => {
-                const vId = video?.id || (typeof video === 'string' ? video : '');
+                const vId = sanitizeYoutubeId(video?.id || (typeof video === 'string' ? video : ''));
                 const vTitle = video?.title || (typeof video === 'string' ? video : 'YouTube Video');
                 const vObj = typeof video === 'object' && video !== null ? video : { id: vId, title: vTitle };
-                setSelectedFormatsVideo({ id: vId, title: vTitle, video: vObj, formats: [] });
+                setSelectedFormatsVideo({ id: vId, title: vTitle, video: vObj, formats: [], error: '' });
                 setFormatsLoading(true);
-                fetch(`/api/video-formats?video_id=${vId}&tg_user_id=${tgUser?.id || 0}`)
-                    .then(r => r.json())
+                fetch(`/api/video-formats?video_id=${encodeURIComponent(vId)}&tg_user_id=${encodeURIComponent(tgUser?.id || 0)}`, {
+                    headers: getAuthHeaders({}, false),
+                    credentials: 'same-origin'
+                })
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        return r.json();
+                    })
                     .then(d => {
                         const fmts = d?.formats || [];
                         const retTitle = d?.title || vTitle;
-                        setSelectedFormatsVideo({ id: vId, title: retTitle, video: { ...vObj, title: retTitle }, formats: fmts });
+                        setSelectedFormatsVideo({ id: vId, title: retTitle, video: { ...vObj, title: retTitle }, formats: fmts, error: d?.error || '' });
                         setFormatsLoading(false);
                     })
-                    .catch(() => setFormatsLoading(false));
+                    .catch(() => {
+                        setSelectedFormatsVideo(prev => prev ? { ...prev, error: "Formatlarni olishda xatolik yuz berdi." } : null);
+                        setFormatsLoading(false);
+                    });
             };
 
-            const startDownload = (videoId, res) => {
-                const vId = videoId || selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id;
+            const startDownload = async (videoId, res) => {
+                if (!tgUser || !tgUser.id || tgUser.id <= 0) {
+                    setShowLoginModal(true);
+                    return;
+                }
+                const vId = sanitizeYoutubeId(videoId || selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id);
                 if (!vId) return;
+                const safeRes = String(res || '720').trim();
                 setDownloadingFormat(res);
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = `/api/download-file?video_id=${vId}&resolution=${res || '720'}&tg_user_id=${tgUser?.id || 0}`;
-                document.body.appendChild(iframe);
-                setTimeout(() => {
+                const dlUrl = `/api/download-file?video_id=${encodeURIComponent(vId)}&resolution=${encodeURIComponent(safeRes)}&tg_user_id=${encodeURIComponent(tgUser.id)}`;
+                try {
+                    const response = await fetch(dlUrl, {
+                        method: 'GET',
+                        headers: getAuthHeaders({}, false),
+                        credentials: 'same-origin'
+                    });
+                    const contentType = response.headers.get('content-type') || '';
+                    if (!response.ok || contentType.includes('application/json')) {
+                        const errData = await response.json().catch(() => null);
+                        if (response.status === 401 || response.status === 403) {
+                            setShowLoginModal(true);
+                        } else {
+                            alert((errData && errData.error) || "Videoni yuklab olishda xatolik yuz berdi.");
+                        }
+                        return;
+                    }
+                    const blob = await response.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = `video_${vId}.${safeRes === 'mp3' ? 'mp3' : 'mp4'}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                } catch(err) {
+                    alert("Yuklab olishda tarmoq xatoligi yuz berdi.");
+                } finally {
                     setDownloadingFormat(null);
-                }, 3500);
-                setTimeout(() => {
-                    try { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); } catch(e) {}
-                }, 60000);
+                }
             };
 
             useEffect(() => {
@@ -3608,40 +3810,71 @@
             }, [tgUser.photo_url]);
 
             useEffect(() => {
+                // Close active modals/drawer on Escape key
+                const handleKeyDown = (e) => {
+                    if (e.key !== 'Escape') return;
+                    if (previewModalVideo) { setPreviewModalVideo(null); return; }
+                    if (selectedFormatsVideo) { setSelectedFormatsVideo(null); return; }
+                    if (showLoginModal) { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); return; }
+                    if (oddsModalCase) { setOddsModalCase(null); return; }
+                    if (redeemModal) { setRedeemModal(null); return; }
+                    if (streakClaimedModal) { setStreakClaimedModal(null); return; }
+                    if (activeBattle && !isBattleRolling) { setActiveBattle(null); return; }
+                    if (activeUnboxing && !isRolling) { clearReelTimers(); setActiveUnboxing(null); setUnboxingPrize(null); return; }
+                    if (drawerOpen) { setDrawerOpen(false); }
+                };
+                document.addEventListener('keydown', handleKeyDown);
+                return () => document.removeEventListener('keydown', handleKeyDown);
+            }, [previewModalVideo, selectedFormatsVideo, showLoginModal, oddsModalCase, redeemModal, streakClaimedModal, activeBattle, isBattleRolling, activeUnboxing, isRolling, drawerOpen]);
+
+            useEffect(() => {
                 // Initialize Telegram WebApp, 1-Click OTP URL params, or verified session token
                 let initHandled = false;
+                try { localStorage.removeItem('creatorflow_admin_sig'); } catch(e) {}
 
-                // 1. One-click URL params (?tg_user_id=...&otp=...)
+                // 1. One-click URL params (?tg_user_id=...&otp=...) — scrub secret OTP from URL immediately
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
                     const qId = parseInt(urlParams.get('tg_user_id') || urlParams.get('user_id') || '0');
                     const qOtp = urlParams.get('otp');
+                    if (qOtp) {
+                        urlParams.delete('otp');
+                        urlParams.delete('tg_user_id');
+                        urlParams.delete('user_id');
+                        const nextQs = urlParams.toString();
+                        const cleanUrl = window.location.pathname + (nextQs ? `?${nextQs}` : '') + (window.location.hash || '');
+                        if (window.history && typeof window.history.replaceState === 'function') {
+                            window.history.replaceState({}, document.title, cleanUrl);
+                        }
+                    }
                     if (qId > 0 && qOtp) {
                         initHandled = true;
                         fetch('/api/auth/verify-otp', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
                             body: JSON.stringify({ tg_user_id: qId, otp: qOtp, fingerprint: getBrowserFingerprint() })
                         })
                         .then(r => r.json())
                         .then(d => {
-                            if (d.ok) {
+                            if (d.ok && d.token) {
                                 localStorage.setItem('creatorflow_auth_token', d.token);
                                 localStorage.setItem('creatorflow_tg_user_id', qId);
-                                if (d.admin_token) {
-                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
-                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
-                                }
                                 setTgUser(prev => ({ ...prev, id: qId, first_name: `Creator #${qId}`, is_vip: d.is_vip, is_owner: d.is_owner }));
                                 setView('dashboard');
                                 loadStudioStats(qId);
                                 loadChannels(qId);
                                 loadUserStats(qId, true);
+                                fetchDailyStreak(qId);
                             } else {
+                                clearAuthSession();
                                 setView('login');
                             }
                         })
-                        .catch(() => setView('login'));
+                        .catch(() => {
+                            clearAuthSession();
+                            setView('login');
+                        });
                     }
                 } catch(e) {}
 
@@ -3655,18 +3888,15 @@
                         fetch('/api/auth/verify-webapp', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
                             body: JSON.stringify({ initData: tg.initData, fingerprint: getBrowserFingerprint() })
                         })
                         .then(r => r.json())
                         .then(d => {
-                            if (d.ok && d.tg_user_id) {
+                            if (d.ok && d.tg_user_id && d.token) {
                                 const uid = d.tg_user_id;
                                 localStorage.setItem('creatorflow_auth_token', d.token);
                                 localStorage.setItem('creatorflow_tg_user_id', uid);
-                                if (d.admin_token) {
-                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
-                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
-                                }
                                 const u = d.user || {};
                                 setTgUser(prev => ({
                                     ...prev,
@@ -3682,64 +3912,64 @@
                                 loadStudioStats(uid);
                                 loadChannels(uid);
                                 loadUserStats(uid, true);
+                                fetchDailyStreak(uid);
                             } else {
+                                clearAuthSession();
                                 setView('login');
                             }
                         })
-                        .catch(() => setView('login'));
+                        .catch(() => {
+                            clearAuthSession();
+                            setView('login');
+                        });
                     }
                 }
 
-                // 3. Saved localStorage session with token verification (PostgreSQL 7-Day Persistent)
+                // 3. Saved localStorage session with strict server token verification (no client-side auth bypass)
                 if (!initHandled) {
                     const savedToken = localStorage.getItem('creatorflow_auth_token');
                     const savedUid = parseInt(localStorage.getItem('creatorflow_tg_user_id') || '0');
                     if (savedToken && savedUid > 0) {
                         fetch('/api/auth/verify-token', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: getAuthHeaders(),
+                            credentials: 'same-origin',
                             body: JSON.stringify({ token: savedToken, tg_user_id: savedUid, fingerprint: getBrowserFingerprint() })
                         })
-                        .then(r => r.json())
+                        .then(r => {
+                            if (!r.ok) return { ok: false };
+                            return r.json();
+                        })
                         .then(d => {
-                            if (d.ok) {
+                            if (d && d.ok) {
+                                const verifiedUid = Number(d.tg_user_id || savedUid);
                                 if (d.token) localStorage.setItem('creatorflow_auth_token', d.token);
-                                if (d.admin_token) {
-                                    localStorage.setItem('creatorflow_admin_sig', d.admin_token);
-                                    document.cookie = "cf_adm_sig=" + encodeURIComponent(d.admin_token) + "; path=/; max-age=2592000; SameSite=Lax";
-                                }
+                                localStorage.setItem('creatorflow_tg_user_id', verifiedUid);
                                 setView('dashboard');
-                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: (d.user && d.user.first_name) || `Creator #${savedUid}`, is_vip: d.is_vip || false, is_owner: d.is_owner || false }));
-                                loadStudioStats(savedUid);
-                                loadChannels(savedUid);
-                                loadUserStats(savedUid, true);
+                                setTgUser(prev => ({
+                                    ...prev,
+                                    id: verifiedUid,
+                                    first_name: (d.user && d.user.first_name) || `Creator #${verifiedUid}`,
+                                    is_vip: d.is_vip || false,
+                                    is_owner: d.is_owner || false
+                                }));
+                                loadStudioStats(verifiedUid);
+                                loadChannels(verifiedUid);
+                                loadUserStats(verifiedUid, true);
+                                fetchDailyStreak(verifiedUid);
                             } else {
-                                // Do NOT wipe savedUid! Keep session active and load user stats
-                                setView('dashboard');
-                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}` }));
-                                loadStudioStats(savedUid);
-                                loadChannels(savedUid);
-                                loadUserStats(savedUid, true);
+                                clearAuthSession();
+                                setView('login');
                             }
                         })
                         .catch(() => {
-                            if (savedUid > 0) {
-                                setView('dashboard');
-                                setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}` }));
-                                loadStudioStats(savedUid);
-                                loadChannels(savedUid);
-                                loadUserStats(savedUid, true);
-                            } else {
-                                setView('login');
-                            }
+                            clearAuthSession();
+                            setView('login');
                         });
-                    } else if (savedUid > 0) {
-                        setView('dashboard');
-                        setTgUser(prev => ({ ...prev, id: savedUid, first_name: `Creator #${savedUid}` }));
-                        loadStudioStats(savedUid);
-                        loadChannels(savedUid);
-                        loadUserStats(savedUid, true);
                     } else {
+                        if (savedUid > 0 || savedToken) {
+                            clearAuthSession();
+                        }
                         setView('login');
                     }
                 }
@@ -3766,7 +3996,6 @@
 
                 fetchRecentDrops();
                 fetchBattles();
-                fetchDailyStreak();
                 setupScratchCardUI();
                 fetchUpgraderInventory();
                 fetchMarketplaceNfts();
@@ -3796,7 +4025,12 @@
                     if (document.hidden) return;
                     fetchMarketplaceNfts();
                 }, 60000);
-                return () => clearInterval(timer);
+                return () => {
+                    clearInterval(timer);
+                    clearInterval(marketRefreshTimer);
+                    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+                    if (upgraderAnimRef.current) cancelAnimationFrame(upgraderAnimRef.current);
+                };
             }, []);
 
             // CS:GO Style Decelerating 5.5s Reel Builder
@@ -3982,7 +4216,8 @@
 
                 const apiPromise = fetch('/api/stars/open-case', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
                 }).then(r => r.json());
 
@@ -4024,6 +4259,7 @@
                 const apiPromise = fetch('/api/stars/open-case-uzs', {
                     method: 'POST',
                     headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
                 }).then(r => r.json());
 
@@ -4049,7 +4285,8 @@
                 }
                 fetch('/api/stars/create-invoice', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ user_id: tgUser.id, tier_id: c.id })
                 })
                 .then(r => r.json())
@@ -4062,7 +4299,9 @@
                                 }
                             });
                         } else {
-                            window.open(res.invoice_link, '_blank');
+                            if (!safeOpenExternal(res.invoice_link)) {
+                                alert("To'lov havolasi yaroqsiz.");
+                            }
                         }
                     } else {
                         alert(res.error || "To'lov hisobini yaratib bo'lmadi.");
@@ -4302,10 +4541,10 @@
                                             {t('googleOauthNotice')}
                                         </p>
                                         <div style={{ display: "flex", gap: "16px", marginTop: "10px", fontSize: "11px" }}>
-                                            <a href="/privacy" target="_blank" rel="noopener" style={{ color: "#00F0FF", textDecoration: "underline", fontWeight: 700 }}>
+                                            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#00F0FF", textDecoration: "underline", fontWeight: 700 }}>
                                                 {t('privacyPolicy')}
                                             </a>
-                                            <a href="/terms" target="_blank" rel="noopener" style={{ color: "#00F0FF", textDecoration: "underline", fontWeight: 700 }}>
+                                            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: "#00F0FF", textDecoration: "underline", fontWeight: 700 }}>
                                                 {t('termsOfService')}
                                             </a>
                                         </div>
@@ -4315,7 +4554,7 @@
                                     {otpStep === 1 ? (
                                         <form onSubmit={handleRequestOtp} style={{ textAlign: "left" }}>
                                             <div style={{ marginBottom: "18px" }}>
-                                                <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)", marginBottom: "8px" }}>
+                                                <label htmlFor="gateway-tg-id" style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)", marginBottom: "8px" }}>
                                                     {t('telegramIdLabel')}
                                                 </label>
                                                 <div style={{ position: "relative" }}>
@@ -4323,6 +4562,7 @@
                                                         <SvgUser size={18} color="#7342E2" />
                                                     </div>
                                                     <input
+                                                        id="gateway-tg-id"
                                                         type="number"
                                                         value={loginIdInput}
                                                         onChange={(e) => setLoginIdInput(e.target.value)}
@@ -4347,7 +4587,7 @@
                                             </div>
 
                                             {authError && (
-                                                <div style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.35)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#fca5a5", fontSize: "13px", textAlign: "left", lineHeight: 1.4 }}>
+                                                <div role="alert" style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.35)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#fca5a5", fontSize: "13px", textAlign: "left", lineHeight: 1.4 }}>
                                                     {authError}
                                                 </div>
                                             )}
@@ -4364,26 +4604,30 @@
                                                 {t('sendCodeBtn')}
                                             </TactileButton>
 
-                                            <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                                            <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
                                                 <a
                                                     href="https://t.me/creatorflow_aibot?start=web"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    style={{ flex: 1, textDecoration: "none", display: "inline-flex" }}
+                                                    className="tactile-btn"
+                                                    style={{ flex: 1, minWidth: "150px", borderRadius: "10px", textDecoration: "none" }}
                                                 >
-                                                    <TactileButton
-                                                        variant="cyan"
-                                                        size="sm"
-                                                        style={{ width: "100%" }}
-                                                        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.95-1.28 4.92-2.13 5.9-2.55 2.81-1.21 3.4-.95 3.78-.95.08 0 .28.02.4.12.1.08.13.2.14.28-.01.07-.02.26-.04.45z"/></svg>}
-                                                    >
-                                                        Telegramda ochish
-                                                    </TactileButton>
+                                                    <span className="tactile-btn-edge" style={{ background: "#082F49" }} />
+                                                    <span className="tactile-btn-face" style={{
+                                                        padding: "8px 14px",
+                                                        fontSize: "12px",
+                                                        background: "linear-gradient(180deg, #00F0FF 0%, #0284C7 60%, #0369A1 100%)",
+                                                        color: "#ffffff",
+                                                        border: "1px solid rgba(56, 189, 248, 0.65)"
+                                                    }}>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.95-1.28 4.92-2.13 5.9-2.55 2.81-1.21 3.4-.95 3.78-.95.08 0 .28.02.4.12.1.08.13.2.14.28-.01.07-.02.26-.04.45z"/></svg>
+                                                        <span>Telegramda ochish</span>
+                                                    </span>
                                                 </a>
                                                 <TactileButton
                                                     variant="dark"
                                                     size="sm"
-                                                    style={{ flex: 1 }}
+                                                    style={{ flex: 1, minWidth: "150px" }}
                                                     onClick={() => setView('dashboard')}
                                                     icon={<SvgSparkles size={14} color="#00f0ff" />}
                                                 >
@@ -4393,25 +4637,28 @@
                                         </form>
                                     ) : (
                                         <form onSubmit={handleVerifyOtp} style={{ textAlign: "left" }}>
-                                            <div style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", color: "#6ee7b7", fontSize: "13px", lineHeight: 1.4 }}>
+                                            <div role="status" style={{ background: "rgba(16, 185, 129, 0.12)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", color: "#6ee7b7", fontSize: "13px", lineHeight: 1.4 }}>
                                                 {authSuccessMsg || t('otpSentMsg')}
                                             </div>
 
                                             <div style={{ marginBottom: "18px" }}>
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                                                    <label style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
+                                                    <label htmlFor="gateway-otp-code" style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.7)" }}>
                                                         {t('otpLabel')}
                                                     </label>
-                                                    <span style={{ fontSize: "12px", color: "#00F0FF", cursor: "pointer", textDecoration: "underline" }} onClick={() => { setOtpStep(1); setAuthError(''); }}>
+                                                    <button type="button" style={{ fontSize: "12px", color: "#00F0FF", cursor: "pointer", textDecoration: "underline", background: "transparent", border: "none", padding: 0 }} onClick={() => { setOtpStep(1); setAuthError(''); }}>
                                                         {t('changeId')}
-                                                    </span>
+                                                    </button>
                                                 </div>
                                                 <div style={{ position: "relative" }}>
                                                     <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
                                                         <SvgKey size={18} color="#00f0ff" />
                                                     </div>
                                                     <input
+                                                        id="gateway-otp-code"
                                                         type="text"
+                                                        inputMode="numeric"
+                                                        autoComplete="one-time-code"
                                                         maxLength={6}
                                                         value={otpInput}
                                                         onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
@@ -4567,7 +4814,7 @@
                                     <span style={{ color: "rgba(255, 255, 255, 0.2)" }}>•</span>
                                     <a href="/terms" style={{ color: "rgba(255, 255, 255, 0.75)", textDecoration: "none" }}>{t('termsOfService')}</a>
                                     <span style={{ color: "rgba(255, 255, 255, 0.2)" }}>•</span>
-                                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style={{ color: "#00F0FF", textDecoration: "none" }}>Google Permissions</a>
+                                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: "#00F0FF", textDecoration: "none" }}>Google Permissions</a>
                                 </div>
                                 <div>
                                     &copy; {new Date().getFullYear()} Bot Client (CreatorFlow Studio). {t('allRightsReserved')}
@@ -4694,16 +4941,17 @@
                                                     alignItems: "center",
                                                     justifyContent: "center"
                                                 }}>
-                                                    <img
-                                                        src={tgUser.photo_url || `/api/user/avatar/${tgUser.id || 6735799833}?v=3`}
-                                                        alt={tgUser.first_name || "Profile"}
-                                                        referrerPolicy="no-referrer"
-                                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                                        onError={(e) => {
-                                                            e.target.onerror = null;
-                                                            e.target.src = "/api/user/avatar/6735799833?v=3";
-                                                        }}
-                                                    />
+                                                    {!avatarImgError && (tgUser.photo_url || tgUser.id > 0) ? (
+                                                        <img
+                                                            src={tgUser.photo_url || `/api/user/avatar/${encodeURIComponent(tgUser.id)}?v=3`}
+                                                            alt={tgUser.first_name || "Profile"}
+                                                            referrerPolicy="no-referrer"
+                                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                                            onError={() => setAvatarImgError(true)}
+                                                        />
+                                                    ) : (
+                                                        <SvgUser size={18} color="#7342E2" />
+                                                    )}
                                                 </div>
 
                                                 {/* User Info & So'm Balance */}
@@ -4735,6 +4983,8 @@
 
                                                 {/* Reactive Sync Button */}
                                                 <button
+                                                    type="button"
+                                                    aria-label="Profil va balansni sinxronlash"
                                                     onClick={() => {
                                                         if (syncLoading) return;
                                                         setSyncLoading(true);
@@ -4743,7 +4993,8 @@
                                                                 const u = window.Telegram.WebApp.initDataUnsafe.user;
                                                                 fetch('/api/user/sync-profile', {
                                                                     method: 'POST',
-                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    headers: getAuthHeaders(),
+                                                                    credentials: 'same-origin',
                                                                     body: JSON.stringify({
                                                                         tg_user_id: u.id,
                                                                         first_name: u.first_name,
@@ -4773,31 +5024,25 @@
                                                         transition: "all 0.2s"
                                                     }}
                                                 >
-                                                    <SvgRefreshCw size={14} color="#71717a" className={syncLoading ? "spin" : ""} />
+                                                    <SvgRefreshCw size={14} color="#52525b" className={syncLoading ? "spin" : ""} />
                                                 </button>
 
-                                                {/* Admin Observability (n8n Flow) Button */}
-                                                {(tgUser.is_owner || userStats.is_owner || Number(tgUser.id) === 6735799833 || tgUser.username === 'aiko_64') && (
+                                                {/* Admin Observability (n8n Flow) Button — server-verified is_owner only */}
+                                                {(tgUser.is_owner || userStats.is_owner) && (
                                                     <a
                                                         href="/admin/flow"
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         title="Admin Observability & n8n Live Flow Inspector"
-                                                        onClick={() => {
-                                                            const sig = localStorage.getItem('creatorflow_admin_sig');
-                                                            if (sig) {
-                                                                document.cookie = "cf_adm_sig=" + encodeURIComponent(sig) + "; path=/; max-age=2592000; SameSite=Lax";
-                                                            }
-                                                        }}
                                                         style={{
                                                             height: "36px",
-                                                            background: "rgba(255, 255, 255, 0.06)",
-                                                            border: "1px solid rgba(255, 255, 255, 0.12)",
+                                                            background: "#f4f4f5",
+                                                            border: "1px solid #e4e4e7",
                                                             borderRadius: "10px",
                                                             padding: "0 12px",
                                                             fontSize: "12.5px",
                                                             fontWeight: 600,
-                                                            color: "#e4e4e7",
+                                                            color: "#18181b",
                                                             cursor: "pointer",
                                                             display: "inline-flex",
                                                             alignItems: "center",
@@ -4806,13 +5051,14 @@
                                                             transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
                                                         }}
                                                     >
-                                                        <SvgActivity size={14} color="#a1a1aa" />
+                                                        <SvgActivity size={14} color="#7342E2" />
                                                         <span>n8n Flow</span>
                                                     </a>
                                                 )}
 
                                                 {/* Logout */}
                                                 <button
+                                                    type="button"
                                                     onClick={handleLogout}
                                                     title={t('logout')}
                                                     style={{
@@ -4837,6 +5083,7 @@
                                             </div>
                                         ) : (
                                             <button
+                                                type="button"
                                                 onClick={() => setView('login')}
                                                 style={{
                                                     background: "linear-gradient(135deg, #7342E2, #5a2eb8)",
@@ -4866,9 +5113,9 @@
                                                     height: "36px",
                                                     padding: "0 12px",
                                                     borderRadius: "10px",
-                                                    background: "rgba(255, 255, 255, 0.06)",
-                                                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                                                    color: "#e4e4e7",
+                                                    background: "#f4f4f5",
+                                                    border: "1px solid #e4e4e7",
+                                                    color: "#18181b",
                                                     fontSize: "12.5px",
                                                     fontWeight: 600,
                                                     display: "inline-flex",
@@ -4878,7 +5125,7 @@
                                                     transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
                                                 }}
                                             >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7342E2" strokeWidth="2.5" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
                                                 <span>API Docs</span>
                                             </a>
                                             <a
@@ -4889,9 +5136,9 @@
                                                     height: "36px",
                                                     padding: "0 12px",
                                                     borderRadius: "10px",
-                                                    background: "rgba(255, 255, 255, 0.06)",
-                                                    border: "1px solid rgba(255, 255, 255, 0.12)",
-                                                    color: "#e4e4e7",
+                                                    background: "#f4f4f5",
+                                                    border: "1px solid #e4e4e7",
+                                                    color: "#18181b",
                                                     fontSize: "12.5px",
                                                     fontWeight: 600,
                                                     display: "inline-flex",
@@ -4901,7 +5148,7 @@
                                                     transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
                                                 }}
                                             >
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                                                 <span>Captcha</span>
                                             </a>
                                         </div>
@@ -4910,16 +5157,19 @@
                                         <LanguageSelector currentLang={lang} onChangeLang={changeLang} isDark={false} />
 
                                         <button
+                                            type="button"
+                                            aria-label={t('menu')}
+                                            aria-expanded={drawerOpen}
                                             onClick={() => setDrawerOpen(!drawerOpen)}
                                             style={{
                                                 height: "36px",
-                                                background: "rgba(255, 255, 255, 0.08)",
+                                                background: "#18181b",
                                                 color: "#ffffff",
                                                 padding: "0 14px",
                                                 borderRadius: "10px",
                                                 fontSize: "12.5px",
                                                 fontWeight: 600,
-                                                border: "1px solid rgba(255, 255, 255, 0.14)",
+                                                border: "1px solid #27272a",
                                                 cursor: "pointer",
                                                 display: "inline-flex",
                                                 alignItems: "center",
@@ -4944,7 +5194,7 @@
                                 borderBottom: "1px solid var(--border-soft)",
                                 padding: "10px 24px"
                             }}>
-                                <div style={{
+                                <div role="tablist" aria-label="Studio Sections" style={{
                                     maxWidth: "1200px",
                                     margin: "0 auto",
                                     display: "flex",
@@ -4952,6 +5202,9 @@
                                     overflowX: "auto"
                                 }}>
                                     <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeTab === 'analytics'}
                                         onClick={() => setActiveTab('analytics')}
                                         style={{
                                             padding: "9px 18px",
@@ -4973,6 +5226,9 @@
                                         <span>{t('tabAnalytics')}</span>
                                     </button>
                                     <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeTab === 'videos'}
                                         onClick={() => setActiveTab('videos')}
                                         style={{
                                             padding: "9px 18px",
@@ -4994,6 +5250,9 @@
                                         <span>{t('tabVideos')}</span>
                                     </button>
                                     <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeTab === 'cases'}
                                         onClick={() => setActiveTab('cases')}
                                         style={{
                                             padding: "9px 18px",
@@ -5015,6 +5274,9 @@
                                         <span>{t('tabCases')}</span>
                                     </button>
                                     <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeTab === 'nfts'}
                                         onClick={() => setActiveTab('nfts')}
                                         style={{
                                             padding: "9px 18px",
@@ -5043,18 +5305,24 @@
 
                             {/* Full-Screen Drawer Overlay on Menu click */}
                             {drawerOpen && (
-                                <div style={{
-                                    position: "fixed",
-                                    inset: 0,
-                                    zIndex: 99,
-                                    background: "#ffffff",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    justifyContent: "space-between",
-                                    padding: "120px 48px 48px",
-                                    animation: "fadeIn 0.4s ease"
-                                }}>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
+                                <div
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-label="Navigation Menu"
+                                    style={{
+                                        position: "fixed",
+                                        inset: 0,
+                                        zIndex: 99,
+                                        background: "#ffffff",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        justifyContent: "space-between",
+                                        padding: "104px 24px 40px",
+                                        overflowY: "auto",
+                                        animation: "fadeIn 0.3s ease"
+                                    }}
+                                >
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "20px", maxWidth: "600px", width: "100%", margin: "0 auto", textAlign: "center" }}>
                                         {[
                                             { label: "Boshqaruv Paneli", href: "#dashboard", onClick: () => { setDrawerOpen(false); setView('dashboard'); } },
                                             { label: "API Docs (Hujjatlar)", href: "/api/v1/docs", isExternal: true },
@@ -5076,21 +5344,39 @@
                                                     }
                                                 }}
                                                 style={{
-                                                    fontSize: "36px",
+                                                    fontSize: "clamp(22px, 5.5vw, 36px)",
                                                     fontWeight: 600,
                                                     letterSpacing: "-0.03em",
                                                     color: "var(--text)",
                                                     textDecoration: "none",
                                                     transition: "color 0.2s"
                                                 }}
-                                                onMouseEnter={(e) => e.target.style.color = "#7342E2"}
-                                                onMouseLeave={(e) => e.target.style.color = "var(--text)"}
+                                                onMouseEnter={(e) => e.currentTarget.style.color = "#7342E2"}
+                                                onMouseLeave={(e) => e.currentTarget.style.color = "var(--text)"}
                                             >
                                                 {item.label}
                                             </a>
                                         ))}
+                                        <div style={{ marginTop: "12px" }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setDrawerOpen(false)}
+                                                style={{
+                                                    background: "#f4f4f5",
+                                                    border: "1px solid #e4e4e7",
+                                                    borderRadius: "999px",
+                                                    padding: "10px 24px",
+                                                    fontSize: "14px",
+                                                    fontWeight: 700,
+                                                    color: "#18181b",
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                Yopish
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div style={{ textAlign: "center", color: "var(--muted)", fontSize: "14px" }}>
+                                    <div style={{ textAlign: "center", color: "var(--muted)", fontSize: "14px", marginTop: "24px" }}>
                                         &copy; {new Date().getFullYear()} Bot Client (CreatorFlow Studio). All Rights Reserved.
                                     </div>
                                 </div>
@@ -5222,7 +5508,7 @@
                                                 <span style={{ display: "inline-flex", alignItems: "center" }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7342E2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                                                 <span>{t('selectedAccountOnlyNotice')}</span>
                                             </div>
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: "16px" }}>
                                                 {(channels.length > 0 ? channels : [{
                                                     channel_id: studioStats.channel_id || "default",
                                                     channel_title: studioStats.channel_title,
@@ -5496,18 +5782,26 @@
                                         ))}
                                     </div>
 
+                                    {/* Video Search / Trending Error Banner */}
+                                    {feedError && (
+                                        <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: "14px", padding: "12px 16px", marginBottom: "20px", fontSize: "13px", fontWeight: 600 }}>
+                                            {feedError}
+                                        </div>
+                                    )}
+
                                     {/* Video Grid with Hold-to-Preview & Auto-Post */}
                                     {feedLoading ? (
                                         <div style={{ textAlign: "center", padding: "60px 0", color: "#71717a" }}>
                                             <div style={{ fontSize: "14px", fontWeight: 600 }}>Videolar yuklanmoqda...</div>
                                         </div>
                                     ) : feedVideos.length > 0 ? (
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(275px, 1fr))", gap: "20px" }}>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))", gap: "20px" }}>
                                             {feedVideos.map((v, idx) => {
                                                 const isHoldingThis = (holdingVideoId === v.id);
+                                                const safeEmbedId = sanitizeYoutubeId(v.id);
                                                 return (
                                                     <div
-                                                        key={idx}
+                                                        key={v.id || idx}
                                                         style={{
                                                             background: "#ffffff",
                                                             border: isHoldingThis ? "2px solid #7342E2" : "1px solid #e4e4e7",
@@ -5535,9 +5829,9 @@
                                                                 userSelect: "none"
                                                             }}
                                                         >
-                                                            {isHoldingThis ? (
+                                                            {isHoldingThis && safeEmbedId ? (
                                                                 <iframe
-                                                                    src={`https://www.youtube.com/embed/${v.id}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1`}
+                                                                    src={`https://www.youtube.com/embed/${encodeURIComponent(safeEmbedId)}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&playsinline=1`}
                                                                     title={v.title || "Preview"}
                                                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                                     style={{
@@ -5660,78 +5954,6 @@
                                         <div style={{ textAlign: "center", padding: "60px 0", color: "#a1a1aa" }}>
                                             <SvgSearch size={40} color="#d4d4d8" />
                                             <div style={{ marginTop: "12px", fontWeight: 600, fontSize: "14px" }}>Video qidirish uchun so'rov kiriting yoki Trendlardan birini tanlang</div>
-                                        </div>
-                                    )}
-
-                                    {/* Full Video Preview Modal */}
-                                    {previewModalVideo && (
-                                        <div
-                                            onClick={() => setPreviewModalVideo(null)}
-                                            style={{
-                                                position: "fixed",
-                                                inset: 0,
-                                                background: "rgba(0,0,0,0.78)",
-                                                backdropFilter: "blur(8px)",
-                                                zIndex: 9999,
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                padding: "20px"
-                                            }}
-                                        >
-                                            <div
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{
-                                                    background: "#18181b",
-                                                    border: "1px solid rgba(255,255,255,0.12)",
-                                                    borderRadius: "24px",
-                                                    maxWidth: "820px",
-                                                    width: "100%",
-                                                    overflow: "hidden",
-                                                    boxShadow: "0 24px 64px rgba(0,0,0,0.6)"
-                                                }}
-                                            >
-                                                <div style={{ position: "relative", width: "100%", paddingTop: "56.25%", background: "#000" }}>
-                                                    <iframe
-                                                        src={`https://www.youtube.com/embed/${previewModalVideo.id}?autoplay=1&rel=0&modestbranding=1`}
-                                                        title={previewModalVideo.title || "YouTube Video Preview"}
-                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                        allowFullScreen
-                                                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: "none" }}
-                                                    />
-                                                </div>
-                                                <div style={{ padding: "18px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", color: "#fff" }}>
-                                                    <div style={{ flex: 1, minWidth: "200px" }}>
-                                                        <div style={{ fontSize: "15px", fontWeight: 800 }}>{previewModalVideo.title || "YouTube Video"}</div>
-                                                        <div style={{ fontSize: "12px", color: "#a1a1aa", marginTop: "2px" }}>{previewModalVideo.channel || ""}</div>
-                                                    </div>
-                                                    <div style={{ display: "flex", gap: "8px" }}>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { const vid = previewModalVideo; setPreviewModalVideo(null); openFormatModal(vid); }}
-                                                            style={{ background: "#7342E2", color: "#fff", border: "none", padding: "9px 16px", borderRadius: "10px", fontSize: "12px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
-                                                        >
-                                                            <SvgDownload size={14} color="#fff" />
-                                                            <span>Yuklab Olish</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => { const vidId = previewModalVideo.id; setPreviewModalVideo(null); handleCreateAutoPost({ videoIds: [vidId] }); }}
-                                                            style={{ background: "#10b981", color: "#fff", border: "none", padding: "9px 16px", borderRadius: "10px", fontSize: "12px", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}
-                                                        >
-                                                            <SvgZap size={14} color="#fff" />
-                                                            <span>Auto-Post</span>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setPreviewModalVideo(null)}
-                                                            style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "none", padding: "9px 14px", borderRadius: "10px", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
-                                                        >
-                                                            Yopish
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -5901,8 +6123,10 @@
                                         </button>
 
                                         {/* Book Button */}
-                                        <div
-                                            onClick={() => window.open("https://t.me/creatorflow_aibot", "_blank")}
+                                        <a
+                                            href="https://t.me/creatorflow_aibot"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
                                             style={{
                                                 background: "#ffffff",
                                                 border: "4px solid rgb(248, 248, 248)",
@@ -5912,12 +6136,13 @@
                                                 alignItems: "center",
                                                 gap: "12px",
                                                 cursor: "pointer",
+                                                textDecoration: "none",
                                                 boxShadow: "0 2px 12px rgba(0,0,0,0.06)"
                                             }}
                                         >
                                             <img
                                                 src="https://framerusercontent.com/images/hfneFL6CHBi5BnNvCeOaqU9HqE4.png"
-                                                alt="Avatar"
+                                                alt="CreatorFlow Support"
                                                 style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
                                             />
                                             <div style={{ textAlign: "left" }}>
@@ -5929,7 +6154,7 @@
                                                     Pick a slot
                                                 </div>
                                             </div>
-                                        </div>
+                                        </a>
                                     </div>
                                 </div>
 
@@ -6047,7 +6272,7 @@
                                 </div>
 
                                 {/* Sub-Navigation Tabs */}
-                                <div className="sub-nav-tabs" style={{
+                                <div role="tablist" aria-label="Stars Suite Sections" className="sub-nav-tabs" style={{
                                     display: "flex",
                                     justifyContent: "center",
                                     flexWrap: "wrap",
@@ -6069,6 +6294,9 @@
                                     ].map(tab => (
                                         <button
                                             key={tab.id}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={starsSubTab === tab.id}
                                             onClick={() => setStarsSubTab(tab.id)}
                                             style={{
                                                 padding: "10px 18px",
@@ -6467,7 +6695,7 @@
                                         <div style={{ marginBottom: "20px", fontSize: "16px", fontWeight: 700, color: "var(--text)" }}>
                                             Kutilayotgan Jonli Duellar:
                                         </div>
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: "20px" }}>
                                             {caseBattles.length === 0 ? (
                                                 <div style={{ textAlign: "center", padding: "48px 20px", background: "#ffffff", borderRadius: "24px", border: "1px dashed var(--border-soft)", gridColumn: "1 / -1" }}>
                                                     <div style={{ marginBottom: "12px", display: "flex", justifyContent: "center" }}><SvgSwords size={36} color="#7342E2" /></div>
@@ -6598,14 +6826,14 @@
                                                 {/* MAIN ARENA: LEFT = PRECISION WHEEL (WITH WIN % IN CENTER), RIGHT = SOURCE ITEM -> TARGET ITEM + UPGRADE BUTTON */}
                                                 <div style={{
                                                     display: "grid",
-                                                    gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
+                                                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
                                                     gap: "28px",
                                                     alignItems: "center",
                                                     marginBottom: "28px"
                                                 }}>
                                                     {/* LEFT COLUMN: DARK METALLIC PRECISION WHEEL */}
                                                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                                                        <div style={{
+                                                        <div className="upgrader-wheel-shell" style={{
                                                             position: "relative",
                                                             width: "312px",
                                                             height: "312px",
@@ -7090,6 +7318,7 @@
                                                             </div>
                                                             <input
                                                                 type="range"
+                                                                aria-label="Upgrader multiplier"
                                                                 min="1.5"
                                                                 max="100"
                                                                 step="0.5"
@@ -7146,7 +7375,7 @@
                                                 </div>
 
                                                 {/* BOTTOM SELECTION GRIDS: 1. SIZNING INVENTARINGIZ & 2. MAQSAD SOVG'A / NFT TANLASH */}
-                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))", gap: "18px", textAlign: "left" }}>
+                                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: "18px", textAlign: "left" }}>
                                                     {/* LEFT SELECTOR: USER INVENTORY */}
                                                     <div style={{
                                                         background: "rgba(18, 20, 30, 0.85)",
@@ -7405,7 +7634,8 @@
                                             {/* Scratch Card Outer Wrapper */}
                                             <div style={{
                                                 position: "relative",
-                                                width: "320px",
+                                                width: "100%",
+                                                maxWidth: "320px",
                                                 height: "170px",
                                                 margin: "0 auto 24px",
                                                 borderRadius: "20px",
@@ -7485,9 +7715,11 @@
                                                     width={320}
                                                     height={170}
                                                     className="scratch-canvas-foil"
-                                                    style={{ position: "absolute", inset: 0, zIndex: 5 }}
+                                                    aria-label="Scratch foil surface"
+                                                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 5 }}
                                                     onMouseDown={() => setIsScratching(true)}
                                                     onMouseUp={() => setIsScratching(false)}
+                                                    onMouseLeave={() => setIsScratching(false)}
                                                     onMouseMove={(e) => { if (isScratching) scratchMove(e); }}
                                                     onTouchStart={() => setIsScratching(true)}
                                                     onTouchEnd={() => setIsScratching(false)}
@@ -7496,7 +7728,7 @@
                                             </div>
 
                                             {/* Quick Actions */}
-                                            <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "16px" }}>
+                                            <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
                                                 <TactileButton
                                                     variant="dark"
                                                     size="sm"
@@ -7513,9 +7745,14 @@
                                                     <span>Yangi Chipta Olish (1,000 so'm)</span>
                                                 </TactileButton>
                                             </div>
-                                            <div style={{ fontSize: "12px", color: (tgUser?.balance_uzs || 0) < 1000 ? "#ef4444" : "var(--muted)", fontWeight: 600, marginTop: "6px", marginBottom: "16px" }}>
-                                                Joriy hisobingiz: {((tgUser?.balance_uzs || 0)).toLocaleString()} so'm {(tgUser?.balance_uzs || 0) < 1000 ? "(Kamida 1,000 so'm kerak)" : ""}
-                                            </div>
+                                            {(() => {
+                                                const activeBal = Number(userStats?.balance_uzs ?? tgUser?.balance_uzs ?? 0);
+                                                return (
+                                                    <div style={{ fontSize: "12px", color: activeBal < 1000 ? "#ef4444" : "var(--muted)", fontWeight: 600, marginTop: "6px", marginBottom: "16px" }}>
+                                                        Joriy hisobingiz: {activeBal.toLocaleString()} so'm {activeBal < 1000 ? "(Kamida 1,000 so'm kerak)" : ""}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* Scratch Result Feedback */}
                                             {scratchFoilCleared && (
@@ -7549,7 +7786,7 @@
                                             </p>
                                         </div>
 
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "24px" }}>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: "24px" }}>
                                             {[
                                                 { id: "video_autopost_30", title: "Video Auto-Post Pro (1 Oylik)", desc: "YouTube va TikTok uchun to'liq avtomatik jadval bo'yicha posting.", stars: 350, icon: "autopost", image_url: "/api/nft/image/service_autopost.webp", tag: "ENG OMMABOP" },
                                                 { id: "autostream_24h", title: "24/7 YouTube Autostream (24 Soat)", desc: "Serverda 24 soat uzluksiz video jonli efir strim qilish kvotasi.", stars: 250, icon: "autostream", image_url: "/api/nft/image/service_autostream.webp", tag: "LIVE STREAM" },
@@ -7617,23 +7854,31 @@
 
                                 {/* PvP Battle Arena Live Duel Modal */}
                                 {activeBattle && (
-                                    <div style={{
-                                        position: "fixed",
-                                        inset: 0,
-                                        zIndex: 999999,
-                                        background: "rgba(5,5,10,0.85)",
-                                        backdropFilter: "blur(12px)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "20px"
-                                    }}>
+                                    <div
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-label="Jonli PvP keys dueli"
+                                        onClick={(e) => { if (e.target === e.currentTarget && !isBattleRolling) setActiveBattle(null); }}
+                                        style={{
+                                            position: "fixed",
+                                            inset: 0,
+                                            zIndex: 999999,
+                                            background: "rgba(5,5,10,0.85)",
+                                            backdropFilter: "blur(12px)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: "20px"
+                                        }}
+                                    >
                                         <div style={{
                                             background: "linear-gradient(135deg, #13141f 0%, #1c1d2d 100%)",
                                             borderRadius: "32px",
-                                            padding: "36px",
+                                            padding: "clamp(20px, 4vw, 36px)",
                                             maxWidth: "680px",
                                             width: "100%",
+                                            maxHeight: "90vh",
+                                            overflowY: "auto",
                                             color: "#ffffff",
                                             boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
                                             border: "1px solid rgba(255,255,255,0.1)",
@@ -7643,7 +7888,7 @@
                                                 <div style={{ fontSize: "14px", fontWeight: 800, color: "#ffd700", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                                                     JONLI PVP KEYS DUELI
                                                 </div>
-                                                <button onClick={() => setActiveBattle(null)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}><XIcon size={20} color="#aaa" /></button>
+                                                <button type="button" aria-label="Yopish" onClick={() => setActiveBattle(null)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}><XIcon size={20} color="#aaa" /></button>
                                             </div>
 
                                             {/* Duel Arena Split Screen */}
@@ -7720,18 +7965,24 @@
 
                                 {/* Daily Streak Claimed Modal */}
                                 {streakClaimedModal && (
-                                    <div style={{
-                                        position: "fixed",
-                                        inset: 0,
-                                        zIndex: 999999,
-                                        background: "rgba(0,0,0,0.7)",
-                                        backdropFilter: "blur(8px)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "20px"
-                                    }}>
-                                        <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "440px", width: "100%", textAlign: "center", color: "var(--text)" }}>
+                                    <div
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-label="Kunlik sovg'a"
+                                        onClick={(e) => { if (e.target === e.currentTarget) setStreakClaimedModal(null); }}
+                                        style={{
+                                            position: "fixed",
+                                            inset: 0,
+                                            zIndex: 999999,
+                                            background: "rgba(0,0,0,0.7)",
+                                            backdropFilter: "blur(8px)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: "20px"
+                                        }}
+                                    >
+                                        <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "440px", width: "100%", maxHeight: "90vh", overflowY: "auto", textAlign: "center", color: "var(--text)" }}>
                                             <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}><TelegramGiftMedia icon={streakClaimedModal?.icon || "package"} name={streakClaimedModal?.title || streakClaimedModal?.name || ""} size="56px" /></div>
                                             <h3 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px" }}>Tabriklaymiz!</h3>
                                             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
@@ -7755,18 +8006,24 @@
 
                                 {/* Creator Redeem Modal */}
                                 {redeemModal && (
-                                    <div style={{
-                                        position: "fixed",
-                                        inset: 0,
-                                        zIndex: 999999,
-                                        background: "rgba(0,0,0,0.7)",
-                                        backdropFilter: "blur(8px)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "20px"
-                                    }}>
-                                        <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "460px", width: "100%", textAlign: "center", color: "var(--text)" }}>
+                                    <div
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-label="Xizmat faollashtirildi"
+                                        onClick={(e) => { if (e.target === e.currentTarget) setRedeemModal(null); }}
+                                        style={{
+                                            position: "fixed",
+                                            inset: 0,
+                                            zIndex: 999999,
+                                            background: "rgba(0,0,0,0.7)",
+                                            backdropFilter: "blur(8px)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: "20px"
+                                        }}
+                                    >
+                                        <div style={{ background: "#ffffff", borderRadius: "28px", padding: "32px", maxWidth: "460px", width: "100%", maxHeight: "90vh", overflowY: "auto", textAlign: "center", color: "var(--text)" }}>
                                             <div style={{ height: "64px", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
                                                 <TelegramGiftMedia icon={redeemModal?.service?.icon || "package"} name={redeemModal?.service?.title || redeemModal?.service?.name || ""} size="56px" />
                                             </div>
@@ -7775,21 +8032,28 @@
                                                 Xizmatingiz darhol faollashtirildi. Litsenziya kalitini nusxalab oling:
                                             </p>
                                             <div style={{ background: "#f8f8fa", padding: "14px", borderRadius: "14px", border: "1px dashed #0a0a0a", marginBottom: "20px" }}>
-                                                <div style={{ fontSize: "16px", fontWeight: 800, color: "#7342E2", letterSpacing: "0.05em" }}>
+                                                <div style={{ fontSize: "16px", fontWeight: 800, color: "#7342E2", letterSpacing: "0.05em", wordBreak: "break-all" }}>
                                                     {redeemModal.license_key}
                                                 </div>
                                             </div>
                                             <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
                                                 <button
+                                                    type="button"
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText(redeemModal.license_key);
-                                                        alert("Litsenziya kaliti nusxalandi!");
+                                                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                                                            navigator.clipboard.writeText(String(redeemModal.license_key || ''))
+                                                                .then(() => alert("Litsenziya kaliti nusxalandi!"))
+                                                                .catch(() => alert("Nusxalab bo'lmadi. Kalitni qo'lda belgilab oling."));
+                                                        } else {
+                                                            alert("Brauzerda avtomatik nusxalash qo'llab-quvvatlanmaydi.");
+                                                        }
                                                     }}
                                                     style={{ background: "#7342E2", color: "#fff", border: "none", padding: "12px 24px", borderRadius: "999px", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
                                                 >
                                                     Nusxa Olish
                                                 </button>
                                                 <button
+                                                    type="button"
                                                     onClick={() => setRedeemModal(null)}
                                                     style={{ background: "#f3f4f6", color: "var(--text)", border: "none", padding: "12px 24px", borderRadius: "999px", fontSize: "14px", fontWeight: 600, cursor: "pointer" }}
                                                 >
@@ -7802,23 +8066,31 @@
 
                                 {/* Case Odds Modal */}
                                 {oddsModalCase && (
-                                    <div style={{
-                                        position: "fixed",
-                                        inset: 0,
-                                        zIndex: 999999,
-                                        background: "rgba(0,0,0,0.65)",
-                                        backdropFilter: "blur(8px)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "20px"
-                                    }}>
+                                    <div
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-label={oddsModalCase.name || "Keys ehtimollari"}
+                                        onClick={(e) => { if (e.target === e.currentTarget) setOddsModalCase(null); }}
+                                        style={{
+                                            position: "fixed",
+                                            inset: 0,
+                                            zIndex: 999999,
+                                            background: "rgba(0,0,0,0.65)",
+                                            backdropFilter: "blur(8px)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: "20px"
+                                        }}
+                                    >
                                         <div style={{
                                             background: "#ffffff",
                                             borderRadius: "28px",
                                             padding: "32px",
                                             maxWidth: "460px",
                                             width: "100%",
+                                            maxHeight: "90vh",
+                                            overflowY: "auto",
                                             color: "var(--text)",
                                             boxShadow: "0 24px 64px rgba(0,0,0,0.25)"
                                         }}>
@@ -7836,7 +8108,7 @@
                                                         <span style={{ fontSize: "12px", color: "var(--muted)" }}>Narxi: {oddsModalCase.price_stars} Stars</span>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => setOddsModalCase(null)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}><XIcon size={20} color="#71717a" /></button>
+                                                <button type="button" aria-label="Yopish" onClick={() => setOddsModalCase(null)} style={{ background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", padding: "4px" }}><XIcon size={20} color="#71717a" /></button>
                                             </div>
 
                                             <div style={{ background: "#f8f8fa", borderRadius: "16px", padding: "16px", marginBottom: "20px" }}>
@@ -7908,29 +8180,36 @@
 
                                 {/* Single Unboxing Modal (Existing CS:GO Reel) */}
                                 {activeUnboxing && (
-                                    <div style={{
-                                        position: "fixed",
-                                        inset: 0,
-                                        zIndex: 999999,
-                                        background: "rgba(5, 5, 10, 0.88)",
-                                        backdropFilter: "blur(12px)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        padding: "20px"
-                                    }}>
+                                    <div
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-label={activeUnboxing.name || "Keys ochish"}
+                                        onClick={(e) => { if (e.target === e.currentTarget && !isRolling) { clearReelTimers(); setActiveUnboxing(null); setUnboxingPrize(null); setIsRolling(false); } }}
+                                        style={{
+                                            position: "fixed",
+                                            inset: 0,
+                                            zIndex: 999999,
+                                            background: "rgba(5, 5, 10, 0.88)",
+                                            backdropFilter: "blur(12px)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: "20px"
+                                        }}
+                                    >
                                         <div style={{
                                             background: "linear-gradient(135deg, #13141f 0%, #1c1d2d 100%)",
                                             borderRadius: "32px",
-                                            padding: "36px",
+                                            padding: "clamp(20px, 4vw, 36px)",
                                             maxWidth: "540px",
                                             width: "100%",
+                                            maxHeight: "90vh",
+                                            overflowY: "auto",
                                             color: "#ffffff",
                                             textAlign: "center",
                                             boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
                                             border: "1px solid rgba(255,255,255,0.1)",
-                                            position: "relative",
-                                            overflow: "hidden"
+                                            position: "relative"
                                         }}>
                                             {activeUnboxing.isDemo && (
                                                 <div style={{
@@ -8312,7 +8591,7 @@
                                 const visibleNfts = filteredNfts.slice(0, marketVisibleCount);
 
                                 return (
-                                <div className="tab-content-enter" style={{ maxWidth: "1280px", margin: "0 auto", padding: "120px 24px 80px" }}>
+                                <div className="tab-content-enter" style={{ maxWidth: "1280px", margin: "0 auto", padding: "48px 24px 80px" }}>
                                     {/* Header & Live Exchange Rate Banner */}
                                     <div style={{ textAlign: "center", marginBottom: "40px" }}>
                                         <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(115, 66, 226, 0.08)", padding: "6px 16px", borderRadius: "999px", color: "#7342E2", fontSize: "13px", fontWeight: 700, marginBottom: "16px" }}>
@@ -8370,12 +8649,13 @@
                                                 </div>
                                                 <input
                                                     type="text"
+                                                    aria-label="NFT qidirish"
                                                     value={marketSearch}
                                                     onChange={(e) => setMarketSearch(e.target.value)}
                                                     placeholder="Kolleksiya nomi yoki #raqami bo'yicha qidirish (masalan: #11627, cigar, watch...)"
                                                     style={{
                                                         width: "100%",
-                                                        padding: "12px 16px 12px 42px",
+                                                        padding: "12px 36px 12px 42px",
                                                         borderRadius: "999px",
                                                         border: "1px solid var(--border-soft)",
                                                         background: "#ffffff",
@@ -8387,6 +8667,8 @@
                                                 />
                                                 {marketSearch && (
                                                     <button
+                                                        type="button"
+                                                        aria-label="Qidiruvni tozalash"
                                                         onClick={() => setMarketSearch('')}
                                                         style={{ position: "absolute", right: "14px", background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: "13px", fontWeight: 700 }}
                                                     >
@@ -8604,7 +8886,7 @@
                                         </div>
                                     ) : (
                                         <>
-                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px", marginBottom: "36px" }}>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))", gap: "20px", marginBottom: "36px" }}>
                                                 {visibleNfts.map((nft, nIdx) => (
                                                     <div
                                                         key={nft.id || nIdx}
@@ -8668,8 +8950,9 @@
                                                                     loading="lazy"
                                                                     decoding="async"
                                                                     onError={(e) => {
-                                                                        if (nft.slug && !e.currentTarget.src.includes('/api/nft/fragment-image/')) {
-                                                                            e.currentTarget.src = `/api/nft/fragment-image/${nft.slug}`;
+                                                                        if (nft.slug && !e.currentTarget.dataset.fallbackApplied) {
+                                                                            e.currentTarget.dataset.fallbackApplied = '1';
+                                                                            e.currentTarget.src = `/api/nft/fragment-image/${encodeURIComponent(nft.slug)}`;
                                                                         }
                                                                     }}
                                                                     style={{
@@ -8694,7 +8977,7 @@
                                                                                 });
                                                                             }
                                                                         }}
-                                                                        src={`/api/nft/animation/${nft.slug}`}
+                                                                        src={`/api/nft/animation/${encodeURIComponent(nft.slug || '')}`}
                                                                         background="transparent"
                                                                         speed="1"
                                                                         loop
@@ -8734,11 +9017,11 @@
                                                                     </span>
                                                                 </div>
                                                                 <div style={{ fontSize: "13px", fontWeight: 700, color: "#ffd700" }}>
-                                                                    {nft.stars.toLocaleString()} Stars
+                                                                    {(Number(nft.stars) || 0).toLocaleString()} Stars
                                                                 </div>
                                                             </div>
                                                             <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "14px", fontWeight: 600 }}>
-                                                                ≈ {nft.price_uzs.toLocaleString()} so'm
+                                                                ≈ {(Number(nft.price_uzs) || 0).toLocaleString()} so'm
                                                             </div>
 
                                                             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -8752,7 +9035,7 @@
                                                                     loading={buyingNftSlug === nft.slug}
                                                                     icon={<SvgStar size={14} color="#ffd700" />}
                                                                 >
-                                                                    <span>Stars Bilan Xarid ({(nft.stars || 100).toLocaleString()} ★)</span>
+                                                                    <span>Stars Bilan Xarid ({(Number(nft.stars) || 100).toLocaleString()} ★)</span>
                                                                 </TactileButton>
 
                                                                 <div style={{ display: "flex", gap: "8px" }}>
@@ -8769,7 +9052,7 @@
                                                                     </TactileButton>
 
                                                                     <a
-                                                                        href={`https://fragment.com/gift/${nft.slug}`}
+                                                                        href={`https://fragment.com/gift/${encodeURIComponent(nft.slug || '')}`}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="tactile-btn"
@@ -8873,7 +9156,7 @@
                                                         </button>
                                                     </div>
                                                 ) : (
-                                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "16px" }}>
+                                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 220px), 1fr))", gap: "16px" }}>
                                                         {ownedNfts.map((g, gIdx) => (
                                                             <div key={gIdx} style={{ background: "#fcfcfd", border: "1px solid var(--border-soft)", borderRadius: "20px", padding: "16px", textAlign: "center" }}>
                                                                 <div style={{ width: "100%", aspectRatio: "1", borderRadius: "16px", overflow: "hidden", position: "relative", marginBottom: "10px", background: g.backdrop || "linear-gradient(145deg, #18181b 0%, #09090b 100%)" }}>
@@ -8908,9 +9191,9 @@
                                     <span>•</span>
                                     <a href="/terms" style={{ color: "#7342E2", textDecoration: "none", fontWeight: 600 }}>{t('termsOfService')}</a>
                                     <span>•</span>
-                                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style={{ color: "#7342E2", textDecoration: "none", fontWeight: 600 }}>Google Permissions</a>
+                                    <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" style={{ color: "#7342E2", textDecoration: "none", fontWeight: 600 }}>Google Permissions</a>
                                     <span>•</span>
-                                    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener" style={{ color: "#71717a", textDecoration: "none" }}>Limited Use Disclosure</a>
+                                    <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" style={{ color: "#71717a", textDecoration: "none" }}>Limited Use Disclosure</a>
                                 </div>
 
                                 <p>&copy; {new Date().getFullYear()} Bot Client (CreatorFlow Studio). {t('allRightsReserved')}</p>
@@ -8919,6 +9202,9 @@
                             {/* Telegram User ID Login Modal */}
                             {showLoginModal && (
                                 <div
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-labelledby="login-modal-title"
                                     onClick={(e) => { if (e.target === e.currentTarget) { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); } }}
                                     style={{
                                         position: "fixed",
@@ -8938,6 +9224,8 @@
                                         padding: "32px",
                                         maxWidth: "420px",
                                         width: "100%",
+                                        maxHeight: "90vh",
+                                        overflowY: "auto",
                                         boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
                                         border: "1px solid #e4e4e7"
                                     }}>
@@ -8946,11 +9234,13 @@
                                                 <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "#f4f0ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
                                                     <SvgUser size={20} color="#7342E2" />
                                                 </div>
-                                                <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0 }}>{t('loginModalTitle')}</h3>
+                                                <h3 id="login-modal-title" style={{ fontSize: "18px", fontWeight: 700, color: "#18181b", margin: 0 }}>{t('loginModalTitle')}</h3>
                                             </div>
                                             <button
+                                                type="button"
+                                                aria-label="Yopish"
                                                 onClick={() => { setShowLoginModal(false); setOtpStep(1); setOtpInput(''); setAuthError(''); }}
-                                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a" }}
+                                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a", padding: "4px", display: "flex", alignItems: "center" }}
                                             >
                                                 <XIcon size={20} color="#71717a" />
                                             </button>
@@ -8961,7 +9251,7 @@
                                         {otpStep === 1 ? (
                                             <form onSubmit={handleRequestOtp}>
                                                 <div style={{ marginBottom: "16px" }}>
-                                                    <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#3f3f46", marginBottom: "6px" }}>
+                                                    <label htmlFor="modal-telegram-id-input" style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#3f3f46", marginBottom: "6px" }}>
                                                         {t('telegramIdLabel')}
                                                     </label>
                                                     <div style={{ position: "relative" }}>
@@ -8969,6 +9259,7 @@
                                                             <SvgUser size={18} color="#7342E2" />
                                                         </div>
                                                         <input
+                                                            id="modal-telegram-id-input"
                                                             type="number"
                                                             value={loginIdInput}
                                                             onChange={(e) => setLoginIdInput(e.target.value)}
@@ -8988,7 +9279,7 @@
                                                 </div>
 
                                                 {authError && (
-                                                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#dc2626", fontSize: "13px" }}>
+                                                    <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#dc2626", fontSize: "13px" }}>
                                                         {authError}
                                                     </div>
                                                 )}
@@ -9033,25 +9324,32 @@
                                             </form>
                                         ) : (
                                             <form onSubmit={handleVerifyOtp}>
-                                                <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#065f46", fontSize: "13px" }}>
+                                                <div role="status" style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#065f46", fontSize: "13px" }}>
                                                     {authSuccessMsg || t('otpSentMsg')}
                                                 </div>
 
                                                 <div style={{ marginBottom: "16px" }}>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                                                        <label style={{ fontSize: "12px", fontWeight: 700, color: "#3f3f46" }}>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                                                        <label htmlFor="modal-otp-input" style={{ fontSize: "12px", fontWeight: 700, color: "#3f3f46" }}>
                                                             {t('otpLabel')}
                                                         </label>
-                                                        <span style={{ fontSize: "12px", color: "#7342E2", cursor: "pointer", textDecoration: "underline" }} onClick={() => { setOtpStep(1); setAuthError(''); }}>
+                                                        <button
+                                                            type="button"
+                                                            style={{ fontSize: "12px", color: "#7342E2", cursor: "pointer", textDecoration: "underline", background: "none", border: "none", padding: 0 }}
+                                                            onClick={() => { setOtpStep(1); setAuthError(''); }}
+                                                        >
                                                             {t('changeId')}
-                                                        </span>
+                                                        </button>
                                                     </div>
                                                     <div style={{ position: "relative" }}>
                                                         <div style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
                                                             <SvgKey size={18} color="#7342E2" />
                                                         </div>
                                                         <input
+                                                            id="modal-otp-input"
                                                             type="text"
+                                                            inputMode="numeric"
+                                                            autoComplete="one-time-code"
                                                             maxLength={6}
                                                             value={otpInput}
                                                             onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
@@ -9074,7 +9372,7 @@
                                                 </div>
 
                                                 {authError && (
-                                                    <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#dc2626", fontSize: "13px" }}>
+                                                    <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px", color: "#dc2626", fontSize: "13px" }}>
                                                         {authError}
                                                     </div>
                                                 )}
@@ -9142,17 +9440,23 @@
 
                             {/* Video Format & Quality Selection Modal */}
                             {selectedFormatsVideo && (
-                                <div style={{
-                                    position: "fixed",
-                                    inset: 0,
-                                    zIndex: 1000,
-                                    background: "rgba(0, 0, 0, 0.65)",
-                                    backdropFilter: "blur(6px)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "20px"
-                                }}>
+                                <div
+                                    role="dialog"
+                                    aria-modal="true"
+                                    aria-labelledby="formats-modal-title"
+                                    onClick={(e) => { if (e.target === e.currentTarget) setSelectedFormatsVideo(null); }}
+                                    style={{
+                                        position: "fixed",
+                                        inset: 0,
+                                        zIndex: 1000,
+                                        background: "rgba(0, 0, 0, 0.65)",
+                                        backdropFilter: "blur(6px)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        padding: "20px"
+                                    }}
+                                >
                                     <div style={{
                                         background: "#ffffff",
                                         borderRadius: "24px",
@@ -9166,21 +9470,28 @@
                                         flexDirection: "column"
                                     }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
-                                            <div style={{ flex: 1, paddingRight: "12px" }}>
+                                            <div style={{ flex: 1, minWidth: 0, paddingRight: "12px" }}>
                                                 <div style={{ fontSize: "12px", fontWeight: 700, color: "#7342E2", textTransform: "uppercase" }}>Video yuklab olish</div>
-                                                <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#18181b", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                <h3 id="formats-modal-title" style={{ fontSize: "16px", fontWeight: 700, color: "#18181b", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                                     {selectedFormatsVideo?.title || selectedFormatsVideo?.video?.title || "Video"}
                                                 </h3>
                                             </div>
                                             <button
+                                                type="button"
+                                                aria-label="Yopish"
                                                 onClick={() => setSelectedFormatsVideo(null)}
-                                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a" }}
+                                                style={{ border: "none", background: "transparent", cursor: "pointer", color: "#71717a", padding: "4px", display: "flex", alignItems: "center", flexShrink: 0 }}
                                             >
                                                 <XIcon size={20} color="#71717a" />
                                             </button>
                                         </div>
 
                                         <div style={{ overflowY: "auto", flex: 1, paddingRight: "4px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            {selectedFormatsVideo?.error && (
+                                                <div role="alert" style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "10px 14px", color: "#b91c1c", fontSize: "13px", fontWeight: 600 }}>
+                                                    {selectedFormatsVideo.error}
+                                                </div>
+                                            )}
                                             {formatsLoading ? (
                                                 <div style={{ textAlign: "center", padding: "40px 0", color: "#71717a", fontSize: "14px" }}>
                                                     Formatlar tekshirilmoqda...
@@ -9211,6 +9522,7 @@
                                                                 </div>
                                                             </div>
                                                             <button
+                                                                type="button"
                                                                 onClick={() => startDownload(selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id, fmtVal)}
                                                                 disabled={isDownloading}
                                                                 style={{
@@ -9237,6 +9549,7 @@
                                                 <div style={{ textAlign: "center", padding: "30px 0" }}>
                                                     <div style={{ fontSize: "14px", color: "#71717a", marginBottom: "12px" }}>Formatlar aniqlanmadi, to'g'ridan-to'g'ri yuklab olish:</div>
                                                     <button
+                                                        type="button"
                                                         onClick={() => startDownload(selectedFormatsVideo?.id || selectedFormatsVideo?.video?.id, 'best')}
                                                         style={{
                                                             padding: "10px 24px",
@@ -9256,6 +9569,101 @@
                                     </div>
                                 </div>
                             )}
+
+                            {/* Shared Video Preview Modal (Accessible from Analytics & Videos tabs) */}
+                            {previewModalVideo && (() => {
+                                const safePreviewId = sanitizeYoutubeId(previewModalVideo.id);
+                                return (
+                                    <div
+                                        role="dialog"
+                                        aria-modal="true"
+                                        aria-label={previewModalVideo.title || "YouTube Video Preview"}
+                                        onClick={(e) => { if (e.target === e.currentTarget) setPreviewModalVideo(null); }}
+                                        style={{
+                                            position: "fixed",
+                                            inset: 0,
+                                            zIndex: 1050,
+                                            background: "rgba(9, 10, 15, 0.84)",
+                                            backdropFilter: "blur(8px)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: "20px"
+                                        }}
+                                    >
+                                        <div style={{
+                                            background: "#12131a",
+                                            borderRadius: "24px",
+                                            padding: "20px",
+                                            maxWidth: "820px",
+                                            width: "100%",
+                                            maxHeight: "90vh",
+                                            overflowY: "auto",
+                                            color: "#ffffff",
+                                            border: "1px solid rgba(255,255,255,0.12)",
+                                            boxShadow: "0 24px 64px rgba(0,0,0,0.55)"
+                                        }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "14px" }}>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#ffffff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                                        {previewModalVideo.title || "YouTube Video"}
+                                                    </div>
+                                                    <div style={{ fontSize: "12px", color: "#a1a1aa", marginTop: "2px" }}>
+                                                        {previewModalVideo.channel || ""}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    aria-label="Yopish"
+                                                    onClick={() => setPreviewModalVideo(null)}
+                                                    style={{ border: "none", background: "rgba(255,255,255,0.1)", borderRadius: "999px", width: "34px", height: "34px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0 }}
+                                                >
+                                                    <XIcon size={18} color="#ffffff" />
+                                                </button>
+                                            </div>
+                                            <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", borderRadius: "16px", overflow: "hidden", background: "#000000", marginBottom: "16px" }}>
+                                                {safePreviewId ? (
+                                                    <iframe
+                                                        src={`https://www.youtube.com/embed/${encodeURIComponent(safePreviewId)}?autoplay=1&rel=0&modestbranding=1`}
+                                                        title={previewModalVideo.title || "YouTube Video Preview"}
+                                                        style={{ width: "100%", height: "100%", border: "none" }}
+                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                        allowFullScreen
+                                                    />
+                                                ) : (
+                                                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#a1a1aa", fontSize: "14px" }}>
+                                                        Video identifikatori yaroqsiz.
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { const vid = previewModalVideo; setPreviewModalVideo(null); openFormatModal(vid); }}
+                                                    style={{ padding: "10px 18px", borderRadius: "999px", background: "#7342E2", color: "#ffffff", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}
+                                                >
+                                                    <SvgDownload size={14} color="#ffffff" />
+                                                    <span>Yuklab olish</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { const vidId = previewModalVideo.id; setPreviewModalVideo(null); handleCreateAutoPost({ videoIds: [vidId] }); }}
+                                                    style={{ padding: "10px 18px", borderRadius: "999px", background: "#10b981", color: "#ffffff", border: "none", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
+                                                >
+                                                    Auto-Post
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPreviewModalVideo(null)}
+                                                    style={{ padding: "10px 18px", borderRadius: "999px", background: "rgba(255,255,255,0.1)", color: "#ffffff", border: "1px solid rgba(255,255,255,0.16)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}
+                                                >
+                                                    Yopish
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
                 </div>
@@ -9304,27 +9712,12 @@
                                 <h2 style={{ fontSize: "20px", fontWeight: 800, marginBottom: "8px", color: "#ffffff" }}>
                                     Ilovada kutilmagan xatolik yuz berdi
                                 </h2>
-                                <p style={{ fontSize: "14px", color: "rgba(255, 255, 255, 0.6)", marginBottom: "20px", lineHeight: 1.5 }}>
-                                    Iltimos, sahifani yangilang yoki xotirani tozalab qayta kiring.
+                                <p style={{ fontSize: "14px", color: "rgba(255, 255, 255, 0.72)", marginBottom: "24px", lineHeight: 1.5 }}>
+                                    Iltimos, sahifani yangilang yoki keshni tozalab qayta kiring. Muammo davom etsa qo'llab-quvvatlashga murojaat qiling.
                                 </p>
-                                {this.state.error && (
-                                    <div style={{
-                                        background: "rgba(239, 68, 68, 0.08)",
-                                        border: "1px solid rgba(239, 68, 68, 0.25)",
-                                        borderRadius: "12px",
-                                        padding: "12px",
-                                        fontSize: "12px",
-                                        color: "#fca5a5",
-                                        marginBottom: "20px",
-                                        textAlign: "left",
-                                        overflowX: "auto",
-                                        fontFamily: "monospace"
-                                    }}>
-                                        {String(this.state.error.message || this.state.error)}
-                                    </div>
-                                )}
-                                <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                                <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
                                     <button
+                                        type="button"
                                         onClick={() => {
                                             this.setState({ hasError: false, error: null });
                                             window.location.reload();
@@ -9343,8 +9736,15 @@
                                         Sahifani yangilash
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => {
-                                            localStorage.clear();
+                                            try { localStorage.clear(); } catch(e) {}
+                                            try {
+                                                clearClientCookie('cf_adm_sig');
+                                                clearClientCookie('admin_key');
+                                                clearClientCookie('cf_auth_owner');
+                                                clearClientCookie('cf_auth_token');
+                                            } catch(e) {}
                                             window.location.href = window.location.pathname;
                                         }}
                                         style={{
