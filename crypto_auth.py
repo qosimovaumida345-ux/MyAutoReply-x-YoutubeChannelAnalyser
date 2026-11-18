@@ -13,11 +13,16 @@ import time
 import secrets
 from typing import Optional, Dict, Any
 
+# Process-local CSPRNG fallback key when ADMIN_SECRET is not configured in env.
+# Prevents offline token forgery using hardcoded repository strings.
+_FALLBACK_SIGNING_SECRET = secrets.token_hex(32)
+
+
 def _get_signing_key() -> bytes:
-    """Imzolash uchun maxfiy kalit (ADMIN_SECRET yoki ichki xavfsiz salt)"""
+    """Imzolash uchun maxfiy kalit (ADMIN_SECRET yoki xavfsiz efemer CSPRNG kalit)"""
     secret = os.getenv("ADMIN_SECRET", "").strip()
     if not secret:
-        secret = "cf_sec_9e82ab3c4e5170d89201fbc43729e018_salt_v3"
+        secret = _FALLBACK_SIGNING_SECRET
     # Kalitni sha256 orqali 32 baytlik raw baytga aylantiramiz
     return hashlib.sha256(secret.encode("utf-8")).digest()
 
@@ -35,12 +40,13 @@ def generate_signed_admin_token(
     """
     signing_key = _get_signing_key()
     now = int(time.time())
+    safe_ttl = max(60, min(int(ttl_seconds), 30 * 86400))
     payload = {
         "uid": int(tg_user_id),
         "role": str(role),
         "iat": now,
-        "exp": now + ttl_seconds,
-        "nonce": secrets.token_hex(12)
+        "exp": now + safe_ttl,
+        "nonce": secrets.token_hex(16)
     }
     
     # Payload ni xavfsiz base64url qilamiz
@@ -67,13 +73,15 @@ def verify_signed_admin_token(token: str) -> Optional[Dict[str, Any]]:
         return None
         
     payload_b64, sig = parts
+    if not payload_b64 or len(sig) != 64:
+        return None
     signing_key = _get_signing_key()
     
     # Kutilgan imzoni hisoblaymiz
     expected_sig = hmac.new(signing_key, payload_b64.encode("utf-8"), hashlib.sha256).hexdigest()
     
     # Constant-time taqqoslash
-    if not hmac.compare_digest(sig, expected_sig):
+    if not hmac.compare_digest(sig.lower(), expected_sig):
         return None
         
     try:
@@ -81,10 +89,16 @@ def verify_signed_admin_token(token: str) -> Optional[Dict[str, Any]]:
         padding = "=" * ((4 - len(payload_b64) % 4) % 4)
         raw_json = base64.urlsafe_b64decode((payload_b64 + padding).encode("utf-8"))
         payload = json.loads(raw_json.decode("utf-8"))
+        if not isinstance(payload, dict):
+            return None
         
-        # Muddati tekshirish
+        # Muddati va chiqarilgan vaqtini qat'iy tekshirish
         now = time.time()
-        if payload.get("exp", 0) < now:
+        exp = payload.get("exp")
+        iat = payload.get("iat")
+        if not isinstance(exp, (int, float)) or not isinstance(iat, (int, float)):
+            return None
+        if exp < now or iat > now + 60:
             return None
             
         # Foydalanuvchi ID tekshirish (Faqat owner / admin)
@@ -93,9 +107,44 @@ def verify_signed_admin_token(token: str) -> Optional[Dict[str, Any]]:
         if int(payload.get("uid", 0)) not in valid_uids:
             return None
             
-        if payload.get("role") != "superadmin":
+        if not hmac.compare_digest(str(payload.get("role", "")), "superadmin"):
             return None
             
         return payload
     except Exception:
         return None
+
+
+def generate_download_signature(
+    video_id: str,
+    resolution: str,
+    tg_user_id: int,
+    ttl_seconds: int = 900
+) -> tuple[int, str]:
+    """Generate a short-lived HMAC-SHA256 signature for /api/download-file links."""
+    exp = int(time.time()) + max(60, min(int(ttl_seconds), 3600))
+    msg = f"dl:{video_id}:{resolution}:{int(tg_user_id)}:{exp}".encode("utf-8")
+    sig = hmac.new(_get_signing_key(), msg, hashlib.sha256).hexdigest()[:32]
+    return exp, sig
+
+
+def verify_download_signature(
+    video_id: str,
+    resolution: str,
+    tg_user_id: int,
+    exp: Any,
+    sig: str
+) -> bool:
+    """Verify a short-lived HMAC-SHA256 signature for /api/download-file."""
+    if not sig or not isinstance(sig, str):
+        return False
+    try:
+        exp_int = int(exp)
+        uid_int = int(tg_user_id)
+    except (TypeError, ValueError):
+        return False
+    if uid_int <= 0 or exp_int < int(time.time()):
+        return False
+    msg = f"dl:{video_id}:{resolution}:{uid_int}:{exp_int}".encode("utf-8")
+    expected = hmac.new(_get_signing_key(), msg, hashlib.sha256).hexdigest()[:32]
+    return hmac.compare_digest(sig.strip().lower(), expected)

@@ -9,10 +9,13 @@ va YouTube xizmatlariga avtomatik buyurtma berishi mumkin.
 import json
 import os
 import re
+import socket
+import ipaddress
 import urllib.parse
 import asyncio
 import aiohttp
 from aiohttp import web
+from crypto_auth import generate_download_signature
 from database import (
     get_user_by_api_key,
     log_api_key_usage,
@@ -44,6 +47,118 @@ from games_monetization import (
 from config import generate_with_fallback_async, BOT_TOKEN
 from competitor_spy import extract_competitor_metadata
 from deeplink_engine import generate_smart_deeplinks
+
+
+_ALLOWED_YOUTUBE_HOSTS = {
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "youtu.be",
+    "music.youtube.com",
+    "shorts.youtube.com",
+}
+_ALLOWED_DOWNLOAD_FORMATS = {"360", "480", "720", "1080", "1440", "2160", "4320", "mp3"}
+_VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+_BOT_TOKEN_RE = re.compile(r"^\d{5,15}:[A-Za-z0-9_-]{20,64}$")
+_GIFT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _is_non_public_ip(ip_str: str) -> bool:
+    """Return True if an IP literal is private, loopback, link-local, multicast, or reserved."""
+    try:
+        ip_obj = ipaddress.ip_address(ip_str.strip("[]"))
+        return (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_multicast
+            or ip_obj.is_reserved
+            or ip_obj.is_unspecified
+        )
+    except ValueError:
+        return True
+
+
+def is_safe_public_webhook_url(url: str) -> bool:
+    """Strict SSRF validator for user-supplied webhook URLs."""
+    if not url or not isinstance(url, str) or len(url) > 2048:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url.strip())
+    except Exception:
+        return False
+    if parsed.scheme not in ("https", "http"):
+        return False
+    if parsed.username or parsed.password:
+        return False
+    hostname = (parsed.hostname or "").strip().lower().rstrip(".")
+    if not hostname:
+        return False
+    if hostname in ("localhost", "ip6-localhost", "ip6-loopback", "metadata.google.internal", "metadata"):
+        return False
+    if hostname.endswith((".local", ".internal", ".localhost", ".lan", ".home.arpa")):
+        return False
+    # Check if hostname is already an IP literal
+    try:
+        ip_obj = ipaddress.ip_address(hostname.strip("[]"))
+        if _is_non_public_ip(str(ip_obj)):
+            return False
+        return True
+    except ValueError:
+        pass
+    # Must contain a dot (public FQDN)
+    if "." not in hostname:
+        return False
+    # Best-effort DNS check against private IP resolution (SSRF protection)
+    try:
+        infos = socket.getaddrinfo(hostname, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
+        for info in infos:
+            sockaddr = info[4]
+            if sockaddr and _is_non_public_ip(sockaddr[0]):
+                return False
+    except OSError:
+        # Unresolvable host in offline test environment: allow only valid public domain syntax
+        if not re.match(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$", hostname):
+            return False
+    return True
+
+
+def extract_safe_youtube_target(raw_url: str):
+    """Validate and normalize a YouTube URL or 11-char video ID (SSRF protection)."""
+    raw = str(raw_url or "").strip()
+    if not raw or len(raw) > 1024:
+        return None, None
+    if _VIDEO_ID_RE.match(raw):
+        return raw, f"https://www.youtube.com/watch?v={raw}"
+    try:
+        parsed = urllib.parse.urlparse(raw)
+    except Exception:
+        return None, None
+    if parsed.scheme not in ("http", "https"):
+        return None, None
+    if parsed.username or parsed.password:
+        return None, None
+    host = (parsed.hostname or "").lower()
+    if host not in _ALLOWED_YOUTUBE_HOSTS:
+        return None, None
+    video_id = None
+    if host == "youtu.be":
+        cand = parsed.path.lstrip("/").split("/")[0]
+        if _VIDEO_ID_RE.match(cand):
+            video_id = cand
+    else:
+        qs = urllib.parse.parse_qs(parsed.query)
+        v_list = qs.get("v", [])
+        if v_list and _VIDEO_ID_RE.match(v_list[0]):
+            video_id = v_list[0]
+        else:
+            m = re.match(r"^/(?:shorts|embed|live|v)/([A-Za-z0-9_-]{11})(?:/|$)", parsed.path)
+            if m:
+                video_id = m.group(1)
+    safe_url = f"https://www.youtube.com/watch?v={video_id}" if video_id else f"https://{host}{parsed.path}"
+    if not video_id and parsed.query:
+        safe_url = f"{safe_url}?{parsed.query}"
+    return video_id, safe_url
 
 
 def extract_api_key(request) -> str:
@@ -458,12 +573,21 @@ async def handle_api_smm_order(request):
             "error": "missing_target_url",
             "message": "'target_url' (YouTube havola) kiritilishi shart"
         }, status=400)
+
+    _, safe_target_url = extract_safe_youtube_target(target_url)
+    if not safe_target_url:
+        return web.json_response({
+            "ok": False,
+            "error": "invalid_target_url",
+            "message": "'target_url' haqiqiy YouTube havola bo'lishi shart"
+        }, status=400)
+    target_url = safe_target_url
         
-    if quantity < 1:
+    if quantity < 1 or quantity > 1000000:
         return web.json_response({
             "ok": False,
             "error": "invalid_quantity",
-            "message": "'quantity' eng kamida 1 bo'lishi kerak"
+            "message": "'quantity' 1 dan 1,000,000 gacha bo'lishi kerak"
         }, status=400)
         
     rates = {
@@ -520,7 +644,8 @@ async def handle_api_smm_order(request):
         })
     except Exception as e:
         conn.rollback()
-        return web.json_response({"ok": False, "error": "server_error", "message": str(e)}, status=500)
+        print(f"[reseller_api] handle_api_smm_order error: {e}")
+        return web.json_response({"ok": False, "error": "server_error", "message": "Buyurtmani yaratishda server xatoligi yuz berdi"}, status=500)
     finally:
         conn.close()
 
@@ -588,6 +713,12 @@ async def handle_api_downloader(request):
 
     raw_url = str(data.get("url", "")).strip()
     requested_format = str(data.get("format", "720")).strip().lower()
+    if requested_format not in _ALLOWED_DOWNLOAD_FORMATS:
+        return web.json_response({
+            "ok": False,
+            "error": "invalid_format",
+            "message": "Noto'g'ri format! Ruxsat etilgan: 360, 480, 720, 1080, 1440, 2160, 4320, mp3"
+        }, status=400)
 
     if not raw_url:
         return web.json_response({
@@ -596,16 +727,14 @@ async def handle_api_downloader(request):
             "message": "'url' parametri kiritilishi shart (YouTube video havola yoki video ID)"
         }, status=400)
 
-    # Video ID ajratish
-    video_id = None
-    if len(raw_url) == 11 and re.match(r'^[A-Za-z0-9_-]{11}$', raw_url):
-        video_id = raw_url
-        target_url = f"https://www.youtube.com/watch?v={video_id}"
-    else:
-        target_url = raw_url
-        match = re.search(r'(?:v=|\/|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})', raw_url)
-        if match:
-            video_id = match.group(1)
+    # Strict YouTube URL / Video ID validation (Anti-SSRF)
+    video_id, target_url = extract_safe_youtube_target(raw_url)
+    if not target_url:
+        return web.json_response({
+            "ok": False,
+            "error": "invalid_url",
+            "message": "Faqat haqiqiy YouTube video havolasi yoki 11 belgili video ID qabul qilinadi"
+        }, status=400)
 
     base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
     standard_formats = [
@@ -642,8 +771,8 @@ async def handle_api_downloader(request):
         thumbnail = info.get("thumbnail", "")
         uploader = info.get("uploader", "")
         vid = video_id or info.get("id", "")
-
-        download_url = f"{base_domain}/api/download-file?video_id={vid}&resolution={requested_format}&tg_user_id={user['tg_user_id']}"
+        dl_exp, dl_sig = generate_download_signature(vid, requested_format, user['tg_user_id'])
+        download_url = f"{base_domain}/api/download-file?video_id={vid}&resolution={requested_format}&tg_user_id={user['tg_user_id']}&exp={dl_exp}&sig={dl_sig}"
 
         return web.json_response({
             "ok": True,
@@ -657,8 +786,10 @@ async def handle_api_downloader(request):
             "available_formats": standard_formats
         })
     except Exception as e:
+        print(f"[reseller_api] handle_api_downloader error: {e}")
         if video_id:
-            download_url = f"{base_domain}/api/download-file?video_id={video_id}&resolution={requested_format}&tg_user_id={user['tg_user_id']}"
+            dl_exp, dl_sig = generate_download_signature(video_id, requested_format, user['tg_user_id'])
+            download_url = f"{base_domain}/api/download-file?video_id={video_id}&resolution={requested_format}&tg_user_id={user['tg_user_id']}&exp={dl_exp}&sig={dl_sig}"
             return web.json_response({
                 "ok": True,
                 "video_id": video_id,
@@ -671,7 +802,7 @@ async def handle_api_downloader(request):
         return web.json_response({
             "ok": False,
             "error": "extract_error",
-            "message": f"Media ma'lumotlarini ajratib bo'lmadi: {str(e)[:200]}"
+            "message": "Media ma'lumotlarini ajratib bo'lmadi"
         }, status=500)
 
 
@@ -714,7 +845,8 @@ async def handle_api_gifts_available(request):
             "gifts": formatted
         })
     except Exception as e:
-        return web.json_response({"ok": False, "error": "server_error", "message": str(e)}, status=500)
+        print(f"[reseller_api] handle_api_gifts_available error: {e}")
+        return web.json_response({"ok": False, "error": "server_error", "message": "Sovg'alar katalogini yuklashda xatolik yuz berdi"}, status=500)
 
 
 async def handle_api_cases_open(request):
@@ -737,7 +869,11 @@ async def handle_api_cases_open(request):
 
     tier_id = str(data.get("tier_id", "tier_1")).strip().lower()
     payer_id = int(user["tg_user_id"])
-    target_user_id = int(data.get("user_id", 0) or payer_id)
+    try:
+        raw_target_uid = int(data.get("user_id", 0) or 0)
+        target_user_id = raw_target_uid if raw_target_uid > 0 else payer_id
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "invalid_user_id", "message": "Noto'g'ri user_id"}, status=400)
 
     cases = build_cases_from_gifts()
     case = cases.get(tier_id)
@@ -829,7 +965,11 @@ async def handle_api_vouchers_redeem(request):
             "message": "'code' parametri kiritilishi shart"
         }, status=400)
 
-    target_user_id = int(data.get("user_id", 0) or user["tg_user_id"])
+    try:
+        raw_target_uid = int(data.get("user_id", 0) or 0)
+        target_user_id = raw_target_uid if raw_target_uid > 0 else user["tg_user_id"]
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "invalid_user_id", "message": "Noto'g'ri user_id"}, status=400)
 
     # 1. Avval vouchers jadvalidan tekshirish
     v_res = redeem_voucher(target_user_id, code)
@@ -879,11 +1019,11 @@ async def handle_api_webhooks_set(request):
     webhook_url = str(data.get("webhook_url", "")).strip()
     secret_token = str(data.get("secret_token", "")).strip() or None
 
-    if not webhook_url or not (webhook_url.startswith("http://") or webhook_url.startswith("https://")):
+    if not is_safe_public_webhook_url(webhook_url):
         return web.json_response({
             "ok": False,
             "error": "invalid_url",
-            "message": "'webhook_url' to'g'ri HTTP/HTTPS manzil bo'lishi shart"
+            "message": "'webhook_url' ommaviy, xavfsiz HTTP/HTTPS manzil bo'lishi shart (ichki/lokal manzillar taqiqlangan)"
         }, status=400)
 
     ok = set_reseller_webhook(user["tg_user_id"], webhook_url, secret_token)
@@ -947,6 +1087,10 @@ async def handle_api_ai_summarize(request):
     video_url = str(data.get("video_url", "")).strip()
     if not video_url:
         return web.json_response({"ok": False, "error": "missing_video_url", "message": "'video_url' kiritilishi shart"}, status=400)
+    _, safe_video_url = extract_safe_youtube_target(video_url)
+    if not safe_video_url:
+        return web.json_response({"ok": False, "error": "invalid_video_url", "message": "Faqat haqiqiy YouTube video havolasi qabul qilinadi"}, status=400)
+    video_url = safe_video_url
 
     language = str(data.get("language", "uz")).strip().lower()
     detail_level = str(data.get("detail_level", "medium")).strip().lower()
@@ -999,11 +1143,12 @@ async def handle_api_ai_summarize(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        record_api_metered_usage(payer_id, "/api/v1/ai/summarize", 0, f"error: {str(e)[:50]}")
+        print(f"[reseller_api] handle_api_ai_summarize error: {e}")
+        record_api_metered_usage(payer_id, "/api/v1/ai/summarize", 0, "error")
         return web.json_response({
             "ok": False,
             "error": "ai_processing_error",
-            "message": f"Tahlil jarayonida xatolik yuz berdi va {COST_UZS:,} so'm hisobingizga qaytarildi: {str(e)}"
+            "message": f"Tahlil jarayonida xatolik yuz berdi va {COST_UZS:,} so'm hisobingizga qaytarildi."
         }, status=500)
 
 
@@ -1069,10 +1214,11 @@ async def handle_api_ai_clickbait_title(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
+        print(f"[reseller_api] handle_api_ai_clickbait_title error: {e}")
         return web.json_response({
             "ok": False,
             "error": "ai_error",
-            "message": f"Xatolik yuz berdi va {COST_UZS:,} so'm balansingizga qaytarildi: {str(e)}"
+            "message": f"Xatolik yuz berdi va {COST_UZS:,} so'm balansingizga qaytarildi."
         }, status=500)
 
 
@@ -1134,7 +1280,8 @@ async def handle_api_ai_shorts_hook(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "ai_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] ai_error: {e}")
+        return web.json_response({"ok": False, "error": "ai_error", "message": "Xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_ai_reply_comment(request):
@@ -1188,7 +1335,8 @@ async def handle_api_ai_reply_comment(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "ai_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] ai_error: {e}")
+        return web.json_response({"ok": False, "error": "ai_error", "message": "Xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_ai_generate(request):
@@ -1232,7 +1380,8 @@ async def handle_api_ai_generate(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "ai_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] ai_error: {e}")
+        return web.json_response({"ok": False, "error": "ai_error", "message": "Xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 # ==================== 2. MEDIA PAY-AS-YOU-GO ENDPOINTS ====================
@@ -1256,6 +1405,10 @@ async def handle_api_media_uniquify(request):
     video_url = str(data.get("video_url", "")).strip()
     if not video_url:
         return web.json_response({"ok": False, "error": "missing_video_url", "message": "'video_url' kiritilishi shart"}, status=400)
+    _, safe_video_url = extract_safe_youtube_target(video_url)
+    if not safe_video_url:
+        return web.json_response({"ok": False, "error": "invalid_video_url", "message": "Faqat haqiqiy YouTube video havolasi qabul qilinadi"}, status=400)
+    video_url = safe_video_url
 
     intensity = str(data.get("intensity", "medium")).strip().lower()
 
@@ -1301,7 +1454,8 @@ async def handle_api_media_uniquify(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] media_error: {e}")
+        return web.json_response({"ok": False, "error": "media_error", "message": "Media ishlovida xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_media_crop_vertical(request):
@@ -1323,6 +1477,10 @@ async def handle_api_media_crop_vertical(request):
     video_url = str(data.get("video_url", "")).strip()
     if not video_url:
         return web.json_response({"ok": False, "error": "missing_video_url", "message": "'video_url' kiritilishi shart"}, status=400)
+    _, safe_video_url = extract_safe_youtube_target(video_url)
+    if not safe_video_url:
+        return web.json_response({"ok": False, "error": "invalid_video_url", "message": "Faqat haqiqiy YouTube video havolasi qabul qilinadi"}, status=400)
+    video_url = safe_video_url
 
     mode = str(data.get("mode", "blur_background")).strip().lower()
 
@@ -1358,7 +1516,8 @@ async def handle_api_media_crop_vertical(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] media_error: {e}")
+        return web.json_response({"ok": False, "error": "media_error", "message": "Media ishlovida xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_media_remove_silence(request):
@@ -1412,7 +1571,8 @@ async def handle_api_media_remove_silence(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] media_error: {e}")
+        return web.json_response({"ok": False, "error": "media_error", "message": "Media ishlovida xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_media_compress_telegram(request):
@@ -1464,7 +1624,8 @@ async def handle_api_media_compress_telegram(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "media_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] media_error: {e}")
+        return web.json_response({"ok": False, "error": "media_error", "message": "Media ishlovida xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 # ==================== 3. SMM & VIRAL GROWTH ENDPOINTS ====================
@@ -1520,7 +1681,8 @@ async def handle_api_smm_smart_deeplink(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "deeplink_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] deeplink_error: {e}")
+        return web.json_response({"ok": False, "error": "deeplink_error", "message": "DeepLink yaratishda xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_smm_spy_velocity(request):
@@ -1538,6 +1700,10 @@ async def handle_api_smm_spy_velocity(request):
     target_url = request.query.get("url", "").strip() or request.query.get("channel_url", "").strip()
     if not target_url:
         return web.json_response({"ok": False, "error": "missing_url", "message": "'url' yoki 'channel_url' parametri kiritilishi shart"}, status=400)
+    _, safe_target_url = extract_safe_youtube_target(target_url)
+    if not safe_target_url:
+        return web.json_response({"ok": False, "error": "invalid_url", "message": "Faqat haqiqiy YouTube havola qabul qilinadi"}, status=400)
+    target_url = safe_target_url
 
     if not deduct_user_balance(payer_id, COST_UZS):
         curr_bal = get_user_balance(payer_id)
@@ -1583,7 +1749,8 @@ async def handle_api_smm_spy_velocity(request):
         })
     except Exception as e:
         add_user_balance(payer_id, COST_UZS)
-        return web.json_response({"ok": False, "error": "spy_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] spy_error: {e}")
+        return web.json_response({"ok": False, "error": "spy_error", "message": "Tahlil jarayonida xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_smm_services(request):
@@ -1625,12 +1792,42 @@ async def handle_api_gifts_send(request):
         return web.json_response({"ok": False, "error": "invalid_recipient", "message": "'recipient_user_id' kiritilishi shart"}, status=400)
 
     gift_id = str(data.get("gift_id", "")).strip()
-    if not gift_id:
-        return web.json_response({"ok": False, "error": "missing_gift_id", "message": "'gift_id' kiritilishi shart"}, status=400)
+    if not gift_id or not _GIFT_ID_RE.match(gift_id):
+        return web.json_response({"ok": False, "error": "missing_gift_id", "message": "Yaroqli 'gift_id' kiritilishi shart"}, status=400)
 
     custom_msg = str(data.get("custom_message", "")).strip()
     is_anon = bool(data.get("is_anonymous", False))
-    gift_stars = int(data.get("gift_stars", 25))
+
+    # Enforce server-side gift pricing (prevents negative/zero/client-manipulated price exploit)
+    catalog_stars = None
+    try:
+        server_gifts = await fetch_telegram_server_gifts()
+        for g in (server_gifts or []):
+            if str(g.get("id", "")) == gift_id or str(g.get("file_id", "")) == gift_id:
+                catalog_stars = int(g.get("stars", 0))
+                break
+        if not catalog_stars:
+            cases = build_cases_from_gifts()
+            for c in cases.values():
+                for d in c.get("drops", []):
+                    if str(d.get("id", "")) == gift_id or str(d.get("file_id", "")) == gift_id:
+                        catalog_stars = int(d.get("stars", 0))
+                        break
+                if catalog_stars:
+                    break
+    except Exception:
+        catalog_stars = None
+
+    if catalog_stars and catalog_stars > 0:
+        gift_stars = catalog_stars
+    else:
+        try:
+            gift_stars = int(data.get("gift_stars", 25))
+        except (TypeError, ValueError):
+            return web.json_response({"ok": False, "error": "invalid_gift_stars", "message": "'gift_stars' musbat son bo'lishi kerak"}, status=400)
+        if gift_stars < 15 or gift_stars > 250000:
+            return web.json_response({"ok": False, "error": "invalid_gift_stars", "message": "'gift_stars' 15 dan 250,000 gacha bo'lishi kerak"}, status=400)
+
     cost_uzs = gift_stars * 350
 
     if not deduct_user_balance(payer_id, cost_uzs):
@@ -1683,7 +1880,8 @@ async def handle_api_gifts_send(request):
         })
     except Exception as e:
         add_user_balance(payer_id, cost_uzs)
-        return web.json_response({"ok": False, "error": "gift_send_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] gift_send_error: {e}")
+        return web.json_response({"ok": False, "error": "gift_send_error", "message": "Sovg'a yuborishda xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 async def handle_api_vouchers_create(request):
@@ -1705,10 +1903,13 @@ async def handle_api_vouchers_create(request):
     except (TypeError, ValueError):
         amount_uzs = 0
 
-    if amount_uzs < 1000:
-        return web.json_response({"ok": False, "error": "invalid_amount", "message": "'amount_uzs' kamida 1,000 so'm bo'lishi kerak"}, status=400)
+    if amount_uzs < 1000 or amount_uzs > 100_000_000:
+        return web.json_response({"ok": False, "error": "invalid_amount", "message": "'amount_uzs' 1,000 dan 100,000,000 so'mgacha bo'lishi kerak"}, status=400)
 
-    count = min(max(int(data.get("count", 1)), 1), 10)
+    try:
+        count = min(max(int(data.get("count", 1)), 1), 10)
+    except (TypeError, ValueError):
+        return web.json_response({"ok": False, "error": "invalid_count", "message": "'count' butun son bo'lishi kerak"}, status=400)
     total_cost = amount_uzs * count
 
     if not deduct_user_balance(payer_id, total_cost):
@@ -1736,7 +1937,8 @@ async def handle_api_vouchers_create(request):
         })
     except Exception as e:
         add_user_balance(payer_id, total_cost)
-        return web.json_response({"ok": False, "error": "server_error", "message": f"Mablag' qaytarildi: {str(e)}"}, status=500)
+        print(f"[reseller_api] vouchers_create error: {e}")
+        return web.json_response({"ok": False, "error": "server_error", "message": "Vaucher yaratishda xatolik yuz berdi, mablag' qaytarildi."}, status=500)
 
 
 # ==================== 5. WHITE-LABEL & BILLING ENDPOINTS ====================
@@ -1756,12 +1958,12 @@ async def handle_api_reseller_bot_connect(request):
         return web.json_response({"ok": False, "error": "invalid_json"}, status=400)
 
     token = str(data.get("bot_token", "")).strip()
-    if not token or ":" not in token:
+    if not token or not _BOT_TOKEN_RE.match(token):
         return web.json_response({"ok": False, "error": "invalid_bot_token", "message": "Noto'g'ri Telegram Bot tokeni"}, status=400)
 
-    brand_name = str(data.get("brand_name", "")).strip() or "Custom White-Label Bot"
+    brand_name = str(data.get("brand_name", "")).strip()[:80] or "Custom White-Label Bot"
     try:
-        margin_pct = int(data.get("custom_margin_percent", 10))
+        margin_pct = max(0, min(500, int(data.get("custom_margin_percent", 10))))
     except (TypeError, ValueError):
         margin_pct = 10
 
@@ -1799,7 +2001,8 @@ async def handle_api_reseller_bot_connect(request):
             "message": f"@{bot_username} botingiz muvaffaqiyatli ulandi! Siz belgilagan {margin_pct}% ustama bilan barcha API xizmatlar taqdim etiladi."
         })
     except Exception as e:
-        return web.json_response({"ok": False, "error": "connection_error", "message": str(e)}, status=500)
+        print(f"[reseller_api] reseller_bot_connect error: {type(e).__name__}")
+        return web.json_response({"ok": False, "error": "connection_error", "message": "Telegram API bilan bog'lanishda xatolik yuz berdi"}, status=500)
 
 
 async def handle_api_billing_stars_invoice(request):
@@ -1821,8 +2024,8 @@ async def handle_api_billing_stars_invoice(request):
     except (TypeError, ValueError):
         amount_stars = 10
 
-    if amount_stars < 1:
-        return web.json_response({"ok": False, "error": "invalid_stars", "message": "'amount_stars' kamida 1 bo'lishi kerak"}, status=400)
+    if amount_stars < 1 or amount_stars > 100000:
+        return web.json_response({"ok": False, "error": "invalid_stars", "message": "'amount_stars' 1 dan 100,000 gacha bo'lishi kerak"}, status=400)
 
     title = str(data.get("title", f"Reseller Balans: {amount_stars} Stars")).strip()
     description = str(data.get("description", f"AutoReply Reseller balansingizni {amount_stars} Stars ga to'ldirish")).strip()
@@ -1860,7 +2063,8 @@ async def handle_api_billing_stars_invoice(request):
                         "message": res.get("description", "Invoice yaratib bo'lmadi")
                     }, status=400)
     except Exception as e:
-        return web.json_response({"ok": False, "error": "network_error", "message": str(e)}, status=500)
+        print(f"[reseller_api] billing_stars_invoice error: {type(e).__name__}")
+        return web.json_response({"ok": False, "error": "network_error", "message": "To'lov havolasini yaratishda tarmoq xatoligi yuz berdi"}, status=500)
 
 
 async def handle_api_tariffs(request):
@@ -2751,7 +2955,8 @@ runResellerClient();
 
 async def handle_dashboard_webapp(request):
     """GET /dashboard - Telegram Mini App Dashboard (Faqat TON va Stars bilan)"""
-    user_id = request.query.get("user_id", "0")
+    raw_uid = str(request.query.get("user_id", "0")).strip()
+    user_id = str(int(raw_uid)) if raw_uid.isdigit() else "0"
     html = f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
@@ -3057,24 +3262,29 @@ async def handle_api_captcha_create(request):
             "message": "Ushbu sitekey faolsizlantirilgan!"
         }, status=403)
         
-    # 3. Domain Whitelisting (Domen xavfsizligi)
+    # 3. Domain Whitelisting (Strict Origin/Referer enforcement - no empty-Origin or unconditional localhost bypass)
     allowed_domain = str(key_info.get("domain", "*") or "*").strip()
     if allowed_domain != "*" and not key_info.get("is_demo"):
-        origin = request.headers.get("Origin", "") or request.headers.get("Referer", "")
-        if origin:
-            from urllib.parse import urlparse
-            parsed_host = (urlparse(origin).hostname or origin).lower()
-            allowed_list = [d.strip().lower() for d in allowed_domain.split(",") if d.strip()]
-            matched = any(
-                parsed_host == d or parsed_host.endswith("." + d)
-                for d in allowed_list
-            )
-            if not matched and parsed_host not in ("localhost", "127.0.0.1"):
-                return cors_json_response({
-                    "ok": False,
-                    "error": "domain_not_allowed",
-                    "message": f"Ushbu sitekey faqat '{allowed_domain}' domenlarida ishlashi ruxsat etilgan!"
-                }, status=403)
+        origin = (request.headers.get("Origin", "") or request.headers.get("Referer", "")).strip()
+        if not origin:
+            return cors_json_response({
+                "ok": False,
+                "error": "domain_not_allowed",
+                "message": "Ushbu sitekey faqat ruxsat etilgan domenlarda ishlashi mumkin!"
+            }, status=403)
+        from urllib.parse import urlparse
+        parsed_host = (urlparse(origin).hostname or "").lower()
+        allowed_list = [d.strip().lower() for d in allowed_domain.split(",") if d.strip()]
+        matched = bool(parsed_host) and any(
+            parsed_host == d or parsed_host.endswith("." + d)
+            for d in allowed_list
+        )
+        if not matched:
+            return cors_json_response({
+                "ok": False,
+                "error": "domain_not_allowed",
+                "message": f"Ushbu sitekey faqat '{allowed_domain}' domenlarida ishlashi ruxsat etilgan!"
+            }, status=403)
 
     challenge = CaptchaManager.create_challenge(challenge_type=c_type, sitekey=actual_sitekey)
     return cors_json_response(challenge)

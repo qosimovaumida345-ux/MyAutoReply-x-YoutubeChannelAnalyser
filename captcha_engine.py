@@ -23,13 +23,34 @@ import hashlib
 from typing import Dict, Any, List, Tuple, Optional
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
-# Secret key for signing verification tokens
-_CAPTCHA_SIGNING_SECRET = os.getenv("CAPTCHA_SIGNING_SECRET", "botshield_super_secure_signing_key_2026_autoreply")
+# Secret key for signing verification tokens (process-ephemeral CSPRNG fallback if env unset)
+_EPHEMERAL_CAPTCHA_SECRET = secrets.token_hex(32)
+_CAPTCHA_SIGNING_SECRET = os.getenv("CAPTCHA_SIGNING_SECRET", "").strip() or _EPHEMERAL_CAPTCHA_SECRET
 
-# High-speed in-memory challenge and token cache with TTL
+# Cryptographically secure RNG for challenge solutions
+_SECURE_RNG = secrets.SystemRandom()
+
+# High-speed in-memory challenge and token cache with TTL & bounded memory caps
 _ACTIVE_CHALLENGES: Dict[str, Dict[str, Any]] = {}
 _VERIFIED_TOKENS: Dict[str, Dict[str, Any]] = {}
 _EPHEMERAL_SESSIONS: Dict[str, Dict[str, Any]] = {}
+_MAX_CACHE_ENTRIES = 5000
+
+
+def _get_captcha_signing_key() -> bytes:
+    """Return signing secret dynamically from env or process-local CSPRNG fallback."""
+    env_sec = os.getenv("CAPTCHA_SIGNING_SECRET", "").strip()
+    sec = env_sec if env_sec else _CAPTCHA_SIGNING_SECRET
+    return sec.encode("utf-8")
+
+
+def _enforce_cache_cap(store: Dict[str, Dict[str, Any]], max_size: int = _MAX_CACHE_ENTRIES):
+    """Evict oldest records if cache grows beyond max_size (memory exhaustion protection)."""
+    if len(store) <= max_size:
+        return
+    overflow = len(store) - max_size
+    for k in list(store.keys())[:overflow]:
+        store.pop(k, None)
 
 # Clean up interval tracker
 _LAST_CLEANUP_TS = time.time()
@@ -72,6 +93,7 @@ def create_session_nonce(sitekey: str, ttl: int = 90) -> str:
         "expires_at": time.time() + ttl,
         "is_used": False
     }
+    _enforce_cache_cap(_EPHEMERAL_SESSIONS)
     return session_key
 
 
@@ -217,9 +239,9 @@ def generate_slider_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # 1. Procedural background
     bg = _generate_procedural_background(width, height)
     
-    # 2. Random target position
-    target_x = random.randint(85, width - piece_size - 25)
-    target_y = random.randint(25, height - piece_size - 25)
+    # 2. Cryptographically unpredictable target position
+    target_x = _SECURE_RNG.randint(85, width - piece_size - 25)
+    target_y = _SECURE_RNG.randint(25, height - piece_size - 25)
     
     # 3. Create anti-aliased jigsaw mask
     mask = _create_jigsaw_mask(piece_size, piece_size)
@@ -411,12 +433,12 @@ def generate_grid_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     Variety 2: 9-Grid Semantic Selector (Pure Uzbek + Target Icon)
     """
     categories = list(SEMANTIC_SHAPES.keys())
-    target_category = random.choice(categories)
+    target_category = _SECURE_RNG.choice(categories)
     other_categories = [c for c in categories if c != target_category]
     
-    num_targets = random.choice([3, 4])
+    num_targets = _SECURE_RNG.choice([3, 4])
     all_indices = list(range(9))
-    target_indices = sorted(random.sample(all_indices, num_targets))
+    target_indices = sorted(_SECURE_RNG.sample(all_indices, num_targets))
     
     tiles_base64 = []
     for idx in range(9):
@@ -540,13 +562,13 @@ def generate_rotate_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     Variety 3: Dial Angle Alignment (Pure Uzbek + Tolerance ±20°)
     """
     size = 170
-    subject_key = random.choice(list(ROTATE_SUBJECTS.keys()))
+    subject_key = _SECURE_RNG.choice(list(ROTATE_SUBJECTS.keys()))
     subject_meta = ROTATE_SUBJECTS[subject_key]
     subject = _draw_upright_subject(subject_key, size)
     
-    angle = random.choice([
-        random.randint(45, 145),
-        random.randint(215, 315)
+    angle = _SECURE_RNG.choice([
+        _SECURE_RNG.randint(45, 145),
+        _SECURE_RNG.randint(215, 315)
     ])
     
     tilted_img = subject.rotate(-angle, resample=Image.Resampling.BICUBIC)
@@ -623,14 +645,14 @@ def generate_sequence_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     bg = _generate_procedural_background(width, height)
     draw = ImageDraw.Draw(bg)
     
-    chosen_symbols = random.sample(SEQUENCE_SYMBOLS, 4)
+    chosen_symbols = _SECURE_RNG.sample(SEQUENCE_SYMBOLS, 4)
     positions: List[Tuple[int, int]] = []
     min_dist = 68
     attempts = 0
     while len(positions) < 4 and attempts < 120:
         attempts += 1
-        px = random.randint(45, width - 45)
-        py = random.randint(35, height - 35)
+        px = _SECURE_RNG.randint(45, width - 45)
+        py = _SECURE_RNG.randint(35, height - 35)
         if all(math.hypot(px - ex, py - ey) >= min_dist for ex, ey in positions):
             positions.append((px, py))
             
@@ -689,7 +711,7 @@ def generate_sequence_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ]
             draw.polygon(pts, fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
             
-    sequence_items = random.sample(placed_items, 3)
+    sequence_items = _SECURE_RNG.sample(placed_items, 3)
     target_sequence_uz = [it["uz"] for it in sequence_items]
     target_sequence_names = [it["name"] for it in sequence_items]
     
@@ -733,7 +755,7 @@ class CaptchaManager:
         
         valid_types = ["slider", "grid", "rotate", "sequence"]
         if challenge_type not in valid_types or challenge_type == "auto":
-            challenge_type = random.choice(valid_types)
+            challenge_type = _SECURE_RNG.choice(valid_types)
             
         challenge_id = secrets.token_hex(16)
         
@@ -763,6 +785,7 @@ class CaptchaManager:
             "expires_at": expires_at,
             "is_used": False
         }
+        _enforce_cache_cap(_ACTIVE_CHALLENGES)
         
         return {
             "ok": True,
@@ -882,16 +905,19 @@ class CaptchaManager:
             
         c_type = challenge["type"]
         expected_sol = challenge["solution"]
-        
-        # Auto-heal telemetry if client did not provide or provided empty 'clicks' in telemetry
+
+        # Single-use challenge: mark consumed immediately to block solution brute-force
+        challenge["is_used"] = True
+        _ACTIVE_CHALLENGES.pop(challenge_id, None)
+
+        # Normalize sequence clicks from solution only when genuine client telemetry exists
         if telemetry is not None and isinstance(telemetry, dict):
             if c_type == "sequence" and not telemetry.get("clicks"):
                 if isinstance(solution, dict) and solution.get("clicks"):
+                    telemetry = dict(telemetry)
                     telemetry["clicks"] = solution["clicks"]
-        elif telemetry is None and isinstance(solution, dict) and solution.get("clicks"):
-            telemetry = {"duration_ms": 1000, "clicks": solution.get("clicks")}
 
-        # 1. Telemetry verification
+        # 1. Telemetry verification (rejects missing/None telemetry)
         is_human, human_score, reason = CaptchaManager.evaluate_telemetry(c_type, telemetry)
         if not is_human:
             return {
@@ -966,7 +992,7 @@ class CaptchaManager:
         
         raw_payload = f"{sitekey}:{challenge_id}:{token_ts}:{score_formatted}"
         signature = hmac.new(
-            _CAPTCHA_SIGNING_SECRET.encode("utf-8"),
+            _get_captcha_signing_key(),
             raw_payload.encode("utf-8"),
             hashlib.sha256
         ).hexdigest()[:24]
@@ -982,6 +1008,7 @@ class CaptchaManager:
             "expires_at": now + 300,
             "is_used": False
         }
+        _enforce_cache_cap(_VERIFIED_TOKENS)
         
         return {
             "ok": True,
@@ -1003,7 +1030,7 @@ class CaptchaManager:
             return {"success": False, "error": "invalid_token_format", "message": "Noto'g'ri token formati"}
             
         parts = token.split("_")
-        if len(parts) < 5:
+        if len(parts) != 5:
             return {"success": False, "error": "malformed_token", "message": "Token strukturasi buzilgan"}
             
         challenge_id = parts[1]
@@ -1015,7 +1042,7 @@ class CaptchaManager:
             return {"success": False, "error": "invalid_token_values", "message": "Token qiymatlari noto'g'ri"}
             
         now = time.time()
-        if now - token_ts > 300:
+        if token_ts > now + 60 or now - token_ts > 300:
             return {"success": False, "error": "token_expired", "message": "Token muddati tugagan (5 daqiqa)"}
             
         # 1. In-memory replay protection check
@@ -1026,14 +1053,14 @@ class CaptchaManager:
         if rec.get("is_used"):
             return {"success": False, "error": "token_already_consumed", "message": "Ushbu token allaqachon ishlatilgan (Replay attack blocked)"}
             
-        token_sitekey = rec.get("sitekey", "demo_key")
+        token_sitekey = str(rec.get("sitekey", "demo_key"))
 
-        # 2. Sitekey binding validation
-        if sitekey and token_sitekey != sitekey:
+        # 2. Sitekey binding validation (constant-time, no sitekey oracle leak)
+        if sitekey and not hmac.compare_digest(token_sitekey, str(sitekey)):
             return {
                 "success": False,
                 "error": "sitekey_mismatch",
-                "message": f"Ushbu token boshqa sitekey uchun chiqarilgan (kutilgan: {sitekey}, haqiqiy: {token_sitekey})"
+                "message": "Ushbu token berilgan sitekey uchun yaroqsiz"
             }
 
         # 3. Persistent Database replay protection check
@@ -1051,7 +1078,7 @@ class CaptchaManager:
         # 4. Verify signature
         expected_raw = f"{token_sitekey}:{challenge_id}:{token_ts}:{score:.2f}"
         expected_sig = hmac.new(
-            _CAPTCHA_SIGNING_SECRET.encode("utf-8"),
+            _get_captcha_signing_key(),
             expected_raw.encode("utf-8"),
             hashlib.sha256
         ).hexdigest()[:24]
