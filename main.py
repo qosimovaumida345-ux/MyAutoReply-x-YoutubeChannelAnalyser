@@ -51,7 +51,7 @@ async def gemini_price_watcher(bot):
     # Read persistent last alerted price from database so restarts don't trigger repeated alerts
     last_alerted_price = None
     try:
-        saved_price = get_bot_config("gemini_price_watcher_last_price")
+        saved_price = await asyncio.to_thread(get_bot_config, "gemini_price_watcher_last_price")
         if saved_price:
             last_alerted_price = float(saved_price)
     except Exception as e:
@@ -93,14 +93,14 @@ async def gemini_price_watcher(bot):
                             )
                             await bot.send_message(OWNER_ID, alert_text)
                             last_alerted_price = price_usd
-                            set_bot_config("gemini_price_watcher_last_price", str(price_usd))
+                            await asyncio.to_thread(set_bot_config, "gemini_price_watcher_last_price", str(price_usd))
                             print(f"[PriceWatcher] ⚡ Admin ga ogohlantirish yuborildi: ${price_usd}")
                         except Exception as send_err:
                             print(f"[PriceWatcher] Admin ga xabar yuborishda xato: {send_err}")
                 else:
                     if last_alerted_price is not None and price_usd >= THRESHOLD:
                         last_alerted_price = None
-                        set_bot_config("gemini_price_watcher_last_price", "")
+                        await asyncio.to_thread(set_bot_config, "gemini_price_watcher_last_price", "")
 
         except Exception as e:
             print(f"[PriceWatcher] Tekshirishda xato: {e}")
@@ -361,6 +361,25 @@ async def dispatch_or_run_stream(task_id):
     return "running_local"
 
 
+def _is_stream_task_cancelled_sync(tid: int) -> bool:
+    conn_check = get_db()
+    if not conn_check:
+        return False
+    try:
+        cur_check = conn_check.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur_check.execute("SELECT status FROM stream_tasks WHERE id=%s", (tid,))
+        row = cur_check.fetchone()
+        return bool(row and row.get("status") == "cancelled")
+    except Exception as e:
+        print(f"[main_streamer] cancel check xato: {e}")
+        return False
+    finally:
+        try:
+            conn_check.close()
+        except Exception:
+            pass
+
+
 async def _run_main_stream_task(task, worker_id):
     """
     ROLE=main o'zi stream taskni bajarayotganda ishlaydigan wrapper.
@@ -400,27 +419,17 @@ async def _run_main_stream_task(task, worker_id):
                 break
 
             # Bekor qilinganmi tekshiramiz (masalan /autostream stop)
-            conn_check = get_db()
-            if conn_check:
+            if await asyncio.to_thread(_is_stream_task_cancelled_sync, task_id) and proc:
                 try:
-                    cur_check = conn_check.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-                    cur_check.execute("SELECT status FROM stream_tasks WHERE id=%s", (task_id,))
-                    row = cur_check.fetchone()
-                    if row and row['status'] == 'cancelled' and proc:
-                        try:
-                            proc.terminate()
-                            proc.wait(timeout=5)
-                        except Exception:
-                            try: proc.kill()
-                            except: pass
-                        print(f"[main_streamer] Stream bekor qilindi (task #{task_id})")
-                        _streamer_state["task_id"] = None
-                        _streamer_state["proc"] = None
-                        break
-                except Exception as e:
-                    print(f"[main_streamer] cancel check xato: {e}")
-                finally:
-                    conn_check.close()
+                    proc.terminate()
+                    proc.wait(timeout=5)
+                except Exception:
+                    try: proc.kill()
+                    except: pass
+                print(f"[main_streamer] Stream bekor qilindi (task #{task_id})")
+                _streamer_state["task_id"] = None
+                _streamer_state["proc"] = None
+                break
 
             await asyncio.sleep(5)
     finally:

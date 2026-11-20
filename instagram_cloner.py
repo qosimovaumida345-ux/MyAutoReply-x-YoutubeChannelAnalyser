@@ -560,7 +560,10 @@ async def start_instagram_sync_daemon(app, interval_seconds: int = 1800):
     await asyncio.sleep(120)
     while True:
         try:
-            active_channels = db.get_all_active_ig_sync_channels()
+            if db.is_db_in_cooldown():
+                await asyncio.sleep(interval_seconds)
+                continue
+            active_channels = await asyncio.to_thread(db.get_all_active_ig_sync_channels)
             for ch in active_channels:
                 try:
                     uid = ch["tg_user_id"]
@@ -572,10 +575,10 @@ async def start_instagram_sync_daemon(app, interval_seconds: int = 1800):
                         continue
 
                     # Yangi kun kelgan bo'lsa limitni tozalash
-                    db.reset_ig_sync_daily_limit_if_new_day(ch_id)
+                    await asyncio.to_thread(db.reset_ig_sync_daily_limit_if_new_day, ch_id)
 
                     # Agar bugun allaqachon limitga yetgan bo'lsa — ertangi kunga qoldirish
-                    if db.is_ig_sync_daily_limit_hit_today(ch_id):
+                    if await asyncio.to_thread(db.is_ig_sync_daily_limit_hit_today, ch_id):
                         continue
 
                     # Profilni tekshirish va yuklash

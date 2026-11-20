@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -42,6 +43,48 @@ def clean_database_url(url: str) -> str:
 from psycopg2.pool import ThreadedConnectionPool
 
 _DB_POOL = None
+_DB_LOCK = threading.RLock()
+_DB_COOLDOWN_UNTIL = 0.0
+_DB_COOLDOWN_REASON = ""
+_DB_LAST_LOG_TS = 0.0
+_PERMANENT_DB_ERR_MARKERS = (
+    "exceeded the quota",
+    "quota",
+    "password authentication failed",
+    "does not exist",
+    "suspended",
+    "disabled",
+)
+
+
+def is_db_in_cooldown() -> bool:
+    """Return True while database connections are paused due to recent quota/connect failure."""
+    return time.monotonic() < _DB_COOLDOWN_UNTIL
+
+
+def reset_db_cooldown() -> None:
+    """Clear any active DB failure cooldown window (useful for tests or manual recovery)."""
+    global _DB_COOLDOWN_UNTIL, _DB_COOLDOWN_REASON, _DB_LAST_LOG_TS
+    with _DB_LOCK:
+        _DB_COOLDOWN_UNTIL = 0.0
+        _DB_COOLDOWN_REASON = ""
+        _DB_LAST_LOG_TS = 0.0
+
+
+def _record_db_failure(prefix: str, err: Exception) -> None:
+    """Trip a bounded fast-fail cooldown and rate-limit duplicate DB failure logs."""
+    global _DB_COOLDOWN_UNTIL, _DB_COOLDOWN_REASON, _DB_LAST_LOG_TS
+    now = time.monotonic()
+    err_msg = str(err)
+    err_low = err_msg.lower()
+    is_hard = any(m in err_low for m in _PERMANENT_DB_ERR_MARKERS)
+    cooldown_sec = 60.0 if is_hard else 15.0
+    with _DB_LOCK:
+        _DB_COOLDOWN_UNTIL = max(_DB_COOLDOWN_UNTIL, now + cooldown_sec)
+        _DB_COOLDOWN_REASON = err_msg[:240]
+        if now - _DB_LAST_LOG_TS >= 60.0:
+            _DB_LAST_LOG_TS = now
+            print(f"{prefix} (cooldown {int(cooldown_sec)}s): {err_msg}")
 
 class _TelemetryCursorWrapper:
     """Telemetriya bilan jihozlangan kursor wrapper'i (so'rov vaqtini ms da o'lchaydi)"""
@@ -125,31 +168,43 @@ class _PooledConnWrapper:
 
 def _get_pool():
     global _DB_POOL
+    if is_db_in_cooldown():
+        return None
     if _DB_POOL is None or getattr(_DB_POOL, "closed", True):
-        from config import DATABASE_URL
-        if not DATABASE_URL:
-            return None
-        url = clean_database_url(DATABASE_URL)
-        try:
-            _DB_POOL = ThreadedConnectionPool(
-                minconn=1,
-                maxconn=12,
-                dsn=url,
-                cursor_factory=RealDictCursor,
-                connect_timeout=5,
-                options="-c statement_timeout=8000",
-            )
-        except Exception as e:
-            print(f"DATABASE POOL INIT ERROR: {e}")
-            _DB_POOL = None
+        with _DB_LOCK:
+            if is_db_in_cooldown():
+                return None
+            if _DB_POOL is None or getattr(_DB_POOL, "closed", True):
+                raw_url = DATABASE_URL
+                if not raw_url:
+                    from config import DATABASE_URL as _cfg_db_url
+                    raw_url = _cfg_db_url
+                if not raw_url:
+                    return None
+                url = clean_database_url(raw_url)
+                try:
+                    _DB_POOL = ThreadedConnectionPool(
+                        minconn=1,
+                        maxconn=12,
+                        dsn=url,
+                        cursor_factory=RealDictCursor,
+                        connect_timeout=3,
+                        options="-c statement_timeout=8000",
+                    )
+                except Exception as e:
+                    _record_db_failure("DATABASE POOL INIT ERROR", e)
+                    _DB_POOL = None
     return _DB_POOL
 
 
-def get_db(retries: int = 3):
-    """Doimiy ulanishlar zaxirasidan (Pool) o'ta tezkor (1-2ms) ulanish qaytaradi"""
+def get_db(retries: int = 2):
+    """Doimiy ulanishlar zaxirasidan (Pool) o'ta tezkor (1-2ms) ulanish qaytaradi; kvota/xatoda darhol None qaytaradi"""
+    if is_db_in_cooldown():
+        return None
+
     pool = _get_pool()
     if pool:
-        for _ in range(retries):
+        for _ in range(max(1, int(retries or 1))):
             try:
                 conn = pool.getconn()
                 if conn.closed:
@@ -160,32 +215,35 @@ def get_db(retries: int = 3):
                     continue
                 conn.autocommit = False
                 return _PooledConnWrapper(pool, conn)
-            except Exception:
-                pass
+            except Exception as e:
+                _record_db_failure("DATABASE POOL BORROW ERROR", e)
+                break
 
-    # Fallback agar pool bo'sh yoki xato bersa
-    from config import DATABASE_URL
-    if not DATABASE_URL:
-        print("DATABASE_URL topilmadi! Render PostgreSQL ni ulang.")
+    if is_db_in_cooldown():
         return None
-        
-    url = clean_database_url(DATABASE_URL)
-    for attempt in range(1, retries + 1):
+
+    raw_url = DATABASE_URL
+    if not raw_url:
+        from config import DATABASE_URL as _cfg_db_url
+        raw_url = _cfg_db_url
+    if not raw_url:
+        print("DATABASE_URL topilmadi! PostgreSQL ni ulang.")
+        return None
+
+    url = clean_database_url(raw_url)
+    for attempt in range(1, max(1, int(retries or 1)) + 1):
         try:
             conn = psycopg2.connect(
                 url,
                 cursor_factory=RealDictCursor,
-                connect_timeout=5,
+                connect_timeout=3,
                 options="-c statement_timeout=8000",
             )
             conn.autocommit = False
             return conn
         except Exception as e:
-            if attempt < retries:
-                time.sleep(1.0)
-            else:
-                print(f"DATABASE ERROR (attempt {attempt}/{retries}): {e}")
-                return None
+            _record_db_failure(f"DATABASE ERROR (attempt {attempt}/{retries})", e)
+            return None
 
 
 def init_db():

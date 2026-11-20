@@ -102,31 +102,48 @@ async def process_check_claim(app, user_id: int, check_code: str) -> tuple:
     return True, congrats
 
 
+def _fetch_required_check_channels() -> list:
+    conn = db.get_db()
+    if not conn:
+        return []
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT required_channel FROM conditional_checks WHERE required_channel IS NOT NULL AND required_channel != ''")
+        channels = [r["required_channel"] if isinstance(r, dict) else r[0] for r in cur.fetchall()]
+        cur.close()
+        return channels
+    finally:
+        conn.close()
+
+
 async def run_antifraud_sentinel_once(app):
     """
     Barcha homiy kanallardagi faol chek oluvchilarni a'zoligini tekshirish.
     Agar a'zolik bekor qilingan bo'lsa -> Zudlik bilan BAN beriladi!
     """
-    conn = db.get_db()
-    if not conn: return
-    try:
-        cur = conn.cursor()
-        # Barcha homiy kanallarni olamiz
-        cur.execute("SELECT DISTINCT required_channel FROM conditional_checks WHERE required_channel IS NOT NULL AND required_channel != ''")
-        channels = [r["required_channel"] if isinstance(r, dict) else r[0] for r in cur.fetchall()]
-        cur.close()
-    finally:
-        conn.close()
+    if db.is_db_in_cooldown():
+        return
+    channels = await asyncio.to_thread(_fetch_required_check_channels)
+    if not channels:
+        return
 
     for channel in channels:
-        claimers = db.get_channel_check_claimers(channel)
+        if db.is_db_in_cooldown():
+            return
+        claimers = await asyncio.to_thread(db.get_channel_check_claimers, channel)
         for uid in claimers:
-            if db.is_user_antifraud_banned(uid):
+            if db.is_db_in_cooldown():
+                return
+            if await asyncio.to_thread(db.is_user_antifraud_banned, uid):
                 continue
             is_sub = await verify_channel_membership(app, channel, uid)
             if not is_sub:
                 logger.warning(f"🚨 ANTIFRAUD: User {uid} homiy kanal (@{channel}) dan chiqib ketdi! BAN berilmoqda...")
-                db.ban_antifraud_user(uid, reason=f"Homiy kanal (@{channel}) dan chiqib ketgani sababli botdan chetlashtirildi")
+                await asyncio.to_thread(
+                    db.ban_antifraud_user,
+                    uid,
+                    reason=f"Homiy kanal (@{channel}) dan chiqib ketgani sababli botdan chetlashtirildi",
+                )
                 try:
                     ban_notification = (
                         f"{ce('LOCK')} <b>HISOBINGIZ BUTUNLAY BLOKLANDI!</b>\n\n"
@@ -139,9 +156,11 @@ async def run_antifraud_sentinel_once(app):
 
 async def start_antifraud_sentinel_daemon(app, interval_seconds: int = 3600):
     """Orqa fonda har soatda ishlovchi antifraud qo'riqchisi"""
+    await asyncio.sleep(45)
     while True:
         try:
-            await run_antifraud_sentinel_once(app)
+            if not db.is_db_in_cooldown():
+                await run_antifraud_sentinel_once(app)
         except Exception as e:
             logger.error(f"Antifraud sentinel siklida xato: {e}")
         await asyncio.sleep(interval_seconds)

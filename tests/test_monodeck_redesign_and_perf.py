@@ -300,3 +300,42 @@ async def test_api_stats_fast_nonblocking_with_mock_db():
     finally:
         main._AUTH_TOKENS.pop(tok, None)
         main._stats_cache.pop("999111_default", None)
+
+
+@pytest.mark.asyncio
+async def test_database_quota_circuit_breaker_fails_fast_without_blocking():
+    import time as _t
+    import database
+    import config as _cfg
+
+    orig_pool = database._DB_POOL
+    database._DB_POOL = None
+    database.reset_db_cooldown()
+    quota_err = RuntimeError("ERROR: Your account or project has exceeded the quota. Upgrade your plan to increase limits.")
+
+    try:
+        with patch.object(database, "DATABASE_URL", "postgresql://user:pass@localhost:5432/testdb"), \
+             patch.object(_cfg, "DATABASE_URL", "postgresql://user:pass@localhost:5432/testdb"), \
+             patch.object(database, "ThreadedConnectionPool", side_effect=quota_err) as pool_mock, \
+             patch.object(database.psycopg2, "connect", side_effect=quota_err) as conn_mock:
+            t0 = _t.monotonic()
+            results = [database.get_db() for _ in range(25)]
+            elapsed = _t.monotonic() - t0
+
+            assert all(r is None for r in results)
+            assert elapsed < 0.3
+            assert database.is_db_in_cooldown() is True
+            assert pool_mock.call_count <= 1
+            assert conn_mock.call_count <= 1
+
+            app = _build_wired_test_app()
+            async with TestClient(TestServer(app)) as client:
+                t_web = _t.monotonic()
+                for path in ("/", "/privacy"):
+                    resp = await client.get(path)
+                    assert resp.status == 200
+                    await resp.release()
+                assert (_t.monotonic() - t_web) < 0.5
+    finally:
+        database.reset_db_cooldown()
+        database._DB_POOL = orig_pool
