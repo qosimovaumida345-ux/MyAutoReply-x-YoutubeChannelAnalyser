@@ -339,3 +339,18 @@ async def test_database_quota_circuit_breaker_fails_fast_without_blocking():
     finally:
         database.reset_db_cooldown()
         database._DB_POOL = orig_pool
+
+
+def test_build_connect_kwargs_handles_neon_pooler_urls():
+    import database
+
+    pooler_kwargs = database._build_connect_kwargs(
+        "postgresql://u:p@ep-abc-pooler.c-2.aws.neon.tech/neondb?sslmode=require"
+    )
+    assert "options" not in pooler_kwargs
+    assert pooler_kwargs["connect_timeout"] == 3
+
+    direct_kwargs = database._build_connect_kwargs(
+        "postgresql://u:p@ep-abc.c-2.aws.neon.tech/neondb?sslmode=require"
+    )
+    assert direct_kwargs["options"] == "-c statement_timeout=8000"

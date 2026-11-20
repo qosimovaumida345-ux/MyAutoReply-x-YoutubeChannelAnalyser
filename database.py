@@ -166,6 +166,18 @@ class _PooledConnWrapper:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+def _build_connect_kwargs(url: str) -> dict:
+    """Build psycopg2 connection kwargs, omitting startup options rejected by PgBouncer poolers."""
+    kwargs = {
+        "cursor_factory": RealDictCursor,
+        "connect_timeout": 3,
+    }
+    lower_url = (url or "").lower()
+    if "-pooler." not in lower_url and "pooler." not in lower_url:
+        kwargs["options"] = "-c statement_timeout=8000"
+    return kwargs
+
+
 def _get_pool():
     global _DB_POOL
     if is_db_in_cooldown():
@@ -187,9 +199,7 @@ def _get_pool():
                         minconn=1,
                         maxconn=12,
                         dsn=url,
-                        cursor_factory=RealDictCursor,
-                        connect_timeout=3,
-                        options="-c statement_timeout=8000",
+                        **_build_connect_kwargs(url),
                     )
                 except Exception as e:
                     _record_db_failure("DATABASE POOL INIT ERROR", e)
@@ -235,9 +245,7 @@ def get_db(retries: int = 2):
         try:
             conn = psycopg2.connect(
                 url,
-                cursor_factory=RealDictCursor,
-                connect_timeout=3,
-                options="-c statement_timeout=8000",
+                **_build_connect_kwargs(url),
             )
             conn.autocommit = False
             return conn
@@ -362,9 +370,6 @@ def init_db():
     # Queue & User Optimization Indexes
     cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_tasks_queue ON autopost_tasks (status, priority DESC, created_at ASC)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_tasks_user ON autopost_tasks (tg_user_id, status)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_stream_tasks_queue ON stream_tasks (status, created_at ASC)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_stream_tasks_user ON stream_tasks (tg_user_id, status)")
-    cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_history_user ON autopost_history (tg_user_id, status)")
 
     # Auto-post tarixi (qaysi videolar yuklandi)
     cur.execute("""
@@ -396,6 +401,9 @@ def init_db():
             updated_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_autopost_history_user ON autopost_history (tg_user_id, status)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_stream_tasks_queue ON stream_tasks (status, created_at ASC)")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_stream_tasks_user ON stream_tasks (tg_user_id, status)")
 
     # Bot adminlari (avtorizatsiyadan o'tganlar)
     cur.execute("""
