@@ -31,7 +31,7 @@ from config import (
     get_bot_username,
     set_runtime_bot_username,
 )
-from autopost import exchange_code_with_redirect, pending_oauth
+from autopost import exchange_code_with_redirect, get_auth_url, pending_oauth
 from database import save_yt_connection
 
 # ==================== BOT REFERENCES ====================
@@ -1070,6 +1070,16 @@ def _render_oauth_status_html(title: str, subtitle: str, badge_label: str = "OAU
     )
 
 
+async def handle_oauth_youtube_start(request):
+    """Launch Google OAuth 2.0 YouTube consent screen directly from the web UI."""
+    uid, _ = _require_user_auth(request, allow_admin=True)
+    target_uid = int(uid) if uid else 0
+    auth_url = await asyncio.to_thread(get_auth_url, target_uid)
+    if request.path == "/api/oauth/youtube/url" or request.query.get("format") == "json":
+        return web.json_response({"ok": True, "auth_url": auth_url})
+    raise web.HTTPFound(location=auth_url)
+
+
 async def handle_oauth_callback(request):
     """Google OAuth callback — foydalanuvchi ruxsat bergandan keyin Google shu yerga qaytaradi"""
     code = request.query.get("code")
@@ -1101,6 +1111,10 @@ async def handle_oauth_callback(request):
         result = await asyncio.to_thread(exchange_code_with_redirect, code, state)
 
         tg_user_id = result["tg_user_id"]
+        if not tg_user_id:
+            cookie_uid, _ = _require_user_auth(request, allow_admin=True)
+            if cookie_uid:
+                tg_user_id = int(cookie_uid)
         channel_title = result["channel_title"]
         channel_id = result["channel_id"]
 
@@ -5527,6 +5541,8 @@ async def start_web_server(port):
     app.router.add_get("/api/download-file", handle_api_download_file)
     app.router.add_get("/api/download_file", handle_api_download_file)
     app.router.add_post("/api/reset-db", handle_api_reset_db)
+    app.router.add_get("/oauth/youtube/start", handle_oauth_youtube_start)
+    app.router.add_get("/api/oauth/youtube/url", handle_oauth_youtube_start)
     app.router.add_get("/oauth/callback", handle_oauth_callback)
     
     # 5 Tier Telegram Stars Mystery Cases & Live API

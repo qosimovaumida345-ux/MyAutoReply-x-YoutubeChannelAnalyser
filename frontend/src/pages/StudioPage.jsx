@@ -181,9 +181,14 @@ export function StudioPage({ user, navigate, t }) {
           <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 20 }}>
             {t('connectChannelHint')}
           </p>
-          <button type="button" className="md-btn md-btn-primary" onClick={() => navigate('/login')}>
-            {t('signIn')}
-          </button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="md-btn md-btn-primary" onClick={() => navigate('/login')}>
+              {t('signIn')}
+            </button>
+            <a className="md-btn" href="/oauth/youtube/start">
+              Connect YouTube (Google OAuth)
+            </a>
+          </div>
         </div>
       </main>
     );
@@ -232,15 +237,20 @@ export function StudioPage({ user, navigate, t }) {
           )}
         </div>
 
-        <button
-          type="button"
-          className="md-btn md-btn-sm"
-          disabled={loading}
-          onClick={() => loadAll(true)}
-        >
-          <IconRefresh size={14} />
-          <span>{loading ? t('loading') : t('refresh')}</span>
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a className="md-btn md-btn-primary md-btn-sm" href="/oauth/youtube/start">
+            + Connect YouTube (Google OAuth)
+          </a>
+          <button
+            type="button"
+            className="md-btn md-btn-sm"
+            disabled={loading}
+            onClick={() => loadAll(true)}
+          >
+            <IconRefresh size={14} />
+            <span>{loading ? t('loading') : t('refresh')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Primary 4 Channel KPIs */}

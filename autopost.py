@@ -37,7 +37,7 @@ SCOPES = [
 pending_oauth = {}
 
 
-def get_auth_url(tg_user_id):
+def get_auth_url(tg_user_id=0):
     """OAuth URL yaratish (Web Application uchun callback bilan)"""
     flow = Flow.from_client_config(
         CLIENT_CONFIG,
@@ -47,10 +47,12 @@ def get_auth_url(tg_user_id):
     auth_url, state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true',
-        prompt='consent'
+        prompt='consent',
+        hl='en',
     )
     # State ni Telegram user ID bilan bog'lab saqlash
-    pending_oauth[state] = tg_user_id
+    if tg_user_id:
+        pending_oauth[state] = tg_user_id
     return auth_url
 
 

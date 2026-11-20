@@ -73,6 +73,8 @@ def _build_wired_test_app() -> web.Application:
 
     app.router.add_get("/favicon.ico", main.handle_favicon)
     app.router.add_get("/favicon.svg", main.handle_favicon)
+    app.router.add_get("/oauth/youtube/start", main.handle_oauth_youtube_start)
+    app.router.add_get("/api/oauth/youtube/url", main.handle_oauth_youtube_start)
 
     # Register reseller routes AFTER /robots.txt to verify reseller_api never shadows robots.txt
     reseller_api.setup_reseller_api_routes(app)
@@ -354,3 +356,42 @@ def test_build_connect_kwargs_handles_neon_pooler_urls():
         "postgresql://u:p@ep-abc.c-2.aws.neon.tech/neondb?sslmode=require"
     )
     assert direct_kwargs["options"] == "-c statement_timeout=8000"
+
+
+@pytest.mark.asyncio
+async def test_web_oauth_youtube_start_generates_english_consent_url():
+    import autopost
+
+    orig_cfg = autopost.CLIENT_CONFIG
+    test_cfg = {
+        "web": {
+            "client_id": "1234567890-testclient.apps.googleusercontent.com",
+            "client_secret": "test-client-secret",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "redirect_uris": ["https://monodeck.site/oauth/callback"],
+        }
+    }
+    try:
+        autopost.CLIENT_CONFIG = test_cfg
+        autopost.REDIRECT_URI = "https://monodeck.site/oauth/callback"
+        app = _build_wired_test_app()
+        async with TestClient(TestServer(app)) as client:
+            resp = await client.get("/api/oauth/youtube/url")
+            assert resp.status == 200
+            data = await resp.json()
+            assert data["ok"] is True
+            auth_url = data["auth_url"]
+            assert "accounts.google.com/o/oauth2/auth" in auth_url
+            assert "redirect_uri=https%3A%2F%2Fmonodeck.site%2Foauth%2Fcallback" in auth_url
+            assert "prompt=consent" in auth_url
+            assert "hl=en" in auth_url
+
+            redir = await client.get("/oauth/youtube/start", allow_redirects=False)
+            assert redir.status == 302
+            loc = redir.headers.get("Location", "")
+            assert "accounts.google.com/o/oauth2/auth" in loc
+            assert "hl=en" in loc
+            await redir.release()
+    finally:
+        autopost.CLIENT_CONFIG = orig_cfg
