@@ -1,4 +1,102 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { loadLottiePlayer } from '../lib/lazyScripts.js';
+
+const LOTTIE_JSON_CACHE = new Map();
+const LOTTIE_CACHE_MAX = 64;
+
+function cacheLottieText(url, jsonText) {
+  if (LOTTIE_JSON_CACHE.has(url)) return;
+  if (LOTTIE_JSON_CACHE.size >= LOTTIE_CACHE_MAX) {
+    const oldest = LOTTIE_JSON_CACHE.keys().next().value;
+    if (oldest !== undefined) LOTTIE_JSON_CACHE.delete(oldest);
+  }
+  LOTTIE_JSON_CACHE.set(url, jsonText);
+}
+
+function LottieRenderBox({ src, style, onError }) {
+  const containerRef = useRef(null);
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
+
+  useEffect(() => {
+    let cancelled = false;
+    let animInstance = null;
+    const controller = new AbortController();
+
+    async function mountAnimation() {
+      try {
+        await loadLottiePlayer();
+        if (cancelled) return;
+        const lottie = typeof window !== 'undefined' ? window.lottie : null;
+        if (!lottie || typeof lottie.loadAnimation !== 'function') {
+          if (!cancelled) onErrorRef.current?.();
+          return;
+        }
+
+        let jsonText = LOTTIE_JSON_CACHE.get(src);
+        if (!jsonText) {
+          const res = await fetch(src, { signal: controller.signal });
+          if (cancelled) return;
+          if (!res.ok) {
+            onErrorRef.current?.();
+            return;
+          }
+          const ctype = (res.headers.get('content-type') || '').toLowerCase();
+          if (ctype && !ctype.includes('json') && !ctype.includes('text/plain') && !ctype.includes('octet-stream')) {
+            onErrorRef.current?.();
+            return;
+          }
+          jsonText = await res.text();
+          if (cancelled) return;
+          cacheLottieText(src, jsonText);
+        }
+
+        const animationData = JSON.parse(jsonText);
+        if (!animationData || (!Array.isArray(animationData.layers) && !animationData.v)) {
+          if (!cancelled) onErrorRef.current?.();
+          return;
+        }
+
+        const el = containerRef.current;
+        if (cancelled || !el || !el.isConnected) return;
+        el.innerHTML = '';
+
+        animInstance = lottie.loadAnimation({
+          container: el,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          animationData,
+        });
+      } catch (err) {
+        if (!cancelled && err?.name !== 'AbortError') {
+          onErrorRef.current?.();
+        }
+      }
+    }
+
+    mountAnimation();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (animInstance) {
+        try {
+          animInstance.stop?.();
+          animInstance.destroy?.();
+        } catch {
+          // Ignore unmount teardown errors from third-party animation frames
+        }
+        animInstance = null;
+      }
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+    };
+  }, [src]);
+
+  return <div ref={containerRef} style={style} aria-hidden="true" />;
+}
 
 const FRAGMENT_FALLBACK_IMAGES = {
   cake: '/api/nft/image/delicious_cake.webp',
@@ -132,21 +230,11 @@ export function GiftMedia({
 
       if (fileType !== 'webp' && fileType !== 'png' && fileType !== 'jpg' && fileType !== 'image') {
         return (
-          <lottie-player
+          <LottieRenderBox
             key={`tg-lottie-${fileId}`}
-            ref={(el) => {
-              if (el && !el._errBound) {
-                el._errBound = true;
-                el.addEventListener('error', () => setFileError(true));
-              }
-            }}
             src={src}
-            background="transparent"
-            speed="1"
             style={mediaStyle}
-            loop
-            autoplay
-            renderer="svg"
+            onError={() => setFileError(true)}
           />
         );
       }
@@ -154,21 +242,11 @@ export function GiftMedia({
 
     if (safeSlug && !isPremiumItem && (!hoverOnly || isHovered) && !slugError) {
       return (
-        <lottie-player
+        <LottieRenderBox
           key={`nft-lottie-${slug}`}
-          ref={(el) => {
-            if (el && !el._errBound) {
-              el._errBound = true;
-              el.addEventListener('error', () => setSlugError(true));
-            }
-          }}
           src={`/api/nft/animation/${safeSlug}`}
-          background="transparent"
-          speed="1"
-          loop
-          autoplay
-          renderer="svg"
           style={mediaStyle}
+          onError={() => setSlugError(true)}
         />
       );
     }

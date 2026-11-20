@@ -395,3 +395,133 @@ async def test_web_oauth_youtube_start_generates_english_consent_url():
             await redir.release()
     finally:
         autopost.CLIENT_CONFIG = orig_cfg
+
+
+def test_internal_rewards_auto_activate_without_fake_keys():
+    import games_monetization as gm
+
+    # 1. Daily streak claims must auto-activate without generating fake license_key/pass_code or promo codes
+    with patch("database.get_db_user_streak", return_value={"streak_count": 2, "last_claimed_date": None}), \
+         patch("database.update_db_user_streak", return_value=True), \
+         patch("database.record_user_purchase", return_value={"ok": True, "new_balance": 10000}) as mock_rec, \
+         patch("database.create_promo_code") as mock_promo:
+        res_daily = gm.claim_daily_streak(987654321)
+        assert res_daily["ok"] is True
+        assert res_daily["auto_activated"] is True
+        reward = res_daily["reward"]
+        assert reward["auto_activated"] is True
+        assert "license_key" not in reward
+        assert "pass_code" not in reward
+        mock_promo.assert_not_called()
+        mock_rec.assert_called_once()
+        assert mock_rec.call_args.kwargs["price_uzs"] == 0
+        assert mock_rec.call_args.kwargs["payload"] == "auto_activated"
+
+    # 2. Scratch card wins must auto-activate without fake key or promo code creation
+    with patch("random.random", return_value=0.05), \
+         patch("database.record_user_purchase", return_value={"ok": True, "new_balance": 10000}) as mock_rec, \
+         patch("database.create_promo_code") as mock_promo:
+        res_scratch = gm.play_scratch_card(987654321)
+        assert res_scratch["ok"] is True
+        assert res_scratch["won"] is True
+        prize = res_scratch["prize"]
+        assert prize["auto_activated"] is True
+        assert "key" not in prize
+        assert "license_key" not in prize
+        mock_promo.assert_not_called()
+        mock_rec.assert_called_once()
+
+    # 3. Creator Redeem Store internal services must auto-activate without license_key/pass_code
+    with patch("database.record_user_purchase", return_value={"ok": True, "new_balance": 50000}) as mock_rec:
+        res_redeem = gm.redeem_creator_service(987654321, "ai_seo_50")
+        assert res_redeem["ok"] is True
+        assert res_redeem["auto_activated"] is True
+        assert "license_key" not in res_redeem
+        assert "pass_code" not in res_redeem
+        assert mock_rec.call_args.kwargs["payload"] == "auto_activated"
+
+
+def test_gift_media_uses_lottie_web_without_custom_element():
+    gm_src = (ROOT_DIR / "frontend" / "src" / "components" / "GiftMedia.jsx").read_text(encoding="utf-8")
+    lazy_src = (ROOT_DIR / "frontend" / "src" / "lib" / "lazyScripts.js").read_text(encoding="utf-8")
+    assert "<lottie-player" not in gm_src
+    assert "@lottiefiles/lottie-player" not in lazy_src
+    assert "lottie-web" in lazy_src
+    assert "AbortController" in gm_src
+    assert "animInstance.destroy" in gm_src
+
+
+def test_upgraded_shield_captcha_all_four_modes_end_to_end():
+    import captcha_engine as ce
+
+    # Mode 1: Slider (with decoy notch & 9px tolerance)
+    ch_s = ce.CaptchaManager.create_challenge(challenge_type="slider", sitekey="demo_key")
+    assert ch_s["ok"] is True
+    sol_s = ce._ACTIVE_CHALLENGES[ch_s["challenge_id"]]["solution"]
+    assert sol_s["tolerance"] == 9
+    res_s = ce.CaptchaManager.verify_challenge(
+        ch_s["challenge_id"],
+        {"x": sol_s["target_x"] + 3},
+        telemetry={
+            "duration_ms": 950,
+            "trajectory": [
+                {"x": 0, "y": 210, "t": 0},
+                {"x": 45, "y": 211, "t": 180},
+                {"x": 92, "y": 209, "t": 390},
+                {"x": sol_s["target_x"] + 3, "y": 212, "t": 950},
+            ],
+        },
+    )
+    assert res_s["ok"] is True
+    assert ce.CaptchaManager.siteverify_token(res_s["token"], secret_key="demo", sitekey="demo_key")["success"] is True
+
+    # Mode 2: Grid (9 tiles, 3-4 targets)
+    ch_g = ce.CaptchaManager.create_challenge(challenge_type="grid", sitekey="demo_key")
+    sol_g = ce._ACTIVE_CHALLENGES[ch_g["challenge_id"]]["solution"]
+    assert len(ch_g["payload"]["tiles"]) == 9
+    assert len(sol_g["target_indices"]) in (3, 4)
+    res_g = ce.CaptchaManager.verify_challenge(
+        ch_g["challenge_id"],
+        {"selected": sol_g["target_indices"]},
+        telemetry={
+            "duration_ms": 1400,
+            "clicks": [{"t": 350 + i * 280, "idx": v} for i, v in enumerate(sol_g["target_indices"])],
+        },
+    )
+    assert res_g["ok"] is True
+
+    # Mode 3: Rotate (15 deg tolerance, upright compensation)
+    ch_r = ce.CaptchaManager.create_challenge(challenge_type="rotate", sitekey="demo_key")
+    sol_r = ce._ACTIVE_CHALLENGES[ch_r["challenge_id"]]["solution"]
+    assert sol_r["tolerance"] == 15
+    correct_angle = (360 - sol_r["initial_angle"]) % 360
+    res_r = ce.CaptchaManager.verify_challenge(
+        ch_r["challenge_id"],
+        {"angle": correct_angle},
+        telemetry={"duration_ms": 1200, "trajectory": [{"t": 100, "angle": 45}, {"t": 600, "angle": correct_angle}]},
+    )
+    assert res_r["ok"] is True
+
+    # Mode 4: Sequence (3 targets picked from 5 drawn symbols, 36px hit radius)
+    ch_q = ce.CaptchaManager.create_challenge(challenge_type="sequence", sitekey="demo_key")
+    sol_q = ce._ACTIVE_CHALLENGES[ch_q["challenge_id"]]["solution"]
+    assert len(sol_q["targets"]) == 3
+    assert sol_q["targets"][0]["radius"] == 36
+    clicks_q = [{"x": t["x"], "y": t["y"], "t": 300 + i * 420} for i, t in enumerate(sol_q["targets"])]
+    res_q = ce.CaptchaManager.verify_challenge(
+        ch_q["challenge_id"],
+        {"clicks": clicks_q},
+        telemetry={"duration_ms": 1500, "clicks": clicks_q},
+    )
+    assert res_q["ok"] is True
+
+    # Wrong sequence attempt must fail cleanly and burn challenge
+    ch_q2 = ce.CaptchaManager.create_challenge(challenge_type="sequence", sitekey="demo_key")
+    wrong_clicks = [{"x": 5, "y": 5, "t": 300}, {"x": 5, "y": 5, "t": 600}, {"x": 5, "y": 5, "t": 900}]
+    res_q2 = ce.CaptchaManager.verify_challenge(
+        ch_q2["challenge_id"],
+        {"clicks": wrong_clicks},
+        telemetry={"duration_ms": 1000, "clicks": wrong_clicks},
+    )
+    assert res_q2["ok"] is False
+    assert res_q2["error"] == "incorrect_solution"

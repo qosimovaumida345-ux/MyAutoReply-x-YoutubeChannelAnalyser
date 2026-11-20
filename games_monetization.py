@@ -2198,29 +2198,35 @@ def claim_daily_streak(user_id: int) -> dict:
         return {"ok": False, "error": "Bugungi kunlik sovg'ani allaqachon olgansiz! Ertaga qaytib kiring."}
         
     curr_day = st["current_day"]
-    reward = st["rewards"][curr_day - 1]
+    reward = dict(st["rewards"][curr_day - 1])
     today_str = str(date.today())
     new_streak = st["streak_days"] + 1
     
     # PostgreSQL bazasida doimiy saqlash
     update_db_user_streak(user_id, new_streak, today_str)
     
-    pass_code = generate_vip_pass_code("DAILY-VIP")
-    reward["license_key"] = pass_code
-    reward["pass_code"] = pass_code
-    try:
-        from database import create_promo_code
-        create_promo_code(pass_code, balance_bonus_uzs=5000, max_uses=1)
-    except Exception as streak_promo_err:
-        print(f"streak promo save note: {streak_promo_err}")
-    
+    reward["auto_activated"] = True
     if reward["type"] == "stars_bonus":
         # 100 Stars = 40,000 UZS hisobga qo'shiladi
         if user_id > 1000:
             add_user_balance(user_id, 40000)
         reward["bonus_uzs"] = 40000
+        reward["message"] = f"100 Telegram Stars (40,000 UZS) hisobingiz balansiga (ID: #{user_id}) avtomatik qo'shildi!"
     else:
         reward["quota_added"] = reward["value"]
+        reward["message"] = f"{reward['title']} hisobingizga (ID: #{user_id}) avtomatik faollashtirildi!"
+        if user_id > 1000:
+            try:
+                from database import record_user_purchase
+                record_user_purchase(
+                    tg_user_id=user_id,
+                    item_type=f"daily_streak_{reward['type']}",
+                    item_name=reward["title"],
+                    price_uzs=0,
+                    payload="auto_activated",
+                )
+            except Exception as streak_save_err:
+                print(f"streak reward save note: {streak_save_err}")
         
     record_drop_event(f"user_{str(user_id)[-4:]}", f"Daily: {reward['title']}", 0, reward["icon"], "rare", False)
     
@@ -2228,6 +2234,7 @@ def claim_daily_streak(user_id: int) -> dict:
         "ok": True,
         "claimed_day": curr_day,
         "reward": reward,
+        "auto_activated": True,
         "new_streak": new_streak
     }
 
@@ -2250,8 +2257,9 @@ def play_scratch_card(user_id: int) -> dict:
         symbols = ["zap", "zap", "zap"]
         prize = {
             "title": "1 Oylik Video Auto-Post Pro VIP!",
-            "key": generate_vip_pass_code("AUTOPOST"),
-            "type": "autopost"
+            "type": "autopost",
+            "auto_activated": True,
+            "message": f"1 Oylik Video Auto-Post Pro VIP hisobingizga (ID: #{user_id}) avtomatik faollashtirildi!"
         }
     elif roll < 0.22:
         won = True
@@ -2259,8 +2267,9 @@ def play_scratch_card(user_id: int) -> dict:
         symbols = ["sparkles", "sparkles", "sparkles"]
         prize = {
             "title": "25 ta AI YouTube SEO & Teglar Suite!",
-            "key": generate_vip_pass_code("AI-SEO"),
-            "type": "seo_pack"
+            "type": "seo_pack",
+            "auto_activated": True,
+            "message": f"25 ta AI YouTube SEO & Teglar Suite hisobingizga (ID: #{user_id}) avtomatik faollashtirildi!"
         }
     elif roll < 0.35:
         won = True
@@ -2268,8 +2277,9 @@ def play_scratch_card(user_id: int) -> dict:
         symbols = ["rocket", "rocket", "rocket"]
         prize = {
             "title": "10 ta Video Unikalizatsiya VIP!",
-            "key": generate_vip_pass_code("UNIKAL"),
-            "type": "unikal"
+            "type": "unikal",
+            "auto_activated": True,
+            "message": f"10 ta Video Unikalizatsiya VIP hisobingizga (ID: #{user_id}) avtomatik faollashtirildi!"
         }
     else:
         won = False
@@ -2283,12 +2293,18 @@ def play_scratch_card(user_id: int) -> dict:
 
     if won and prize:
         record_drop_event(f"user_{str(user_id)[-4:]}", f"Scratch: {prize['title']}", 0, symbols[0], "legendary", False)
-        try:
-            from database import create_promo_code
-            bonus_amount = 25000 if prize.get("type") == "autopost" else (15000 if prize.get("type") == "seo_pack" else 10000)
-            create_promo_code(prize["key"], balance_bonus_uzs=bonus_amount, max_uses=1)
-        except Exception as promo_err:
-            print(f"scratch promo save note: {promo_err}")
+        if user_id > 1000:
+            try:
+                from database import record_user_purchase
+                record_user_purchase(
+                    tg_user_id=user_id,
+                    item_type=f"scratch_{prize['type']}",
+                    item_name=prize["title"],
+                    price_uzs=0,
+                    payload="auto_activated",
+                )
+            except Exception as scratch_save_err:
+                print(f"scratch reward save note: {scratch_save_err}")
 
     return {
         "ok": True,
@@ -2316,15 +2332,14 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
         return {"ok": False, "error": "Bunday xizmat topilmadi!"}
         
     price_uzs = srv["stars"] * 400
-    pass_code = generate_vip_pass_code(f"VIP-{srv['type'].upper()}")
 
-    # Real balansdan yechish va user_purchases jadvaliga yozish
+    # Real balansdan yechish va user_purchases jadvaliga avtomatik faollashtirish sifatida yozish
     p_res = record_user_purchase(
         tg_user_id=user_id,
         item_type=f"creator_store_{srv['type']}",
         item_name=srv["title"],
         price_uzs=price_uzs,
-        payload=f"pass:{pass_code}"
+        payload="auto_activated"
     )
     if not p_res.get("ok"):
         return {
@@ -2337,9 +2352,8 @@ def redeem_creator_service(user_id: int, service_id: str) -> dict:
         "service": srv,
         "price_uzs": price_uzs,
         "new_balance": p_res.get("new_balance"),
-        "license_key": pass_code,
-        "pass_code": pass_code,
-        "message": f"Tabriklaymiz! {srv['title']} muvaffaqiyatli faollashtirildi!"
+        "auto_activated": True,
+        "message": f"Tabriklaymiz! {srv['title']} hisobingizga (ID: #{user_id}) avtomatik faollashtirildi!"
     }
     return res
 

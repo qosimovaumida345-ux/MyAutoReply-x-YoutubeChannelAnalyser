@@ -1331,11 +1331,18 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
             </button>
           </div>
           {scratchedCleared && (
-            <p className="md-mono" style={{ fontSize: 13, fontWeight: 600, color: scratchData?.won ? 'var(--ok)' : 'var(--accent)' }}>
-              {scratchData?.won
-                ? `Won: ${scratchData?.prize?.title || scratchData?.prize?.name || 'Reward'}`
-                : 'No 3-of-a-kind match. Grab another ticket!'}
-            </p>
+            <div style={{ display: 'grid', gap: 4 }}>
+              <p className="md-mono" style={{ fontSize: 13, fontWeight: 600, color: scratchData?.won ? 'var(--ok)' : 'var(--accent)' }}>
+                {scratchData?.won
+                  ? `Won: ${scratchData?.prize?.title || scratchData?.prize?.name || 'Reward'}`
+                  : 'No 3-of-a-kind match. Grab another ticket!'}
+              </p>
+              {scratchData?.won && (
+                <p style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+                  {scratchData?.prize?.message || 'Automatically activated on your MonoDeck account.'}
+                </p>
+              )}
+            </div>
           )}
         </section>
       )}
@@ -1555,40 +1562,42 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
         )}
       </Modal>
 
-      {/* Streak Claimed Modal (with license key) */}
+      {/* Streak Claimed Modal (auto-activated on account, no fake key) */}
       <Modal open={Boolean(streakClaimedModal)} onClose={() => setStreakClaimedModal(null)} title="Daily Streak Claimed">
         <div style={{ textAlign: 'center', display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <GiftMedia icon={streakClaimedModal?.icon || 'package'} imageUrl={streakClaimedModal?.image_url} name={streakClaimedModal?.title || 'Reward'} size={56} />
           </div>
           <p style={{ fontSize: 15, fontWeight: 600 }}>{streakClaimedModal?.title || streakClaimedModal?.name}</p>
-          {streakClaimedModal?.license_key && (
-            <div className="md-card" style={{ background: 'var(--bg)', padding: 12 }}>
-              <div className="md-mono" style={{ fontSize: 11, color: 'var(--muted)' }}>ACTIVATION KEY</div>
-              <div className="md-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginTop: 4 }}>
-                {streakClaimedModal.license_key}
-              </div>
+          <div className="md-card" style={{ background: 'var(--bg)', padding: 12, borderColor: 'var(--ok)' }}>
+            <div className="md-mono" style={{ fontSize: 11, color: 'var(--ok)', fontWeight: 700 }}>
+              AUTOMATICALLY ACTIVATED
             </div>
-          )}
+            <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 4 }}>
+              {streakClaimedModal?.message || 'Credited directly to your MonoDeck account — no activation key required.'}
+            </div>
+          </div>
           <button type="button" className="md-btn md-btn-primary" onClick={() => setStreakClaimedModal(null)}>
             Done
           </button>
         </div>
       </Modal>
 
-      {/* Service Redeem Modal (with license key) */}
-      <Modal open={Boolean(redeemModal)} onClose={() => setRedeemModal(null)} title="Service Redeemed">
+      {/* Service Redeem Modal (auto-activated on account) */}
+      <Modal open={Boolean(redeemModal)} onClose={() => setRedeemModal(null)} title="Service Activated">
         <div style={{ textAlign: 'center', display: 'grid', gap: 12 }}>
-          <IconShield size={28} color="var(--accent)" />
-          <p style={{ fontSize: 14.5 }}>{redeemModal?.message || 'Service activated on your account.'}</p>
-          {redeemModal?.license_key && (
-            <div className="md-card" style={{ background: 'var(--bg)', padding: 12 }}>
-              <div className="md-mono" style={{ fontSize: 11, color: 'var(--muted)' }}>LICENSE KEY</div>
-              <div className="md-mono" style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginTop: 4 }}>
-                {redeemModal.license_key}
-              </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <IconShield size={28} color="var(--ok)" />
+          </div>
+          <p style={{ fontSize: 14.5, fontWeight: 600 }}>{redeemModal?.service?.title || 'Creator Service'}</p>
+          <div className="md-card" style={{ background: 'var(--bg)', padding: 12, borderColor: 'var(--ok)' }}>
+            <div className="md-mono" style={{ fontSize: 11, color: 'var(--ok)', fontWeight: 700 }}>
+              AUTOMATICALLY ACTIVATED
             </div>
-          )}
+            <div style={{ fontSize: 13, color: 'var(--ink-2)', marginTop: 4 }}>
+              {redeemModal?.message || 'Credited directly to your MonoDeck account — no activation key required.'}
+            </div>
+          </div>
           <button type="button" className="md-btn md-btn-primary" onClick={() => setRedeemModal(null)}>
             Close
           </button>

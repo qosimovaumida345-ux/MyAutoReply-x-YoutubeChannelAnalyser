@@ -482,7 +482,7 @@
                 position: relative;
                 width: 320px;
                 max-width: 100%;
-                height: 170px;
+                aspect-ratio: 320 / 170;
                 border-radius: 10px;
                 overflow: hidden;
                 box-shadow: 0 2px 10px rgba(0,0,0,0.12);
@@ -620,14 +620,43 @@
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                gap: 14px;
+                gap: 12px;
+                position: relative;
+                padding-top: 10px;
+            }
+            .bsh-rotate-stage {
+                position: relative;
+                width: 170px;
+                height: 170px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .bsh-rotate-target-pin {
+                position: absolute;
+                top: -9px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 20px;
+                height: 16px;
+                background: #FF5A1F;
+                color: #FFFFFF;
+                border-radius: 4px;
+                font-size: 10px;
+                font-weight: 800;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 2px 6px rgba(255, 90, 31, 0.45);
+                z-index: 6;
+                pointer-events: none;
             }
             .bsh-rotate-disk {
                 width: 170px;
                 height: 170px;
                 border-radius: 50%;
-                border: 2px solid #CBD5E1;
-                box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+                border: 2px solid #0A0A0A;
+                box-shadow: 0 4px 16px rgba(10, 10, 10, 0.10);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -636,6 +665,31 @@
                 overflow: hidden;
                 cursor: grab;
                 touch-action: none;
+            }
+            .bsh-rotate-nudge {
+                width: 28px;
+                height: 28px;
+                border-radius: 6px;
+                border: 1px solid #CBD5E1;
+                background: #FFFFFF;
+                color: #0F172A;
+                font-size: 13px;
+                font-weight: 700;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                flex-shrink: 0;
+            }
+            .bsh-rotate-nudge:hover {
+                border-color: #FF5A1F;
+                color: #FF5A1F;
+            }
+            .bsh-theme-dark.bsh-modal-overlay .bsh-rotate-nudge {
+                background: #1E293B;
+                border-color: #334155;
+                color: #F8FAFC;
             }
             .bsh-rotate-disk:active {
                 cursor: grabbing;
@@ -782,7 +836,7 @@
             .bsh-seq-canvas-wrap {
                 position: relative;
                 width: 320px;
-                height: 180px;
+                aspect-ratio: 320 / 180;
                 max-width: 100%;
                 border-radius: 10px;
                 overflow: hidden;
@@ -1164,13 +1218,19 @@
             bgImg.alt = "Captcha background";
             bgImg.src = sanitizeImageSrc(p.bg_image);
 
-            var pieceY = Math.max(0, Math.min(170, Number(p.y) || 0));
+            var logicalW = Number(p.width) || 320;
+            var logicalH = Number(p.height) || 170;
+            var pieceW = Number(p.piece_width) || 46;
+            var pieceH = Number(p.piece_height) || 46;
+            var pieceY = Math.max(0, Math.min(logicalH - pieceH, Number(p.y) || 0));
             var pieceImg = document.createElement("img");
             pieceImg.className = "bsh-slider-piece";
             pieceImg.id = "bsh-slider-piece";
             pieceImg.alt = "Puzzle piece";
             pieceImg.src = sanitizeImageSrc(p.piece_image);
-            pieceImg.style.top = pieceY + "px";
+            pieceImg.style.width = ((pieceW / logicalW) * 100).toFixed(4) + "%";
+            pieceImg.style.height = ((pieceH / logicalH) * 100).toFixed(4) + "%";
+            pieceImg.style.top = ((pieceY / logicalH) * 100).toFixed(4) + "%";
             pieceImg.style.left = "0px";
 
             stage.append(bgImg, pieceImg);
@@ -1283,11 +1343,19 @@
             };
 
         } else if (challenge.type === "rotate") {
-            instrText.textContent = p.instruction || p.prompt || "Rasmni to'g'ri holatga aylantiring";
+            instrText.textContent = p.instruction || p.prompt || "Rasmni tik (▲ nuqtaga) aylantiring";
             footer.style.display = "flex";
 
             var wrap = document.createElement("div");
             wrap.className = "bsh-rotate-wrap";
+
+            var rStage = document.createElement("div");
+            rStage.className = "bsh-rotate-stage";
+
+            var targetPin = document.createElement("div");
+            targetPin.className = "bsh-rotate-target-pin";
+            targetPin.textContent = "▼";
+            targetPin.title = "Tik yuqori nuqta (0°)";
 
             var disk = document.createElement("div");
             disk.className = "bsh-rotate-disk";
@@ -1300,9 +1368,17 @@
             img.alt = "Rotate subject";
             img.src = sanitizeImageSrc(p.image);
             disk.appendChild(img);
+            rStage.append(targetPin, disk);
 
             var controls = document.createElement("div");
             controls.className = "bsh-rotate-controls";
+
+            var btnLeft = document.createElement("button");
+            btnLeft.type = "button";
+            btnLeft.className = "bsh-rotate-nudge";
+            btnLeft.textContent = "↺";
+            btnLeft.title = "-15° chapga";
+            btnLeft.setAttribute("aria-label", "15 gradus chapga burish");
 
             var slider = document.createElement("input");
             slider.type = "range";
@@ -1313,13 +1389,20 @@
             slider.value = "0";
             slider.setAttribute("aria-label", "Aylantirish burchagi");
 
+            var btnRight = document.createElement("button");
+            btnRight.type = "button";
+            btnRight.className = "bsh-rotate-nudge";
+            btnRight.textContent = "↻";
+            btnRight.title = "+15° o'ngga";
+            btnRight.setAttribute("aria-label", "15 gradus o'ngga burish");
+
             var badge = document.createElement("div");
             badge.className = "bsh-dial-badge";
             badge.id = "bsh-dial-badge";
             badge.textContent = "0°";
 
-            controls.append(slider, badge);
-            wrap.append(disk, controls);
+            controls.append(btnLeft, slider, btnRight, badge);
+            wrap.append(rStage, controls);
             body.appendChild(wrap);
 
             var currentDeg = 0;
@@ -1332,6 +1415,15 @@
                 slider.value = String(currentDeg);
                 badge.textContent = currentDeg + "°";
             }
+
+            btnLeft.addEventListener("click", function () {
+                applyAngle(currentDeg - 15);
+                self.trajectory.push({ t: Date.now() - self.startTime, angle: currentDeg });
+            });
+            btnRight.addEventListener("click", function () {
+                applyAngle(currentDeg + 15);
+                self.trajectory.push({ t: Date.now() - self.startTime, angle: currentDeg });
+            });
 
             function getPointerAngle(e) {
                 var rect = disk.getBoundingClientRect();
@@ -1392,7 +1484,7 @@
             };
 
         } else if (challenge.type === "sequence") {
-            instrText.textContent = "Belgilarni 1-2-3 ketma-ketlikda bosing";
+            instrText.textContent = "Ko'rsatilgan 3 ta belgini 1 ➔ 2 ➔ 3 tartibda bosing";
             footer.style.display = "none";
 
             var seqCount = Math.max(1, Math.min(10, parseInt(p.count, 10) || 3));

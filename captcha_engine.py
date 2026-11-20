@@ -124,21 +124,21 @@ def _image_to_base64_png(img: Image.Image) -> str:
 
 def _generate_procedural_background(width: int, height: int) -> Image.Image:
     """
-    Renders rich, vivid procedural backgrounds (mountain sunsets, cosmic nebulas, clean architectural gradients)
-    that look stunning in both light and dark UI frames.
+    Renders sharp MonoDeck-styled procedural backgrounds (architectural slate, warm stone,
+    obsidian & vermilion horizon, deep studio emerald) with anti-subtraction geometric noise.
     """
     img = Image.new("RGBA", (width, height), (15, 23, 42, 255))
     draw = ImageDraw.Draw(img, "RGBA")
     
-    # Premium vibrant gradient palettes
+    # MonoDeck editorial palettes (high contrast, zero generic neon purple/pink)
     palettes = [
-        [(79, 70, 229), (147, 51, 234), (236, 72, 153)],   # Indigo -> Purple -> Pink (Sunset)
-        [(15, 118, 110), (14, 165, 233), (99, 102, 241)],  # Teal -> Sky -> Indigo (Oceanic)
-        [(30, 41, 59), (51, 65, 85), (100, 116, 139)],      # Slate Mountain Dusk
-        [(194, 65, 12), (217, 119, 6), (245, 158, 11)],    # Amber & Warm Sun
-        [(20, 83, 45), (13, 148, 136), (6, 182, 212)],     # Deep Forest Emerald
+        [(18, 18, 22), (39, 39, 46), (194, 65, 12)],      # Obsidian -> Graphite -> Vermilion Dusk
+        [(15, 23, 42), (30, 41, 59), (3, 105, 161)],      # Blueprint Slate -> Deep Steel -> Cobalt
+        [(28, 25, 23), (68, 64, 60), (217, 119, 6)],      # Warm Charcoal -> Umber -> Amber
+        [(6, 78, 59), (15, 118, 110), (14, 116, 144)],    # Deep Emerald -> Studio Teal
+        [(24, 24, 27), (51, 65, 85), (234, 88, 12)],      # Carbon -> Slate -> International Vermilion
     ]
-    p = random.choice(palettes)
+    p = _SECURE_RNG.choice(palettes)
     c1, c2, c3 = p[0], p[1], p[2]
     
     # Smooth multi-stop gradient
@@ -156,35 +156,49 @@ def _generate_procedural_background(width: int, height: int) -> Image.Image:
             b = int(c2[2] * (1 - sub) + c3[2] * sub)
         draw.line([(0, y), (width, y)], fill=(r, g, b, 255))
         
-    # Layer soft textured geometric shapes
-    for _ in range(random.randint(10, 18)):
-        shape_type = random.choice(["circle", "poly", "band", "blob"])
-        alpha = random.randint(40, 110)
+    # Layer crisp architectural shapes
+    for _ in range(_SECURE_RNG.randint(12, 20)):
+        shape_type = _SECURE_RNG.choice(["circle", "poly", "band", "ring"])
+        alpha = _SECURE_RNG.randint(36, 95)
         col = (
-            random.randint(min(c1[0], c2[0]), max(c2[0], c3[0])),
-            random.randint(min(c1[1], c2[1]), max(c2[1], c3[1])),
-            random.randint(min(c1[2], c2[2]), max(c2[2], c3[2])),
+            _SECURE_RNG.randint(min(c1[0], c2[0]), max(c2[0], c3[0])),
+            _SECURE_RNG.randint(min(c1[1], c2[1]), max(c2[1], c3[1])),
+            _SECURE_RNG.randint(min(c1[2], c2[2]), max(c2[2], c3[2])),
             alpha
         )
         if shape_type == "circle":
-            rx = random.randint(20, 70)
-            cx = random.randint(0, width)
-            cy = random.randint(0, height)
+            rx = _SECURE_RNG.randint(18, 64)
+            cx = _SECURE_RNG.randint(0, width)
+            cy = _SECURE_RNG.randint(0, height)
             draw.ellipse([cx - rx, cy - rx, cx + rx, cy + rx], fill=col)
+        elif shape_type == "ring":
+            rx = _SECURE_RNG.randint(16, 48)
+            cx = _SECURE_RNG.randint(0, width)
+            cy = _SECURE_RNG.randint(0, height)
+            draw.ellipse([cx - rx, cy - rx, cx + rx, cy + rx], outline=(255, 255, 255, alpha // 2), width=2)
         elif shape_type == "poly":
-            pts = [(random.randint(0, width), random.randint(0, height)) for _ in range(random.randint(3, 5))]
+            pts = [(_SECURE_RNG.randint(0, width), _SECURE_RNG.randint(0, height)) for _ in range(_SECURE_RNG.randint(3, 5))]
             draw.polygon(pts, fill=col)
         elif shape_type == "band":
-            y1 = random.randint(0, height)
-            y2 = random.randint(0, height)
-            w = random.randint(2, 6)
+            y1 = _SECURE_RNG.randint(0, height)
+            y2 = _SECURE_RNG.randint(0, height)
+            w = _SECURE_RNG.randint(2, 5)
             draw.line([(0, y1), (width, y2)], fill=col, width=w)
+
+    # Subtle Swiss blueprint grid overlay (defeats pixel-diff bots cleanly)
+    grid_step = _SECURE_RNG.choice([24, 28, 32])
+    ox = _SECURE_RNG.randint(0, grid_step - 1)
+    oy = _SECURE_RNG.randint(0, grid_step - 1)
+    for gx in range(ox, width, grid_step):
+        draw.line([(gx, 0), (gx, height)], fill=(255, 255, 255, 20), width=1)
+    for gy in range(oy, height, grid_step):
+        draw.line([(0, gy), (width, gy)], fill=(255, 255, 255, 20), width=1)
             
-    # Fine textural micro-grid
-    for _ in range(random.randint(50, 100)):
-        nx = random.randint(0, width - 1)
-        ny = random.randint(0, height - 1)
-        draw.point((nx, ny), fill=(255, 255, 255, random.randint(20, 80)))
+    # Fine textural micro-speckles
+    for _ in range(_SECURE_RNG.randint(65, 110)):
+        nx = _SECURE_RNG.randint(0, width - 1)
+        ny = _SECURE_RNG.randint(0, height - 1)
+        draw.point((nx, ny), fill=(255, 255, 255, _SECURE_RNG.randint(25, 85)))
         
     return img
 
@@ -229,9 +243,8 @@ def _create_jigsaw_mask(piece_w: int, piece_h: int) -> Image.Image:
 
 def generate_slider_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Variety 1: Slider Puzzle
-    Generates background canvas, cutout hole, and matching draggable puzzle slice.
-    Tolerance: ±12px (forgiving, natural human drag).
+    Variety 1: Precision Slider Puzzle with Anti-Edge-Solver Decoy Notch.
+    Tolerance: ±9px (tighter vs automated scripts, smooth for real humans).
     """
     width, height = 320, 170
     piece_size = 46
@@ -240,38 +253,48 @@ def generate_slider_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     bg = _generate_procedural_background(width, height)
     
     # 2. Cryptographically unpredictable target position
-    target_x = _SECURE_RNG.randint(85, width - piece_size - 25)
-    target_y = _SECURE_RNG.randint(25, height - piece_size - 25)
+    target_x = _SECURE_RNG.randint(90, width - piece_size - 24)
+    target_y = _SECURE_RNG.randint(22, height - piece_size - 22)
     
     # 3. Create anti-aliased jigsaw mask
     mask = _create_jigsaw_mask(piece_size, piece_size)
+    border_mask = mask.filter(ImageFilter.FIND_EDGES)
     
-    # 4. Extract puzzle piece
+    # 4. Extract puzzle piece with crisp double-bevel outline
     piece_box = (target_x, target_y, target_x + piece_size, target_y + piece_size)
     piece_crop = bg.crop(piece_box)
     
-    # Create RGBA puzzle piece with transparency
     piece_img = Image.new("RGBA", (piece_size, piece_size), (0, 0, 0, 0))
     piece_img.paste(piece_crop, (0, 0))
     piece_img.putalpha(mask)
     
-    # Add crisp outline around the piece
-    border_mask = mask.filter(ImageFilter.FIND_EDGES)
-    border_img = Image.new("RGBA", (piece_size, piece_size), (255, 255, 255, 220))
-    piece_img.paste(border_img, (0, 0), border_mask)
+    # Crisp MonoDeck highlight around draggable piece so humans spot alignment effortlessly
+    accent_edge = Image.new("RGBA", (piece_size, piece_size), (255, 90, 31, 210))
+    piece_img.paste(accent_edge, (0, 0), border_mask)
+    white_edge = Image.new("RGBA", (piece_size, piece_size), (255, 255, 255, 220))
+    inner_border = border_mask.filter(ImageFilter.MinFilter(3))
+    piece_img.paste(white_edge, (0, 0), border_mask)
     
-    # 5. Draw notch cutout onto background
+    # 5. Add a decoy ghost notch (offset horizontally & vertically to foil simple edge-detection bots)
     bg_with_notch = bg.copy()
-    notch_dark = Image.new("RGBA", (piece_size, piece_size), (15, 23, 42, 220))
+    decoy_candidates_x = [x for x in range(60, width - piece_size - 20, 8) if abs(x - target_x) >= 68]
+    decoy_x = _SECURE_RNG.choice(decoy_candidates_x) if decoy_candidates_x else max(55, width - target_x)
+    decoy_y = target_y + 38 if target_y + 38 <= height - piece_size - 10 else max(10, target_y - 38)
+    decoy_fill = Image.new("RGBA", (piece_size, piece_size), (10, 10, 14, 110))
+    bg_with_notch.paste(decoy_fill, (decoy_x, decoy_y), mask)
+    decoy_border = Image.new("RGBA", (piece_size, piece_size), (255, 255, 255, 70))
+    bg_with_notch.paste(decoy_border, (decoy_x, decoy_y), border_mask)
+
+    # 6. Draw genuine target cutout notch onto background (high-depth contrast + hairline guide)
+    notch_dark = Image.new("RGBA", (piece_size, piece_size), (10, 10, 12, 230))
     bg_with_notch.paste(notch_dark, (target_x, target_y), mask)
     
-    # Add inner border for notch
-    notch_border = Image.new("RGBA", (piece_size, piece_size), (255, 255, 255, 140))
+    notch_border = Image.new("RGBA", (piece_size, piece_size), (255, 255, 255, 190))
     bg_with_notch.paste(notch_border, (target_x, target_y), border_mask)
     
     client_payload = {
-        "instruction": "Pazlni bo'sh joyga to'g'ri keltirib suring",
-        "prompt": "Pazlni bo'sh joyga to'g'ri keltirib suring",
+        "instruction": "Pazlni bo'sh chuqurchaga aniq moslab suring",
+        "prompt": "Pazlni bo'sh chuqurchaga aniq moslab suring",
         "bg_image": _image_to_base64_png(bg_with_notch),
         "piece_image": _image_to_base64_png(piece_img),
         "y": target_y,
@@ -284,7 +307,7 @@ def generate_slider_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     solution_data = {
         "target_x": target_x,
         "target_y": target_y,
-        "tolerance": 12  # Forgiving tolerance: 12px
+        "tolerance": 9
     }
     
     return client_payload, solution_data
@@ -311,7 +334,7 @@ SEMANTIC_SHAPES = {
     "diamond": {
         "uz": "Olmos",
         "desc": "Barcha olmos shaklli kataklarni tanlang",
-        "svg": '<svg viewBox="0 0 24 24" width="22" height="22" fill="#8B5CF6" stroke="#6D28D9" stroke-width="1.5"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>'
+        "svg": '<svg viewBox="0 0 24 24" width="22" height="22" fill="#FF5A1F" stroke="#C2410C" stroke-width="1.5"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>'
     },
     "heart": {
         "uz": "Yurak",
@@ -331,43 +354,52 @@ SEMANTIC_SHAPES = {
     "cross": {
         "uz": "Krest",
         "desc": "Barcha krest shaklli kataklarni tanlang",
-        "svg": '<svg viewBox="0 0 24 24" width="22" height="22" fill="#A855F7" stroke="#7E22CE" stroke-width="1.5"><polygon points="9 3 15 3 15 9 21 9 21 15 15 15 15 21 9 21 9 15 3 15 3 9 9 9 9 3"/></svg>'
+        "svg": '<svg viewBox="0 0 24 24" width="22" height="22" fill="#0F172A" stroke="#334155" stroke-width="1.5"><polygon points="9 3 15 3 15 9 21 9 21 15 15 15 15 21 9 21 9 15 3 15 3 9 9 9 9 3"/></svg>'
     }
 }
 
 
-def _draw_procedural_tile(shape_name: str, size: int = 90) -> Image.Image:
-    """Procedurally render a single 90x90 tile with rich, crisp visuals"""
+def _draw_procedural_tile(shape_name: str, size: int = 92) -> Image.Image:
+    """Procedurally render a single tile with anti-hash geometric perturbations and crisp vector contrast"""
     tile = Image.new("RGBA", (size, size), (248, 250, 252, 255))
-    draw = ImageDraw.Draw(tile)
+    draw = ImageDraw.Draw(tile, "RGBA")
     
-    # Modern clean slate background with subtle contrast
-    base_col = random.choice([(241, 245, 249), (238, 242, 246), (243, 244, 246), (230, 235, 245)])
+    base_col = _SECURE_RNG.choice([(245, 245, 244), (241, 245, 249), (244, 244, 245), (250, 250, 249)])
     draw.rectangle([0, 0, size, size], fill=base_col)
     
-    # Subtle dot pattern
-    for gx in range(12, size, 22):
-        for gy in range(12, size, 22):
-            draw.point((gx, gy), fill=(148, 163, 184, 80))
+    # Anti-hash architectural backdrop lines & subtle reticles
+    for _ in range(3):
+        lx0, ly0 = _SECURE_RNG.randint(0, size), _SECURE_RNG.randint(0, size)
+        lx1, ly1 = _SECURE_RNG.randint(0, size), _SECURE_RNG.randint(0, size)
+        draw.line([(lx0, ly0), (lx1, ly1)], fill=(148, 163, 184, 55), width=1)
+    bg_rx = _SECURE_RNG.randint(14, 28)
+    bg_cx = _SECURE_RNG.randint(20, size - 20)
+    bg_cy = _SECURE_RNG.randint(20, size - 20)
+    draw.ellipse([bg_cx - bg_rx, bg_cy - bg_rx, bg_cx + bg_rx, bg_cy + bg_rx], outline=(100, 116, 139, 40), width=1)
+
+    for gx in range(_SECURE_RNG.randint(8, 14), size, 20):
+        for gy in range(_SECURE_RNG.randint(8, 14), size, 20):
+            draw.point((gx, gy), fill=(100, 116, 139, 90))
             
-    # Vibrant colors
-    palette = random.choice([
-        (79, 70, 229),   # Indigo
-        (124, 58, 237),  # Violet
-        (225, 29, 72),   # Rose
-        (5, 150, 105),   # Emerald
-        (217, 119, 6),   # Amber
-        (2, 132, 199),   # Sky
+    # MonoDeck high-contrast ink & accent colors
+    palette = _SECURE_RNG.choice([
+        (255, 90, 31),   # International Vermilion
+        (15, 23, 42),    # Editorial Obsidian
+        (225, 29, 72),   # Crimson Rose
+        (5, 150, 105),   # Studio Emerald
+        (217, 119, 6),   # Rich Amber
+        (2, 132, 199),   # Blueprint Blue
     ])
     
     scale = 3
     ss = size * scale
     canvas = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    sdraw = ImageDraw.Draw(canvas)
+    sdraw = ImageDraw.Draw(canvas, "RGBA")
     
-    cx, cy = ss // 2, ss // 2
-    r = int(24 * scale)
-    rot_angle = random.randint(-18, 18)
+    cx = ss // 2 + _SECURE_RNG.randint(-5 * scale, 5 * scale)
+    cy = ss // 2 + _SECURE_RNG.randint(-5 * scale, 5 * scale)
+    r = _SECURE_RNG.randint(21, 25) * scale
+    rot_angle = _SECURE_RNG.randint(-26, 26)
     
     if shape_name == "star":
         pts = []
@@ -375,38 +407,40 @@ def _draw_procedural_tile(shape_name: str, size: int = 90) -> Image.Image:
             a = math.radians(i * 36 - 90 + rot_angle)
             cr = r if i % 2 == 0 else int(r * 0.45)
             pts.append((cx + cr * math.cos(a), cy + cr * math.sin(a)))
-        sdraw.polygon(pts, fill=(*palette, 240), outline=(255, 255, 255, 255), width=int(1.5 * scale))
+        sdraw.polygon(pts, fill=(*palette, 245), outline=(255, 255, 255, 255), width=int(1.8 * scale))
         
     elif shape_name == "triangle":
         pts = []
         for i in range(3):
             a = math.radians(i * 120 - 90 + rot_angle)
             pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-        sdraw.polygon(pts, fill=(*palette, 240), outline=(255, 255, 255, 255), width=int(1.5 * scale))
+        sdraw.polygon(pts, fill=(*palette, 245), outline=(255, 255, 255, 255), width=int(1.8 * scale))
         
     elif shape_name == "circle":
-        sdraw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*palette, 230), outline=(255, 255, 255, 255), width=int(2 * scale))
-        inner_r = int(r * 0.5)
-        sdraw.ellipse([cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r], fill=(*base_col, 255), outline=(255, 255, 255, 180), width=int(1.5 * scale))
+        sdraw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*palette, 240), outline=(255, 255, 255, 255), width=int(2 * scale))
+        inner_r = int(r * 0.48)
+        sdraw.ellipse([cx - inner_r, cy - inner_r, cx + inner_r, cy + inner_r], fill=(*base_col, 255), outline=(255, 255, 255, 200), width=int(1.5 * scale))
         
     elif shape_name == "diamond":
-        w = int(r * 0.8)
-        pts = [(cx, cy - r), (cx + w, cy), (cx, cy + r), (cx - w, cy)]
-        sdraw.polygon(pts, fill=(*palette, 240), outline=(255, 255, 255, 255), width=int(1.5 * scale))
-        sdraw.line([(cx - w, cy), (cx + w, cy)], fill=(255, 255, 255, 180), width=scale)
-        sdraw.line([(cx, cy - r), (cx, cy + r)], fill=(255, 255, 255, 180), width=scale)
+        w = int(r * 0.78)
+        tilt = math.radians(rot_angle * 0.5)
+        raw_pts = [(0, -r), (w, 0), (0, r), (-w, 0)]
+        pts = [(cx + px * math.cos(tilt) - py * math.sin(tilt), cy + px * math.sin(tilt) + py * math.cos(tilt)) for px, py in raw_pts]
+        sdraw.polygon(pts, fill=(*palette, 245), outline=(255, 255, 255, 255), width=int(1.8 * scale))
+        sdraw.line([pts[3], pts[1]], fill=(255, 255, 255, 190), width=scale)
+        sdraw.line([pts[0], pts[2]], fill=(255, 255, 255, 190), width=scale)
         
     elif shape_name == "heart":
         pts = []
         for t in [x * 0.05 for x in range(126)]:
             hx = 16 * (math.sin(t) ** 3)
             hy = -(13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
-            pts.append((cx + int(hx * scale * 1.3), cy + int(hy * scale * 1.3) + int(3*scale)))
+            pts.append((cx + int(hx * scale * 1.25), cy + int(hy * scale * 1.25) + int(3 * scale)))
         if len(pts) > 2:
-            sdraw.polygon(pts, fill=(*palette, 240), outline=(255, 255, 255, 255), width=int(1.5 * scale))
+            sdraw.polygon(pts, fill=(*palette, 245), outline=(255, 255, 255, 255), width=int(1.8 * scale))
             
     elif shape_name == "crescent":
-        sdraw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*palette, 240))
+        sdraw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(*palette, 245))
         offset = int(r * 0.45)
         sdraw.ellipse([cx - r + offset, cy - r - offset, cx + r + offset, cy + r - offset], fill=(*base_col, 255))
         
@@ -415,16 +449,22 @@ def _draw_procedural_tile(shape_name: str, size: int = 90) -> Image.Image:
         for i in range(6):
             a = math.radians(i * 60 + rot_angle)
             pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-        sdraw.polygon(pts, fill=(*palette, 240), outline=(255, 255, 255, 255), width=int(1.5 * scale))
+        sdraw.polygon(pts, fill=(*palette, 245), outline=(255, 255, 255, 255), width=int(1.8 * scale))
         
     elif shape_name == "cross":
-        bar_w = int(r * 0.35)
-        sdraw.rectangle([cx - bar_w, cy - r, cx + bar_w, cy + r], fill=(*palette, 240), outline=(255, 255, 255, 255))
-        sdraw.rectangle([cx - r, cy - bar_w, cx + r, cy + bar_w], fill=(*palette, 240), outline=(255, 255, 255, 255))
+        arm = int(r * 0.34)
+        tilt = math.radians(_SECURE_RNG.randint(-15, 15))
+        cross_raw = [
+            (-arm, -r), (arm, -r), (arm, -arm), (r, -arm),
+            (r, arm), (arm, arm), (arm, r), (-arm, r),
+            (-arm, arm), (-r, arm), (-r, -arm), (-arm, -arm),
+        ]
+        pts = [(cx + px * math.cos(tilt) - py * math.sin(tilt), cy + px * math.sin(tilt) + py * math.cos(tilt)) for px, py in cross_raw]
+        sdraw.polygon(pts, fill=(*palette, 245), outline=(255, 255, 255, 255), width=int(1.6 * scale))
         
     scaled_shape = canvas.resize((size, size), Image.Resampling.LANCZOS)
     tile.paste(scaled_shape, (0, 0), scaled_shape)
-    draw.rectangle([0, 0, size - 1, size - 1], outline=(203, 213, 225, 255), width=1)
+    draw.rectangle([0, 0, size - 1, size - 1], outline=(212, 212, 216, 255), width=1)
     return tile
 
 
@@ -483,83 +523,93 @@ ROTATE_SUBJECTS = {
 
 def _draw_upright_subject(subject_type: str = "arrow", size: int = 170) -> Image.Image:
     """
-    Render a crisp vector subject on a circular dial face.
+    Render a crisp vector subject on a MonoDeck circular dial face with a Vermilion top alignment beacon.
     Transparent outside radius r so rotating produces zero corner clipping artifacts.
     """
     scale = 3
     ss = size * scale
     canvas = Image.new("RGBA", (ss, ss), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(canvas)
+    draw = ImageDraw.Draw(canvas, "RGBA")
     
     cx, cy = ss // 2, ss // 2
     r = int(58 * scale)
     
-    # 1. Circular dial backing (clean white dial face with purple border)
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(248, 250, 252, 255), outline=(115, 66, 226, 200), width=int(2.5 * scale))
+    # 1. Circular dial backing (clean editorial white dial face with Obsidian rim)
+    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(250, 250, 249, 255), outline=(15, 23, 42, 230), width=int(2.5 * scale))
+    inner_ring_r = r - int(5 * scale)
+    draw.ellipse([cx - inner_ring_r, cy - inner_ring_r, cx + inner_ring_r, cy + inner_ring_r], outline=(212, 212, 216, 170), width=scale)
     
-    # 2. Calibration tick marks around perimeter
-    for deg in range(0, 360, 30):
+    # 2. Calibration tick marks around perimeter (270 deg = upright top has Vermilion #FF5A1F beacon)
+    for deg in range(0, 360, 15):
         rad = math.radians(deg)
-        t_len = int(6 * scale) if deg % 90 == 0 else int(3.5 * scale)
+        t_len = int(7 * scale) if deg % 90 == 0 else (int(5 * scale) if deg % 30 == 0 else int(2.5 * scale))
         x_outer = cx + int((r - 2) * math.cos(rad))
         y_outer = cy + int((r - 2) * math.sin(rad))
         x_inner = cx + int((r - 2 - t_len) * math.cos(rad))
         y_inner = cy + int((r - 2 - t_len) * math.sin(rad))
-        col = (115, 66, 226, 240) if deg == 270 else (148, 163, 184, 180)  # 270 deg = top
-        draw.line([(x_inner, y_inner), (x_outer, y_outer)], fill=col, width=int(1.5 * scale))
+        col = (255, 90, 31, 255) if deg == 270 else ((15, 23, 42, 180) if deg % 90 == 0 else (148, 163, 184, 160))
+        w = int(2.2 * scale) if deg == 270 else (int(1.5 * scale) if deg % 30 == 0 else scale)
+        draw.line([(x_inner, y_inner), (x_outer, y_outer)], fill=col, width=w)
+        
+    # Top 12-o'clock orientation triangle inside the rotating rim
+    beacon_y = cy - r + int(10 * scale)
+    draw.polygon(
+        [(cx, cy - r + int(2 * scale)), (cx - int(5 * scale), beacon_y), (cx + int(5 * scale), beacon_y)],
+        fill=(255, 90, 31, 255)
+    )
         
     # 3. Render the specific vector subject pointing strictly upright
     if subject_type == "rocket":
-        rh = int(46 * scale)
+        rh = int(42 * scale)
         rw = int(14 * scale)
-        body = [(cx, cy - rh), (cx + rw, cy - rh + int(32 * scale)), (cx + rw, cy + int(12 * scale)), (cx - rw, cy + int(12 * scale)), (cx - rw, cy - rh + int(32 * scale))]
-        draw.polygon(body, fill=(115, 66, 226, 255), outline=(79, 70, 229, 255), width=scale)
+        body = [(cx, cy - rh), (cx + rw, cy - rh + int(28 * scale)), (cx + rw, cy + int(12 * scale)), (cx - rw, cy + int(12 * scale)), (cx - rw, cy - rh + int(28 * scale))]
+        draw.polygon(body, fill=(15, 23, 42, 255), outline=(10, 10, 12, 255), width=scale)
         fin_l = [(cx - rw, cy), (cx - rw - int(12 * scale), cy + int(18 * scale)), (cx - rw, cy + int(14 * scale))]
         fin_r = [(cx + rw, cy), (cx + rw + int(12 * scale), cy + int(18 * scale)), (cx + rw, cy + int(14 * scale))]
-        draw.polygon(fin_l, fill=(244, 63, 94, 255))
-        draw.polygon(fin_r, fill=(244, 63, 94, 255))
-        draw.ellipse([cx - int(6 * scale), cy - int(12 * scale), cx + int(6 * scale), cy], fill=(241, 245, 249, 255), outline=(79, 70, 229, 255), width=scale)
+        draw.polygon(fin_l, fill=(255, 90, 31, 255))
+        draw.polygon(fin_r, fill=(255, 90, 31, 255))
+        draw.ellipse([cx - int(6 * scale), cy - int(12 * scale), cx + int(6 * scale), cy], fill=(248, 250, 252, 255), outline=(255, 90, 31, 255), width=scale)
         draw.polygon([(cx - int(7 * scale), cy + int(13 * scale)), (cx, cy + int(30 * scale)), (cx + int(7 * scale), cy + int(13 * scale))], fill=(245, 158, 11, 255))
     elif subject_type == "key":
-        kh = int(44 * scale)
-        kr = int(14 * scale)
-        draw.ellipse([cx - kr, cy - kh, cx + kr, cy - kh + kr * 2], fill=(245, 158, 11, 255), outline=(217, 119, 6, 255), width=scale)
-        draw.ellipse([cx - int(6 * scale), cy - kh + int(6 * scale), cx + int(6 * scale), cy - kh + int(18 * scale)], fill=(248, 250, 252, 255))
-        draw.rectangle([cx - int(3.5 * scale), cy - kh + kr * 2, cx + int(3.5 * scale), cy + int(24 * scale)], fill=(245, 158, 11, 255), outline=(217, 119, 6, 255), width=scale)
+        kh = int(40 * scale)
+        kr = int(13 * scale)
+        draw.ellipse([cx - kr, cy - kh, cx + kr, cy - kh + kr * 2], fill=(245, 158, 11, 255), outline=(180, 83, 9, 255), width=scale)
+        draw.ellipse([cx - int(5 * scale), cy - kh + int(5 * scale), cx + int(5 * scale), cy - kh + int(16 * scale)], fill=(250, 250, 249, 255))
+        draw.rectangle([cx - int(3.5 * scale), cy - kh + kr * 2, cx + int(3.5 * scale), cy + int(24 * scale)], fill=(245, 158, 11, 255), outline=(180, 83, 9, 255), width=scale)
         draw.rectangle([cx + int(3 * scale), cy + int(6 * scale), cx + int(14 * scale), cy + int(12 * scale)], fill=(245, 158, 11, 255))
         draw.rectangle([cx + int(3 * scale), cy + int(16 * scale), cx + int(12 * scale), cy + int(22 * scale)], fill=(245, 158, 11, 255))
     elif subject_type == "tree":
-        for top_y, bot_y, hw in [(cy - int(44 * scale), cy - int(20 * scale), int(16 * scale)),
-                                 (cy - int(24 * scale), cy + int(4 * scale), int(22 * scale)),
-                                 (cy, cy + int(24 * scale), int(28 * scale))]:
+        for top_y, bot_y, hw in [(cy - int(40 * scale), cy - int(18 * scale), int(15 * scale)),
+                                 (cy - int(22 * scale), cy + int(4 * scale), int(21 * scale)),
+                                 (cy, cy + int(24 * scale), int(27 * scale))]:
             pts = [(cx, top_y), (cx + hw, bot_y), (cx - hw, bot_y)]
-            draw.polygon(pts, fill=(16, 185, 129, 255), outline=(5, 150, 105, 200), width=scale)
-        draw.rectangle([cx - int(4 * scale), cy + int(24 * scale), cx + int(4 * scale), cy + int(36 * scale)], fill=(180, 83, 9, 255))
+            draw.polygon(pts, fill=(16, 185, 129, 255), outline=(5, 150, 105, 220), width=scale)
+        draw.rectangle([cx - int(4 * scale), cy + int(24 * scale), cx + int(4 * scale), cy + int(36 * scale)], fill=(120, 53, 15, 255))
     elif subject_type == "umbrella":
-        draw.pieslice([cx - int(28 * scale), cy - int(40 * scale), cx + int(28 * scale), cy + int(16 * scale)], 180, 360, fill=(244, 63, 94, 255), outline=(225, 29, 72, 255), width=scale)
-        draw.line([(cx, cy - int(40 * scale)), (cx, cy - int(46 * scale))], fill=(71, 85, 105, 255), width=int(2 * scale))
-        draw.line([(cx, cy - int(12 * scale)), (cx, cy + int(28 * scale))], fill=(71, 85, 105, 255), width=int(2 * scale))
-        draw.arc([cx - int(10 * scale), cy + int(20 * scale), cx, cy + int(34 * scale)], 0, 180, fill=(71, 85, 105, 255), width=int(2 * scale))
+        draw.pieslice([cx - int(28 * scale), cy - int(36 * scale), cx + int(28 * scale), cy + int(16 * scale)], 180, 360, fill=(255, 90, 31, 255), outline=(194, 65, 12, 255), width=scale)
+        draw.line([(cx, cy - int(36 * scale)), (cx, cy - int(42 * scale))], fill=(15, 23, 42, 255), width=int(2 * scale))
+        draw.line([(cx, cy - int(10 * scale)), (cx, cy + int(28 * scale))], fill=(15, 23, 42, 255), width=int(2 * scale))
+        draw.arc([cx - int(10 * scale), cy + int(20 * scale), cx, cy + int(34 * scale)], 0, 180, fill=(15, 23, 42, 255), width=int(2 * scale))
     elif subject_type == "compass":
-        draw.polygon([(cx, cy - int(45 * scale)), (cx + int(8 * scale), cy), (cx - int(8 * scale), cy)], fill=(239, 68, 68, 255), outline=(220, 38, 38, 255), width=scale)
-        draw.polygon([(cx, cy + int(45 * scale)), (cx + int(8 * scale), cy), (cx - int(8 * scale), cy)], fill=(148, 163, 184, 255), outline=(100, 116, 139, 255), width=scale)
-    else:  # "arrow" default
-        arrow_h = int(46 * scale)
-        arrow_w = int(22 * scale)
+        draw.polygon([(cx, cy - int(41 * scale)), (cx + int(8 * scale), cy), (cx - int(8 * scale), cy)], fill=(255, 90, 31, 255), outline=(194, 65, 12, 255), width=scale)
+        draw.polygon([(cx, cy + int(41 * scale)), (cx + int(8 * scale), cy), (cx - int(8 * scale), cy)], fill=(15, 23, 42, 255), outline=(30, 41, 59, 255), width=scale)
+    else:  # "arrow" default (Obsidian shaft + International Vermilion head)
+        arrow_h = int(42 * scale)
+        arrow_w = int(20 * scale)
         shaft_w = int(8 * scale)
         shaft_h = int(22 * scale)
-        head_pts = [(cx, cy - arrow_h), (cx + arrow_w, cy - arrow_h + int(24 * scale)), (cx - arrow_w, cy - arrow_h + int(24 * scale))]
-        draw.polygon(head_pts, fill=(115, 66, 226, 255), outline=(79, 70, 229, 255), width=int(2 * scale))
-        draw.rectangle([cx - shaft_w // 2, cy - arrow_h + int(22 * scale), cx + shaft_w // 2, cy + shaft_h], fill=(147, 51, 234, 255), outline=(126, 34, 206, 200), width=scale)
-        draw.ellipse([cx - int(7 * scale), cy + shaft_h - int(4 * scale), cx + int(7 * scale), cy + shaft_h + int(10 * scale)], fill=(244, 63, 94, 255))
+        head_pts = [(cx, cy - arrow_h), (cx + arrow_w, cy - arrow_h + int(22 * scale)), (cx - arrow_w, cy - arrow_h + int(22 * scale))]
+        draw.polygon(head_pts, fill=(255, 90, 31, 255), outline=(194, 65, 12, 255), width=int(1.8 * scale))
+        draw.rectangle([cx - shaft_w // 2, cy - arrow_h + int(21 * scale), cx + shaft_w // 2, cy + shaft_h], fill=(15, 23, 42, 255), outline=(10, 10, 12, 220), width=scale)
+        draw.ellipse([cx - int(6 * scale), cy + shaft_h - int(4 * scale), cx + int(6 * scale), cy + shaft_h + int(8 * scale)], fill=(255, 90, 31, 255))
         
-    draw.ellipse([cx - int(5 * scale), cy - int(5 * scale), cx + int(5 * scale), cy + int(5 * scale)], fill=(255, 255, 255, 255))
+    draw.ellipse([cx - int(4.5 * scale), cy - int(4.5 * scale), cx + int(4.5 * scale), cy + int(4.5 * scale)], fill=(255, 255, 255, 255), outline=(15, 23, 42, 200), width=scale)
     return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def generate_rotate_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Variety 3: Dial Angle Alignment (Pure Uzbek + Tolerance ±20°)
+    Variety 3: Dial Angle Alignment (MonoDeck Bezel + Tolerance ±15°)
     """
     size = 170
     subject_key = _SECURE_RNG.choice(list(ROTATE_SUBJECTS.keys()))
@@ -567,8 +617,8 @@ def generate_rotate_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     subject = _draw_upright_subject(subject_key, size)
     
     angle = _SECURE_RNG.choice([
-        _SECURE_RNG.randint(45, 145),
-        _SECURE_RNG.randint(215, 315)
+        _SECURE_RNG.randint(35, 155),
+        _SECURE_RNG.randint(205, 325)
     ])
     
     tilted_img = subject.rotate(-angle, resample=Image.Resampling.BICUBIC)
@@ -583,7 +633,7 @@ def generate_rotate_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     
     solution_data = {
         "initial_angle": angle,
-        "tolerance": 20  # Forgiving tolerance: 20 degrees
+        "tolerance": 15
     }
     
     return client_payload, solution_data
@@ -610,8 +660,8 @@ SEQUENCE_SYMBOLS = [
         "name": "Diamond",
         "uz": "Olmos",
         "shape": "diamond",
-        "color": (124, 58, 237),
-        "svg": '<svg viewBox="0 0 24 24" width="18" height="18" fill="#8B5CF6" stroke="#6D28D9" stroke-width="1.5"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>'
+        "color": (255, 90, 31),
+        "svg": '<svg viewBox="0 0 24 24" width="18" height="18" fill="#FF5A1F" stroke="#C2410C" stroke-width="1.5"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>'
     },
     {
         "name": "Heart",
@@ -631,36 +681,49 @@ SEQUENCE_SYMBOLS = [
         "name": "Hexagon",
         "uz": "Oltiburchak",
         "shape": "hexagon",
-        "color": (14, 165, 233),
-        "svg": '<svg viewBox="0 0 24 24" width="18" height="18" fill="#38BDF8" stroke="#0284C7" stroke-width="1.5"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"/></svg>'
+        "color": (15, 23, 42),
+        "svg": '<svg viewBox="0 0 24 24" width="18" height="18" fill="#0F172A" stroke="#334155" stroke-width="1.5"><polygon points="12 2 21 7 21 17 12 22 3 17 3 7 12 2"/></svg>'
     }
 ]
 
 
 def generate_sequence_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Variety 4: Click-in-Sequence (Visual 1-2-3 Icon Sequence + Hit radius: 48px)
+    Variety 4: Click-in-Sequence (5 Symbols on Canvas -> Click 3 Target Symbols in Order)
     """
     width, height = 320, 180
     bg = _generate_procedural_background(width, height)
-    draw = ImageDraw.Draw(bg)
+    draw = ImageDraw.Draw(bg, "RGBA")
     
-    chosen_symbols = _SECURE_RNG.sample(SEQUENCE_SYMBOLS, 4)
+    # Draw subtle anti-OCR wave curves across canvas before stamping crisp icon badges
+    for _ in range(3):
+        wave_pts = []
+        base_y = _SECURE_RNG.randint(25, height - 25)
+        amp = _SECURE_RNG.randint(8, 22)
+        freq = _SECURE_RNG.uniform(0.025, 0.05)
+        phase = _SECURE_RNG.uniform(0, 6.28)
+        for wx in range(0, width + 1, 8):
+            wy = int(base_y + amp * math.sin(wx * freq + phase))
+            wave_pts.append((wx, wy))
+        draw.line(wave_pts, fill=(255, 255, 255, 70), width=2)
+
+    total_symbols = 5
+    chosen_symbols = _SECURE_RNG.sample(SEQUENCE_SYMBOLS, total_symbols)
     positions: List[Tuple[int, int]] = []
-    min_dist = 68
+    min_dist = 58
     attempts = 0
-    while len(positions) < 4 and attempts < 120:
+    while len(positions) < total_symbols and attempts < 220:
         attempts += 1
-        px = _SECURE_RNG.randint(45, width - 45)
-        py = _SECURE_RNG.randint(35, height - 35)
+        px = _SECURE_RNG.randint(38, width - 38)
+        py = _SECURE_RNG.randint(34, height - 34)
         if all(math.hypot(px - ex, py - ey) >= min_dist for ex, ey in positions):
             positions.append((px, py))
             
-    if len(positions) < 4:
-        positions = [(65, 55), (255, 55), (85, 135), (235, 135)]
+    if len(positions) < total_symbols:
+        positions = [(54, 48), (160, 42), (266, 48), (96, 132), (224, 132)]
         
     placed_items = []
-    for i in range(4):
+    for i in range(total_symbols):
         sym = chosen_symbols[i]
         pos = positions[i]
         placed_items.append({
@@ -670,43 +733,47 @@ def generate_sequence_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
             "svg": sym["svg"],
             "x": pos[0],
             "y": pos[1],
-            "radius": 24,
+            "radius": 22,
             "color": sym["color"]
         })
         
         gx, gy = pos[0], pos[1]
         col = sym["color"]
-        r = 18
+        r = 16
+        tilt_deg = _SECURE_RNG.randint(-12, 12)
         
-        # Soft glow backing disk
-        draw.ellipse([gx - r - 5, gy - r - 5, gx + r + 5, gy + r + 5], fill=(255, 255, 255, 180))
+        # Crisp MonoDeck high-contrast rounded backing token (clean shadow + white badge)
+        draw.ellipse([gx - r - 6, gy - r - 5, gx + r + 7, gy + r + 8], fill=(10, 10, 12, 70))
+        draw.ellipse([gx - r - 6, gy - r - 6, gx + r + 6, gy + r + 6], fill=(255, 255, 255, 240), outline=(15, 23, 42, 190), width=2)
         
         if sym["shape"] == "triangle":
-            pts = [(gx, gy - r), (gx + r, gy + r), (gx - r, gy + r)]
+            pts = [(gx + r * math.cos(math.radians(k * 120 - 90 + tilt_deg)), gy + r * math.sin(math.radians(k * 120 - 90 + tilt_deg))) for k in range(3)]
             draw.polygon(pts, fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
         elif sym["shape"] == "star":
             pts = []
             for k in range(10):
-                a = math.radians(k * 36 - 90)
+                a = math.radians(k * 36 - 90 + tilt_deg)
                 cr = r if k % 2 == 0 else int(r * 0.45)
                 pts.append((gx + cr * math.cos(a), gy + cr * math.sin(a)))
             draw.polygon(pts, fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
         elif sym["shape"] == "diamond":
-            pts = [(gx, gy - r), (gx + r, gy), (gx, gy + r), (gx - r, gy)]
+            tilt = math.radians(tilt_deg)
+            raw_d = [(0, -r), (int(r * 0.85), 0), (0, r), (-int(r * 0.85), 0)]
+            pts = [(gx + dx * math.cos(tilt) - dy * math.sin(tilt), gy + dx * math.sin(tilt) + dy * math.cos(tilt)) for dx, dy in raw_d]
             draw.polygon(pts, fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
         elif sym["shape"] == "heart":
             pts = []
             for t in [x * 0.1 for x in range(63)]:
                 hx = 16 * (math.sin(t) ** 3)
                 hy = -(13 * math.cos(t) - 5 * math.cos(2*t) - 2 * math.cos(3*t) - math.cos(4*t))
-                pts.append((gx + int(hx * 0.9), gy + int(hy * 0.9) + 2))
+                pts.append((gx + int(hx * 0.82), gy + int(hy * 0.82) + 2))
             draw.polygon(pts, fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
         elif sym["shape"] == "circle":
-            draw.ellipse([gx - r, gy - r, gx + r, gy + r], fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
-            draw.ellipse([gx - r//2, gy - r//2, gx + r//2, gy + r//2], fill=(255, 255, 255, 255))
+            draw.ellipse([gx - r + 1, gy - r + 1, gx + r - 1, gy + r - 1], fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
+            draw.ellipse([gx - r // 2, gy - r // 2, gx + r // 2, gy + r // 2], fill=(255, 255, 255, 255))
         elif sym["shape"] == "hexagon":
             pts = [
-                (gx + r * math.cos(math.radians(k * 60)), gy + r * math.sin(math.radians(k * 60)))
+                (gx + r * math.cos(math.radians(k * 60 + tilt_deg)), gy + r * math.sin(math.radians(k * 60 + tilt_deg)))
                 for k in range(6)
             ]
             draw.polygon(pts, fill=(*col, 255), outline=(255, 255, 255, 255), width=2)
@@ -716,8 +783,8 @@ def generate_sequence_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     target_sequence_names = [it["name"] for it in sequence_items]
     
     client_payload = {
-        "instruction": f"Belgilarni ketma-ketlikda bosing: {' -> '.join(target_sequence_uz)}",
-        "prompt": f"Belgilarni ketma-ketlikda bosing: {' -> '.join(target_sequence_uz)}",
+        "instruction": f"Ko'rsatilgan 3 belgini tartib bilan bosing: {' -> '.join(target_sequence_uz)}",
+        "prompt": f"Ko'rsatilgan 3 belgini tartib bilan bosing: {' -> '.join(target_sequence_uz)}",
         "sequence": target_sequence_names,
         "sequence_uz": target_sequence_uz,
         "sequence_steps": [
@@ -735,7 +802,7 @@ def generate_sequence_challenge() -> Tuple[Dict[str, Any], Dict[str, Any]]:
     
     solution_data = {
         "targets": [
-            {"x": it["x"], "y": it["y"], "radius": it["radius"] + 24, "name": it["name"]}
+            {"x": it["x"], "y": it["y"], "radius": 36, "name": it["name"]}
             for it in sequence_items
         ]
     }
@@ -934,7 +1001,7 @@ class CaptchaManager:
             try:
                 user_x = float(solution.get("x", 0) if isinstance(solution, dict) else solution)
                 target_x = expected_sol["target_x"]
-                tol = expected_sol.get("tolerance", 12)
+                tol = expected_sol.get("tolerance", 9)
                 is_correct = abs(user_x - target_x) <= tol
             except Exception:
                 is_correct = False
@@ -951,7 +1018,7 @@ class CaptchaManager:
             try:
                 user_angle = float(solution.get("angle", 0) if isinstance(solution, dict) else solution)
                 initial_angle = expected_sol["initial_angle"]
-                tol = expected_sol.get("tolerance", 20)
+                tol = expected_sol.get("tolerance", 15)
                 net_offset = (initial_angle + user_angle) % 360
                 err = min(net_offset, 360 - net_offset)
                 is_correct = err <= tol
@@ -969,7 +1036,7 @@ class CaptchaManager:
                         cy = user_clicks[i].get("y", 0)
                         tx = targets[i]["x"]
                         ty = targets[i]["y"]
-                        tr = max(targets[i]["radius"], 60)  # Generous 60px touch hit box
+                        tr = max(targets[i]["radius"], 36)  # Balanced 36px touch hit radius (prevents adjacent hit overlap)
                         dist = math.hypot(cx - tx, cy - ty)
                         if dist > tr:
                             match_all = False
@@ -981,7 +1048,13 @@ class CaptchaManager:
                 is_correct = False
 
         if not is_correct:
-            return {"ok": False, "error": "incorrect_solution", "message": "Javob noto'g'ri. Belgilarni ko'rsatilgan 1-2-3 tartibda bosing!"}
+            err_messages = {
+                "slider": "Pazl joyiga aniq tushmadi. Qaytadan surib ko'ring!",
+                "grid": "Barcha mos shakllar tanlanmadi yoki ortiqcha katak belgilandi.",
+                "rotate": "Shakl to'liq tik holatga (yuqori ▲ nuqtaga) keltirilmadi.",
+                "sequence": "Tartib noto'g'ri. Ko'rsatilgan 3 belgini 1-2-3 tartibda bosing!"
+            }
+            return {"ok": False, "error": "incorrect_solution", "message": err_messages.get(c_type, "Javob noto'g'ri. Qaytadan urinib ko'ring!")}
             
         challenge["is_used"] = True
         
