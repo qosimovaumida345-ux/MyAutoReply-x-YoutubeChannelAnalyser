@@ -1793,7 +1793,7 @@ async def handle_api_download_file(request):
                                     f"⏳ <b>Video yuklab olinmoqda...</b>\n\n"
                                     f"🎬 Video ID: <code>{video_id}</code>\n"
                                     f"📐 Sifat: <b>{resolution}</b>\n"
-                                    f"☁️ <b>7 GB RAM Cloud Runner (GitHub Actions)</b> orqali tayyorlanmoqda va bir necha soniyada shu yerga yuboriladi!"
+                                    f"☁️ <b>{BRAND_NAME} Cloud Worker</b> orqali tayyorlanmoqda va bir necha soniyada shu yerga yuboriladi!"
                                 ),
                                 "parse_mode": "HTML"
                             }
@@ -1811,31 +1811,33 @@ async def handle_api_download_file(request):
                 url=url,
                 chat_id=target_chat_id,
                 format=resolution,
-                caption=f"🎬 <b>Yuklab olingan video</b> ({video_id})\n📐 Sifat: {resolution}\n⚡ <i>7 GB RAM Cloud Runner</i>",
+                caption=f"🎬 <b>Yuklab olingan video</b> ({video_id})\n📐 Sifat: {resolution}\n⚡ <i>{BRAND_NAME} Cloud Worker</i>",
                 bot_token=BOT_TOKEN
             ))
         except Exception as gh_err:
-            print(f"GitHub Actions dispatch notice for user {target_chat_id}: {gh_err}")
+            print(f"Cloud worker dispatch notice for user {target_chat_id}: {gh_err}")
 
         # 3. Return immediate friendly response to WebApp iframe
+        brand_esc = _html.escape(BRAND_NAME)
         html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Video Yuklanmoqda</title>
+    <title>{brand_esc} • Video Yuklanmoqda</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090a0f; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }}
-        .card {{ background: #131722; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 20px; padding: 32px 24px; max-width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }}
-        h2 {{ margin: 0 0 12px; font-size: 20px; color: #10b981; }}
-        p {{ color: #a1a1aa; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
+        body {{ font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000000; color: #FFFFFF; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }}
+        .card {{ background: #0E0E10; border: 1px solid rgba(255, 255, 255, 0.12); border-top: 3px solid #FF5A1F; border-radius: 16px; padding: 32px 24px; max-width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.75); }}
+        h2 {{ margin: 0 0 12px; font-size: 20px; color: #FFFFFF; font-weight: 700; letter-spacing: -0.02em; }}
+        p {{ color: #A1A1AA; font-size: 14px; line-height: 1.5; margin: 0 0 20px; }}
+        b {{ color: #FF5A1F; font-weight: 600; }}
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>🚀 Video Yuklanmoqda!</h2>
-        <p>Video <b>7 GB RAM Cloud Runner (GitHub Actions)</b> orqali yuklanmoqda va to'g'ridan-to'g'ri Telegram botingizga yuboriladi!</p>
-        <p style="font-size: 12px; color: #71717a;">Telegram bot chatini tekshiring.</p>
+        <h2>Video Yuklanmoqda</h2>
+        <p>Video <b>{brand_esc} Cloud Worker</b> orqali yuklanmoqda va to'g'ridan-to'g'ri Telegram botingizga yuboriladi!</p>
+        <p style="font-size: 12px; color: #A1A1AA; margin-bottom: 0;">Telegram bot chatini tekshiring.</p>
     </div>
 </body>
 </html>"""
@@ -2096,11 +2098,12 @@ async def handle_api_download_file(request):
     <title>Video Yuklab Olish</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #090a0f; color: #fff; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }}
-        .card {{ background: #131722; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 32px 24px; max-width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }}
-        h2 {{ margin: 0 0 12px; font-size: 20px; color: #00f2fe; }}
-        p {{ color: #a1a1aa; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
-        .btn {{ display: inline-block; background: linear-gradient(135deg, #7342e2, #00f2fe); color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-weight: 700; font-size: 14px; margin: 6px; }}
+        body {{ font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000000; color: #FFFFFF; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; text-align: center; }}
+        .card {{ background: #0E0E10; border: 1px solid rgba(255,255,255,0.12); border-top: 3px solid #FF5A1F; border-radius: 16px; padding: 32px 24px; max-width: 420px; box-shadow: 0 20px 50px rgba(0,0,0,0.75); }}
+        h2 {{ margin: 0 0 12px; font-size: 20px; color: #FFFFFF; font-weight: 700; letter-spacing: -0.02em; }}
+        p {{ color: #A1A1AA; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }}
+        .btn {{ display: inline-block; background: #FFFFFF; color: #000000; text-decoration: none; padding: 12px 24px; border-radius: 999px; font-weight: 600; font-size: 14px; margin: 6px; }}
+        .btn:hover {{ background: #FF5A1F; color: #FFFFFF; }}
     </style>
 </head>
 <body>
@@ -2347,8 +2350,8 @@ async def handle_kyc_page(request):
             return web.Response(text=fallback_html, content_type="text/html", headers=headers)
         except Exception:
             return web.Response(
-                text="<!DOCTYPE html><html><body style='background:#080c14;color:#fff;font-family:sans-serif;text-align:center;padding:50px;'>"
-                     "<h2>🛡️ 3D Biometrik Identifikatsiya</h2>"
+                text="<!DOCTYPE html><html><body style='background:#000000;color:#FFFFFF;font-family:sans-serif;text-align:center;padding:50px;'>"
+                     "<h2>3D Biometrik Identifikatsiya</h2>"
                      "<p>Tizim yangilanmoqda. Iltimos, bir necha daqiqadan so'ng qayta urinib ko'ring.</p>"
                      "</body></html>",
                 content_type="text/html"
