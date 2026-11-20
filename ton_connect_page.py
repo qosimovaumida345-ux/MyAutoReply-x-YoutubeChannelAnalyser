@@ -44,11 +44,12 @@ def _safe_json_for_script(obj) -> str:
 
 def get_ton_manifest(base_url: str = "https://t.me") -> dict:
     """TON Connect manifest JSON"""
-    clean_url = _sanitize_base_url(base_url, fallback="https://t.me")
+    from config import APP_BASE_URL, BRAND_NAME
+    clean_url = _sanitize_base_url(base_url, fallback=APP_BASE_URL)
     return {
         "url": clean_url,
-        "name": "AutoReply & YouTube Studio",
-        "iconUrl": "https://cdn-icons-png.flaticon.com/512/2111/2111646.png",
+        "name": f"{BRAND_NAME} Studio",
+        "iconUrl": f"{clean_url}/favicon.svg",
         "termsOfServiceUrl": f"{clean_url}/terms",
         "privacyPolicyUrl": f"{clean_url}/privacy"
     }
@@ -56,9 +57,10 @@ def get_ton_manifest(base_url: str = "https://t.me") -> dict:
 
 def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url: str = "") -> str:
     """
-    Stunning, ultra-modern Cyberpunk / Web3 Telegram Mini App for TON Connect.
-    Uses @tonconnect/ui CDN and Telegram WebApp SDK.
+    Obsidian Monochrome Telegram Mini App for TON Connect (@tonconnect/ui).
     """
+    from config import BRAND_NAME
+    from ui_theme import get_obsidian_base_css
     clean_base = _sanitize_base_url(base_url, fallback="")
     manifest_url = f"{clean_base}/tonconnect-manifest.json" if clean_base else "/tonconnect-manifest.json"
 
@@ -83,23 +85,25 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TON Connect | AutoReply</title>
+    <title>TON Connect | {BRAND_NAME}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js" crossorigin="anonymous"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter+Tight:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        {get_obsidian_base_css()}
         :root {{
-            --ton-blue: #0098EA;
-            --ton-light: #45B6F7;
-            --ton-dark: #0077B5;
-            --bg-dark: #06090e;
-            --card-bg: rgba(13, 20, 32, 0.75);
-            --card-border: rgba(0, 152, 234, 0.25);
-            --text-main: #f1f5f9;
-            --text-muted: #94a3b8;
-            --emerald: #10b981;
-            --rose: #f43f5e;
+            --ton-blue: #FFFFFF;
+            --ton-light: #FFFFFF;
+            --ton-dark: #D4D4D8;
+            --bg-dark: #000000;
+            --card-bg: #0E0E10;
+            --card-border: rgba(255, 255, 255, 0.12);
+            --text-main: #FFFFFF;
+            --text-muted: #8E8E93;
+            --emerald: #22C55E;
+            --rose: #EF4444;
         }}
         * {{
             box-sizing: border-box;
@@ -108,9 +112,9 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             -webkit-tap-highlight-color: transparent;
         }}
         body {{
-            background: radial-gradient(circle at 50% 0%, #0d2238 0%, var(--bg-dark) 70%);
+            background: #000000;
             color: var(--text-main);
-            font-family: 'Outfit', -apple-system, sans-serif;
+            font-family: var(--font-sans);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -118,17 +122,7 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             padding: 24px 16px 40px;
             overflow-x: hidden;
         }}
-        .bg-glow {{
-            position: fixed;
-            top: -100px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 320px;
-            height: 320px;
-            background: radial-gradient(circle, rgba(0,152,234,0.3) 0%, transparent 70%);
-            pointer-events: none;
-            z-index: 0;
-        }}
+        .bg-glow {{ display: none; }}
         .container {{
             width: 100%;
             max-width: 440px;
@@ -146,78 +140,67 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             gap: 8px;
         }}
         .logo-wrap {{
-            width: 72px;
-            height: 72px;
-            border-radius: 22px;
-            background: linear-gradient(135deg, rgba(0,152,234,0.2) 0%, rgba(69,182,247,0.05) 100%);
-            border: 1px solid rgba(0,152,234,0.4);
-            color: var(--ton-blue);
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: #0E0E10;
+            border: 1px solid rgba(255,255,255,0.16);
+            color: #FF5A1F;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 25px rgba(0,152,234,0.3);
             margin-bottom: 4px;
-            animation: pulse-glow 3s infinite alternate;
-        }}
-        @keyframes pulse-glow {{
-            0% {{ box-shadow: 0 0 15px rgba(0,152,234,0.2); transform: scale(1); }}
-            100% {{ box-shadow: 0 0 35px rgba(0,152,234,0.5); transform: scale(1.03); }}
         }}
         .logo-wrap svg {{
-            width: 42px;
-            height: 42px;
-            fill: var(--ton-blue);
+            width: 34px;
+            height: 34px;
         }}
         h1 {{
+            font-family: var(--font-display);
             font-size: 24px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, #ffffff 40%, var(--ton-light) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #FFFFFF;
         }}
         .subtitle {{
             font-size: 13px;
             color: var(--text-muted);
-            max-width: 300px;
-            line-height: 1.4;
+            max-width: 320px;
+            line-height: 1.45;
         }}
         .status-badge {{
             display: inline-flex;
             align-items: center;
             gap: 6px;
             padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 12px;
+            border-radius: 999px;
+            font-family: var(--font-mono);
+            font-size: 11px;
             font-weight: 600;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: #0E0E10;
+            border: 1px solid var(--card-border);
             margin-top: 4px;
         }}
         .status-dot {{
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #64748b;
+            background: #71717A;
         }}
         .status-badge.connected {{
-            background: rgba(16, 185, 129, 0.12);
-            border-color: rgba(16, 185, 129, 0.3);
-            color: #34d399;
+            background: rgba(34, 197, 94, 0.12);
+            border-color: rgba(34, 197, 94, 0.35);
+            color: #4ADE80;
         }}
         .status-badge.connected .status-dot {{
             background: var(--emerald);
-            box-shadow: 0 0 8px var(--emerald);
         }}
         .card {{
             width: 100%;
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            border-radius: 20px;
+            border-radius: 16px;
             padding: 20px;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
             display: flex;
             flex-direction: column;
             gap: 16px;
@@ -228,22 +211,17 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             align-items: center;
             font-size: 13px;
         }}
-        .info-label {{
-            color: var(--text-muted);
-        }}
-        .info-val {{
-            font-weight: 600;
-            color: var(--text-main);
-        }}
+        .info-label {{ color: var(--text-muted); }}
+        .info-val {{ font-weight: 600; color: var(--text-main); }}
         .address-box {{
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: #000000;
+            border: 1px solid var(--card-border);
             border-radius: 12px;
             padding: 12px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 12px;
             word-break: break-all;
-            color: var(--ton-light);
+            color: #FFFFFF;
             display: flex;
             flex-direction: column;
             gap: 8px;
@@ -254,24 +232,19 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
             align-items: center;
             font-size: 11px;
             color: var(--text-muted);
-            font-family: 'Outfit', sans-serif;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.06em;
         }}
         .btn-copy {{
-            background: rgba(255, 255, 255, 0.08);
-            border: none;
-            color: var(--text-main);
+            background: #16161A;
+            border: 1px solid var(--card-border);
+            color: #FFFFFF;
             padding: 4px 8px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 11px;
-            transition: all 0.2s;
         }}
-        .btn-copy:active {{
-            transform: scale(0.95);
-            background: var(--ton-blue);
-        }}
+        .btn-copy:active {{ background: #FF5A1F; border-color: #FF5A1F; }}
         .tc-btn-container {{
             width: 100%;
             display: flex;
@@ -280,99 +253,50 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
         }}
         .btn {{
             width: 100%;
-            padding: 14px;
-            border-radius: 14px;
+            padding: 13px;
+            border-radius: 12px;
             border: none;
             font-size: 14px;
-            font-weight: 700;
+            font-weight: 600;
             font-family: inherit;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: all 0.2s;
         }}
         .btn-primary {{
-            background: linear-gradient(135deg, var(--ton-blue) 0%, var(--ton-dark) 100%);
-            color: #fff;
-            box-shadow: 0 4px 20px rgba(0, 152, 234, 0.4);
-        }}
-        .btn-primary:active {{
-            transform: scale(0.98);
+            background: #FF5A1F;
+            color: #FFFFFF;
         }}
         .btn-danger {{
-            background: rgba(244, 63, 94, 0.12);
-            border: 1px solid rgba(244, 63, 94, 0.3);
-            color: var(--rose);
+            background: rgba(239, 68, 68, 0.14);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #FCA5A5;
         }}
-        .btn-danger:active {{
-            background: rgba(244, 63, 94, 0.2);
-            transform: scale(0.98);
-        }}
-        .btn:disabled {{
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none !important;
-        }}
-        .btn:focus-visible, .btn-copy:focus-visible {{
-            outline: 2px solid var(--ton-light);
-            outline-offset: 2px;
-        }}
-        .features {{
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            width: 100%;
-        }}
-        @media (max-width: 360px) {{
-            .features {{
-                grid-template-columns: 1fr;
-            }}
-        }}
+        .btn:disabled {{ opacity: 0.55; cursor: not-allowed; }}
+        .btn:focus-visible, .btn-copy:focus-visible {{ outline: 2px solid #FF5A1F; outline-offset: 2px; }}
+        .features {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }}
+        @media (max-width: 360px) {{ .features {{ grid-template-columns: 1fr; }} }}
         .feat-item {{
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 14px;
+            background: #0E0E10;
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
             padding: 12px;
             font-size: 12px;
             display: flex;
             flex-direction: column;
             gap: 4px;
         }}
-        .feat-title {{
-            font-weight: 700;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }}
-        .feat-desc {{
-            color: var(--text-muted);
-            font-size: 11px;
-            line-height: 1.3;
-        }}
+        .feat-title {{ font-weight: 600; color: #fff; display: flex; align-items: center; gap: 4px; }}
+        .feat-desc {{ color: var(--text-muted); font-size: 11px; line-height: 1.35; }}
         .toast {{
-            position: fixed;
-            bottom: 24px;
-            background: #1e293b;
-            color: #fff;
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 13px;
-            font-weight: 600;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.1);
-            transform: translateY(100px);
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            z-index: 100;
-            pointer-events: none;
+            position: fixed; bottom: 24px; background: #16161A; color: #fff;
+            padding: 12px 20px; border-radius: 12px; font-size: 13px; font-weight: 600;
+            border: 1px solid var(--card-border); transform: translateY(100px); opacity: 0;
+            transition: all 0.25s ease; z-index: 100; pointer-events: none;
         }}
-        .toast.show {{
-            transform: translateY(0);
-            opacity: 1;
-        }}
+        .toast.show {{ transform: translateY(0); opacity: 1; }}
     </style>
 </head>
 <body>
@@ -385,7 +309,7 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
                     <path d="M2 9.5H22M12 2V22M7 15.5L12 9.5L17 15.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </div>
-            <h1>TON Connect Studio</h1>
+            <h1>{BRAND_NAME} TON Connect</h1>
             <p class="subtitle">Telegram Wallet, Tonkeeper yoki MyTonWallet hamyoningizni xavfsiz ulang</p>
             <div id="statusBadge" class="status-badge">
                 <div class="status-dot"></div>
@@ -434,21 +358,21 @@ def get_ton_connect_html(user_id: int = 0, current_wallet: dict = None, base_url
         <div class="features">
             <div class="feat-item">
                 <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
                     Tezkor Cashout
                 </div>
                 <div class="feat-desc">Pul yechishda manzilni qo'lda kiritish shart emas.</div>
             </div>
             <div class="feat-item">
                 <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22C55E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
                     100% Xavfsiz
                 </div>
                 <div class="feat-desc">Maxfiy kalitlar (seed phrase) hech qachon chiqmaydi.</div>
             </div>
             <div class="feat-item">
                 <div class="feat-title" style="display: flex; align-items: center; gap: 8px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                     3D NFT Lazy Mint
                 </div>
                 <div class="feat-desc">NFT laringiz bevosita o'zingizga tegishli bo'ladi.</div>

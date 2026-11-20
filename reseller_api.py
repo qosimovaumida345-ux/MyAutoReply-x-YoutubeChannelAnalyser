@@ -6,6 +6,7 @@ orqali balansini boshqarishi, mahsulotlarni (AI kalitlar, Proxylar) sotib olishi
 va YouTube xizmatlariga avtomatik buyurtma berishi mumkin.
 """
 
+import html as _html
 import json
 import os
 import re
@@ -15,6 +16,7 @@ import urllib.parse
 import asyncio
 import aiohttp
 from aiohttp import web
+from config import APP_BASE_URL, BRAND_NAME, SUPPORT_USERNAME
 from crypto_auth import generate_download_signature
 from database import (
     get_user_by_api_key,
@@ -736,7 +738,7 @@ async def handle_api_downloader(request):
             "message": "Faqat haqiqiy YouTube video havolasi yoki 11 belgili video ID qabul qilinadi"
         }, status=400)
 
-    base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+    base_domain = APP_BASE_URL.rstrip("/")
     standard_formats = [
         {"label": "360p", "value": "360", "ext": "mp4"},
         {"label": "480p", "value": "480", "ext": "mp4"},
@@ -1431,7 +1433,7 @@ async def handle_api_media_uniquify(request):
             "-vf \"setpts=0.985*PTS,crop=in_w*0.98:in_h*0.98,eq=contrast=1.04:brightness=0.01:saturation=1.06,noise=alls=2:allf=t+u\" "
             "-af \"asetrate=44100*1.015,aresample=44100\" -map_metadata -1"
         )
-        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        base_domain = APP_BASE_URL.rstrip("/")
         task_id = f"uniq_{payer_id}_{int(asyncio.get_event_loop().time())}"
 
         record_api_metered_usage(payer_id, "/api/v1/media/uniquify", COST_UZS, "success")
@@ -1489,7 +1491,7 @@ async def handle_api_media_crop_vertical(request):
         return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
 
     try:
-        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        base_domain = APP_BASE_URL.rstrip("/")
         task_id = f"vert_{payer_id}_{int(asyncio.get_event_loop().time())}"
 
         filter_chain = (
@@ -1548,7 +1550,7 @@ async def handle_api_media_remove_silence(request):
         return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
 
     try:
-        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        base_domain = APP_BASE_URL.rstrip("/")
         task_id = f"silence_{payer_id}_{int(asyncio.get_event_loop().time())}"
         filter_str = f"silenceremove=start_periods=1:start_duration={min_silence}:start_threshold={threshold_db}dB:stop_periods=-1:stop_duration={min_silence}:stop_threshold={threshold_db}dB"
 
@@ -1602,7 +1604,7 @@ async def handle_api_media_compress_telegram(request):
         return web.json_response({"ok": False, "error": "insufficient_funds", "required_uzs": COST_UZS, "current_uzs": curr_bal}, status=402)
 
     try:
-        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        base_domain = APP_BASE_URL.rstrip("/")
         task_id = f"tgcomp_{payer_id}_{int(asyncio.get_event_loop().time())}"
 
         record_api_metered_usage(payer_id, "/api/v1/media/compress-telegram", COST_UZS, "success")
@@ -1844,7 +1846,7 @@ async def handle_api_gifts_send(request):
                 payload = {
                     "user_id": recipient_id,
                     "gift_id": gift_id,
-                    "text": custom_msg[:255] if custom_msg else "AutoReply Reseller API Sovg'asi!",
+                    "text": custom_msg[:255] if custom_msg else f"{BRAND_NAME} Reseller API Sovg'asi!",
                     "is_anonymous": is_anon
                 }
                 async with aiohttp.ClientSession() as session:
@@ -1983,7 +1985,7 @@ async def handle_api_reseller_bot_connect(request):
         if not ok:
             return web.json_response({"ok": False, "error": "db_error", "message": "Botni bazaga saqlab bo'lmadi"}, status=500)
 
-        base_domain = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        base_domain = APP_BASE_URL.rstrip("/")
         webhook_endpoint = f"{base_domain}/api/whitelabel/webhook/{bot_id}"
 
         return web.json_response({
@@ -2028,7 +2030,7 @@ async def handle_api_billing_stars_invoice(request):
         return web.json_response({"ok": False, "error": "invalid_stars", "message": "'amount_stars' 1 dan 100,000 gacha bo'lishi kerak"}, status=400)
 
     title = str(data.get("title", f"Reseller Balans: {amount_stars} Stars")).strip()
-    description = str(data.get("description", f"AutoReply Reseller balansingizni {amount_stars} Stars ga to'ldirish")).strip()
+    description = str(data.get("description", f"{BRAND_NAME} Reseller balansingizni {amount_stars} Stars ga to'ldirish")).strip()
 
     from config import BOT_TOKEN
     if not BOT_TOKEN:
@@ -2120,240 +2122,153 @@ async def handle_api_tariffs(request):
 
 # ==================== INTERACTIVE API DOCUMENTATION (HTML) ====================
 
-async def handle_robots(request):
-    """robots.txt handler for search engines and AI agents"""
-    content = """# Robots.txt for CreatorFlow / Bot Client
-# AI Agents and Web Crawlers Configuration
-
-User-agent: *
-Allow: /
-Allow: /api/v1/docs
-Allow: /api/v1/products
-Allow: /api/v1/tariffs
-Allow: /captcha/
-Allow: /privacy
-Allow: /terms
-Disallow: /dashboard
-Disallow: /api/auth/
-Disallow: /api/v1/admin/
-Disallow: /api/user/
-Disallow: /oauth/
-Disallow: /admin/
-
-User-agent: GPTBot
-Allow: /
-Allow: /api/v1/docs
-Allow: /api/v1/products
-Allow: /api/v1/tariffs
-Allow: /captcha/
-Allow: /privacy
-Allow: /terms
-Disallow: /dashboard
-Disallow: /api/auth/
-
-User-agent: ClaudeBot
-Allow: /
-Allow: /api/v1/docs
-Allow: /api/v1/products
-Allow: /api/v1/tariffs
-Allow: /captcha/
-Allow: /privacy
-Allow: /terms
-Disallow: /dashboard
-Disallow: /api/auth/
-
-User-agent: Google-Extended
-Allow: /
-Allow: /api/v1/docs
-Allow: /api/v1/products
-Allow: /api/v1/tariffs
-Allow: /captcha/
-Allow: /privacy
-Allow: /terms
-Disallow: /dashboard
-Disallow: /api/auth/
-"""
-    return web.Response(text=content, content_type="text/plain", charset="utf-8")
-
 async def handle_api_docs_html(request):
-    """GET /api/v1/docs - Zamonaviy, interaktiv REST API hujjatlari"""
-    html = """<!DOCTYPE html>
+    """GET /api/v1/docs & /docs - Interactive Developer & Reseller API Documentation"""
+    import html as _html
+    from ui_theme import (
+        get_adsense_head_html,
+        get_editorial_base_css,
+        get_fonts_head_html,
+        render_editorial_footer,
+        render_editorial_navbar,
+    )
+
+    brand = _html.escape(BRAND_NAME)
+    base_url = _html.escape(APP_BASE_URL.rstrip("/"))
+    sup_u = _html.escape(SUPPORT_USERNAME)
+
+    css = get_editorial_base_css() + """
+.docs-wrap { max-width: 960px; margin: 0 auto; padding: 32px 24px 72px; }
+.docs-hero {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 28px; margin-bottom: 24px;
+}
+.docs-hero h1 {
+    font-family: var(--font-display); font-size: clamp(26px, 4vw, 38px);
+    font-weight: 600; letter-spacing: -0.025em; margin: 12px 0 8px;
+}
+.docs-hero p { color: var(--ink-2); font-size: 15px; max-width: 720px; }
+.card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px; margin-bottom: 18px;
+}
+.card h2 {
+    font-family: var(--font-display); font-size: 19px; font-weight: 600;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+}
+.endpoint-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 14px; overflow: hidden;
+}
+.endpoint-header {
+    padding: 12px 16px; display: flex; align-items: center; flex-wrap: wrap;
+    gap: 10px; border-bottom: 1px solid var(--border); background: var(--surface-subtle);
+}
+.method {
+    padding: 3px 9px; border-radius: 6px; font-weight: 700; font-size: 11.5px;
+    font-family: var(--font-mono); letter-spacing: 0.04em;
+}
+.get { background: var(--ink); color: #FFFFFF; }
+.post { background: var(--accent); color: #FFFFFF; }
+.path { font-family: var(--font-mono); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.price-pill {
+    margin-left: auto; font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    background: var(--bg); color: var(--ink-2); border: 1px solid var(--border);
+    padding: 3px 9px; border-radius: 999px;
+}
+.endpoint-desc { padding: 14px 16px; color: var(--ink-2); font-size: 14px; }
+pre {
+    background: var(--code-bg); color: var(--code-ink); border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono);
+    font-size: 12.5px; line-height: 1.55; margin-top: 10px;
+}
+code { font-family: var(--font-mono); font-size: 12.5px; }
+.endpoint-desc > p code, .card > p code {
+    background: var(--bg); border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px;
+}
+.param-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+.param-table th, .param-table td {
+    padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.param-table th {
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--muted);
+}
+.param-name { font-family: var(--font-mono); color: var(--ink); font-weight: 600; }
+.tag-req {
+    font-family: var(--font-mono); color: var(--accent); font-size: 10px;
+    font-weight: 700; text-transform: uppercase; margin-left: 4px;
+}
+@media (max-width: 600px) { .docs-wrap { padding: 20px 16px 56px; } }
+"""
+
+    html = f"""<!DOCTYPE html>
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoReply Developer & Reseller REST API</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #090d16;
-            --card-bg: rgba(18, 26, 43, 0.75);
-            --border: rgba(255, 255, 255, 0.08);
-            --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.25);
-            --accent: #10b981;
-            --warning: #f59e0b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --code-bg: #030712;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: var(--bg);
-            color: var(--text-main);
-            line-height: 1.6;
-            padding: 24px 16px;
-        }
-        .container { max-width: 960px; margin: 0 auto; }
-        .hero {
-            text-align: center;
-            padding: 40px 20px;
-            background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.15), transparent 70%);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            margin-bottom: 32px;
-            backdrop-filter: blur(12px);
-        }
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(59, 130, 246, 0.12);
-            color: #60a5fa;
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            padding: 4px 12px;
-            border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 16px;
-        }
-        h1 { font-size: 2.4rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.5px; }
-        p.subtitle { color: var(--text-muted); font-size: 1.1rem; max-width: 680px; margin: 0 auto; }
-        
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-            backdrop-filter: blur(8px);
-        }
-        h2 { font-size: 1.4rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-        
-        .endpoint-card {
-            background: rgba(10, 15, 29, 0.6);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-bottom: 18px;
-            overflow: hidden;
-            transition: all 0.2s ease;
-        }
-        .endpoint-card:hover { border-color: rgba(59, 130, 246, 0.4); transform: translateY(-2px); }
-        .endpoint-header {
-            padding: 14px 18px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.02);
-        }
-        .method {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-weight: 700;
-            font-size: 0.8rem;
-            font-family: 'Fira Code', monospace;
-        }
-        .get { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-        .post { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-        .path { font-family: 'Fira Code', monospace; font-size: 0.95rem; font-weight: 600; }
-        .endpoint-desc { padding: 14px 18px; color: var(--text-muted); font-size: 0.95rem; }
-        
-        pre {
-            background: var(--code-bg);
-            border-radius: 10px;
-            padding: 16px;
-            overflow-x: auto;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.88rem;
-            color: #cbd5e1;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            margin-top: 10px;
-        }
-        .param-table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
-        .param-table th, .param-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-        .param-table th { color: var(--text-muted); font-weight: 600; }
-        .param-name { font-family: 'Fira Code', monospace; color: #60a5fa; font-weight: 600; }
-        .tag-req { color: #f43f5e; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-        
-        .footer { text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 24px 0; }
-    </style>
+    <title>Developer &amp; Reseller REST API | {brand}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    {get_adsense_head_html()}
+    {get_fonts_head_html()}
+    <style>{css}</style>
 </head>
 <body>
-<div class="container">
-    <div class="hero">
-        <div class="badge" style="display: inline-flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path><path d="M12 9V4s3.03.55 4 2c1.08 1.62 0 5 0 5"></path></svg> REST API v1</div>
-        <h1>Developer & Reseller API</h1>
-        <p class="subtitle">O'z Telegram botingiz yoki saytingiz orqali bizning mahsulotlarimizni (AI kalitlar, Proxylar, YouTube buyurtmalar) avtomatik sotib oling va ishlating.</p>
-    </div>
+{render_editorial_navbar(active="docs")}
 
-    <!-- Autentifikatsiya -->
+<main class="docs-wrap">
+    <section class="docs-hero">
+        <div class="md-eyebrow"><span class="md-eyebrow-dot"></span><span>REST API v1 &middot; {brand}</span></div>
+        <h1>Developer &amp; Reseller <span class="md-serif-em">API</span></h1>
+        <p>O&apos;z Telegram botingiz yoki saytingiz orqali mahsulotlar (AI kalitlar, Proxylar, YouTube buyurtmalar, Captcha va Telegram Stars xizmatlari) bilan avtomatik integratsiya qiling.</p>
+    </section>
+
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7342E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg> Autentifikatsiya (API Kalit)</h2>
-        <p>Barcha so'rovlar Telegram botingizda berilgan shaxsiy API kalit bilan yuborilishi shart. Har bir so'rovda quyidagi HTTP Header ni kiriting:</p>
+        <h2>Autentifikatsiya (API Kalit)</h2>
+        <p>Barcha so&apos;rovlar Telegram botingizda berilgan shaxsiy API kalit bilan yuborilishi shart. Har bir so&apos;rovda quyidagi HTTP Header ni kiriting:</p>
         <pre><code>Authorization: Bearer art_live_sizning_shaxsiy_api_kalitingiz</code></pre>
-        <p style="margin-top: 8px; font-size: 0.9rem; color: var(--text-muted);">yoki <code>X-API-Key: art_live_...</code> sarlavhasi orqali.</p>
+        <p style="margin-top: 8px; font-size: 13px; color: var(--muted);">yoki <code>X-API-Key: art_live_...</code> sarlavhasi orqali.</p>
     </div>
 
-    <!-- BotShield Captcha -->
-    <div class="card" style="border: 1px solid rgba(115, 66, 226, 0.4); background: rgba(115, 66, 226, 0.05);">
-        <h2 style="display: flex; align-items: center; gap: 8px; color: #a78bfa;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            BotShield Captcha as a Service (10 UZS / tekshiruv)
-            <span style="font-size: 11px; background: #7342e2; color: #fff; padding: 2px 8px; border-radius: 12px; margin-left: 8px;">YANGI</span>
-        </h2>
-        <p>Saytingiz, Telegram Mini App yoki ro'yxatdan o'tish sahifalaringizni botlar va spamdan 100% himoya qiluvchi o'zbek tilidagi qulay captcha vidjeti. 4 xil insoniy captcha (Pazl, 9 talik rasmlar, Aylantirish, Ketma-ketlik).</p>
-        <p style="margin: 10px 0;"><b>🌐 Jonli Demo & Sinov:</b> <a href="/captcha/demo" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600;">https://botclient-d1jn.onrender.com/captcha/demo</a></p>
-        <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">1. HTML Vidjet (Frontendga qo'yish):</p>
+    <div class="card" style="border-left: 4px solid var(--accent);">
+        <h2>Shield Captcha as a Service <span class="price-pill">10 UZS / tekshiruv</span></h2>
+        <p>Saytingiz, Telegram Mini App yoki ro&apos;yxatdan o&apos;tish sahifalaringizni botlar va spamdan himoya qiluvchi o&apos;zbek tilidagi captcha vidjeti (Pazl, 9 talik rasmlar, Aylantirish, Ketma-ketlik).</p>
+        <p style="margin: 10px 0;"><strong>Jonli Demo &amp; Sinov:</strong> <a href="/captcha/demo" target="_blank" rel="noopener noreferrer" style="text-decoration: underline; text-decoration-color: var(--accent);">{base_url}/captcha/demo</a></p>
+        <p style="font-weight: 600; font-size: 13px; margin-top: 10px;">1. HTML Vidjet (Frontendga qo&apos;yish):</p>
         <pre><code>&lt;div id="botshield-captcha" data-sitekey="bsh_live_SIZNING_SITE_KEY"&gt;&lt;/div&gt;
-&lt;script src="https://botclient-d1jn.onrender.com/captcha/widget.js" async defer&gt;&lt;/script&gt;</code></pre>
-        <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">1.1. Maxfiy Rejim (HTML da sitekey ko'rsatmaslik - POST /api/v1/captcha/session/create):</p>
-        <p style="font-size: 0.85rem; color: #cbd5e1;">Agar HTML kodingizda hatto ochiq sitekey ham ko'rinishini istamasangiz, serveringiz orqali 90 soniyalik bir martalik vaqtinchalik <code>bsh_sess_...</code> kaliti olib frontendga bering.</p>
-        <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/captcha/session/create" \
-     -H "Content-Type: application/json" \
-     -d '{"secret":"bsh_sec_SIZNING_SECRET_KEY"}'</code></pre>
-        <p style="font-weight: 600; color: #94a3b8; margin-top: 12px;">2. Serverda tasdiqlash (POST /api/v1/captcha/siteverify):</p>
-        <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/captcha/siteverify" \
-     -H "Content-Type: application/json" \
-     -d '{"secret":"bsh_sec_SIZNING_SECRET_KEY","token":"bsh_TOKEN_..."}'</code></pre>
+&lt;script src="{base_url}/captcha/widget.js" async defer&gt;&lt;/script&gt;</code></pre>
+        <p style="font-weight: 600; font-size: 13px; margin-top: 12px;">1.1. Maxfiy Rejim (POST /api/v1/captcha/session/create):</p>
+        <pre><code>curl -X POST "{base_url}/api/v1/captcha/session/create" \\
+     -H "Content-Type: application/json" \\
+     -d '{{"secret":"bsh_sec_SIZNING_SECRET_KEY"}}'</code></pre>
+        <p style="font-weight: 600; font-size: 13px; margin-top: 12px;">2. Serverda tasdiqlash (POST /api/v1/captcha/siteverify):</p>
+        <pre><code>curl -X POST "{base_url}/api/v1/captcha/siteverify" \\
+     -H "Content-Type: application/json" \\
+     -d '{{"secret":"bsh_sec_SIZNING_SECRET_KEY","token":"bsh_TOKEN_..."}}'</code></pre>
     </div>
 
-    <!-- 1. Balans tekshirish -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/me</span>
         </div>
         <div class="endpoint-desc">
-            Hisobingiz ma'lumotlari, balansingiz (so'mda) va umumiy so'rovlar sonini qaytaradi.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/me" \\
+            Hisobingiz ma&apos;lumotlari, balansingiz (so&apos;mda) va umumiy so&apos;rovlar sonini qaytaradi.
+            <pre><code>curl -X GET "{base_url}/api/v1/me" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
+            <pre><code>{{
   "ok": true,
-  "user": {
+  "user": {{
     "tg_user_id": 12345678,
     "balance_uzs": 150000,
     "balance_usd_approx": 11.72,
     "kyc_status": "verified",
     "total_requests": 34
-  }
-}</code></pre>
+  }}
+}}</code></pre>
         </div>
     </div>
 
-    <!-- 2. Mahsulotlar ro'yxati -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method get">GET</span>
@@ -2361,245 +2276,156 @@ async def handle_api_docs_html(request):
         </div>
         <div class="endpoint-desc">
             Mavjud barcha API kalitlar (OpenRouter, Gemini, Groq), Dedicated Proxylar soni va YouTube xizmatlari narxlarini qaytaradi.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/products" \\
+            <pre><code>curl -X GET "{base_url}/api/v1/products" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
+            <pre><code>{{
   "ok": true,
-  "products": {
-    "openrouter": { "name": "OpenRouter API Key ($3 tier)", "price_uzs": 38000, "in_stock": 10, "available": true },
-    "gemini": { "name": "Google Gemini API Key ($5 tier)", "price_uzs": 64000, "in_stock": 10, "available": true },
-    "groq": { "name": "Groq Cloud API Key", "price_uzs": 10000, "in_stock": 10, "available": true },
-    "proxy": { "name": "Dedicated HTTP/HTTPS Private Proxy", "price_uzs": 38000, "in_stock": 11, "available": true }
-  },
-  "smm_services": {
-    "like": { "unit_price_uzs": 1500, "min_quantity": 1 },
-    "subscribe": { "unit_price_uzs": 2500, "min_quantity": 1 },
-    "view": { "unit_price_uzs": 1500, "min_quantity": 1 }
-  }
-}</code></pre>
+  "products": {{
+    "openrouter": {{ "name": "OpenRouter API Key ($3 tier)", "price_uzs": 38000, "in_stock": 10, "available": true }},
+    "gemini": {{ "name": "Google Gemini API Key ($5 tier)", "price_uzs": 64000, "in_stock": 10, "available": true }},
+    "groq": {{ "name": "Groq Cloud API Key", "price_uzs": 10000, "in_stock": 10, "available": true }},
+    "proxy": {{ "name": "Dedicated HTTP/HTTPS Private Proxy", "price_uzs": 38000, "in_stock": 11, "available": true }}
+  }},
+  "smm_services": {{
+    "like": {{ "unit_price_uzs": 1500, "min_quantity": 1 }},
+    "subscribe": {{ "unit_price_uzs": 2500, "min_quantity": 1 }},
+    "view": {{ "unit_price_uzs": 1500, "min_quantity": 1 }}
+  }}
+}}</code></pre>
         </div>
     </div>
 
-    <!-- 3. Mahsulot sotib olish -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/buy</span>
         </div>
         <div class="endpoint-desc">
-            Balansingizdan mablag' yechib, zaxiradan bitta API kalit yoki Dedicated Proxy taqdim etadi.
+            Balansingizdan mablag&apos; yechib, zaxiradan bitta API kalit yoki Dedicated Proxy taqdim etadi.
             <table class="param-table">
                 <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
                 <tr><td class="param-name">service <span class="tag-req">shart</span></td><td>string</td><td><code>openrouter</code>, <code>gemini</code>, <code>groq</code> yoki <code>proxy</code></td></tr>
             </table>
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/buy" \\
+            <pre><code>curl -X POST "{base_url}/api/v1/buy" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"service": "openrouter"}'</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
-  "ok": true,
-  "service": "openrouter",
-  "api_key": "sk-or-v1-e2edcfed...",
-  "price_uzs": 38000,
-  "remaining_balance_uzs": 112000
-}</code></pre>
+     -d '{{"service": "openrouter"}}'</code></pre>
         </div>
     </div>
 
-    <!-- 4. YouTube buyurtma berish -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/smm/order</span>
         </div>
         <div class="endpoint-desc">
-            YouTube video yoki kanalingizga Layk, Obunachi yoki Ko'rishlar buyurtma berish.
+            YouTube video yoki kanalingizga Layk, Obunachi yoki Ko&apos;rishlar buyurtma berish.
             <table class="param-table">
                 <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
                 <tr><td class="param-name">order_type <span class="tag-req">shart</span></td><td>string</td><td><code>like</code>, <code>subscribe</code> yoki <code>view</code></td></tr>
                 <tr><td class="param-name">target_url <span class="tag-req">shart</span></td><td>string</td><td>YouTube video yoki kanal havolasi</td></tr>
                 <tr><td class="param-name">quantity <span class="tag-req">shart</span></td><td>integer</td><td>Buyurtma soni (kamida 1)</td></tr>
             </table>
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/smm/order" \\
+            <pre><code>curl -X POST "{base_url}/api/v1/smm/order" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"order_type": "like", "target_url": "https://youtu.be/xxx", "quantity": 10}'</code></pre>
+     -d '{{"order_type": "like", "target_url": "https://youtu.be/xxx", "quantity": 10}}'</code></pre>
         </div>
     </div>
 
-    <!-- 5. YouTube buyurtma holatini tekshirish -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method get">GET</span>
-            <span class="path">/api/v1/smm/order/{order_id}</span>
+            <span class="path">/api/v1/smm/order/{{order_id}}</span>
         </div>
         <div class="endpoint-desc">
-            Berilgan YouTube buyurtmasining bajarilish holatini (bajarilgan soni, status) tekshirish.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/smm/order/1042" \\
+            Berilgan YouTube buyurtmasining bajarilish holatini tekshirish.
+            <pre><code>curl -X GET "{base_url}/api/v1/smm/order/1042" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
-  "ok": true,
-  "order": {
-    "id": 1042,
-    "order_type": "like",
-    "target_url": "https://youtu.be/xxx",
-    "quantity": 10,
-    "completed_count": 8,
-    "status": "pending"
-  }
-}</code></pre>
         </div>
     </div>
 
-    <!-- 6. Media Downloader Extractor -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/downloader</span>
         </div>
         <div class="endpoint-desc">
-            YouTube va Shorts videolardan to'g'ridan-to'g'ri MP4 (360p - 4K) yoki MP3 audio yuklab olish havolasini olish.
+            YouTube va Shorts videolardan to&apos;g&apos;ridan-to&apos;g&apos;ri MP4 (360p - 4K) yoki MP3 audio yuklab olish havolasini olish.
             <table class="param-table">
                 <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
                 <tr><td class="param-name">url <span class="tag-req">shart</span></td><td>string</td><td>YouTube havola yoki 11 belgili video ID</td></tr>
                 <tr><td class="param-name">format</td><td>string</td><td><code>360</code>, <code>480</code>, <code>720</code> (standart), <code>1080</code>, <code>mp3</code></td></tr>
             </table>
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/downloader" \\
+            <pre><code>curl -X POST "{base_url}/api/v1/downloader" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"url": "https://youtu.be/dQw4w9WgXcQ", "format": "720"}'</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
-  "ok": true,
-  "video_id": "dQw4w9WgXcQ",
-  "title": "Rick Astley - Never Gonna Give You Up",
-  "duration": 213,
-  "uploader": "Rick Astley",
-  "selected_format": "720",
-  "download_url": "https://botclient-d1jn.onrender.com/api/download-file?video_id=dQw4w9WgXcQ&resolution=720"
-}</code></pre>
+     -d '{{"url": "https://youtu.be/dQw4w9WgXcQ", "format": "720"}}'</code></pre>
         </div>
     </div>
 
-    <!-- 7. Jonli Telegram Sovg'alari Katalogi -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/gifts/available</span>
         </div>
         <div class="endpoint-desc">
-            Telegram serveridagi barcha jonli rasmiy sovg'alar (narxlari, kamyobligi, NFT sonlari) katalogini olish.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/gifts/available" \\
+            Telegram serveridagi barcha jonli rasmiy sovg&apos;alar (narxlari, kamyobligi, NFT sonlari) katalogini olish.
+            <pre><code>curl -X GET "{base_url}/api/v1/gifts/available" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
-  "ok": true,
-  "count": 48,
-  "gifts": [
-    {
-      "name": "Delicious Cake",
-      "stars": 15,
-      "rarity": "common",
-      "is_nft": false,
-      "icon": "cake"
-    },
-    {
-      "name": "Black Cap Collectible",
-      "stars": 1000,
-      "rarity": "legendary",
-      "is_nft": true,
-      "total_count": 5000,
-      "remaining_count": 142
-    }
-  ]
-}</code></pre>
         </div>
     </div>
 
-    <!-- 8. Keys Ochish (Unboxing) -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/cases/open</span>
         </div>
         <div class="endpoint-desc">
-            Tashqi ilovangiz orqali Telegram Stars yoki UZS balansi hisobidan omadli keyslarni ochish va yutuqni olish.
+            Telegram Stars yoki UZS balansi hisobidan omadli keyslarni ochish va yutuqni olish.
             <table class="param-table">
                 <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
-                <tr><td class="param-name">tier_id <span class="tag-req">shart</span></td><td>string</td><td><code>tier_1</code>, <code>tier_2</code>, <code>tier_3</code>, <code>tier_4</code>, <code>tier_5</code></td></tr>
-                <tr><td class="param-name">currency</td><td>string</td><td><code>uzs</code> (standart) yoki <code>stars</code></td></tr>
-                <tr><td class="param-name">user_id</td><td>integer</td><td>Ixtiyoriy yutuq egasi Telegram ID (standart - API egasi)</td></tr>
+                <tr><td class="param-name">tier_id <span class="tag-req">shart</span></td><td>string</td><td><code>tier_1</code> .. <code>tier_5</code></td></tr>
+                <tr><td class="param-name">currency</td><td>string</td><td><code>uzs</code> yoki <code>stars</code></td></tr>
+                <tr><td class="param-name">user_id</td><td>integer</td><td>Ixtiyoriy Telegram ID</td></tr>
             </table>
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/cases/open" \\
+            <pre><code>curl -X POST "{base_url}/api/v1/cases/open" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"tier_id": "tier_2", "currency": "uzs"}'</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
-  "ok": true,
-  "prize_name": "Bouquet of Flowers",
-  "prize_stars": 50,
-  "rarity": "rare",
-  "is_nft": false,
-  "price_uzs": 20000,
-  "new_balance": 130000
-}</code></pre>
+     -d '{{"tier_id": "tier_2", "currency": "uzs"}}'</code></pre>
         </div>
     </div>
 
-    <!-- 9. Vaucher va Promokod Faollashtirish -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/vouchers/redeem</span>
         </div>
         <div class="endpoint-desc">
-            Balans to'ldirish vaucherlarini yoki aksiya promokodlarini avtomatik faollashtirish.
-            <table class="param-table">
-                <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
-                <tr><td class="param-name">code <span class="tag-req">shart</span></td><td>string</td><td>Vaucher yoki promokod matni (masalan: <code>VIP2026</code>)</td></tr>
-            </table>
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/vouchers/redeem" \\
+            Balans to&apos;ldirish vaucherlarini yoki aksiya promokodlarini avtomatik faollashtirish.
+            <pre><code>curl -X POST "{base_url}/api/v1/vouchers/redeem" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"code": "VIP2026"}'</code></pre>
-            <p style="margin-top: 10px; font-weight: 600; color: #94a3b8;">Javob namunasi (200 OK):</p>
-            <pre><code>{
-  "ok": true,
-  "type": "voucher",
-  "amount_uzs": 50000,
-  "new_balance": 180000,
-  "message": "Vaucher muvaffaqiyatli faollashtirildi!"
-}</code></pre>
+     -d '{{"code": "VIP2026"}}'</code></pre>
         </div>
     </div>
 
-    <!-- 10. Webhook Boshqaruvi -->
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/webhooks/set</span>
         </div>
         <div class="endpoint-desc">
-            Yutuqlar, xaridlar va buyurtma yangilanishlarini real vaqtda qabul qilish uchun o'z serveringiz HTTPS webhook manzilini biriktirish.
-            <table class="param-table">
-                <tr><th>Parametr</th><th>Turi</th><th>Tavsif</th></tr>
-                <tr><td class="param-name">webhook_url <span class="tag-req">shart</span></td><td>string</td><td>Tashqi HTTPS havola</td></tr>
-                <tr><td class="param-name">secret_token</td><td>string</td><td>Ixtiyoriy xavfsizlik tokeni (HMAC imzolash uchun)</td></tr>
-            </table>
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/webhooks/set" \\
+            Yutuqlar, xaridlar va buyurtma yangilanishlarini real vaqtda qabul qilish uchun HTTPS webhook biriktirish.
+            <pre><code>curl -X POST "{base_url}/api/v1/webhooks/set" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"webhook_url": "https://myshop.com/webhook", "secret_token": "secret123"}'</code></pre>
+     -d '{{"webhook_url": "https://myshop.com/webhook", "secret_token": "secret123"}}'</code></pre>
         </div>
     </div>
 
-    <!-- Bo'lim: AI Pay-As-You-Go Endpoints -->
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path><path d="m12 6 3 6-3 6-3-6z"></path></svg> 1. AI Pay-As-You-Go Xizmatlari</h2>
+        <h2>1. AI Pay-As-You-Go Xizmatlari</h2>
         <p>YouTube tahlili, viral sarlavhalar, 3 soniyalik hooklar va avto-izohlar uchun mikro-balansli API.</p>
     </div>
 
@@ -2607,14 +2433,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/ai/summarize</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">1,000 UZS / 4 Stars</span>
+            <span class="price-pill">1,000 UZS / 4 Stars</span>
         </div>
         <div class="endpoint-desc">
-            YouTube video transkriptini to'liq tahlil qilib, 5 ta muhim tezis, qisqa xulosa va taxminiy timecodes (boblar) generatsiya qiladi.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/summarize" \\
+            YouTube video transkriptini tahlil qilib, 5 ta muhim tezis va qisqa xulosa yaratadi.
+            <pre><code>curl -X POST "{base_url}/api/v1/ai/summarize" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "language": "uz", "detail_level": "medium"}'</code></pre>
+     -d '{{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "language": "uz", "detail_level": "medium"}}'</code></pre>
         </div>
     </div>
 
@@ -2622,14 +2448,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/ai/clickbait-title</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">750 UZS / 3 Stars</span>
+            <span class="price-pill">750 UZS / 3 Stars</span>
         </div>
         <div class="endpoint-desc">
-            MrBeast uslubida High-CTR (bosilish darajasi yuqori) sarlavhalar, A/B test variantlari va psixologik triggerlar yaratish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/clickbait-title" \\
+            High-CTR sarlavhalar va A/B test variantlari generatsiyasi.
+            <pre><code>curl -X POST "{base_url}/api/v1/ai/clickbait-title" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"topic": "Qanday qilib dasturchi bo‘lish mumkin", "niche": "tech", "count": 5, "language": "uz"}'</code></pre>
+     -d '{{"topic": "Dasturlash", "niche": "tech", "count": 5, "language": "uz"}}'</code></pre>
         </div>
     </div>
 
@@ -2637,14 +2463,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/ai/shorts-hook</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">1,250 UZS / 5 Stars</span>
+            <span class="price-pill">1,250 UZS / 5 Stars</span>
         </div>
         <div class="endpoint-desc">
-            Shorts va Reels uchun tomoshabinni ushlab qoluvchi (retention 80%+) 3-soniyalik Visual va Audio Hook, to'liq sahnama-sahna ssenariy.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/shorts-hook" \\
+            Shorts va Reels uchun 3-soniyalik Visual/Audio Hook va ssenariy yaratish.
+            <pre><code>curl -X POST "{base_url}/api/v1/ai/shorts-hook" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"topic": "Tarixdagi eng boy odam", "duration_sec": 45, "language": "uz"}'</code></pre>
+     -d '{{"topic": "Tarixdagi eng boy odam", "duration_sec": 45, "language": "uz"}}'</code></pre>
         </div>
     </div>
 
@@ -2652,14 +2478,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/ai/reply-comment</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">250 UZS / 1 Star</span>
+            <span class="price-pill">250 UZS / 1 Star</span>
         </div>
         <div class="endpoint-desc">
-            Kanal va video kontekstiga mos, belgilangan persona (samimiy, ekspert, hazilkash) bilan tomoshabin izohiga mos javob berish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/reply-comment" \\
+            Tomoshabin izohiga kanal kontekstiga mos avtomatik javob tuzish.
+            <pre><code>curl -X POST "{base_url}/api/v1/ai/reply-comment" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"comment_text": "Video juda foydali bo‘libdi, keyingi qismi qachon chiqadi?", "persona": "friendly", "channel_context": "Dasturlash darslari"}'</code></pre>
+     -d '{{"comment_text": "Video juda foydali!", "persona": "friendly"}}'</code></pre>
         </div>
     </div>
 
@@ -2667,20 +2493,19 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/ai/generate</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(59,130,246,0.15); color: #60a5fa; padding: 3px 8px; border-radius: 6px;">100 UZS / 1 Star</span>
+            <span class="price-pill">100 UZS / 1 Star</span>
         </div>
         <div class="endpoint-desc">
-            Universal Pay-Per-Prompt AI so'rov yuborish va matn generatsiya qilish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/ai/generate" \\
+            Universal Pay-Per-Prompt matn generatsiya so&apos;rovi.
+            <pre><code>curl -X POST "{base_url}/api/v1/ai/generate" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"prompt": "Telegram botlar uchun 3 ta g‘oya yozib ber", "system_instruction": "Qisqa va aniq yoz"}'</code></pre>
+     -d '{{"prompt": "3 ta video goya yozib ber"}}'</code></pre>
         </div>
     </div>
 
-    <!-- Bo'lim: Media & Video Processing Endpoints -->
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg> 2. Media & Video Processing Xizmatlari</h2>
+        <h2>2. Media &amp; Video Processing Xizmatlari</h2>
         <p>Anti-copyright unikalizatsiya, 9:16 vertikal format, sukunatni tozalash va Telegram 50MB ga siqish.</p>
     </div>
 
@@ -2688,14 +2513,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/media/uniquify</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">3,000 UZS / 12 Stars</span>
+            <span class="price-pill">3,000 UZS / 12 Stars</span>
         </div>
         <div class="endpoint-desc">
-            8-qatlamli Anti-Copyright unikalizatsiya: Micro-speed shift, Pitch shift, Color LUT, Edge micro-crop, Noise, EXIF tozalash. Content-ID filtrlaridan aylanib o'tish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/uniquify" \\
+            8-qatlamli Anti-Copyright unikalizatsiya.
+            <pre><code>curl -X POST "{base_url}/api/v1/media/uniquify" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "intensity": "medium"}'</code></pre>
+     -d '{{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "intensity": "medium"}}'</code></pre>
         </div>
     </div>
 
@@ -2703,14 +2528,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/media/crop-vertical</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">2,500 UZS / 10 Stars</span>
+            <span class="price-pill">2,500 UZS / 10 Stars</span>
         </div>
         <div class="endpoint-desc">
-            Gorizontal (16:9) videoni Shorts, Reels va TikTok uchun 1080x1920 (9:16) vertikal formatga blur fon yoki smart crop bilan o'tkazish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/crop-vertical" \\
+            Gorizontal (16:9) videoni 1080x1920 (9:16) vertikal formatga o&apos;tkazish.
+            <pre><code>curl -X POST "{base_url}/api/v1/media/crop-vertical" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "mode": "blur_background"}'</code></pre>
+     -d '{{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "mode": "blur_background"}}'</code></pre>
         </div>
     </div>
 
@@ -2718,14 +2543,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/media/remove-silence</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">2,000 UZS / 8 Stars</span>
+            <span class="price-pill">2,000 UZS / 8 Stars</span>
         </div>
         <div class="endpoint-desc">
-            Videodagi nofaol va ovozsiz bo'laklarni avtomatik qirqib, dinamik jump-cut videoga aylantiradi (videoni 20% ga ixchamlashtiradi).
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/remove-silence" \\
+            Videodagi ovozsiz bo&apos;laklarni avtomatik qirqib, jump-cut ko&apos;rinishiga keltirish.
+            <pre><code>curl -X POST "{base_url}/api/v1/media/remove-silence" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "silence_threshold_db": -30, "min_silence_duration_sec": 0.5}'</code></pre>
+     -d '{{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}}'</code></pre>
         </div>
     </div>
 
@@ -2733,35 +2558,34 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/media/compress-telegram</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #34d399; padding: 3px 8px; border-radius: 6px;">1,000 UZS / 4 Stars</span>
+            <span class="price-pill">1,000 UZS / 4 Stars</span>
         </div>
         <div class="endpoint-desc">
-            Katta hajmdagi videolarni Telegram botlarining 50MB limitiga moslab, 2-pass bitrate optimizatsiyasi va faststart (onlayn ko'rish) bilan siqish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/media/compress-telegram" \\
+            Katta videolarni Telegram 50MB limitiga moslab siqish.
+            <pre><code>curl -X POST "{base_url}/api/v1/media/compress-telegram" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "target_size_mb": 49.5}'</code></pre>
+     -d '{{"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "target_size_mb": 49.5}}'</code></pre>
         </div>
     </div>
 
-    <!-- Bo'lim: SMM Growth & Intelligence Endpoints -->
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 8 4 4-4 4"></path><path d="M2 12h20"></path></svg> 3. SMM Growth & DeepLink Tizimi</h2>
-        <p>In-app to'g'ridan-to'g'ri ochiluvchi aqlli havolalar, raqobatchi tahlili va buyurtmalar.</p>
+        <h2>3. SMM Growth &amp; DeepLink Tizimi</h2>
+        <p>In-app ochiluvchi aqlli havolalar, raqobatchi tahlili va SMM tariflari.</p>
     </div>
 
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/smm/smart-deeplink</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 6px;">500 UZS / 2 Stars</span>
+            <span class="price-pill">500 UZS / 2 Stars</span>
         </div>
         <div class="endpoint-desc">
-            Mobil brauzerni aylanib o'tib, Telegram yoki saytdan bosilganda to'g'ridan-to'g'ri YouTube rasmiy ilovasida ochuvchi Android Intent, iOS DeepLink va QR kod.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/smm/smart-deeplink" \\
+            To&apos;g&apos;ridan-to&apos;g&apos;ri YouTube ilovasida ochuvchi Android/iOS DeepLink va QR kod yaratish.
+            <pre><code>curl -X POST "{base_url}/api/v1/smm/smart-deeplink" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"target_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "campaign_name": "telegram_channel"}'</code></pre>
+     -d '{{"target_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}}'</code></pre>
         </div>
     </div>
 
@@ -2769,11 +2593,11 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/smm/spy/velocity</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 6px;">1,500 UZS / 6 Stars</span>
+            <span class="price-pill">1,500 UZS / 6 Stars</span>
         </div>
         <div class="endpoint-desc">
-            Raqobatchi kanal yoki videoning ko'rishlar tezligi (VPH), trend dinamikasi, yashirin teglari va AI orqali o'zib ketish strategiyasi.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/smm/spy/velocity?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ" \\
+            Raqobatchi videoning ko&apos;rishlar tezligi (VPH), trend dinamikasi va SEO tahlili.
+            <pre><code>curl -X GET "{base_url}/api/v1/smm/spy/velocity?url=https://www.youtube.com/watch?v=dQw4w9WgXcQ" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
         </div>
     </div>
@@ -2782,33 +2606,32 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/smm/services</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(245,158,11,0.15); color: #fbbf24; padding: 3px 8px; border-radius: 6px;">BEPUL</span>
+            <span class="price-pill">BEPUL</span>
         </div>
         <div class="endpoint-desc">
-            Barcha SMM xizmatlari (Layklar, Obunachilar, Prosmotrlar, Autostream) tarif jadvali, minimal/maksimal limitlar va tezliklari.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/smm/services" \\
+            Barcha SMM xizmatlari tarif jadvali, limitlari va narxlarini olish.
+            <pre><code>curl -X GET "{base_url}/api/v1/smm/services" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
         </div>
     </div>
 
-    <!-- Bo'lim: Gamification & Telegram Gifts Endpoints -->
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v10H4V12"></path><path d="M2 7h20v5H2z"></path><path d="M12 22V7"></path><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg> 4. Gamification & Sovg'alar Tizimi</h2>
-        <p>Telegram profiliga sovg'a jo'natish, sovg'a vaucherlari (GIFT-XXXX) yaratish va Mystery keyslar.</p>
+        <h2>4. Gamification &amp; Sovg&apos;alar Tizimi</h2>
+        <p>Telegram profiliga sovg&apos;a jo&apos;natish va vaucher kodlari yaratish.</p>
     </div>
 
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/gifts/send</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(236,72,153,0.15); color: #f472b6; padding: 3px 8px; border-radius: 6px;">Stars ekvivalenti</span>
+            <span class="price-pill">Stars ekvivalenti</span>
         </div>
         <div class="endpoint-desc">
-            Istalgan Telegram foydalanuvchi profiliga server-side rasmiy Telegram sovg'asini jo'natish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/gifts/send" \\
+            Telegram foydalanuvchi profiliga server-side rasmiy Telegram sovg&apos;asini yuborish.
+            <pre><code>curl -X POST "{base_url}/api/v1/gifts/send" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"recipient_user_id": 6735799833, "gift_id": "gift_50", "gift_stars": 25, "custom_message": "Tabriklaymiz!"}'</code></pre>
+     -d '{{"recipient_user_id": 6735799833, "gift_id": "gift_50", "gift_stars": 25}}'</code></pre>
         </div>
     </div>
 
@@ -2816,35 +2639,34 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/vouchers/create</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(236,72,153,0.15); color: #f472b6; padding: 3px 8px; border-radius: 6px;">Balansdan yechiladi</span>
+            <span class="price-pill">Balansdan yechiladi</span>
         </div>
         <div class="endpoint-desc">
-            O'z balansingizdan istalgan summadagi rasmiy sovg'a vaucher kodlarini (GIFT-XXXX) yaratish va boshqalarga ulashish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/vouchers/create" \\
+            Sovg&apos;a vaucher kodlarini (GIFT-XXXX) yaratish.
+            <pre><code>curl -X POST "{base_url}/api/v1/vouchers/create" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"amount_uzs": 50000, "count": 1}'</code></pre>
+     -d '{{"amount_uzs": 50000, "count": 1}}'</code></pre>
         </div>
     </div>
 
-    <!-- Bo'lim: White-Label & Billing Endpoints -->
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> 5. White-Label & Billing Invoicing</h2>
-        <p>Shaxsiy Telegram botingizni ulash va Telegram Stars orqali to'lov havolalari yaratish.</p>
+        <h2>5. White-Label &amp; Billing Invoicing</h2>
+        <p>Shaxsiy Telegram botingizni ulash va Telegram Stars orqali invoice link yaratish.</p>
     </div>
 
     <div class="endpoint-card">
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/reseller/bot/connect</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 3px 8px; border-radius: 6px;">BEPUL</span>
+            <span class="price-pill">BEPUL</span>
         </div>
         <div class="endpoint-desc">
-            BotFather bergan tokenni ulab, o'z brendingiz va o'zingiz belgilagan marja (ustama foizi) bilan tayyor bot yaratish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/reseller/bot/connect" \\
+            BotFather tokenini ulab, o&apos;z brendingiz va marjangiz bilan white-label bot ishga tushirish.
+            <pre><code>curl -X POST "{base_url}/api/v1/reseller/bot/connect" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"bot_token": "123456789:ABCDef...", "brand_name": "Mening Botim", "custom_margin_percent": 15}'</code></pre>
+     -d '{{"bot_token": "123456:ABC...", "brand_name": "My Bot", "custom_margin_percent": 15}}'</code></pre>
         </div>
     </div>
 
@@ -2852,14 +2674,14 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method post">POST</span>
             <span class="path">/api/v1/billing/stars/invoice</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 3px 8px; border-radius: 6px;">XTR Stars</span>
+            <span class="price-pill">XTR Stars</span>
         </div>
         <div class="endpoint-desc">
-            Telegram Stars (XTR) orqali to'g'ridan-to'g'ri hisob to'ldirish uchun rasmiy to'lov havolasi (invoice link) yaratish.
-            <pre><code>curl -X POST "https://botclient-d1jn.onrender.com/api/v1/billing/stars/invoice" \\
+            Telegram Stars (XTR) orqali balans to&apos;ldirish uchun rasmiy to&apos;lov havolasi yaratish.
+            <pre><code>curl -X POST "{base_url}/api/v1/billing/stars/invoice" \\
      -H "Authorization: Bearer art_live_xxx" \\
      -H "Content-Type: application/json" \\
-     -d '{"amount_stars": 50, "title": "Balans to‘ldirish"}'</code></pre>
+     -d '{{"amount_stars": 50, "title": "Balans toldirish"}}'</code></pre>
         </div>
     </div>
 
@@ -2867,86 +2689,39 @@ async def handle_api_docs_html(request):
         <div class="endpoint-header">
             <span class="method get">GET</span>
             <span class="path">/api/v1/tariffs</span>
-            <span style="margin-left: auto; font-size: 0.8rem; background: rgba(139,92,246,0.15); color: #a78bfa; padding: 3px 8px; border-radius: 6px;">BEPUL</span>
+            <span class="price-pill">BEPUL</span>
         </div>
         <div class="endpoint-desc">
-            Barcha 25 ta xizmat, ularning narxlari (UZS, Stars, USD) va chegirmalarining to'liq rasmiy matrisasi.
-            <pre><code>curl -X GET "https://botclient-d1jn.onrender.com/api/v1/tariffs" \\
+            Barcha 25 ta xizmat va ularning narxlari (UZS, Stars, USD) matrisasi.
+            <pre><code>curl -X GET "{base_url}/api/v1/tariffs" \\
      -H "Authorization: Bearer art_live_xxx"</code></pre>
         </div>
     </div>
 
-    <!-- Multi-Language Kod Namunalari -->
     <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg> Python orqali ulash kodi (Reseller Bot namunasi)</h2>
-
-        <p>Quyidagi tayyor Python kodini loyihangizga qo'shib, to'liq ishlatishingiz mumkin:</p>
+        <h2>Python &amp; Node.js SDK Namunalari</h2>
         <pre><code>import requests
 
 API_KEY = "art_live_SIZNING_KALITINGIZ"
-BASE_URL = "https://botclient-d1jn.onrender.com/api/v1"
+BASE_URL = "{base_url}/api/v1"
+headers = {{"Authorization": f"Bearer {{API_KEY}}", "Content-Type": "application/json"}}
 
-headers = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json"
-}
-
-# 1. Balansni bilish
-user_info = requests.get(f"{BASE_URL}/me", headers=headers).json()
-print("Balans:", user_info["user"]["balance_uzs"], "so'm")
-
-# 2. OpenRouter API kalit sotib olish
-buy_resp = requests.post(f"{BASE_URL}/buy", headers=headers, json={"service": "openrouter"}).json()
-if buy_resp["ok"]:
-    print("Kalit:", buy_resp["api_key"])
-    print("Qoldiq balans:", buy_resp["remaining_balance_uzs"])
-else:
-    print("Xatolik:", buy_resp.get("message"))
-
-# 3. Media yuklab olish havolasini olish
-dl_resp = requests.post(f"{BASE_URL}/downloader", headers=headers, json={"url": "dQw4w9WgXcQ", "format": "720"}).json()
-if dl_resp["ok"]:
-    print("Download URL:", dl_resp["download_url"])
-</code></pre>
+user_info = requests.get(f"{{BASE_URL}}/me", headers=headers).json()
+buy_resp = requests.post(f"{{BASE_URL}}/buy", headers=headers, json={{"service": "openrouter"}}).json()
+dl_resp = requests.post(f"{{BASE_URL}}/downloader", headers=headers, json={{"url": "dQw4w9WgXcQ", "format": "720"}}).json()</code></pre>
+        <pre><code>const BASE_URL = "{base_url}/api/v1";
+const headers = {{ "Authorization": `Bearer ${{API_KEY}}`, "Content-Type": "application/json" }};
+const meData = await (await fetch(`${{BASE_URL}}/me`, {{ headers }})).json();
+const caseData = await (await fetch(`${{BASE_URL}}/cases/open`, {{
+    method: "POST", headers, body: JSON.stringify({{ tier_id: "tier_1", currency: "uzs" }})
+}})).json();</code></pre>
+        <p style="margin-top: 12px; font-size: 13px; color: var(--muted);">
+            Texnik savollar: <a href="https://t.me/{sup_u}" target="_blank" rel="noopener noreferrer" style="text-decoration: underline;">@{sup_u}</a>
+        </p>
     </div>
+</main>
 
-    <!-- Node.js / JavaScript Kod Namunasi -->
-    <div class="card">
-        <h2 style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg> Node.js / TypeScript Ulash Kodi</h2>
-        <p>Modern Node.js (v18+) da <code>fetch</code> orqali integratsiya:</p>
-        <pre><code>const API_KEY = "art_live_SIZNING_KALITINGIZ";
-const BASE_URL = "https://botclient-d1jn.onrender.com/api/v1";
-
-async function runResellerClient() {
-    const headers = {
-        "Authorization": `Bearer ${API_KEY}`,
-        "Content-Type": "application/json"
-    };
-
-    // 1. Foydalanuvchi ma'lumotlari
-    const meRes = await fetch(`${BASE_URL}/me`, { headers });
-    const meData = await meRes.json();
-    console.log("Balans:", meData.user.balance_uzs, "so'm");
-
-    // 2. Keys ochish
-    const caseRes = await fetch(`${BASE_URL}/cases/open`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ tier_id: "tier_1", currency: "uzs" })
-    });
-    const caseData = await caseRes.json();
-    console.log("Yutuq:", caseData.prize_name);
-}
-
-runResellerClient();
-</code></pre>
-    </div>
-
-    <div class="footer">
-        © 2026 AutoReply Developer Platform • Reseller & Automation API<br>
-        Texnik savollar va rasmiy aloqa (Admin): <a href="https://t.me/aiko_64" target="_blank" style="color: #60a5fa; text-decoration: none; font-weight: 600;">@aiko_64</a>
-    </div>
-</div>
+{render_editorial_footer()}
 </body>
 </html>
 """
@@ -2962,24 +2737,27 @@ async def handle_dashboard_webapp(request):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Developer & Reseller Dashboard</title>
+    <title>{_html.escape(BRAND_NAME)} — Developer & Reseller Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg: #0b0f19;
-            --card-bg: rgba(18, 26, 44, 0.85);
-            --border: rgba(255, 255, 255, 0.08);
-            --primary: #3b82f6;
-            --ton: #0098ea;
-            --stars: #f59e0b;
-            --accent: #10b981;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
+            --bg: #000000;
+            --card-bg: #0E0E10;
+            --card-inner: #141416;
+            --border: rgba(255, 255, 255, 0.10);
+            --border-strong: rgba(255, 255, 255, 0.18);
+            --primary: #FF5A1F;
+            --primary-soft: rgba(255, 90, 31, 0.12);
+            --ton: #FFFFFF;
+            --stars: #FF5A1F;
+            --accent: #22C55E;
+            --text-main: #FFFFFF;
+            --text-muted: #A1A1AA;
         }}
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
-            font-family: 'Outfit', sans-serif;
+            font-family: 'Inter Tight', -apple-system, sans-serif;
             background: var(--bg);
             color: var(--text-main);
             padding: 16px;
@@ -2992,21 +2770,22 @@ async def handle_dashboard_webapp(request):
             align-items: center;
             justify-content: space-between;
             margin-bottom: 20px;
+            padding-bottom: 14px;
+            border-bottom: 1px solid var(--border);
         }}
-        .logo-title {{ font-size: 1.25rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }}
-        .badge {{ background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; }}
+        .logo-title {{ font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; letter-spacing: -0.02em; }}
+        .badge {{ background: var(--primary-soft); color: #FF5A1F; border: 1px solid rgba(255, 90, 31, 0.35); padding: 4px 10px; border-radius: 9999px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; }}
         
         .balance-card {{
-            background: radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.2), transparent 70%), var(--card-bg);
+            background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 20px;
+            border-radius: 16px;
             padding: 24px;
             margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
             text-align: center;
         }}
-        .bal-label {{ color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }}
-        .bal-value {{ font-size: 2.2rem; font-weight: 800; color: #fff; margin-bottom: 16px; }}
+        .bal-label {{ color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }}
+        .bal-value {{ font-size: 2.1rem; font-weight: 700; color: #FFFFFF; margin-bottom: 18px; letter-spacing: -0.03em; }}
         
         .topup-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
         .btn-topup {{
@@ -3015,36 +2794,36 @@ async def handle_dashboard_webapp(request):
             justify-content: center;
             gap: 8px;
             padding: 12px 14px;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 0.9rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.875rem;
             text-decoration: none;
             cursor: pointer;
-            border: none;
-            transition: all 0.2s;
+            border: 1px solid var(--border-strong);
+            transition: all 0.15s ease;
         }}
-        .btn-ton {{ background: rgba(0, 152, 234, 0.15); color: #38bdf8; border: 1px solid rgba(0, 152, 234, 0.4); }}
-        .btn-ton:active {{ transform: scale(0.97); background: rgba(0, 152, 234, 0.25); }}
-        .btn-stars {{ background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }}
-        .btn-stars:active {{ transform: scale(0.97); background: rgba(245, 158, 11, 0.25); }}
+        .btn-ton {{ background: #FFFFFF; color: #000000; border-color: #FFFFFF; }}
+        .btn-ton:active {{ transform: scale(0.98); opacity: 0.9; }}
+        .btn-stars {{ background: var(--primary-soft); color: #FF5A1F; border-color: rgba(255, 90, 31, 0.38); }}
+        .btn-stars:active {{ transform: scale(0.98); background: rgba(255, 90, 31, 0.2); }}
         
-        .section-title {{ font-size: 1rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }}
+        .section-title {{ font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; color: #FFFFFF; }}
         .card {{
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: 14px;
             padding: 18px;
             margin-bottom: 18px;
         }}
         
         .key-box {{
-            background: #060913;
+            background: var(--card-inner);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 12px;
-            font-family: 'Fira Code', monospace;
-            font-size: 0.85rem;
-            color: #60a5fa;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.82rem;
+            color: #FFFFFF;
             word-break: break-all;
             margin-bottom: 12px;
             display: flex;
@@ -3054,27 +2833,28 @@ async def handle_dashboard_webapp(request):
         }}
         .btn-action {{
             width: 100%;
-            background: #2563eb;
-            color: #fff;
+            background: #FFFFFF;
+            color: #000000;
             padding: 12px;
             border-radius: 10px;
-            font-weight: 700;
+            font-weight: 600;
             border: none;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
+            transition: background 0.15s ease, color 0.15s ease;
         }}
-        .btn-action:active {{ background: #1d4ed8; }}
+        .btn-action:hover, .btn-action:active {{ background: #FF5A1F; color: #FFFFFF; }}
         
         .stats-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }}
-        .stat-item {{ background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }}
-        .stat-num {{ font-size: 1.3rem; font-weight: 800; color: #f8fafc; }}
-        .stat-name {{ font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-top: 4px; }}
+        .stat-item {{ background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }}
+        .stat-num {{ font-size: 1.25rem; font-weight: 700; color: #FFFFFF; }}
+        .stat-name {{ font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }}
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <div class="logo-title" style="display: flex; align-items: center; gap: 8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Developer Hub</div>
+        <div class="logo-title" style="display: flex; align-items: center; gap: 8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> {_html.escape(BRAND_NAME)} Hub</div>
         <div class="badge">PRO PANEL</div>
     </div>
 
@@ -3084,29 +2864,29 @@ async def handle_dashboard_webapp(request):
         <div class="bal-value" id="balVal">Yuklanmoqda...</div>
         <div class="topup-grid">
             <button class="btn-topup btn-ton" onclick="openTonTopup()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9z"></path><path d="M11 3 8 9l4 13 4-13-3-6"></path><path d="M2 9h20"></path></svg> TON To'lov</button>
-            <button class="btn-topup btn-stars" onclick="openStarsTopup()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> Stars To'lov</button>
+            <button class="btn-topup btn-stars" onclick="openStarsTopup()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg> Stars To'lov</button>
         </div>
     </div>
 
     <!-- API Key -->
-    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7342E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg> Shaxsiy API Kalit</div>
+    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg> Shaxsiy API Kalit</div>
     <div class="card">
         <div class="key-box">
             <span id="apiKeyText">art_live_••••••••••••••••</span>
-            <span style="cursor: pointer; display: inline-flex; align-items: center;" onclick="copyKey()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span>
+            <span style="cursor: pointer; display: inline-flex; align-items: center; color: #A1A1AA;" onclick="copyKey()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span>
         </div>
         <button class="btn-action" onclick="copyKey()">Nusxalash (Copy Key)</button>
     </div>
 
     <!-- Statistika -->
-    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Reseller Statistikasi</div>
+    <div class="section-title" style="display: flex; align-items: center; gap: 8px;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg> Reseller Statistikasi</div>
     <div class="stats-grid">
         <div class="stat-item">
             <div class="stat-num" id="reqCount">0 ta</div>
             <div class="stat-name">API So'rovlar</div>
         </div>
         <div class="stat-item">
-            <div class="stat-num" style="color: #10b981;">Faol</div>
+            <div class="stat-num" style="color: #22C55E;">Faol</div>
             <div class="stat-name">Tizim Holati</div>
         </div>
     </div>
@@ -3539,7 +3319,6 @@ def setup_reseller_api_routes(app: web.Application):
     app.router.add_get("/api/v1/webhooks", handle_api_webhooks_get)
 
     # 7. Documentation & Dashboard
-    app.router.add_get("/robots.txt", handle_robots)
     app.router.add_get("/api/v1/docs", handle_api_docs_html)
     app.router.add_get("/dashboard", handle_dashboard_webapp)
     # 8. BotShield Captcha as a Service Endpoints

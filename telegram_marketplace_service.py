@@ -279,9 +279,9 @@ def fetch_live_marketplace_stock_sync() -> list:
                 logger.warning(f"Fragment collection {col_slug} fetch error ({sort_param}): {e}")
         return col_slug, items_map
 
-    # Parallel tezkor yuklash (max 8 workers)
+    # Parallel tezkor yuklash (Render xotira/CPU limitiga mos max 2 workers)
     try:
-        with ThreadPoolExecutor(max_workers=8) as pool:
+        with ThreadPoolExecutor(max_workers=2) as pool:
             futures = {pool.submit(fetch_col, c): c for c in collections}
             for fut in as_completed(futures):
                 try:
@@ -331,13 +331,17 @@ async def get_live_marketplace_stock_asc(force_refresh: bool = False) -> list:
         return stock
 
 
-async def run_marketplace_background_refresher(interval_seconds: int = 60):
+async def run_marketplace_background_refresher(interval_seconds: int = 300):
     """
-    Fon vazifasi: Har interval_seconds (default 60s) da Fragment dan jonli zaxirani
-    asinxron yangilab boradi, shunda sotilgan buyumlar keshda qolib ketmaydi va
-    web-foydalanuvchilarga ma'lumotlar doim yangi va 0ms kechikish bilan beriladi.
+    Fon vazifasi: Har interval_seconds (default 300s) da Fragment dan jonli zaxirani
+    asinxron yangilab boradi; ishga tushganda Render health-check/startup ni band qilmaslik
+    uchun 45s kutib keyin birinchi marta ishlaydi.
     """
     logger.info(f"Marketplace background refresher started (interval: {interval_seconds}s)")
+    try:
+        await asyncio.sleep(45)
+    except asyncio.CancelledError:
+        return
     while True:
         try:
             await asyncio.sleep(interval_seconds)

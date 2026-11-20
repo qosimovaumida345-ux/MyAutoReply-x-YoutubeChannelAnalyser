@@ -35,6 +35,12 @@ services:
         sync: false
       - key: RENDER_EXTERNAL_URL
         sync: false
+      - key: APP_BASE_URL
+        value: "https://monodeck.site"
+      - key: BRAND_NAME
+        value: "MonoDeck"
+      - key: BOT_USERNAME
+        sync: false
       - key: WORKER_API_URL
         sync: false
       - key: GITHUB_TOKEN

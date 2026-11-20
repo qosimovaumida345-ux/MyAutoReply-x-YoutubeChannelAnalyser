@@ -129,14 +129,14 @@ async def check_ton_payment_on_blockchain(wallet_address: str, tx_id: int, expec
 
 async def verify_and_credit_ton_tx(tx_id: int) -> dict:
     """Tranzaksiyani tekshirib, agar to'langan bo'lsa balansga qo'shadi"""
-    tx = get_payment_transaction(tx_id)
+    tx = await asyncio.to_thread(get_payment_transaction, tx_id)
     if not tx:
         return {"ok": False, "error": "Tranzaksiya topilmadi"}
 
     if tx.get("status") == "completed":
         return {"ok": True, "already_completed": True, "tx": tx}
 
-    wallet = get_ton_wallet()
+    wallet = await asyncio.to_thread(get_ton_wallet)
     if not wallet:
         return {"ok": False, "error": "Botda TON hamyon o'rnatilmagan (/setton orqali o'rnating)"}
 
@@ -145,8 +145,8 @@ async def verify_and_credit_ton_tx(tx_id: int) -> dict:
 
     if res.get("found"):
         tx_hash = res.get("tx_hash", f"ton_{tx_id}")
-        updated_tx = complete_payment_transaction(tx_id, invoice_id=tx_hash)
-        new_bal = get_user_balance(tx["tg_user_id"])
+        updated_tx = await asyncio.to_thread(complete_payment_transaction, tx_id, invoice_id=tx_hash)
+        new_bal = await asyncio.to_thread(get_user_balance, tx["tg_user_id"])
         return {
             "ok": True,
             "already_completed": False,
@@ -172,14 +172,15 @@ def start_ton_watcher_task(bot_client):
 
 async def _ton_watcher_loop(bot_client):
     logger.info("TON Blockchain watcher ishga tushdi...")
+    await asyncio.sleep(20)
     while True:
         try:
-            await asyncio.sleep(12)
-            wallet = get_ton_wallet()
+            await asyncio.sleep(15)
+            wallet = await asyncio.to_thread(get_ton_wallet)
             if not wallet:
                 continue
 
-            pending = get_pending_ton_transactions()
+            pending = await asyncio.to_thread(get_pending_ton_transactions)
             if not pending:
                 continue
 
@@ -191,7 +192,7 @@ async def _ton_watcher_loop(bot_client):
 
                 res = await verify_and_credit_ton_tx(tx_id)
                 if res.get("ok") and not res.get("already_completed"):
-                    new_bal = res.get("new_balance") or get_user_balance(user_id)
+                    new_bal = res.get("new_balance") or await asyncio.to_thread(get_user_balance, user_id)
                     notify_text = (
                         f"✅ <b>To'lovingiz qabul qilindi!</b>\n\n"
                         f"🪙 <b>To'langan:</b> {amount_ton} GRAM (TON)\n"

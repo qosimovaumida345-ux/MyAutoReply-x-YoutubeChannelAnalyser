@@ -545,11 +545,12 @@ FAQAT JSON formatida javob ber:"""
             stripped_text = (user_text or "").strip()
             if stripped_text.startswith("/"):
                 if stripped_text.startswith("/start"):
+                    from config import BRAND_NAME, APP_BASE_URL, get_bot_username
                     await message.reply_text(
                         f"Salom, {user_name}! Bu mening shaxsiy Telegram profilim.\n\n"
-                        "Agar bizning **CreatorFlow AI** botimizdan foydalanmoqchi bo'lsangiz, "
-                        "rasmiy botimizga kiring:\n@creatorflow_aibot\n\n"
-                        "Web Dashboard: https://botclient-d1jn.onrender.com"
+                        f"Agar bizning **{BRAND_NAME}** botimizdan foydalanmoqchi bo'lsangiz, "
+                        f"rasmiy botimizga kiring:\n@{get_bot_username()}\n\n"
+                        f"Web Studio: {APP_BASE_URL}"
                     )
                 return
             
@@ -819,7 +820,7 @@ async def run_userbot():
             await app.start()
         except Exception as auth_err:
             print(f"[!] Userbot sessiyasida xatolik ({type(auth_err).__name__}): {auth_err}")
-            print("[*] Userbot to'xtatildi, ammo asosiy CreatorFlow Studio Bot va Veb-server xatosiz ishlashda davom etadi.")
+            print("[*] Userbot to'xtatildi, ammo asosiy Bot va Veb-server xatosiz ishlashda davom etadi.")
             print("[+] Yangi sessiya yaratish uchun: python session_generator.py")
             return
 

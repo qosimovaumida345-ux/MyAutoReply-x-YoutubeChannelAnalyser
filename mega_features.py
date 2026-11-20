@@ -163,10 +163,11 @@ _nft_watcher_started = False
 async def poll_pending_nft_mints(bot_client):
     """Har 15 soniyada kutilayotgan (pending_mint) NFT larni tekshirib, foydalanuvchiga xabar yuborish"""
     logger.info("NFT Mint Poller ishga tushdi...")
+    await asyncio.sleep(20)
     while True:
         try:
             await asyncio.sleep(15)
-            pending = db.get_pending_nft_mints()
+            pending = await asyncio.to_thread(db.get_pending_nft_mints)
             if not pending:
                 continue
             for item in pending:
@@ -177,7 +178,7 @@ async def poll_pending_nft_mints(bot_client):
                     continue
                 deploy_status = await check_nft_deployed(nft_addr)
                 if deploy_status:
-                    db.update_nft_status(item_id, status="minted")
+                    await asyncio.to_thread(db.update_nft_status, item_id, status="minted")
                     tonviewer_url = deploy_status.get("viewer_url") or f"https://tonviewer.com/{nft_addr}"
                     network_label = "Testnet" if deploy_status.get("network") == "testnet" else "Mainnet"
                     text = (

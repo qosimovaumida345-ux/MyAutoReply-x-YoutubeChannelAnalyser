@@ -36,4 +36,7 @@ scratch/
 scratch*
 */scratch/*
 
+# Frontend dependencies
+node_modules/
+
 .agents/

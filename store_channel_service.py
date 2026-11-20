@@ -19,7 +19,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
 
 
-from config import STORE_CHANNEL, VIP_PRICE_UZS
+from config import STORE_CHANNEL, VIP_PRICE_UZS, BRAND_NAME, get_bot_username
 from custom_emojis import ce, e, get_brand_emoji
 from database import (
     create_channel_contest,
@@ -117,7 +117,7 @@ async def broadcast_channel_purchase(
             f"{ce('MONEY')} <b>Narxi:</b> <code>{price_uzs:,} so'm</code>\n"
             f"{ce('KEY')} <b>Buyurtma ID:</b> <code>{order_str}</code>\n"
             f"{ce('SUCCESS')} <b>Holat:</b> Muvaffaqiyatli yetkazildi\n\n"
-            f"{ce('ROCKET')} <i>CreatorFlow Studio orqali 24/7 tezkor va kafolatli xarid!</i>"
+            f"{ce('ROCKET')} <i>{BRAND_NAME} orqali 24/7 tezkor va kafolatli xarid!</i>"
         )
 
         kb = InlineKeyboardMarkup([
@@ -144,7 +144,7 @@ async def send_channel_restock_alert(client: Client, items_summary: Optional[str
 
     try:
         bot_me = getattr(client, "me", None)
-        bot_username = bot_me.username if bot_me else "CreatorFlow_StudioBot"
+        bot_username = bot_me.username if bot_me and getattr(bot_me, "username", None) else get_bot_username()
 
         if not items_summary:
             items_summary = (
@@ -152,12 +152,12 @@ async def send_channel_restock_alert(client: Client, items_summary: Optional[str
                 f"• {ce('CHATGPT')} <b>ChatGPT Plus / OpenAI API</b> — Yangi kalitlar keldi!\n"
                 f"• {ce('GEMINI')} <b>Gemini 1.5/2.0 Flash & Pro</b> — Cheksiz tokenlar!\n"
                 f"• {ce('STAR')} <b>Telegram Stars & Sovg'alar</b> — Eng arzon narxlarda!\n"
-                f"• {ce('VIP')} <b>CreatorFlow VIP Status ({VIP_PRICE_UZS:,} UZS)</b> — Qayta ochiq!"
+                f"• {ce('VIP')} <b>{BRAND_NAME} VIP Status ({VIP_PRICE_UZS:,} UZS)</b> — Qayta ochiq!"
             )
 
         text = (
             f"{ce('FIRE')} <b>KATTA RESTOCK! DO'KON ZAXIRASI YANGILANDI!</b>\n\n"
-            f"{ce('MONEY')} Hurmatli obunachilar, CreatorFlow Studio do'koniga yangi tovarlar va raqamli xizmatlar kelib tushdi:\n\n"
+            f"{ce('MONEY')} Hurmatli obunachilar, {BRAND_NAME} do'koniga yangi tovarlar va raqamli xizmatlar kelib tushdi:\n\n"
             f"{items_summary}\n\n"
             f"{ce('ROCKET')} <b>Barcha mahsulotlar avtomatlashtirilgan tarzda soniyalarda yetkaziladi!</b>\n"
             f"{ce('KEY')} Xarid qilish uchun quyidagi tugmani bosing:"
@@ -421,7 +421,7 @@ async def notify_wishlist_users(
 
 async def check_and_notify_abandoned_carts(client: Client) -> int:
     """Tashlab ketilgan savatlarni tekshirish va muloyim eslatma yuborish"""
-    carts = get_abandoned_carts_to_notify(minutes_ago=20)
+    carts = await asyncio.to_thread(get_abandoned_carts_to_notify, minutes_ago=20)
     if not carts:
         return 0
 
@@ -446,12 +446,12 @@ async def check_and_notify_abandoned_carts(client: Client) -> int:
             ])
 
             await client.send_message(uid, text, reply_markup=kb)
-            mark_abandoned_cart_notified(cart_id)
+            await asyncio.to_thread(mark_abandoned_cart_notified, cart_id)
             notified += 1
             await asyncio.sleep(0.15)
         except Exception as err:
             logger.warning(f"Abandoned cart notification error (cart {cart.get('id')}): {err}")
-            mark_abandoned_cart_notified(cart.get("id"))
+            await asyncio.to_thread(mark_abandoned_cart_notified, cart.get("id"))
 
     if notified > 0:
         logger.info(f"Tashlab ketilgan {notified} ta savat bo'yicha eslatma yuborildi.")
@@ -481,7 +481,7 @@ async def run_channel_autopilot(client: Client):
             await check_and_notify_abandoned_carts(client)
 
             # 2. Reklama postini faqat oxirgi postdan kamida 8 soat o'tgan bo'lsa yuborish (server restartlarida qayta-qayta tashlamaslik)
-            last_promo_str = get_bot_config("store_channel_last_promo_time")
+            last_promo_str = await asyncio.to_thread(get_bot_config, "store_channel_last_promo_time")
             try:
                 last_promo_time = float(last_promo_str) if last_promo_str else 0.0
             except Exception:
@@ -493,7 +493,7 @@ async def run_channel_autopilot(client: Client):
                 sent = await send_channel_promo(client, promo_index=promo_counter)
                 if sent:
                     promo_counter += 1
-                    set_bot_config("store_channel_last_promo_time", str(now))
+                    await asyncio.to_thread(set_bot_config, "store_channel_last_promo_time", str(now))
             else:
                 remaining_min = int((MIN_PROMO_INTERVAL_SECONDS - (now - last_promo_time)) / 60)
                 logger.debug(f"Kanalga keyingi promo uchun {remaining_min} daqiqa kutish kerak.")

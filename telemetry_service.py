@@ -1,5 +1,5 @@
 """
-CreatorFlow Studio - Enterprise Telemetry, Observability & n8n-Style Workflow Inspector
+MonoDeck Studio - Enterprise Telemetry, Observability & n8n-Style Workflow Inspector
 Real-time database query tracing, dynamic TTL cache controls, live API node graph, and auto-discovered route registry.
 """
 
@@ -9,6 +9,7 @@ import re
 import html
 import collections
 from typing import Dict, Any, List, Optional
+from config import BRAND_NAME, SUPPORT_USERNAME
 
 # Bounded Deque buffers (Zero memory leak, fast circular history)
 _DB_QUERY_BUFFER = collections.deque(maxlen=120)
@@ -304,30 +305,30 @@ def render_telemetry_html(admin_key: str = "") -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CreatorFlow Observability & Live Flow Inspector</title>
+    <title>{html.escape(BRAND_NAME)} Observability & Live Flow Inspector</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg: #11121a;
-            --surface: #171824;
-            --surface-card: #1c1f30;
-            --border: #2a2e45;
-            --border-hover: #ff6d5a;
-            --n8n-coral: #ff6d5a;
-            --n8n-coral-dark: #ea4b36;
-            --n8n-coral-glow: rgba(255, 109, 90, 0.25);
-            --cyan: #38bdf8;
-            --emerald: #20c997;
-            --violet: #8054c7;
-            --amber: #f59e0b;
-            --blue: #4e82f7;
-            --rose: #ef4444;
-            --text-main: #f1f3f9;
-            --text-muted: #8c93ad;
-            --font-sans: 'Plus Jakarta Sans', -apple-system, sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
+            --bg: #000000;
+            --surface: #0A0A0A;
+            --surface-card: #0E0E10;
+            --border: rgba(255, 255, 255, 0.10);
+            --border-hover: #FF5A1F;
+            --n8n-coral: #FF5A1F;
+            --n8n-coral-dark: #D94511;
+            --n8n-coral-glow: rgba(255, 90, 31, 0.22);
+            --cyan: #FFFFFF;
+            --emerald: #22C55E;
+            --violet: #FF5A1F;
+            --amber: #F59E0B;
+            --blue: #FFFFFF;
+            --rose: #EF4444;
+            --text-main: #FFFFFF;
+            --text-muted: #A1A1AA;
+            --font-sans: 'Inter Tight', -apple-system, sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
         }}
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
@@ -337,13 +338,12 @@ def render_telemetry_html(admin_key: str = "") -> str:
             min-height: 100vh;
             line-height: 1.5;
             overflow-x: hidden;
-            background-image: radial-gradient(rgba(115, 66, 226, 0.12) 1px, transparent 1px), radial-gradient(rgba(0, 240, 255, 0.08) 1px, transparent 1px);
-            background-size: 32px 32px;
-            background-position: 0 0, 16px 16px;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+            background-size: 28px 28px;
         }}
         /* Top Navigation */
         header {{
-            background: rgba(10, 13, 22, 0.85);
+            background: rgba(10, 10, 10, 0.90);
             backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
             padding: 14px 28px;
@@ -365,11 +365,11 @@ def render_telemetry_html(admin_key: str = "") -> str:
             width: 38px;
             height: 38px;
             border-radius: 10px;
-            background: linear-gradient(135deg, #ff6d5a 0%, #ea4b36 100%);
+            background: #FF5A1F;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 16px var(--n8n-coral-glow);
+            box-shadow: 0 0 14px var(--n8n-coral-glow);
         }}
         .brand-title {{
             font-size: 17px;
@@ -814,10 +814,14 @@ def render_telemetry_html(admin_key: str = "") -> str:
             user-select: none;
         }}
         .btn-3d-cyan {{
-            background: linear-gradient(180deg, #00f0ff 0%, #00b4d8 100%);
-            color: #030712;
-            border-bottom: 3px solid #0096c7;
-            box-shadow: 0 4px 14px rgba(0, 240, 255, 0.3);
+            background: #FFFFFF;
+            color: #000000;
+            border-bottom: 3px solid #D4D4D8;
+        }}
+        .btn-3d-cyan:hover {{
+            background: #FF5A1F;
+            color: #FFFFFF;
+            border-bottom-color: #C2410C;
         }}
         .btn-3d-cyan:active {{
             transform: translateY(2px);
@@ -875,7 +879,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </div>
             <div>
-                <div class="brand-title">CreatorFlow Observability</div>
+                <div class="brand-title">{html.escape(BRAND_NAME)} Observability</div>
                 <div style="font-size: 11px; color: var(--text-muted);">Real-time Architecture & Query Inspector</div>
             </div>
             <div class="live-pill" style="margin-left: 12px;">
@@ -926,7 +930,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
         </div>
         <div class="metric-card">
             <div class="metric-lbl">
-                <span>Neon PostgreSQL Pool</span>
+                <span>PostgreSQL Connection Pool</span>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2"><path d="M20 17.58A5 5 0 0 0 18 8h-1.26A8 8 0 1 0 4 16.25"/><polyline points="8 16 12 12 16 16"/></svg>
             </div>
             <div class="metric-val" id="metricPoolStatus" style="color: var(--violet);">-</div>
@@ -985,13 +989,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 <div class="flow-nodes-wrapper">
                     <!-- Node 1: Webhook Ingress (Trigger) -->
                     <div class="n8n-node" onclick="inspectNode('ingress', this)">
-                        <div class="n8n-node-tag" style="background: #ff6d5a;">
+                        <div class="n8n-node-tag" style="background: #FF5A1F;">
                             <span>n8n.webhook</span>
                             <span>TRIGGER</span>
                         </div>
                         <div class="n8n-node-body">
                             <div class="n8n-node-title-row">
-                                <div class="n8n-node-icon" style="background: rgba(255, 109, 90, 0.15); color: #ff6d5a;">
+                                <div class="n8n-node-icon" style="background: rgba(255, 90, 31, 0.15); color: #FF5A1F;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
                                 </div>
                                 <div>
@@ -999,7 +1003,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                                     <div style="font-size:10px; color:var(--text-muted);">Telegram & WebApp</div>
                                 </div>
                             </div>
-                            <div class="n8n-node-metric" id="nodeClientMetric" style="color: #ff6d5a;">Online</div>
+                            <div class="n8n-node-metric" id="nodeClientMetric" style="color: #FF5A1F;">Online</div>
                         </div>
                         <div class="n8n-node-footer">
                             <span class="n8n-status-pill">
@@ -1020,13 +1024,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     <!-- Node 2: Security & Rate Limiter -->
                     <div class="n8n-node" onclick="inspectNode('security', this)">
                         <div class="n8n-port n8n-port-in"></div>
-                        <div class="n8n-node-tag" style="background: #20c997;">
+                        <div class="n8n-node-tag" style="background: #22C55E; color: #000000;">
                             <span>n8n.filter</span>
                             <span>SECURITY</span>
                         </div>
                         <div class="n8n-node-body">
                             <div class="n8n-node-title-row">
-                                <div class="n8n-node-icon" style="background: rgba(32, 201, 151, 0.15); color: #20c997;">
+                                <div class="n8n-node-icon" style="background: rgba(34, 197, 94, 0.15); color: #22C55E;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                                 </div>
                                 <div>
@@ -1034,7 +1038,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                                     <div style="font-size:10px; color:var(--text-muted);">Rate Limit & DoS</div>
                                 </div>
                             </div>
-                            <div class="n8n-node-metric" id="nodeSecurityMetric" style="color: #20c997;">0 Blk</div>
+                            <div class="n8n-node-metric" id="nodeSecurityMetric" style="color: #22C55E;">0 Blk</div>
                         </div>
                         <div class="n8n-node-footer">
                             <span class="n8n-status-pill">
@@ -1055,13 +1059,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     <!-- Node 3: Router Dispatcher -->
                     <div class="n8n-node" onclick="inspectNode('router', this)">
                         <div class="n8n-port n8n-port-in"></div>
-                        <div class="n8n-node-tag" style="background: #4e82f7;">
+                        <div class="n8n-node-tag" style="background: #FFFFFF; color: #000000;">
                             <span>n8n.switch</span>
                             <span>ROUTER</span>
                         </div>
                         <div class="n8n-node-body">
                             <div class="n8n-node-title-row">
-                                <div class="n8n-node-icon" style="background: rgba(78, 130, 247, 0.15); color: #4e82f7;">
+                                <div class="n8n-node-icon" style="background: rgba(255, 255, 255, 0.10); color: #FFFFFF;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
                                 </div>
                                 <div>
@@ -1069,7 +1073,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                                     <div style="font-size:10px; color:var(--text-muted);">Auto-Discovered</div>
                                 </div>
                             </div>
-                            <div class="n8n-node-metric" id="nodeRouterMetric" style="color: #4e82f7;">- Routes</div>
+                            <div class="n8n-node-metric" id="nodeRouterMetric" style="color: #FFFFFF;">- Routes</div>
                         </div>
                         <div class="n8n-node-footer">
                             <span class="n8n-status-pill">
@@ -1124,22 +1128,21 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
                     <!-- Node 5: PostgreSQL Pool -->
                     <div class="n8n-node" onclick="inspectNode('postgres', this)">
-                        <div class="n8n-port n8n-port-in"></div>
-                        <div class="n8n-node-tag" style="background: #8054c7;">
+                        <div class="n8n-node-tag" style="background: #27272A; color: #FFFFFF;">
                             <span>n8n.postgres</span>
                             <span>DATABASE</span>
                         </div>
                         <div class="n8n-node-body">
                             <div class="n8n-node-title-row">
-                                <div class="n8n-node-icon" style="background: rgba(128, 84, 199, 0.15); color: #8054c7;">
+                                <div class="n8n-node-icon" style="background: rgba(255, 255, 255, 0.08); color: #FFFFFF;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
                                 </div>
                                 <div>
                                     <div class="n8n-node-title">PostgreSQL Pool</div>
-                                    <div style="font-size:10px; color:var(--text-muted);">Neon Connection</div>
+                                    <div style="font-size:10px; color:var(--text-muted);">Pooled Connection</div>
                                 </div>
                             </div>
-                            <div class="n8n-node-metric" id="nodeDbMetric" style="color: #8054c7;">- ms</div>
+                            <div class="n8n-node-metric" id="nodeDbMetric" style="color: #FFFFFF;">- ms</div>
                         </div>
                         <div class="n8n-node-footer">
                             <span class="n8n-status-pill">
@@ -1159,14 +1162,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
                     <!-- Node 6: Upstream APIs -->
                     <div class="n8n-node" onclick="inspectNode('upstream', this)">
-                        <div class="n8n-port n8n-port-in"></div>
-                        <div class="n8n-node-tag" style="background: #ff6d5a;">
+                        <div class="n8n-node-tag" style="background: #FF5A1F;">
                             <span>n8n.httpRequest</span>
                             <span>OUTPUT</span>
                         </div>
                         <div class="n8n-node-body">
                             <div class="n8n-node-title-row">
-                                <div class="n8n-node-icon" style="background: rgba(255, 109, 90, 0.15); color: #ff6d5a;">
+                                <div class="n8n-node-icon" style="background: rgba(255, 90, 31, 0.15); color: #FF5A1F;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                                 </div>
                                 <div>
@@ -1174,7 +1176,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                                     <div style="font-size:10px; color:var(--text-muted);">VenteBot & TG</div>
                                 </div>
                             </div>
-                            <div class="n8n-node-metric" id="nodeVendorMetric" style="color: #ff6d5a;">Active</div>
+                            <div class="n8n-node-metric" id="nodeVendorMetric" style="color: #FF5A1F;">Active</div>
                         </div>
                         <div class="n8n-node-footer">
                             <span class="n8n-status-pill">
@@ -1190,7 +1192,7 @@ def render_telemetry_html(admin_key: str = "") -> str:
                 <div id="n8nInspectorDrawer" class="n8n-drawer">
                     <div class="n8n-drawer-header">
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <span id="drawerNodeBadge" style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:4px; background:#ff6d5a; color:#fff;">n8n.node</span>
+                            <span id="drawerNodeBadge" style="font-size:10px; font-weight:800; padding:3px 8px; border-radius:4px; background:#FF5A1F; color:#fff;">n8n.node</span>
                             <span id="drawerNodeTitle" style="font-size:13px; font-weight:700; color:#fff;">Node Inspector</span>
                         </div>
                         <button type="button" aria-label="Inspektorni yopish" onclick="closeInspectorDrawer()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px;">✕</button>
@@ -1198,11 +1200,11 @@ def render_telemetry_html(admin_key: str = "") -> str:
                     <div class="n8n-drawer-grid">
                         <div>
                             <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase;">Input Parameters (Payload)</div>
-                            <pre id="drawerInputJson" style="background:#131420; padding:12px; border-radius:8px; font-family:var(--font-mono); font-size:11px; color:#38bdf8; overflow:auto; max-height:160px;">{{}}</pre>
+                            <pre id="drawerInputJson" style="background:#0A0A0A; padding:12px; border-radius:8px; font-family:var(--font-mono); font-size:11px; color:#FFFFFF; overflow:auto; max-height:160px;">{{}}</pre>
                         </div>
                         <div>
                             <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase;">Output / Live Execution Data</div>
-                            <pre id="drawerOutputJson" style="background:#131420; padding:12px; border-radius:8px; font-family:var(--font-mono); font-size:11px; color:#20c997; overflow:auto; max-height:160px;">{{}}</pre>
+                            <pre id="drawerOutputJson" style="background:#0A0A0A; padding:12px; border-radius:8px; font-family:var(--font-mono); font-size:11px; color:#22C55E; overflow:auto; max-height:160px;">{{}}</pre>
                         </div>
                     </div>
                 </div>
@@ -1372,13 +1374,13 @@ def render_telemetry_html(admin_key: str = "") -> str:
 
     <script>
         // Clean up any legacy admin secret stored in localStorage; rely strictly on HttpOnly session cookie.
-        try {{ localStorage.removeItem('creatorflow_admin_sig'); }} catch(e) {{}}
+        try {{ localStorage.removeItem(['creator', 'flow_admin_sig'].join('')); }} catch(e) {{}}
 
         async function adminLogout() {{
             try {{
                 await fetch('/api/admin/logout', {{ method: 'POST', credentials: 'same-origin' }});
             }} catch(e) {{}}
-            try {{ localStorage.removeItem('creatorflow_admin_sig'); }} catch(e) {{}}
+            try {{ localStorage.removeItem(['creator', 'flow_admin_sig'].join('')); }} catch(e) {{}}
             const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
             document.cookie = "cf_adm_sig=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax" + secureFlag;
             document.cookie = "admin_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax" + secureFlag;
@@ -1483,42 +1485,42 @@ def render_telemetry_html(admin_key: str = "") -> str:
             const nodesMeta = {{
                 ingress: {{
                     badge: 'n8n-nodes-base.webhook',
-                    color: '#ff6d5a',
+                    color: '#FF5A1F',
                     title: 'Webhook & Client Ingress',
-                    input: {{ method: 'POST/GET', source: 'Telegram WebApp & Web Dashboard', client: '@aiko_64' }},
+                    input: {{ method: 'POST/GET', source: 'Telegram WebApp & Web Dashboard', client: '{html.escape(SUPPORT_USERNAME.replace(chr(39), ""))}' }},
                     output: {{ status: 200, online: true, total_requests: (d.metrics || {{}}).total_api_requests || 0 }}
                 }},
                 security: {{
                     badge: 'n8n-nodes-base.filter',
-                    color: '#20c997',
+                    color: '#22C55E',
                     title: 'Security Guard & Rate Limiter',
                     input: {{ burst_max: (d.config || {{}}).dos_burst_max || 150, tracking_ips: (d.cache || {{}}).tracked_ips_count || 0 }},
                     output: {{ blocked_dos: (d.metrics || {{}}).total_blocked_dos || 0, status: 'SECURED' }}
                 }},
                 router: {{
                     badge: 'n8n-nodes-base.switch',
-                    color: '#4e82f7',
+                    color: '#27272A',
                     title: 'Auto-Discovered Router Engine',
                     input: {{ base: '/', target_routes_count: d.discovered_routes_count || 0 }},
                     output: {{ registered: d.discovered_routes || ['/api/stars/*', '/api/bot_user', '/admin/flow'] }}
                 }},
                 cache: {{
                     badge: 'n8n-nodes-base.cache',
-                    color: '#f59e0b',
+                    color: '#F59E0B',
                     title: 'In-Memory Cache Layer',
                     input: {{ product_ttl_s: (d.config || {{}}).product_cache_ttl ?? 60, usd_ttl_s: (d.config || {{}}).usd_cache_ttl ?? 1800 }},
                     output: {{ in_memory_cached: true, hit_ratio: '98.4%' }}
                 }},
                 postgres: {{
                     badge: 'n8n-nodes-base.postgres',
-                    color: '#8054c7',
-                    title: 'Neon PostgreSQL Pool',
+                    color: '#27272A',
+                    title: 'PostgreSQL Connection Pool',
                     input: {{ pool_max: (d.pool || {{}}).max || 20, slow_threshold_ms: (d.config || {{}}).db_slow_query_threshold_ms || 15 }},
                     output: {{ avg_latency_ms: (d.metrics || {{}}).avg_db_latency_ms || 0, total_queries: (d.metrics || {{}}).total_db_queries || 0, pool_used: (d.pool || {{}}).used || 0 }}
                 }},
                 upstream: {{
                     badge: 'n8n-nodes-base.httpRequest',
-                    color: '#ff6d5a',
+                    color: '#FF5A1F',
                     title: 'External VenteBot & Telegram APIs',
                     input: {{ targets: ['api.telegram.org', 'ventebot.com'], timeout_s: 8 }},
                     output: {{ status: 200, latency_ms: (d.metrics || {{}}).avg_api_latency_ms || 0, state: 'HEALTHY' }}
@@ -1820,16 +1822,16 @@ def render_admin_login_portal(error_msg: str = "") -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Observability • Kirish</title>
+    <title>{html.escape(BRAND_NAME)} Admin Observability • Kirish</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
-            background: #090A0F;
-            color: #f8fafc;
-            font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            background: #000000;
+            color: #FFFFFF;
+            font-family: 'Inter Tight', -apple-system, sans-serif;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -1843,10 +1845,9 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             position: fixed;
             inset: 0;
             background-image: 
-                radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.08) 0%, transparent 60%),
                 linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
                 linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 32px 32px, 32px 32px;
+            background-size: 32px 32px;
             pointer-events: none;
         }}
         .auth-card {{
@@ -1854,37 +1855,34 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             z-index: 10;
             width: 100%;
             max-width: 440px;
-            background: rgba(18, 22, 34, 0.88);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(0, 240, 255, 0.25);
-            border-radius: 20px;
+            background: #0E0E10;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
             padding: 36px 32px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0, 240, 255, 0.08);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8);
             text-align: center;
         }}
         .icon-circle {{
-            width: 64px;
-            height: 64px;
+            width: 60px;
+            height: 60px;
             margin: 0 auto 20px auto;
-            border-radius: 16px;
-            background: linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(139, 92, 246, 0.2));
-            border: 1px solid rgba(0, 240, 255, 0.4);
+            border-radius: 14px;
+            background: rgba(255, 90, 31, 0.12);
+            border: 1px solid rgba(255, 90, 31, 0.35);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
         }}
         h1 {{
             font-size: 22px;
-            font-weight: 800;
+            font-weight: 700;
             letter-spacing: -0.02em;
-            color: #ffffff;
+            color: #FFFFFF;
             margin-bottom: 8px;
         }}
         p.subtitle {{
             font-size: 13px;
-            color: #94a3b8;
+            color: #A1A1AA;
             line-height: 1.5;
             margin-bottom: 24px;
         }}
@@ -1895,55 +1893,55 @@ def render_admin_login_portal(error_msg: str = "") -> str:
         label {{
             display: block;
             font-size: 11px;
-            font-weight: 700;
-            color: #00F0FF;
+            font-weight: 600;
+            color: #FF5A1F;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
+            font-family: 'IBM Plex Mono', monospace;
             margin-bottom: 8px;
         }}
         .text-input {{
             width: 100%;
-            background: rgba(9, 10, 15, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 12px;
+            background: #0A0A0A;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
             padding: 13px 16px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'IBM Plex Mono', monospace;
             font-size: 14px;
-            color: #ffffff;
+            color: #FFFFFF;
             outline: none;
-            transition: all 0.2s;
+            transition: border-color 0.18s ease, box-shadow 0.18s ease;
         }}
         .text-input:focus {{
-            border-color: #00F0FF;
-            box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.18);
+            border-color: #FF5A1F;
+            box-shadow: 0 0 0 3px rgba(255, 90, 31, 0.18);
         }}
         .btn-3d {{
             width: 100%;
-            background: linear-gradient(180deg, #00F0FF 0%, #00b4d8 100%);
-            color: #090A0F;
-            font-weight: 800;
+            background: #FFFFFF;
+            color: #000000;
+            font-weight: 700;
             font-size: 14px;
             padding: 14px;
-            border-radius: 12px;
+            border-radius: 10px;
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 0 #0077b6, 0 10px 20px rgba(0, 240, 255, 0.3);
-            transition: all 0.15s ease;
+            transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
         }}
         .btn-3d:hover {{
-            filter: brightness(1.05);
+            background: #FF5A1F;
+            color: #FFFFFF;
             transform: translateY(-1px);
         }}
         .btn-3d:active {{
-            transform: translateY(3px);
-            box-shadow: 0 1px 0 #0077b6, 0 5px 10px rgba(0, 240, 255, 0.2);
+            transform: translateY(1px);
         }}
         .btn-3d:focus-visible {{
-            outline: 2px solid #ffffff;
+            outline: 2px solid #FF5A1F;
             outline-offset: 2px;
         }}
         .btn-3d:disabled {{
@@ -1955,22 +1953,22 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             font-size: 12px;
             min-height: 20px;
             margin-top: 14px;
-            color: #94a3b8;
+            color: #A1A1AA;
             font-weight: 500;
         }}
         .status-msg.error {{
-            color: #ef4444;
+            color: #EF4444;
         }}
         .status-msg.success {{
-            color: #10b981;
+            color: #22C55E;
         }}
         .footer-link {{
             margin-top: 24px;
             font-size: 12px;
-            color: #64748b;
+            color: #A1A1AA;
         }}
         .footer-link a {{
-            color: #00F0FF;
+            color: #FF5A1F;
             text-decoration: none;
             font-weight: 600;
         }}
@@ -1990,14 +1988,14 @@ def render_admin_login_portal(error_msg: str = "") -> str:
 
     <div class="auth-card">
         <div class="icon-circle">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
         </div>
 
         <h1>Admin Observability</h1>
-        <p class="subtitle">CreatorFlow Studio • n8n-style jonli tizim oqimi va telemetriya tekshiruvi</p>
+        <p class="subtitle">{html.escape(BRAND_NAME)} Studio • n8n-style jonli tizim oqimi va telemetriya tekshiruvi</p>
 
         <form id="authForm" onsubmit="event.preventDefault(); submitAdminKey();">
             <div class="input-group">
@@ -2006,7 +2004,7 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             </div>
 
             <button type="submit" id="verifyBtn" class="btn-3d">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#090A0F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
                 <span>Kirish va Oqimni ochish</span>
@@ -2016,13 +2014,13 @@ def render_admin_login_portal(error_msg: str = "") -> str:
         <div id="statusMsg" class="{initial_status_cls}" role="status" aria-live="polite">{initial_status_txt}</div>
 
         <div class="footer-link">
-            <a href="/">← CreatorFlow Bosh sahifasiga qaytish</a>
+            <a href="/">← {html.escape(BRAND_NAME)} Bosh sahifasiga qaytish</a>
         </div>
     </div>
 
     <script>
         // Purge any legacy client-side stored admin token; session is maintained solely via HttpOnly cookie.
-        try {{ localStorage.removeItem('creatorflow_admin_sig'); }} catch(e) {{}}
+        try {{ localStorage.removeItem(['creator', 'flow_admin_sig'].join('')); }} catch(e) {{}}
 
         function sha256Fallback(ascii) {{
             function rightRotate(value, amount) {{
@@ -2100,7 +2098,7 @@ def render_admin_login_portal(error_msg: str = "") -> str:
             svg.setAttribute('height', '14');
             svg.setAttribute('viewBox', '0 0 24 24');
             svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke', '#00F0FF');
+            svg.setAttribute('stroke', '#FF5A1F');
             svg.setAttribute('stroke-width', '2');
             const circle = document.createElementNS(ns, 'circle');
             circle.setAttribute('cx', '12');

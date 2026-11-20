@@ -32,7 +32,7 @@ from pyrogram.types import (
 )
 from googleapiclient.discovery import build
 
-from config import OWNER_ID
+from config import OWNER_ID, BRAND_NAME, APP_BASE_URL
 from config import (
     generate_with_fallback_async, generate_with_fallback,
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
@@ -1140,7 +1140,7 @@ def main_menu_kb(user_id=None, lang=None):
         
     rows = [
         [InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} {t('btn_tariffs_vip', lang)}", callback_data="menu_tariffs")],
-        [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Web Dashboard", web_app=WebAppInfo(url=f"{web_url}/?tg_user_id={user_id or 0}")),
+        [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Web Studio", web_app=WebAppInfo(url=f"{web_url}/studio?tg_user_id={user_id or 0}")),
          second_btn],
         [InlineKeyboardButton(t("btn_balance", lang), callback_data="menu_wallet"),
          InlineKeyboardButton(t("btn_games", lang), callback_data="menu_games")],
@@ -1387,7 +1387,7 @@ def channel_menu_kb(lang="uz", user_id=None):
          InlineKeyboardButton(f"{ce('TOOL_SEO_TAGS')} {t('btn_keywords', lang)}", callback_data="ch_keywords")],
         [InlineKeyboardButton(f"{ce('CALENDAR')} {t('btn_upload_freq', lang)}", callback_data="ch_frequency"),
          InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_earnings_est', lang)}", callback_data="ch_earnings")],
-        [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Web Dashboard", web_app=WebAppInfo(url=f"{web_url}/?tg_user_id={uid_val}"))],
+        [InlineKeyboardButton(f"{ce('BTN_DASHBOARD')} Web Studio", web_app=WebAppInfo(url=f"{web_url}/studio?tg_user_id={uid_val}"))],
         [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back', lang)}", callback_data="back_main")],
     ])
     return InlineKeyboardMarkup(rows)
@@ -1598,7 +1598,7 @@ def create_ytbot():
     @bot.on_message(filters.command("apikeys") & filters.private)
     async def cmd_apikeys(client, message):
         """YouTube API kalitlari holatini tekshirish (Faqat admin uchun)"""
-        from config import OWNER_ID, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
+        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
         from googleapiclient.discovery import build
         from googleapiclient.errors import HttpError
         
@@ -2656,7 +2656,7 @@ def create_ytbot():
     
     # ==================== /help ====================
     HELP_MAIN_TEXT = (
-        "✨ <b>CreatorFlow Studio — Yordam & Qo'llanma</b>\n\n"
+        f"✨ <b>{BRAND_NAME} — Yordam & Qo'llanma</b>\n\n"
         "Quyidagi bo'limlardan birini tanlang va unga tegishli buyruqlar bilan tanishing:\n\n"
         "⚡ <b>Tezkor buyruqlar:</b>\n"
         "• <code>/start</code> — Botni ishga tushirish\n"
@@ -3669,7 +3669,7 @@ def create_ytbot():
         total_reqs = res.get("total_requests", 0)
         bal = get_user_balance(user_id)
         
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         docs_url = f"{base_domain}/api/v1/docs"
         
         text = (
@@ -3711,7 +3711,7 @@ def create_ytbot():
             
         new_key = res["api_key"]
         bal = get_user_balance(user_id)
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         docs_url = f"{base_domain}/api/v1/docs"
         
         text = (
@@ -3745,7 +3745,7 @@ def create_ytbot():
         lang = get_user_language(user_id)
         res = get_or_create_user_api_key(user_id)
         api_key = res.get("api_key", "art_live_sizning_kalitingiz")
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         
         sample_code = (
             f"import requests\n\n"
@@ -3787,7 +3787,7 @@ def create_ytbot():
         api_key = res.get("api_key", "")
         total_reqs = res.get("total_requests", 0)
         bal = get_user_balance(user_id)
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         docs_url = f"{base_domain}/api/v1/docs"
         
         text = (
@@ -3825,7 +3825,7 @@ def create_ytbot():
         stats = get_captcha_stats(user_id)
         bal = get_user_balance(user_id)
         
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         demo_url = f"{base_domain}/captcha/demo"
         docs_url = f"{base_domain}/api/v1/docs"
         
@@ -3893,7 +3893,7 @@ def create_ytbot():
         import database
         keys = database.get_or_create_captcha_keys(user_id)
         sec = keys.get("secret_key", "bsh_sec_sizning_kalitingiz")
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         
         sample = (
             f"import requests\n\n"
@@ -3934,8 +3934,7 @@ def create_ytbot():
         if recent:
             recent_text = "\n\n🔥 <b>Oxirgi yutuqlar:</b>\n" + "\n".join([f"• @user_{r['user']} ➔ <b>{r['prize']}</b>" for r in recent])
             
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://creatorflow-studio.onrender.com"
-        web_app_url = base_domain if base_domain.startswith("http") else "https://creatorflow-studio.onrender.com"
+        web_app_url = f"{APP_BASE_URL}/cases"
 
         text = (
             f"🎁 <b>Omadli Quti & Telegram Stars NFT Cases</b>\n\n"
@@ -3968,8 +3967,7 @@ def create_ytbot():
         if recent:
             recent_text = "\n\n🔥 <b>Oxirgi yutuqlar:</b>\n" + "\n".join([f"• @user_{r['user']} ➔ <b>{r['prize']}</b>" for r in recent])
             
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://creatorflow-studio.onrender.com"
-        web_app_url = base_domain if base_domain.startswith("http") else "https://creatorflow-studio.onrender.com"
+        web_app_url = f"{APP_BASE_URL}/cases"
 
         text = t("box_menu_text", lang, bal=bal, recent_text=recent_text)
         kb = InlineKeyboardMarkup([
@@ -4166,7 +4164,7 @@ def create_ytbot():
             user_id=user_id,
             gift_id=gift_item["gift_id"],
             bot_token=bot_token,
-            text=f"CreatorFlow Studio — {gift_item['case_name']} yutug'ingiz!"
+            text=f"{BRAND_NAME} — {gift_item['case_name']} yutug'ingiz!"
         )
         
         if gift_res.get("ok"):
@@ -4803,7 +4801,7 @@ def create_ytbot():
     async def dashboard_cmd(client, message):
         user_id = message.from_user.id
         lang = get_user_language(user_id)
-        base_domain = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/") or "https://botclient-d1jn.onrender.com"
+        base_domain = APP_BASE_URL
         dash_url = f"{base_domain}/dashboard?user_id={user_id}"
         
         kb = InlineKeyboardMarkup([
@@ -6280,7 +6278,7 @@ def create_ytbot():
             await message.reply_text("❌ Xatolik yuz berdi. DB ulanmagan.")
             return
             
-        from config import OWNER_ID
+        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL
         is_admin = str(message.from_user.id) == str(OWNER_ID)
         cur = conn.cursor()
         if is_admin:
@@ -11522,7 +11520,7 @@ async def autostream_expiration_worker(bot: Client):
     from database import cancel_user_stream_tasks
     while True:
         try:
-            active_slots = get_all_active_autostream_slots()
+            active_slots = await asyncio.to_thread(get_all_active_autostream_slots)
             now = datetime.now()
             for slot in active_slots:
                 exp_str = slot.get("expires_at")
@@ -11534,8 +11532,8 @@ async def autostream_expiration_worker(bot: Client):
                     if now >= exp_dt:
                         slot_id = slot["id"]
                         user_id = slot["user_id"]
-                        expire_autostream_slot(slot_id)
-                        cancel_user_stream_tasks(user_id)
+                        await asyncio.to_thread(expire_autostream_slot, slot_id)
+                        await asyncio.to_thread(cancel_user_stream_tasks, user_id)
                         try:
                             await bot.send_message(
                                 user_id,
@@ -11555,7 +11553,7 @@ async def gift_autoflush_worker(bot: Client):
     """Har 15 daqiqada kutilayotgan sovg'alarni avtomatik jo'natadi va bot Stars balansi yetishmasa adminga bildirishnoma beradi"""
     from games_monetization import process_pending_gifts_batch
     from database import get_pending_gifts
-    from config import OWNER_ID
+    from config import OWNER_ID, BRAND_NAME, APP_BASE_URL
     import os, time
     
     admin_id = 0
@@ -11569,7 +11567,7 @@ async def gift_autoflush_worker(bot: Client):
 
     while True:
         try:
-            pending = get_pending_gifts(limit=15)
+            pending = await asyncio.to_thread(get_pending_gifts, limit=15)
             if pending:
                 bot_token = getattr(bot, "bot_token", None) or BOT_TOKEN
                 res = await process_pending_gifts_batch(bot_token=bot_token, limit=15)
@@ -11597,9 +11595,9 @@ async def run_ytbot():
     if bot is None:
         print("YouTube Bot ishga tushmadi. BOT_TOKEN ni tekshiring.")
         return
-    print("CreatorFlow Studio Bot ishga tushmoqda...")
+    print(f"{BRAND_NAME} Bot ishga tushmoqda...")
     await bot.start()
-    print("CreatorFlow Studio Bot muvaffaqiyatli ishga tushdi!")
+    print(f"{BRAND_NAME} Bot muvaffaqiyatli ishga tushdi!")
     asyncio.create_task(autostream_expiration_worker(bot))
     from vouchers_engine import start_antifraud_sentinel_daemon
     from instagram_cloner import start_instagram_sync_daemon

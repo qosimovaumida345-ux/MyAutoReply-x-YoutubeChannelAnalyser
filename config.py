@@ -156,9 +156,49 @@ DAILY_LIMIT_ADMIN = 999  # Admin uchun (deyarli cheksiz)
 # Video yuklab olish (yt-dlp) va qayta ishlash (ffmpeg) shu serverda bajariladi
 WORKER_API_URL = os.getenv("WORKER_API_URL", "").strip().rstrip("/")
 
+# ==================== BRAND & CUSTOM DOMAIN (MONODECK) ====================
+BRAND_NAME = os.getenv("BRAND_NAME", "MonoDeck").strip() or "MonoDeck"
+BRAND_TAGLINE = os.getenv(
+    "BRAND_TAGLINE",
+    "Creator Studio, Telegram Tools & Developer Platform"
+).strip() or "Creator Studio, Telegram Tools & Developer Platform"
+
+def _resolve_app_base_url() -> str:
+    candidates = (
+        os.getenv("APP_BASE_URL"),
+        os.getenv("WEB_APP_URL"),
+        os.getenv("RENDER_EXTERNAL_URL"),
+    )
+    for item in candidates:
+        clean = str(item or "").strip().rstrip("/")
+        if not clean or "botclient-d1jn.onrender.com" in clean.lower():
+            continue
+        if not clean.startswith(("http://", "https://")):
+            clean = "https://" + clean
+        return clean
+    return "https://monodeck.site"
+
+APP_BASE_URL = _resolve_app_base_url()
+WEB_APP_URL = APP_BASE_URL
+APP_DOMAIN = APP_BASE_URL.split("://", 1)[-1].split("/", 1)[0]
+
+BOT_USERNAME = os.getenv("BOT_USERNAME", "monodeck_bot").strip().lstrip("@") or "monodeck_bot"
+_RUNTIME_BOT_USERNAME = ""
+
+def set_runtime_bot_username(username: str) -> None:
+    global _RUNTIME_BOT_USERNAME
+    clean = str(username or "").strip().lstrip("@")
+    if clean:
+        _RUNTIME_BOT_USERNAME = clean
+
+def get_bot_username() -> str:
+    return _RUNTIME_BOT_USERNAME or os.getenv("BOT_USERNAME", "").strip().lstrip("@") or BOT_USERNAME
+
+SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "monodeck_support").strip().lstrip("@") or "monodeck_support"
+ADSENSE_CLIENT_ID = os.getenv("ADSENSE_CLIENT_ID", "ca-pub-4094396006908725").strip() or "ca-pub-4094396006908725"
+
 # ==================== CRYPTOPAY & WEBAPP ====================
 CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN", "")
-WEB_APP_URL = os.getenv("WEB_APP_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
 
 # ==================== VENTEBOT RESELLER API ====================
 VENTEBOT_API_KEY = os.getenv("VENTEBOT_API_KEY", "").strip()

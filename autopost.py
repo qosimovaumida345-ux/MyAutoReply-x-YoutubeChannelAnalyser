@@ -7,14 +7,14 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from database import get_yt_connection, update_autopost_task, add_autopost_history, update_autopost_history, save_yt_connection, get_config, get_user_cookies, has_video_been_posted
-from config import get_youtube_key, build_youtube_api, YT_CLIENT_ID, YT_CLIENT_SECRET
+from config import get_youtube_key, build_youtube_api, YT_CLIENT_ID, YT_CLIENT_SECRET, APP_BASE_URL
 
 # Google qo'shimcha scope qaytarishini qabul qilish (scope mismatch xatosini oldini olish)
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
-# Render service URL (callback uchun)
-RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://botclient-d1jn.onrender.com")
-REDIRECT_URI = f"{RENDER_URL}/oauth/callback"
+# OAuth callback URL (centralized via config.APP_BASE_URL)
+RENDER_URL = APP_BASE_URL
+REDIRECT_URI = f"{APP_BASE_URL}/oauth/callback"
 
 CLIENT_CONFIG = {
     "web": {

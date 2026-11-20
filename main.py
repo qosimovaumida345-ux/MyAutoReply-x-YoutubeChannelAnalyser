@@ -20,7 +20,17 @@ import pyrogram_patch
 # Pyrogram patches applied via pyrogram_patch module
 
 from aiohttp import web
-from config import SESSION_STRING, BOT_TOKEN, API_ID, API_HASH
+from config import (
+    SESSION_STRING,
+    BOT_TOKEN,
+    API_ID,
+    API_HASH,
+    BRAND_NAME,
+    APP_BASE_URL,
+    SUPPORT_USERNAME,
+    get_bot_username,
+    set_runtime_bot_username,
+)
 from autopost import exchange_code_with_redirect, pending_oauth
 from database import save_yt_connection
 
@@ -108,7 +118,7 @@ async def run_autopilot_worker():
     while True:
         try:
             now = datetime.now()
-            autopilots = get_all_active_autopilots()
+            autopilots = await asyncio.to_thread(get_all_active_autopilots)
             
             for ap in autopilots:
                 user_id = ap['tg_user_id']
@@ -136,7 +146,7 @@ async def run_autopilot_worker():
                             await ytbot_instance.send_message(user_id, f"🤖 **AutoPilot Ishga Tushdi!**\n\n🔍 Qidirilmoqda: `{topic}`")
                             
                             from database import get_yt_connection
-                            conn = get_yt_connection(user_id)
+                            conn = await asyncio.to_thread(get_yt_connection, user_id)
                             if not conn:
                                 await ytbot_instance.send_message(user_id, "❌ **AutoPilot Xatosi:** YouTube kanal ulanmagan! `/ytlogin` orqali ulang.")
                                 continue
@@ -145,10 +155,10 @@ async def run_autopilot_worker():
                             
                             # Start search and autopost for 1 video
                             from database import create_autopost_task
-                            task_id = create_autopost_task(user_id, channel_id, topic, "shorts", 1)
+                            task_id = await asyncio.to_thread(create_autopost_task, user_id, channel_id, topic, "shorts", 1)
 
                             # Update last run right away so it doesn't run again if it fails
-                            update_autopilot_last_run(user_id)
+                            await asyncio.to_thread(update_autopilot_last_run, user_id)
 
                             if task_id:
                                 print(f"[autopilot] Task {task_id} navbatga qo'shildi, marshrutlanmoqda...")
@@ -419,22 +429,57 @@ async def _run_main_stream_task(task, worker_id):
 
 # ==================== WEB SERVER (OAuth Callback + Health Check) ====================
 
+_STATIC_HTML_CACHE = {}  # {path: {"mtime": float, "html": str}}
+
+
+def _get_cached_index_html():
+    candidates = (os.path.join("static", "dist", "index.html"), "index.html")
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            try:
+                mtime = os.path.getmtime(candidate)
+                entry = _STATIC_HTML_CACHE.get(candidate)
+                if entry and entry["mtime"] == mtime:
+                    return entry["html"]
+                with open(candidate, "r", encoding="utf-8") as f:
+                    html = f.read()
+                _STATIC_HTML_CACHE[candidate] = {"mtime": mtime, "html": html}
+                return html
+            except Exception as err:
+                print(f"[index cache] {candidate} read error: {err}")
+    return None
+
+
 async def handle_health(request):
-    """Render health check uchun va WebApp UI"""
-    import os
-    if os.path.exists("index.html"):
-        with open("index.html", "r", encoding="utf-8") as f:
-            html = f.read()
+    """Fast health check and precompiled MonoDeck SPA entrypoint"""
+    html = _get_cached_index_html()
+    if html is not None:
         return web.Response(
             text=html,
             content_type="text/html",
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Pragma": "no-cache",
-                "Expires": "0"
-            }
+                "Expires": "0",
+            },
         )
-    return web.Response(text="Bot is running!", content_type="text/html")
+    return web.Response(text=f"{BRAND_NAME} is running.", content_type="text/html")
+
+
+async def handle_api_public_config(request):
+    """Public brand, domain, and active Telegram bot configuration for frontend."""
+    import json as _json
+    return web.Response(
+        text=_json.dumps({
+            "ok": True,
+            "brand": BRAND_NAME,
+            "app_base_url": APP_BASE_URL,
+            "bot_username": get_bot_username(),
+            "support_username": SUPPORT_USERNAME,
+        }),
+        content_type="application/json",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 async def handle_privacy_page(request):
@@ -444,23 +489,19 @@ async def handle_privacy_page(request):
         text=get_privacy_html(),
         content_type="text/html",
         headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
+            "Cache-Control": "public, max-age=300",
         }
     )
 
 
 async def handle_terms_page(request):
-    """CreatorFlow Studio SaaS Terms of Service page"""
+    """MonoDeck SaaS Terms of Service page"""
     from legal_templates import get_terms_html
     return web.Response(
         text=get_terms_html(),
         content_type="text/html",
         headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
+            "Cache-Control": "public, max-age=300",
         }
     )
 
@@ -499,8 +540,8 @@ async def handle_ads_txt(request):
     )
 
 async def handle_robots(request):
-    """robots.txt handler for search engines, AI agents (GPTBot, ClaudeBot, etc.) and crawlers"""
-    content = """# Robots.txt for CreatorFlow / Bot Client
+    """robots.txt handler for search engines, AI agents and crawlers"""
+    content = f"""# Robots.txt for {BRAND_NAME} ({APP_BASE_URL})
 # AI Agents and Web Crawlers Configuration
 
 User-agent: Mediapartners-Google
@@ -509,9 +550,11 @@ Allow: /
 User-agent: *
 Allow: /
 Allow: /ads.txt
+Allow: /docs
 Allow: /api/v1/docs
 Allow: /api/v1/products
 Allow: /api/v1/tariffs
+Allow: /captcha
 Allow: /captcha/
 Allow: /privacy
 Allow: /privacy-policy
@@ -527,9 +570,11 @@ Disallow: /admin/
 # Explicit permissions for AI Agents to index public documentation & tools
 User-agent: GPTBot
 Allow: /
+Allow: /docs
 Allow: /api/v1/docs
 Allow: /api/v1/products
 Allow: /api/v1/tariffs
+Allow: /captcha
 Allow: /captcha/
 Allow: /privacy
 Allow: /terms
@@ -540,9 +585,11 @@ Disallow: /api/user/
 
 User-agent: ClaudeBot
 Allow: /
+Allow: /docs
 Allow: /api/v1/docs
 Allow: /api/v1/products
 Allow: /api/v1/tariffs
+Allow: /captcha
 Allow: /captcha/
 Allow: /privacy
 Allow: /terms
@@ -553,9 +600,11 @@ Disallow: /api/user/
 
 User-agent: Google-Extended
 Allow: /
+Allow: /docs
 Allow: /api/v1/docs
 Allow: /api/v1/products
 Allow: /api/v1/tariffs
+Allow: /captcha
 Allow: /captcha/
 Allow: /privacy
 Allow: /terms
@@ -566,9 +615,11 @@ Disallow: /api/user/
 
 User-agent: PerplexityBot
 Allow: /
+Allow: /docs
 Allow: /api/v1/docs
 Allow: /api/v1/products
 Allow: /api/v1/tariffs
+Allow: /captcha
 Allow: /captcha/
 Allow: /privacy
 Allow: /terms
@@ -590,6 +641,7 @@ import io as _io
 from urllib.parse import urlparse as _urlparse, parse_qs as _parse_qs
 
 _stats_cache = {}  # {tg_user_id: {"data": ..., "ts": time}}
+_stats_refresh_inflight = set()
 _CACHE_TTL = 600  # 10 daqiqa
 
 _VIDEO_ID_PATTERN = _re.compile(r"^[A-Za-z0-9_-]{11}$")
@@ -653,8 +705,7 @@ def _is_https_request(request) -> bool:
 
 def _get_safe_base_url(request) -> str:
     """Build a safe base URL without trusting arbitrary Host header injection."""
-    from config import WEB_APP_URL
-    fallback = (os.environ.get("WEB_URL") or WEB_APP_URL or "https://botclient-d1jn.onrender.com").rstrip("/")
+    fallback = APP_BASE_URL.rstrip("/")
     raw_host = (request.headers.get("Host") or "").strip()
     if not raw_host or not _HOST_HEADER_PATTERN.match(raw_host):
         return fallback
@@ -738,185 +789,217 @@ def _require_user_auth(request, data=None, allow_admin: bool = False):
     return auth_uid, None
 
 
+def _compute_live_youtube_stats_sync(tg_user_id: str, channel_id, conn_data: dict):
+    """Run blocking Google YouTube Data API & PostgreSQL stats fetch off the asyncio loop."""
+    from googleapiclient.discovery import build
+    from config import YT_CLIENT_ID, YT_CLIENT_SECRET, OWNER_ID
+    from google.oauth2.credentials import Credentials
+    from database import get_db, update_yt_channel_metadata
+    import psycopg2.extras
+
+    creds = Credentials(
+        token=conn_data["access_token"],
+        refresh_token=conn_data["refresh_token"],
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=YT_CLIENT_ID,
+        client_secret=YT_CLIENT_SECRET,
+    )
+    yt = build("youtube", "v3", credentials=creds)
+
+    ch_res = yt.channels().list(part="statistics,snippet,contentDetails", mine=True).execute()
+    if not ch_res.get("items"):
+        return None
+
+    ch = ch_res["items"][0]
+    stats = ch["statistics"]
+    snippet = ch["snippet"]
+
+    total_subs = int(stats.get("subscriberCount", 0))
+    total_views = int(stats.get("viewCount", 0))
+    total_videos = int(stats.get("videoCount", 0))
+
+    recent_videos = []
+    try:
+        uploads_id = ch.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads", "")
+        if uploads_id:
+            pl_items = yt.playlistItems().list(
+                part="snippet", playlistId=uploads_id, maxResults=10
+            ).execute().get("items", [])
+            vid_ids = [i["snippet"]["resourceId"]["videoId"] for i in pl_items]
+            if vid_ids:
+                vids = yt.videos().list(
+                    part="statistics,snippet", id=",".join(vid_ids)
+                ).execute().get("items", [])
+                for v in vids:
+                    pub_date = v["snippet"]["publishedAt"][:10]
+                    recent_videos.append({
+                        "id": v["id"],
+                        "title": v["snippet"]["title"][:60],
+                        "thumbnail": v["snippet"]["thumbnails"].get("medium", {}).get("url", ""),
+                        "views": int(v["statistics"].get("viewCount", 0)),
+                        "likes": int(v["statistics"].get("likeCount", 0)),
+                        "comments": int(v["statistics"].get("commentCount", 0)),
+                        "published": pub_date,
+                        "published_at": pub_date,
+                    })
+    except Exception as e:
+        print(f"[api/stats] Video xato: {e}")
+
+    avg_views = sum(v["views"] for v in recent_videos) // max(len(recent_videos), 1)
+    avg_likes = sum(v["likes"] for v in recent_videos) // max(len(recent_videos), 1)
+    avg_comments = sum(v["comments"] for v in recent_videos) // max(len(recent_videos), 1)
+    engagement = round((avg_likes + avg_comments) / max(avg_views, 1) * 100, 2)
+
+    autopost_stats = {"total": 0, "success": 0, "failed": 0}
+    conn_db = None
+    try:
+        conn_db = get_db()
+        if conn_db:
+            cur = conn_db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                "SELECT status FROM autopost_history WHERE tg_user_id=%s ORDER BY created_at DESC LIMIT 100",
+                (int(tg_user_id),),
+            )
+            rows = cur.fetchall()
+            autopost_stats["total"] = len(rows)
+            autopost_stats["success"] = sum(1 for r in rows if r["status"] == "uploaded")
+            autopost_stats["failed"] = sum(1 for r in rows if r["status"] == "failed")
+
+            cur.execute(
+                "SELECT id, search_query, total_count, completed_count, status FROM autopost_tasks WHERE tg_user_id=%s ORDER BY id DESC LIMIT 1",
+                (int(tg_user_id),),
+            )
+            active_task = cur.fetchone()
+            if active_task:
+                autopost_stats["active_task"] = {
+                    "id": active_task["id"],
+                    "query": active_task["search_query"],
+                    "total": active_task["total_count"],
+                    "completed": active_task["completed_count"],
+                    "status": active_task["status"],
+                }
+            conn_db.close()
+    except Exception as e:
+        print(f"[api/stats] Autopost tarixi xato: {e}")
+        try:
+            if conn_db:
+                conn_db.close()
+        except Exception:
+            pass
+
+    ch_title_live = snippet.get("title", "")
+    ch_pfp_live = snippet.get("thumbnails", {}).get("medium", {}).get("url") or snippet.get("thumbnails", {}).get("default", {}).get("url", "")
+    try:
+        update_yt_channel_metadata(
+            tg_user_id=int(tg_user_id),
+            yt_channel_id=conn_data.get("yt_channel_id", ""),
+            channel_title=ch_title_live,
+            channel_thumbnail_url=ch_pfp_live,
+            subscriber_count=total_subs,
+        )
+    except Exception as e_upd:
+        print(f"[api/stats] update_yt_channel_metadata xato: {e_upd}")
+
+    return {
+        "channel_title": ch_title_live,
+        "channel_username": conn_data.get("yt_channel_username", ""),
+        "channel_thumbnail": ch_pfp_live,
+        "channel_country": snippet.get("country", ""),
+        "subscribers": total_subs,
+        "total_subscribers": total_subs,
+        "total_views": total_views,
+        "total_videos": total_videos,
+        "avg_views": avg_views,
+        "avg_likes": avg_likes,
+        "avg_comments": avg_comments,
+        "engagement_rate": engagement,
+        "autopost": autopost_stats,
+        "recent_videos": recent_videos,
+        "is_owner": (int(tg_user_id) == OWNER_ID),
+        "channel_id": conn_data.get("yt_channel_id", ""),
+        "stale": False,
+    }
+
+
+async def _refresh_stats_bg(cache_key: str, tg_user_id: str, channel_id, conn_data: dict):
+    if cache_key in _stats_refresh_inflight:
+        return
+    _stats_refresh_inflight.add(cache_key)
+    try:
+        fresh = await asyncio.to_thread(_compute_live_youtube_stats_sync, tg_user_id, channel_id, conn_data)
+        if fresh:
+            _stats_cache[cache_key] = {"data": fresh, "ts": _time.time()}
+    except Exception as err:
+        print(f"[api/stats bg] error: {err}")
+    finally:
+        _stats_refresh_inflight.discard(cache_key)
+
+
 async def handle_api_stats(request):
-    """Dashboard uchun real YouTube kanal statistikasi (cached, Anti-IDOR himoyalangan)"""
+    """Dashboard uchun real YouTube kanal statistikasi (non-blocking cached, Anti-IDOR himoyalangan)"""
     import json
     global _stats_cache
     uid, auth_err = _require_user_auth(request, allow_admin=True)
     if auth_err:
         return auth_err
     tg_user_id = str(uid)
-    
+
     channel_id = request.query.get("channel_id")
-    # Cache tekshirish — agar refresh talab qilinmagan va 10 daqiqa ichida so'ralgan bo'lsa, qayta API chaqirmaslik
     force_refresh = request.query.get("refresh") == "1" or request.query.get("force") == "1"
     cache_key = f"{tg_user_id}_{channel_id or 'default'}"
     cached = _stats_cache.get(cache_key)
     if not force_refresh and cached and (_time.time() - cached["ts"]) < _CACHE_TTL:
         return web.Response(
             text=json.dumps(cached["data"], default=str),
-            content_type="application/json"
+            content_type="application/json",
         )
-    
+
     conn_data = None
     try:
         from database import get_yt_connection
-        from googleapiclient.discovery import build
-        from config import YT_CLIENT_ID, YT_CLIENT_SECRET
-        from google.oauth2.credentials import Credentials
+        from config import OWNER_ID
 
-        conn_data = get_yt_connection(int(tg_user_id), channel_id=channel_id)
+        conn_data = await asyncio.to_thread(get_yt_connection, int(tg_user_id), channel_id=channel_id)
         if not conn_data or not conn_data.get("access_token"):
             return web.Response(
                 text=json.dumps({"error": "not_logged_in"}),
-                content_type="application/json"
+                content_type="application/json",
             )
 
-        creds = Credentials(
-            token=conn_data["access_token"],
-            refresh_token=conn_data["refresh_token"],
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=YT_CLIENT_ID,
-            client_secret=YT_CLIENT_SECRET
-        )
-        yt = build("youtube", "v3", credentials=creds)
+        # Return stale/DB snapshot immediately on initial page paint and sync live YouTube metrics in background
+        if not force_refresh:
+            asyncio.create_task(_refresh_stats_bg(cache_key, tg_user_id, channel_id, conn_data))
+            if cached and cached.get("data"):
+                stale_payload = dict(cached["data"])
+                stale_payload["stale"] = True
+                return web.Response(text=json.dumps(stale_payload, default=str), content_type="application/json")
+            subs = int(conn_data.get("subscriber_count") or 0)
+            snapshot = {
+                "channel_id": conn_data.get("yt_channel_id", ""),
+                "channel_title": conn_data.get("yt_channel_title", ""),
+                "channel_username": conn_data.get("yt_channel_username", ""),
+                "channel_thumbnail": conn_data.get("channel_thumbnail_url", ""),
+                "subscribers": subs,
+                "total_subscribers": subs,
+                "total_views": 0,
+                "total_videos": 0,
+                "recent_videos": [],
+                "is_owner": (int(tg_user_id) == OWNER_ID),
+                "stale": True,
+            }
+            return web.Response(text=json.dumps(snapshot, default=str), content_type="application/json")
 
-        # Kanal ma'lumotlari
-        ch_res = yt.channels().list(
-            part="statistics,snippet,contentDetails",
-            mine=True
-        ).execute()
-
-        if not ch_res.get("items"):
+        response_data = await asyncio.to_thread(_compute_live_youtube_stats_sync, tg_user_id, channel_id, conn_data)
+        if not response_data:
             return web.Response(
                 text=json.dumps({"error": "Kanal topilmadi"}),
-                content_type="application/json"
+                content_type="application/json",
             )
 
-        ch      = ch_res["items"][0]
-        stats   = ch["statistics"]
-        snippet = ch["snippet"]
-
-        total_subs   = int(stats.get("subscriberCount", 0))
-        total_views  = int(stats.get("viewCount", 0))
-        total_videos = int(stats.get("videoCount", 0))
-
-        # Oxirgi 10 ta video
-        recent_videos = []
-        try:
-            uploads_id = ch.get("contentDetails", {}).get("relatedPlaylists", {}).get("uploads", "")
-            if uploads_id:
-                pl_items = yt.playlistItems().list(
-                    part="snippet", playlistId=uploads_id, maxResults=10
-                ).execute().get("items", [])
-                vid_ids = [i["snippet"]["resourceId"]["videoId"] for i in pl_items]
-                if vid_ids:
-                    vids = yt.videos().list(
-                        part="statistics,snippet", id=",".join(vid_ids)
-                    ).execute().get("items", [])
-                    for v in vids:
-                        recent_videos.append({
-                            "id":        v["id"],
-                            "title":     v["snippet"]["title"][:60],
-                            "thumbnail": v["snippet"]["thumbnails"].get("medium", {}).get("url", ""),
-                            "views":     int(v["statistics"].get("viewCount", 0)),
-                            "likes":     int(v["statistics"].get("likeCount", 0)),
-                            "comments":  int(v["statistics"].get("commentCount", 0)),
-                            "published": v["snippet"]["publishedAt"][:10],
-                        })
-        except Exception as e:
-            print(f"[api/stats] Video xato: {e}")
-
-        # O'rtacha ko'rsatkichlar
-        avg_views    = sum(v["views"]    for v in recent_videos) // max(len(recent_videos), 1)
-        avg_likes    = sum(v["likes"]    for v in recent_videos) // max(len(recent_videos), 1)
-        avg_comments = sum(v["comments"] for v in recent_videos) // max(len(recent_videos), 1)
-        engagement   = round((avg_likes + avg_comments) / max(avg_views, 1) * 100, 2)
-
-        # Autopost tarixi
-        autopost_stats = {"total": 0, "success": 0, "failed": 0}
-        try:
-            from database import get_db
-            import psycopg2.extras
-            conn_db = get_db()
-            if conn_db:
-                cur = conn_db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-                cur.execute(
-                    "SELECT status FROM autopost_history WHERE tg_user_id=%s ORDER BY created_at DESC LIMIT 100",
-                    (int(tg_user_id),)
-                )
-                rows = cur.fetchall()
-                autopost_stats["total"]   = len(rows)
-                autopost_stats["success"] = sum(1 for r in rows if r["status"] == "uploaded")
-                autopost_stats["failed"]  = sum(1 for r in rows if r["status"] == "failed")
-                
-                # Fetch active task progress
-                cur.execute(
-                    "SELECT id, search_query, total_count, completed_count, status FROM autopost_tasks WHERE tg_user_id=%s ORDER BY id DESC LIMIT 1",
-                    (int(tg_user_id),)
-                )
-                active_task = cur.fetchone()
-                if active_task:
-                    autopost_stats["active_task"] = {
-                        "id": active_task["id"],
-                        "query": active_task["search_query"],
-                        "total": active_task["total_count"],
-                        "completed": active_task["completed_count"],
-                        "status": active_task["status"]
-                    }
-                conn_db.close()
-        except Exception as e:
-            print(f"[api/stats] Autopost tarixi xato: {e}")
-            try: conn_db.close()
-            except: pass
-
-        from config import OWNER_ID
-        is_owner = (int(tg_user_id) == OWNER_ID)
-
-        ch_title_live = snippet.get("title", "")
-        ch_pfp_live = snippet.get("thumbnails", {}).get("medium", {}).get("url") or snippet.get("thumbnails", {}).get("default", {}).get("url", "")
-
-        # Real-time DB sync: YouTubedagi eng so'nggi kanal nomi va avatari bazaga yoziladi
-        try:
-            from database import update_yt_channel_metadata
-            update_yt_channel_metadata(
-                tg_user_id=int(tg_user_id),
-                yt_channel_id=conn_data.get("yt_channel_id", ""),
-                channel_title=ch_title_live,
-                channel_thumbnail_url=ch_pfp_live,
-                subscriber_count=total_subs
-            )
-        except Exception as e_upd:
-            print(f"[api/stats] update_yt_channel_metadata xato: {e_upd}")
-
-        response_data = {
-            "channel_title":    ch_title_live,
-            "channel_username": conn_data.get("yt_channel_username", ""),
-            "channel_thumbnail": ch_pfp_live,
-            "channel_country":  snippet.get("country", ""),
-            "subscribers":      total_subs,
-            "total_subscribers": total_subs,
-            "total_views":      total_views,
-            "total_videos":     total_videos,
-            "avg_views":        avg_views,
-            "avg_likes":        avg_likes,
-            "avg_comments":     avg_comments,
-            "engagement_rate":  engagement,
-            "autopost":         autopost_stats,
-            "recent_videos":    recent_videos,
-            "is_owner":         is_owner,
-        }
-        
-        response_data["channel_id"] = conn_data.get("yt_channel_id", "")
-        # Cache'ga saqlash
-        _stats_cache[cache_key] = {
-            "data": response_data,
-            "ts": _time.time()
-        }
-
+        _stats_cache[cache_key] = {"data": response_data, "ts": _time.time()}
         return web.Response(
             text=json.dumps(response_data, default=str),
-            content_type="application/json"
+            content_type="application/json",
         )
     except Exception as e:
         import traceback
@@ -929,22 +1012,53 @@ async def handle_api_stats(request):
                     "channel_username": conn_data.get("yt_channel_username", ""),
                     "channel_thumbnail": conn_data.get("channel_thumbnail_url", ""),
                     "subscribers": conn_data.get("subscriber_count", 0),
+                    "total_subscribers": conn_data.get("subscriber_count", 0),
                     "total_views": 0,
                     "total_videos": 0,
                     "recent_videos": [],
                     "is_owner": (int(tg_user_id) == OWNER_ID),
+                    "stale": False,
                 }
                 return web.Response(
                     text=json.dumps(fallback_data, default=str),
-                    content_type="application/json"
+                    content_type="application/json",
                 )
         except Exception:
             pass
         return web.Response(
             text=json.dumps({"error": "Statistikani yuklashda ichki xatolik yuz berdi"}),
             content_type="application/json",
-            status=500
+            status=500,
         )
+
+
+def _render_oauth_status_html(title: str, subtitle: str, badge_label: str = "OAUTH STATUS") -> str:
+    from ui_theme import (
+        get_editorial_base_css,
+        get_fonts_head_html,
+        render_editorial_footer,
+        render_editorial_navbar,
+    )
+    return (
+        f'<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+        f'<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        f'<title>{_html.escape(title)} | {_html.escape(BRAND_NAME)}</title>'
+        f'<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
+        f'{get_fonts_head_html()}'
+        f'<style>{get_editorial_base_css()}</style></head><body>'
+        f'{render_editorial_navbar(active="studio")}'
+        f'<main class="md-container" style="padding:56px 24px;">'
+        f'<div class="md-card" style="max-width:560px;margin:0 auto;">'
+        f'<div class="md-eyebrow" style="margin-bottom:14px;"><span class="md-eyebrow-dot"></span>'
+        f'<span>{_html.escape(badge_label)}</span></div>'
+        f'<h1 style="font-family:var(--font-display);font-size:28px;font-weight:600;margin-bottom:10px;">'
+        f'{_html.escape(title)}</h1>'
+        f'<p style="color:var(--ink-2);font-size:15px;margin-bottom:22px;">{subtitle}</p>'
+        f'<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+        f'<a class="md-btn md-btn-primary" href="/studio">Open Studio</a>'
+        f'<a class="md-btn" href="https://t.me/{_html.escape(get_bot_username())}" target="_blank" rel="noopener noreferrer">Open Telegram Bot</a>'
+        f'</div></div></main>{render_editorial_footer()}</body></html>'
+    )
 
 
 async def handle_oauth_callback(request):
@@ -956,28 +1070,34 @@ async def handle_oauth_callback(request):
     if error:
         safe_error = _html.escape(str(error)[:200])
         return web.Response(
-            text=f"<html><body style='font-family:sans-serif;text-align:center;padding:50px;'>"
-                 f"<h1>❌ Ruxsat berilmadi</h1><p>{safe_error}</p>"
-                 f"<p>Telegram botga qaytib, qayta urinib ko'ring.</p></body></html>",
-            content_type="text/html"
+            text=_render_oauth_status_html(
+                "Authorization declined",
+                f"{safe_error}. Return to the Telegram bot and run /ytlogin to retry.",
+                "OAUTH CANCELLED",
+            ),
+            content_type="text/html",
         )
 
     if not code:
         return web.Response(
-            text="<html><body style='font-family:sans-serif;text-align:center;padding:50px;'>"
-                 "<h1>❌ Xatolik</h1><p>Kod topilmadi.</p></body></html>",
-            content_type="text/html"
+            text=_render_oauth_status_html(
+                "Missing authorization code",
+                "No OAuth authorization code was provided in the callback URL.",
+                "OAUTH ERROR",
+            ),
+            content_type="text/html",
         )
 
     try:
-        result = exchange_code_with_redirect(code, state)
+        result = await asyncio.to_thread(exchange_code_with_redirect, code, state)
 
         tg_user_id = result["tg_user_id"]
         channel_title = result["channel_title"]
         channel_id = result["channel_id"]
 
         if tg_user_id:
-            saved = save_yt_connection(
+            saved = await asyncio.to_thread(
+                save_yt_connection,
                 tg_user_id=tg_user_id,
                 yt_channel_id=channel_id,
                 yt_channel_title=channel_title,
@@ -986,11 +1106,10 @@ async def handle_oauth_callback(request):
                 refresh_token=result["refresh_token"],
                 token_expiry=result["token_expiry"],
                 channel_thumbnail_url=result.get("channel_thumbnail", ""),
-                subscriber_count=result.get("subscriber_count", 0)
+                subscriber_count=result.get("subscriber_count", 0),
             )
 
             if saved:
-                # Telegram orqali xabar yuborish
                 if ytbot_instance:
                     try:
                         await ytbot_instance.send_message(
@@ -998,7 +1117,7 @@ async def handle_oauth_callback(request):
                             f"✅ YouTube kanalingiz muvaffaqiyatli ulandi!\n\n"
                             f"📺 Kanal: **{channel_title}**\n"
                             f"🆔 ID: `{channel_id}`\n\n"
-                            f"Endi `/autopost` orqali video yuklashingiz mumkin!"
+                            f"Endi `/autopost` orqali video yuklashingiz mumkin!",
                         )
                     except Exception as e:
                         print(f"Telegram xabar yuborish xatosi: {e}")
@@ -1007,37 +1126,39 @@ async def handle_oauth_callback(request):
                     try:
                         await ytbot_instance.send_message(
                             tg_user_id,
-                            f"❌ Xatolik: Kanalingiz ma'lumotlar bazasiga saqlanmadi. Iltimos qaytadan `/ytlogin` qilib ko'ring."
+                            "❌ Xatolik: Kanalingiz ma'lumotlar bazasiga saqlanmadi. Iltimos qaytadan `/ytlogin` qilib ko'ring.",
                         )
-                    except Exception as e:
+                    except Exception:
                         pass
                 return web.Response(
-                    text="<html><body style='font-family:sans-serif;text-align:center;padding:50px;background:#1a1a2e;color:#fff;'>"
-                         "<h1 style='color:#e74c3c;'>❌ Saqlashda xatolik</h1>"
-                         "<p>Ma'lumotlar bazasiga saqlanmadi. Qaytadan /ytlogin qiling.</p></body></html>",
-                    content_type="text/html"
+                    text=_render_oauth_status_html(
+                        "Connection save failed",
+                        "Could not persist channel credentials. Return to Telegram and run /ytlogin again.",
+                        "STORAGE ERROR",
+                    ),
+                    content_type="text/html",
                 )
 
         safe_title = _html.escape(str(channel_title or ""))
-        html = (
-            f"<html><body style='font-family:sans-serif;text-align:center;padding:50px;"
-            f"background:#1a1a2e;color:#fff;'>"
-            f"<h1 style='color:#4ecca3;'>✅ Muvaffaqiyatli ulandi!</h1>"
-            f"<p style='font-size:20px;'>Kanal: <strong>{safe_title}</strong></p>"
-            f"<p>Endi Telegram botga qaytib, <code>/autopost</code> buyrug'ini ishlating.</p>"
-            f"<p style='margin-top:30px;'>Bu oynani yopishingiz mumkin.</p>"
-            f"</body></html>"
+        return web.Response(
+            text=_render_oauth_status_html(
+                "YouTube channel connected",
+                f"Channel: <strong>{safe_title}</strong>. Return to Telegram and use <code>/autopost</code> or open Studio.",
+                "CONNECTED",
+            ),
+            content_type="text/html",
         )
-        return web.Response(text=html, content_type="text/html")
 
     except Exception as e:
         print(f"OAuth callback xatosi: {e}")
         return web.Response(
-            text="<html><body style='font-family:sans-serif;text-align:center;padding:50px;'>"
-                 "<h1>❌ Xatolik yuz berdi</h1><p>Avtorizatsiya jarayonida xatolik yuz berdi.</p>"
-                 "<p>Telegram botga qaytib, /ytlogin ni qayta bosing.</p></body></html>",
+            text=_render_oauth_status_html(
+                "Authorization failed",
+                "Could not complete Google OAuth exchange. Return to Telegram and run /ytlogin.",
+                "OAUTH ERROR",
+            ),
             content_type="text/html",
-            status=400
+            status=400,
         )
 
 
@@ -3028,20 +3149,31 @@ async def handle_api_telegram_file(request):
         return web.Response(status=404, text="Photo not found")
 
 async def handle_favicon(request):
-    """Serve official website favicon (.ico or .svg) with long-term cache headers"""
+    """Serve MonoDeck SVG brand favicon or .ico with long-term cache headers"""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     is_svg = request.path.endswith(".svg")
-    fp = os.path.join(base_dir, "favicon.svg" if is_svg else "favicon.ico")
+    if is_svg:
+        from ui_theme import FAVICON_SVG
+        return web.Response(
+            text=FAVICON_SVG,
+            content_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+            },
+        )
+    fp = os.path.join(base_dir, "favicon.ico")
     if not os.path.exists(fp):
-        fp = os.path.join(base_dir, "nft_assets", "favicon.svg" if is_svg else "favicon.ico")
+        fp = os.path.join(base_dir, "nft_assets", "favicon.ico")
     if os.path.exists(fp):
         with open(fp, "rb") as f:
             content = f.read()
-        return web.Response(body=content, content_type="image/svg+xml" if is_svg else "image/x-icon", headers={
+        return web.Response(body=content, content_type="image/x-icon", headers={
             "Cache-Control": "public, max-age=604800, immutable",
             "Access-Control-Allow-Origin": "*"
         })
-    return web.Response(status=404, text="Favicon not found")
+    from ui_theme import FAVICON_SVG
+    return web.Response(text=FAVICON_SVG, content_type="image/svg+xml")
 
 async def handle_api_user_avatar(request):
     """Foydalanuvchining rasmiy Telegram avatarini keshlangan holda yuklovchi endpoint (Strict Validation + Anti-Abuse)"""
@@ -4565,9 +4697,11 @@ async def security_and_rate_limit_middleware(request, handler):
 
     # 4. Global Anti-DoS Rate Limiting (Faqat statik media va ommaviy kataloglar ozod qilingan)
     EXEMPT_PREFIXES = (
+        "/assets",
         "/static",
         "/favicon.ico",
         "/favicon.svg",
+        "/api/public-config",
         "/api/nft",
         "/api/telegram-file",
         "/api/admin/telemetry/stream",
@@ -4616,6 +4750,19 @@ async def security_and_rate_limit_middleware(request, handler):
 
     if any(path.startswith(pfx) for pfx in _SENSITIVE_NO_STORE_PREFIXES) and "Cache-Control" not in response.headers:
         response.headers["Cache-Control"] = "no-store, private"
+
+    if (
+        "gzip" in request.headers.get("Accept-Encoding", "").lower()
+        and isinstance(response, web.Response)
+        and not isinstance(response, web.FileResponse)
+        and not getattr(response, "prepared", False)
+        and "Content-Encoding" not in response.headers
+        and path not in ("/api/admin/telemetry/stream", "/api/download-file", "/api/download_file")
+        and (getattr(response, "content_type", "") or "").startswith(
+            ("text/", "application/json", "application/javascript", "image/svg+xml")
+        )
+    ):
+        response.enable_compression()
 
     # 6. Attach OWASP Security Headers
     return _add_security_headers(response, request)
@@ -4892,9 +5039,9 @@ async def handle_api_auth_request_otp(request):
         if not token:
             return web.json_response({"ok": False, "error": "BOT_TOKEN sozlanmagan!"}, status=500)
 
-        web_base_url = os.getenv("WEB_URL", "https://botclient-d1jn.onrender.com").rstrip("/")
+        web_base_url = APP_BASE_URL.rstrip("/")
         one_click_url = f"{web_base_url}/?tg_user_id={tg_user_id}&otp={otp_code}"
-        bot_username = os.getenv("BOT_USERNAME", "AutoReplyBot").replace("@", "")
+        bot_username = get_bot_username()
 
         # Telegram Custom Emojilar (Rasmiy tekshirilgan tg-emoji ID lari)
         lock_ce = '<tg-emoji emoji-id="5330194932781050507">🛡️</tg-emoji>'
@@ -4903,7 +5050,7 @@ async def handle_api_auth_request_otp(request):
         shield_ce = '<tg-emoji emoji-id="5330194932781050507">🛡️</tg-emoji>'
 
         msg_text = (
-            f"{lock_ce} <b>CreatorFlow Web Dashboard</b>\n\n"
+            f"{lock_ce} <b>{BRAND_NAME} Web Dashboard</b>\n\n"
             f"Sizning bir martalik kirish kodingiz:\n"
             f"{key_ce} <code>{otp_code}</code> {key_ce}\n\n"
             f"{time_ce} Ushbu kod <b>5 daqiqa</b> davomida amal qiladi.\n"
@@ -5307,6 +5454,7 @@ async def start_web_server(port):
     """aiohttp web serverni ishga tushirish (Rate Limiting, Max Payload & Security Headers bilan)"""
     app = web.Application(client_max_size=2097152, middlewares=[security_and_rate_limit_middleware])
     app.router.add_get("/", handle_health)
+    app.router.add_get("/api/public-config", handle_api_public_config)
     # Public Multilingual Legal & Compliance Pages (Google OAuth Branding Verification)
     app.router.add_get("/privacy", handle_privacy_page)
     app.router.add_get("/privacy-policy", handle_privacy_page)
@@ -5318,12 +5466,26 @@ async def start_web_server(port):
     app.router.add_get("/ads.txt", handle_ads_txt)
     # Google Search Console Domain Verification File Handler
     app.router.add_get(r"/{filename:google[a-zA-Z0-9_\-]+\.html}", handle_google_verification)
-    # Client-side SPA routes for /goal, /boost, /teamwork-preview
-    app.router.add_get("/goal", handle_health)
-    app.router.add_get("/boost", handle_health)
-    app.router.add_get("/teamwork-preview", handle_health)
-    app.router.add_get("/teamwork_preview", handle_health)
-    app.router.add_get("/teamwork", handle_health)
+    # Client-side SPA routes (dedicated URLs + legacy aliases)
+    for _spa_path in (
+        "/login",
+        "/signin",
+        "/studio",
+        "/analytics",
+        "/downloader",
+        "/videos",
+        "/cases",
+        "/nfts",
+        "/goal",
+        "/boost",
+        "/teamwork-preview",
+        "/teamwork_preview",
+        "/teamwork",
+    ):
+        app.router.add_get(_spa_path, handle_health)
+    _dist_assets = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "dist", "assets")
+    if os.path.isdir(_dist_assets):
+        app.router.add_static("/assets", _dist_assets, append_version=False)
     # Secure Web Dashboard Authentication (OTP + WebApp HMAC)
     app.router.add_post("/api/auth/request-otp", handle_api_auth_request_otp)
     app.router.add_post("/api/auth/request_otp", handle_api_auth_request_otp)
@@ -5416,6 +5578,7 @@ async def start_web_server(port):
     # Yangi: TON Connect Mini App & Manifest
     app.router.add_get("/tonconnect-manifest.json", handle_tc_manifest)
     app.router.add_get("/tonconnect/page", handle_tonconnect_page)
+    app.router.add_get("/ton", handle_tonconnect_page)
     app.router.add_post("/api/tonconnect/save", handle_api_tonconnect_save)
     app.router.add_post("/api/tonconnect/disconnect", handle_api_tonconnect_disconnect)
     
@@ -5425,10 +5588,16 @@ async def start_web_server(port):
     app.router.add_get("/api/nft/video/{filename}", handle_nft_video)
     app.router.add_get("/api/nft/animation/{slug}", handle_api_nft_animation)
     
-    # Yangi: Reseller & Developer REST API (/api/v1/...)
+    # Yangi: Reseller & Developer REST API (/api/v1/...) + Clean Aliases (/docs, /captcha)
     try:
-        from reseller_api import setup_reseller_api_routes
+        from reseller_api import (
+            handle_api_docs_html,
+            handle_captcha_demo_page,
+            setup_reseller_api_routes,
+        )
         setup_reseller_api_routes(app)
+        app.router.add_get("/docs", handle_api_docs_html)
+        app.router.add_get("/captcha", handle_captcha_demo_page)
     except Exception as e:
         print(f"reseller_api ulanish xatosi: {e}")
     
@@ -5632,27 +5801,31 @@ async def main():
 
     # ------------------------------------------------------------------ #
     #  ROLE = main  (default)                                             #
-    #  TG bot + web server + autopilot worker                             #
+    #  Web server binds first (<50ms), then DB init & Telegram bots       #
     # ------------------------------------------------------------------ #
-    # 0. Database jadvallarini tekshirish va yaratish
-    try:
-        from database import init_db
-        init_db()
-    except Exception as db_init_err:
-        print(f"init_db xatosi: {db_init_err}")
+    await start_web_server(port)
+
+    def _safe_init_db():
+        try:
+            from database import init_db
+            init_db()
+        except Exception as db_init_err:
+            print(f"init_db xatosi: {db_init_err}")
+
+    await asyncio.to_thread(_safe_init_db)
 
     tasks = []
 
-    # 1. Auto-Reply Userbot
+    # 1. MonoDeck Userbot
     if SESSION_STRING:
         from userbot import run_userbot
         tasks.append(run_userbot())
-        print("🤖 Auto-Reply Userbot qo'shildi")
+        print(f"🤖 {BRAND_NAME} Userbot qo'shildi")
     else:
         print("⚠️  SESSION_STRING topilmadi — Userbot o'chirilgan")
     
     BOT_TOKEN = os.getenv("BOT_TOKEN") or BOT_TOKEN
-    # 2. CreatorFlow Studio Bot
+    # 2. MonoDeck Bot
     if BOT_TOKEN:
         from ytbot import create_ytbot
         bot = create_ytbot()
@@ -5798,7 +5971,7 @@ async def main():
                 try:
                     from store_channel_service import run_channel_autopilot
                     asyncio.create_task(run_channel_autopilot(bot))
-                    print("📢 @CreatorFlow_Store kanal avtopiloti (restock, xaridlar, aksiyalar) ishga tushirildi.")
+                    print(f"📢 @{get_bot_username()} Store kanal avtopiloti ishga tushirildi.")
                 except Exception as cp_err:
                     print(f"Kanal avtopilot xatosi: {cp_err}")
 
@@ -5810,8 +5983,8 @@ async def main():
                     print(f"Instagram Sync Daemon startup xatosi: {ig_err}")
                 try:
                     from telegram_marketplace_service import run_marketplace_background_refresher
-                    asyncio.create_task(run_marketplace_background_refresher(interval_seconds=60))
-                    print("🚀 Telegram Marketplace 60s Live Stock Refresher ishga tushirildi.")
+                    asyncio.create_task(run_marketplace_background_refresher(interval_seconds=300))
+                    print("🚀 Telegram Marketplace 300s Background Stock Refresher ishga tushirildi.")
                 except Exception as mp_err:
                     print(f"Marketplace Refresher startup error: {mp_err}")
 
@@ -5819,19 +5992,25 @@ async def main():
 
             async def run_bot():
                 await bot.start()
-                print("✨ CreatorFlow Studio Bot muvaffaqiyatli ishga tushdi!")
+                try:
+                    me = await bot.get_me()
+                    if getattr(me, "username", None):
+                        set_runtime_bot_username(me.username)
+                except Exception:
+                    pass
+                print(f"✨ {BRAND_NAME} Bot (@{get_bot_username()}) muvaffaqiyatli ishga tushdi!")
                 asyncio.create_task(_post_startup_background())
                 await asyncio.Event().wait()
             tasks.append(run_bot())
-            print("🎬 CreatorFlow Studio Bot qo'shildi")
+            print(f"🎬 {BRAND_NAME} Bot qo'shildi")
     else:
         print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
 
     if not tasks:
-        print("\n❌ Hech qanday bot ishga tushirilmadi! .env faylni tekshiring.")
-        sys.exit(1)
+        print(f"⚠️  Bot tokenlari topilmadi — {BRAND_NAME} web-only rejimda ishlamoqda.")
+        await asyncio.Event().wait()
+        return
 
-    await start_web_server(port)
     tasks.append(run_autopilot_worker())
     await asyncio.gather(*tasks)
 

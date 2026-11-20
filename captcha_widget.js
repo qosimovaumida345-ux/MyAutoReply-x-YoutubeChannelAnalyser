@@ -1,6 +1,6 @@
 /**
- * BotShield Captcha as a Service - Client Widget SDK
- * (c) 2026 AutoReply AI & BotShield Protection Services
+ * MonoDeck Shield Captcha - Client Widget SDK
+ * (c) 2026 MonoDeck Protection Services
  * 
  * Embed instructions:
  * <div id="botshield-captcha" data-sitekey="YOUR_SITE_KEY" data-theme="light"></div>
@@ -166,7 +166,7 @@
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.03);
             }
             .bsh-trigger-box:focus-visible, .bsh-btn-icon:focus-visible, .bsh-btn-submit:focus-visible, .bsh-seq-reset-btn:focus-visible {
-                outline: 2px solid #7342E2;
+                outline: 2px solid #FF5A1F;
                 outline-offset: 2px;
             }
             .bsh-btn-icon {
@@ -258,7 +258,7 @@
                 flex-shrink: 0;
             }
             .bsh-trigger-box:hover .bsh-checkbox {
-                border-color: #7342E2;
+                border-color: #0A0A0A;
             }
             .bsh-trigger-label {
                 font-size: 14px;
@@ -277,7 +277,7 @@
                 display: flex;
                 align-items: center;
                 gap: 4px;
-                color: #7342E2;
+                color: #0A0A0A;
             }
             .bsh-brand-title {
                 font-size: 11px;
@@ -315,7 +315,7 @@
                 width: 20px;
                 height: 20px;
                 border: 2px solid #E5E7EB;
-                border-top-color: #7342E2;
+                border-top-color: #FF5A1F;
                 border-radius: 50%;
                 animation: bsh-spin 0.75s linear infinite;
             }
@@ -367,10 +367,10 @@
                 to { transform: scale(1); opacity: 1; }
             }
 
-            /* Modal Header with User Website Theme Accent (#7342E2) */
+            /* Modal Header with User Website Theme Accent (#FF5A1F) */
             .bsh-card-header {
                 padding: 14px 16px;
-                background: linear-gradient(135deg, #7342E2, #5B21B6);
+                background: #0A0A0A;
                 color: #FFFFFF;
                 display: flex;
                 align-items: center;
@@ -524,7 +524,7 @@
                 left: 0;
                 top: 0;
                 bottom: 0;
-                background: linear-gradient(90deg, rgba(115, 66, 226, 0.2), rgba(115, 66, 226, 0.4));
+                background: linear-gradient(90deg, rgba(255, 90, 31, 0.14), rgba(255, 90, 31, 0.28));
                 border-radius: 22px;
                 pointer-events: none;
                 width: 0px;
@@ -533,20 +533,20 @@
                 width: 38px;
                 height: 38px;
                 border-radius: 19px;
-                background: linear-gradient(135deg, #7342E2, #5B21B6);
+                background: #0A0A0A;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 color: #FFFFFF;
                 cursor: grab;
-                box-shadow: 0 2px 8px rgba(115, 66, 226, 0.35);
+                box-shadow: 0 2px 8px rgba(10, 10, 10, 0.22);
                 transition: transform 0.1s ease;
                 position: absolute;
                 left: 3px;
                 z-index: 15;
             }
             .bsh-slider-thumb:hover {
-                box-shadow: 0 4px 12px rgba(115, 66, 226, 0.5);
+                box-shadow: 0 4px 12px rgba(255, 90, 31, 0.35);
             }
             .bsh-slider-thumb:active {
                 cursor: grabbing;
@@ -589,12 +589,12 @@
                 pointer-events: none;
             }
             .bsh-grid-tile:hover {
-                border-color: #7342E2;
+                border-color: #FF5A1F;
                 transform: scale(1.02);
             }
             .bsh-grid-tile.bsh-selected {
-                border-color: #7342E2;
-                box-shadow: 0 0 10px rgba(115, 66, 226, 0.35);
+                border-color: #FF5A1F;
+                box-shadow: 0 0 10px rgba(255, 90, 31, 0.28);
                 transform: scale(0.96);
             }
             .bsh-tile-check {
@@ -604,7 +604,7 @@
                 width: 22px;
                 height: 22px;
                 border-radius: 50%;
-                background: #7342E2;
+                background: #FF5A1F;
                 color: #FFFFFF;
                 display: none;
                 align-items: center;
@@ -669,17 +669,17 @@
                 width: 24px;
                 height: 24px;
                 border-radius: 50%;
-                background: linear-gradient(135deg, #7342E2, #5B21B6);
+                background: #0A0A0A;
                 cursor: pointer;
-                box-shadow: 0 2px 6px rgba(115, 66, 226, 0.4);
+                box-shadow: 0 2px 6px rgba(10, 10, 10, 0.25);
             }
             .bsh-dial-badge {
                 font-family: -apple-system, monospace;
                 font-size: 12px;
                 font-weight: 700;
-                color: #7342E2;
-                background: #F3E8FF;
-                border: 1px solid #E9D5FF;
+                color: #FF5A1F;
+                background: #FFF2EC;
+                border: 1px solid #FFD6C7;
                 padding: 2px 8px;
                 border-radius: 6px;
                 min-width: 44px;
@@ -743,7 +743,7 @@
                 width: 15px;
                 height: 15px;
                 border-radius: 50%;
-                background: #7342E2;
+                background: #FF5A1F;
                 color: #FFFFFF;
                 display: inline-flex;
                 align-items: center;
@@ -804,7 +804,7 @@
                 width: 28px;
                 height: 28px;
                 border-radius: 50%;
-                background: #7342E2;
+                background: #FF5A1F;
                 color: #FFFFFF;
                 font-weight: 700;
                 font-size: 14px;
@@ -812,7 +812,7 @@
                 align-items: center;
                 justify-content: center;
                 transform: translate(-50%, -50%) scale(0);
-                box-shadow: 0 2px 8px rgba(115, 66, 226, 0.5);
+                box-shadow: 0 2px 8px rgba(10, 10, 10, 0.28);
                 animation: bsh-badge-pop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 pointer-events: none;
                 border: 2px solid #FFFFFF;
@@ -843,7 +843,7 @@
                 padding: 0 20px;
                 border-radius: 8px;
                 border: none;
-                background: linear-gradient(135deg, #7342E2, #5B21B6);
+                background: #0A0A0A;
                 color: #FFFFFF;
                 font-weight: 600;
                 font-size: 13px;
@@ -852,11 +852,12 @@
                 gap: 6px;
                 cursor: pointer;
                 transition: all 0.15s ease;
-                box-shadow: 0 2px 6px rgba(115, 66, 226, 0.3);
+                box-shadow: 0 2px 6px rgba(10, 10, 10, 0.2);
             }
             .bsh-btn-submit:hover {
                 transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(115, 66, 226, 0.45);
+                background: #FF5A1F;
+                box-shadow: 0 4px 12px rgba(255, 90, 31, 0.32);
             }
             .bsh-btn-submit:active {
                 transform: translateY(1px);

@@ -131,7 +131,14 @@ def _get_pool():
             return None
         url = clean_database_url(DATABASE_URL)
         try:
-            _DB_POOL = ThreadedConnectionPool(minconn=2, maxconn=20, dsn=url, cursor_factory=RealDictCursor)
+            _DB_POOL = ThreadedConnectionPool(
+                minconn=1,
+                maxconn=12,
+                dsn=url,
+                cursor_factory=RealDictCursor,
+                connect_timeout=5,
+                options="-c statement_timeout=8000",
+            )
         except Exception as e:
             print(f"DATABASE POOL INIT ERROR: {e}")
             _DB_POOL = None
@@ -165,7 +172,12 @@ def get_db(retries: int = 3):
     url = clean_database_url(DATABASE_URL)
     for attempt in range(1, retries + 1):
         try:
-            conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
+            conn = psycopg2.connect(
+                url,
+                cursor_factory=RealDictCursor,
+                connect_timeout=5,
+                options="-c statement_timeout=8000",
+            )
             conn.autocommit = False
             return conn
         except Exception as e:

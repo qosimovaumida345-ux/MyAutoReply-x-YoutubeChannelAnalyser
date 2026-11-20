@@ -64,32 +64,28 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-color: #080c14;
-            --card-bg: rgba(15, 23, 42, 0.88);
-            --accent-cyan: #00f2fe;
-            --accent-crimson: #ff0055;
-            --accent-purple: #7928ca;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --danger-color: #ef4444;
-            --warning-color: #f59e0b;
-            --success-color: #10b981;
+            --bg-color: #000000;
+            --card-bg: #0E0E10;
+            --accent-cyan: #FF5A1F;
+            --accent-crimson: #FF5A1F;
+            --accent-purple: #FFFFFF;
+            --text-main: #FFFFFF;
+            --text-muted: #A1A1AA;
+            --danger-color: #EF4444;
+            --warning-color: #F59E0B;
+            --success-color: #22C55E;
         }}
 
         * {{
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, sans-serif;
             -webkit-tap-highlight-color: transparent;
         }}
 
         body {{
             background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(255, 0, 85, 0.12) 0%, transparent 45%),
-                radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.10) 0%, transparent 45%),
-                linear-gradient(180deg, rgba(8, 12, 20, 0.98) 0%, #050811 100%);
             color: var(--text-main);
             min-height: 100vh;
             display: flex;
@@ -114,11 +110,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
         .header h1 {{
             font-size: 22px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #00f2fe 0%, #ff0055 60%, #a855f7 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
+            font-weight: 700;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
             margin-bottom: 4px;
         }}
 
@@ -130,23 +124,22 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
 
         .card {{
             background: var(--card-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 20px;
+            border-radius: 16px;
             padding: 20px;
             box-shadow: 0 12px 35px rgba(0, 0, 0, 0.65);
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.10);
         }}
 
         .step-badge {{
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(255, 0, 85, 0.12);
-            color: #ff3366;
-            border-radius: 12px;
+            background: rgba(255, 90, 31, 0.14);
+            color: #FF5A1F;
+            border: 1px solid rgba(255, 90, 31, 0.35);
+            border-radius: 10px;
             padding: 4px 10px;
             font-size: 11px;
             font-weight: 700;
@@ -197,8 +190,8 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         }}
 
         .input-box:focus {{
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
+            border-color: #FF5A1F;
+            box-shadow: 0 0 0 2px rgba(255, 90, 31, 0.22);
         }}
 
         /* 3D Face Scanner Frame — Zero Lines */
@@ -206,8 +199,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             position: relative;
             width: 100%;
             aspect-ratio: 4/5;
-            background: #020617;
-            border-radius: 20px;
+            background: #0A0A0A;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 16px;
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75);
             display: flex;
@@ -241,8 +235,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             bottom: 12px;
             left: 12px;
             right: 12px;
-            background: rgba(8, 12, 20, 0.94);
-            border-radius: 14px;
+            background: rgba(14, 14, 16, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 12px;
             padding: 12px 14px;
             text-align: center;
             backdrop-filter: blur(16px);
@@ -257,14 +252,14 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.8px;
-            color: #38bdf8;
+            color: #FF5A1F;
             margin-bottom: 4px;
         }}
 
         .guidance-text {{
             font-size: 13px;
             font-weight: 700;
-            color: #f8fafc;
+            color: #FFFFFF;
             margin-bottom: 6px;
             transition: color 0.3s;
             line-height: 1.35;
@@ -279,7 +274,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         }}
 
         .guidance-text.live-active {{
-            color: #00f2fe;
+            color: #FFFFFF;
         }}
 
         .guidance-text.success {{
@@ -298,7 +293,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         .progress-bar-fill {{
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, #ff0055, #ff2a5f, #00f2fe, #10b981);
+            background: #FF5A1F;
             transition: width 0.15s ease, background 0.3s ease;
         }}
 
@@ -307,10 +302,10 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             width: 100%;
             padding: 14px;
             border: none;
-            border-radius: 14px;
+            border-radius: 12px;
             font-size: 15px;
             font-weight: 700;
-            color: #fff;
+            color: #FFFFFF;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -321,13 +316,17 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         }}
 
         .btn-primary {{
-            background: linear-gradient(135deg, #ff0055 0%, #ff3366 50%, #7928ca 100%);
-            box-shadow: 0 4px 20px rgba(255, 0, 85, 0.35);
+            background: #FFFFFF;
+            color: #000000;
+        }}
+        .btn-primary:hover {{
+            background: #FF5A1F;
+            color: #FFFFFF;
         }}
 
         .btn-success {{
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+            background: #22C55E;
+            color: #000000;
         }}
 
         .btn-secondary {{
@@ -346,7 +345,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
         }}
 
         .btn:focus-visible, .input-box:focus-visible {{
-            outline: 2px solid var(--accent-cyan);
+            outline: 2px solid #FF5A1F;
             outline-offset: 2px;
         }}
 
@@ -380,8 +379,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             height: 84px;
             margin: 0 auto 16px auto;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(0, 242, 254, 0.1) 70%);
-            box-shadow: 0 0 35px rgba(16, 185, 129, 0.35);
+            background: rgba(34, 197, 94, 0.14);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            box-shadow: 0 0 28px rgba(34, 197, 94, 0.28);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -444,7 +444,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
     <div class="container">
         <div class="header">
             <h1 style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ff0055" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF5A1F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                 3D Biometrik Identifikatsiya
             </h1>
             <p>Anti-Spoofing & jonli inson tekshiruvi. Faqat haqiqiy jonli 3D yuz tasdiqlanadi.</p>
@@ -889,7 +889,7 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
                 livenessProgress = 0;
                 if (progress) {{
                     progress.style.width = "0%";
-                    progress.style.background = "linear-gradient(90deg, #ff0055, #ff2a5f)";
+                    progress.style.background = "#FF5A1F";
                 }}
                 if (guidanceStep) guidanceStep.innerText = "1-BOSQICH: YUZNI QIDIRISH";
                 if (guidance) {{
@@ -1056,9 +1056,9 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             if (progress) {{
                 progress.style.width = livenessProgress + "%";
                 if (currentStage === STAGE_VERIFIED) {{
-                    progress.style.background = "linear-gradient(90deg, #10b981, #00f2fe)";
+                    progress.style.background = "#22C55E";
                 }} else {{
-                    progress.style.background = "linear-gradient(90deg, #ff0055, #ff2a5f, #00f2fe, #10b981)";
+                    progress.style.background = "#FF5A1F";
                 }}
             }}
 
@@ -1072,11 +1072,11 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             const toY = (p) => p.y * height;
 
             ctx.save();
-            ctx.shadowColor = isDone ? "#10b981" : "#ff0055";
+            ctx.shadowColor = isDone ? "#22C55E" : "#FF5A1F";
 
             const dotPalette = isDone
-                ? ["#10b981", "#34d399", "#6ee7b7"]
-                : ["#ff0055", "#ff3366", "#ff2a5f"];
+                ? ["#22C55E", "#4ADE80", "#86EFAC"]
+                : ["#FF5A1F", "#FFFFFF", "#FB923C"];
 
             for (let i = 0; i < landmarks.length; i++) {{
                 const pt = landmarks[i];
@@ -1100,8 +1100,8 @@ def get_kyc_html(user_id=0, is_verified=False, kyc_data=None, phone=""):
             // Sci-Fi Monospace HUD Telemetry (Away from face, NO lines!)
             ctx.save();
             ctx.font = "700 9.5px 'JetBrains Mono', Consolas, monospace";
-            ctx.fillStyle = isDone ? "#34d399" : "#ff3366";
-            ctx.shadowColor = isDone ? "#10b981" : "#ff0055";
+            ctx.fillStyle = isDone ? "#22C55E" : "#FF5A1F";
+            ctx.shadowColor = isDone ? "#22C55E" : "#FF5A1F";
             ctx.shadowBlur = 4;
             ctx.fillText("IR VCSEL: 940nm STRUCTURED LIGHT", 14, 22);
             ctx.fillText(isDone ? "STATUS: 3D VERIFIED [PASS]" : "3D DEPTH MAP: ACTIVE", 14, 36);
