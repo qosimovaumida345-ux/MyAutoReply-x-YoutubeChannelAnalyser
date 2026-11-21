@@ -623,3 +623,75 @@ def test_upgrader_cursor_wheel_and_navbar_avatar_source():
     assert "<polygon points=\"16,32 10.5,11 21.5,11\" fill=\"#FF5A1F\" />" in cases_src
     assert "user?.photo_url" in nav_src
     assert "onError={() => setAvatarFailed(true)}" in nav_src
+
+
+@pytest.mark.asyncio
+async def test_secondary_bot_token_webapp_hmac_and_factory():
+    import hashlib
+    import hmac
+    import json
+    import time
+    from urllib.parse import urlencode
+    from aiohttp.test_utils import make_mocked_request
+    import config as _cfg
+    import ytbot
+
+    primary_tok = "111111:PRIMARY_TEST_TOKEN_000001"
+    secondary_tok = "222222:SECONDARY_TEST_TOKEN_000002"
+
+    user_json = json.dumps({"id": 777666, "first_name": "Kai", "username": "kai_test"}, separators=(",", ":"))
+    params = {
+        "auth_date": str(int(time.time())),
+        "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",
+        "user": user_json,
+    }
+    data_check = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
+    sec_key = hmac.new(b"WebAppData", secondary_tok.encode("utf-8"), hashlib.sha256).digest()
+    params["hash"] = hmac.new(sec_key, data_check.encode("utf-8"), hashlib.sha256).hexdigest()
+    init_data = urlencode(params)
+
+    with patch.object(_cfg, "BOT_TOKEN", primary_tok), \
+         patch.object(_cfg, "SECONDARY_BOT_TOKEN", secondary_tok), \
+         patch.object(_cfg, "SECONDARY_BOT_TOKENS", [secondary_tok]), \
+         patch.object(main, "BOT_TOKEN", primary_tok), \
+         patch.dict(os.environ, {"SECONDARY_BOT_TOKEN": secondary_tok, "SECONDARY_BOT_TOKENS": ""}, clear=False), \
+         patch("database.save_web_session", return_value=True), \
+         patch("database.is_bot_admin", return_value=False), \
+         patch("database.is_user_vip", return_value=False):
+        tokens = _cfg.get_all_bot_tokens()
+        assert primary_tok in tokens
+        assert secondary_tok in tokens
+
+        req = make_mocked_request("POST", "/api/auth/verify-webapp", headers={"X-Forwarded-Proto": "https"})
+        async def _json():
+            return {"initData": init_data}
+        req.json = _json
+        resp = await main.handle_api_auth_verify_webapp(req)
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert body["ok"] is True
+        assert body["tg_user_id"] == 777666
+        main._AUTH_TOKENS.pop(body["token"], None)
+
+        req_hdr = make_mocked_request("GET", "/api/stars/user-inventory?user_id=777666", headers={"X-Telegram-Init-Data": init_data})
+        assert main.get_authenticated_user_id(req_hdr) == 777666
+
+        # Tampered secondary initData must still fail 403
+        req_bad = make_mocked_request("POST", "/api/auth/verify-webapp")
+        async def _bad_json():
+            return {"initData": init_data.replace("Kai", "Evil")}
+        req_bad.json = _bad_json
+        resp_bad = await main.handle_api_auth_verify_webapp(req_bad)
+        assert resp_bad.status == 403
+
+    from unittest.mock import MagicMock
+    mock_sec_client = MagicMock()
+    with patch.object(ytbot, "Client", return_value=mock_sec_client) as mock_cli:
+        bot_obj = ytbot.create_ytbot(bot_token=secondary_tok, session_name="yt_analytics_bot_secondary_1")
+        assert bot_obj is mock_sec_client
+        mock_cli.assert_called_once_with(
+            "yt_analytics_bot_secondary_1",
+            api_id=ytbot.API_ID,
+            api_hash=ytbot.API_HASH,
+            bot_token=secondary_tok,
+        )

@@ -37,6 +37,7 @@ from database import save_yt_connection
 # ==================== BOT REFERENCES ====================
 # ytbot instance ni saqlash (callback dan xabar yuborish uchun)
 ytbot_instance = None
+secondary_bot_instances = []
 
 
 
@@ -4655,6 +4656,54 @@ async def handle_api_reseller_admin_wallet(request):
 _IP_RATE_LIMITS = {}      # { ip: [timestamp, ...] }
 _SENSITIVE_IP_LIMITS = {} # { ip: [timestamp, ...] }
 
+def _get_configured_bot_tokens() -> list[str]:
+    """Return deduplicated primary and secondary Telegram bot tokens."""
+    import config as _cfg
+    raw = [
+        BOT_TOKEN or "",
+        getattr(_cfg, "BOT_TOKEN", "") or "",
+        os.getenv("BOT_TOKEN", "") or "",
+        getattr(_cfg, "SECONDARY_BOT_TOKEN", "") or "",
+        os.getenv("SECONDARY_BOT_TOKEN", "") or "",
+    ]
+    for t in (getattr(_cfg, "SECONDARY_BOT_TOKENS", None) or []):
+        raw.append(str(t))
+    for part in os.getenv("SECONDARY_BOT_TOKENS", "").split(","):
+        if part.strip():
+            raw.append(part.strip())
+    return list(dict.fromkeys(str(t).strip() for t in raw if str(t).strip()))
+
+
+def _verify_webapp_init_data_hmac(raw_init_data: str) -> tuple[bool, dict | None, str]:
+    """Validate Telegram WebApp initData against any configured bot token (primary or secondary)."""
+    from urllib.parse import parse_qsl
+    import hmac, hashlib, json
+    tokens = _get_configured_bot_tokens()
+    if not tokens:
+        return False, None, "token_missing"
+    parsed = dict(parse_qsl(raw_init_data, keep_blank_values=True))
+    if "hash" not in parsed:
+        return False, None, "hash_missing"
+    received_hash = str(parsed.pop("hash")).strip().lower()
+    auth_date = _safe_int(parsed.get("auth_date", 0), 0)
+    now = time.time()
+    if auth_date <= 0 or auth_date > now + 60 or (now - auth_date > 86400):
+        return False, None, "expired"
+    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
+    for btoken in tokens:
+        secret_key = hmac.new(b"WebAppData", btoken.encode("utf-8"), hashlib.sha256).digest()
+        calc_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(calc_hash.lower(), received_hash):
+            user_obj = None
+            if "user" in parsed:
+                try:
+                    user_obj = json.loads(parsed["user"])
+                except Exception:
+                    return False, None, "bad_user"
+            return True, user_obj, "ok"
+    return False, None, "bad_signature"
+
+
 def get_authenticated_user_id(request, data=None) -> int:
     """
     So'rov yuborgan haqiqiy foydalanuvchini aniqlash (Anti-IDOR).
@@ -4710,22 +4759,9 @@ def get_authenticated_user_id(request, data=None) -> int:
 
     if raw_init_data:
         try:
-            from urllib.parse import parse_qsl
-            import hmac, hashlib, json
-            btoken = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
-            if btoken:
-                parsed = dict(parse_qsl(raw_init_data, keep_blank_values=True))
-                if "hash" in parsed:
-                    received_hash = parsed.pop("hash")
-                    auth_date = int(parsed.get("auth_date", 0))
-                    now = time.time()
-                    if 0 < auth_date <= now + 60 and (now - auth_date <= 86400):
-                        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
-                        secret_key = hmac.new(b"WebAppData", btoken.encode("utf-8"), hashlib.sha256).digest()
-                        calc_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
-                        if hmac.compare_digest(calc_hash.lower(), received_hash.lower()):
-                            user_obj = json.loads(parsed.get("user", "{}"))
-                            return int(user_obj.get("id", 0))
+            ok_wa, user_obj, _ = _verify_webapp_init_data_hmac(raw_init_data)
+            if ok_wa and isinstance(user_obj, dict):
+                return int(user_obj.get("id", 0))
         except Exception:
             pass
 
@@ -5350,46 +5386,28 @@ async def handle_api_auth_verify_otp(request):
 
 
 async def handle_api_auth_verify_webapp(request):
-    """Telegram WebApp SDK initData HMAC-SHA256 tekshiruvi"""
+    """Telegram WebApp SDK initData HMAC-SHA256 tekshiruvi (asosiy va ikkilamchi botlarni qo'llab-quvvatlaydi)"""
     try:
-        import time, secrets, hmac, hashlib, json
-        from urllib.parse import parse_qsl
+        import time, secrets
         data = await request.json()
         init_data_raw = str(data.get("initData", "")).strip()
         if not init_data_raw:
             return web.json_response({"ok": False, "error": "initData talab qilinadi!"}, status=400)
 
-        from config import BOT_TOKEN, OWNER_ID
-        token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
-        if not token:
-            return web.json_response({"ok": False, "error": "BOT_TOKEN sozlanmagan!"}, status=500)
-
-        parsed = dict(parse_qsl(init_data_raw, keep_blank_values=True))
-        if "hash" not in parsed:
-            return web.json_response({"ok": False, "error": "initData hash topilmadi!"}, status=400)
-
-        received_hash = str(parsed.pop("hash")).strip()
-        auth_date = _safe_int(parsed.get("auth_date", 0), 0)
-        now = time.time()
-        # 24 soat (86400s) dan eski yoki kelajakdagi initData ni rad etish (Replay & Clock-Skew himoyasi)
-        if auth_date <= 0 or auth_date > now + 60 or (now - auth_date > 86400):
-            return web.json_response({"ok": False, "error": "Telegram WebApp sessiya muddati o'tgan! Iltimos, qaytadan oching."}, status=401)
-
-        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
-
-        secret_key = hmac.new(b"WebAppData", token.encode("utf-8"), hashlib.sha256).digest()
-        calculated_hash = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
-
-        if not hmac.compare_digest(calculated_hash.lower(), received_hash.lower()):
+        from config import OWNER_ID
+        ok_wa, user_obj, err_code = _verify_webapp_init_data_hmac(init_data_raw)
+        if not ok_wa:
+            if err_code == "token_missing":
+                return web.json_response({"ok": False, "error": "BOT_TOKEN sozlanmagan!"}, status=500)
+            if err_code == "hash_missing":
+                return web.json_response({"ok": False, "error": "initData hash topilmadi!"}, status=400)
+            if err_code == "expired":
+                return web.json_response({"ok": False, "error": "Telegram WebApp sessiya muddati o'tgan! Iltimos, qaytadan oching."}, status=401)
+            if err_code == "bad_user":
+                return web.json_response({"ok": False, "error": "User ma'lumotlari noto'g'ri formatda!"}, status=400)
             return web.json_response({"ok": False, "error": "Telegram WebApp imzosi haqiqiy emas!"}, status=403)
 
-        user_obj = None
-        if "user" in parsed:
-            try:
-                user_obj = json.loads(parsed["user"])
-            except Exception:
-                return web.json_response({"ok": False, "error": "User ma'lumotlari noto'g'ri formatda!"}, status=400)
-
+        now = time.time()
         tg_user_id = _safe_int(user_obj.get("id") if isinstance(user_obj, dict) else 0, 0)
         if tg_user_id <= 0:
             return web.json_response({"ok": False, "error": "User ma'lumotlari topilmadi!"}, status=400)
@@ -5953,21 +5971,10 @@ async def main():
         bot = create_ytbot()
         if bot:
             ytbot_instance = bot
-            async def _post_startup_background():
-                """Og'ir tarmoq so'rovlarini fon rejimida bajarish (asosiy bot javob berish tezligini 0ms ga tushirish)"""
-                try:
-                    from ton_checker import start_ton_watcher_task
-                    start_ton_watcher_task(bot)
-                except Exception as ton_err:
-                    print(f"TON watcher ishga tushirishda xato: {ton_err}")
-                try:
-                    from mega_features import start_nft_watcher_task
-                    start_nft_watcher_task(bot)
-                except Exception as nft_err:
-                    print(f"NFT watcher ishga tushirishda xato: {nft_err}")
+            async def _register_bot_commands(target_bot):
                 try:
                     from pyrogram.types import BotCommand
-                    await bot.set_bot_commands([
+                    await target_bot.set_bot_commands([
                         BotCommand("start", "Botni ishga tushirish"),
                         BotCommand("menu", "Asosiy menyuni ochish"),
                         BotCommand("help", "Barcha buyruqlar va yordam"),
@@ -6052,6 +6059,20 @@ async def main():
                     ])
                 except Exception as e:
                     print(f"Bot commands xatosi: {e}")
+
+            async def _post_startup_background():
+                """Og'ir tarmoq so'rovlarini fon rejimida bajarish (asosiy bot javob berish tezligini 0ms ga tushirish)"""
+                try:
+                    from ton_checker import start_ton_watcher_task
+                    start_ton_watcher_task(bot)
+                except Exception as ton_err:
+                    print(f"TON watcher ishga tushirishda xato: {ton_err}")
+                try:
+                    from mega_features import start_nft_watcher_task
+                    start_nft_watcher_task(bot)
+                except Exception as nft_err:
+                    print(f"NFT watcher ishga tushirishda xato: {nft_err}")
+                await _register_bot_commands(bot)
                 try:
                     from ytbot import AUTO_EMOJI_MAP
                     from custom_emojis import CUSTOM_EMOJI_POOL
@@ -6125,6 +6146,29 @@ async def main():
                 await asyncio.Event().wait()
             tasks.append(run_bot())
             print(f"🎬 {BRAND_NAME} Bot qo'shildi")
+
+        # 3. Ikkilamchi bepul botlar (SECONDARY_BOT_TOKEN / SECONDARY_BOT_TOKENS) — bitta umumiy baza va tizimda
+        secondary_tokens = [t for t in _get_configured_bot_tokens() if t != BOT_TOKEN]
+        for idx, sec_token in enumerate(secondary_tokens, start=1):
+            sec_bot = create_ytbot(bot_token=sec_token, session_name=f"yt_analytics_bot_secondary_{idx}")
+            if not sec_bot:
+                continue
+            secondary_bot_instances.append(sec_bot)
+
+            async def _run_secondary_bot(client=sec_bot, slot=idx):
+                await client.start()
+                sec_uname = ""
+                try:
+                    me_sec = await client.get_me()
+                    sec_uname = getattr(me_sec, "username", "") or ""
+                except Exception:
+                    pass
+                await _register_bot_commands(client)
+                print(f"✨ {BRAND_NAME} Secondary Bot #{slot} (@{sec_uname}) bitta umumiy bazaga ulandi!")
+                await asyncio.Event().wait()
+
+            tasks.append(_run_secondary_bot())
+            print(f"🎬 {BRAND_NAME} Secondary Bot #{idx} qo'shildi")
     else:
         print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
 

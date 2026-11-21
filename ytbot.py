@@ -1534,12 +1534,13 @@ def check_is_admin(user):
             return True
     return False
 
-def create_ytbot():
-    if not BOT_TOKEN:
+def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
+    active_token = (bot_token or BOT_TOKEN or os.getenv("BOT_TOKEN", "")).strip()
+    if not active_token:
         print("BOT_TOKEN topilmadi!")
         return None
     
-    bot = Client("yt_analytics_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+    bot = Client(session_name, api_id=API_ID, api_hash=API_HASH, bot_token=active_token)
 
     # ==================== GLOBAL BAN ENFORCEMENT MIDDLEWARE ====================
     @bot.on_message(group=-100)
@@ -5131,8 +5132,7 @@ def create_ytbot():
                     await wait_msg.delete()
                     return
             
-            # Worker server / 24/7 GitHub Actions (7 GB RAM) orqali bajarish
-            from config import BOT_TOKEN
+            # Worker server / 24/7 Cloud Worker (7 GB RAM) orqali bajarish
             from worker_client import dispatch_task
             promo = t("dl_promo_caption", lang, bot_user=bot_user)
             cookies_text = None
@@ -5148,7 +5148,7 @@ def create_ytbot():
                 format="720",
                 caption=f"🎬 <b>Video</b>{promo}",
                 cookies_text=cookies_text,
-                bot_token=BOT_TOKEN
+                bot_token=active_token
             )
             
             if res.get("ok"):
@@ -9830,7 +9830,6 @@ def create_ytbot():
             f"⏳ <i>7 GB RAM Cloud Server (GitHub Actions) orqali tayyorlanmoqda...</i>"
         )
         
-        from config import BOT_TOKEN
         from worker_client import dispatch_task
         cookies_text = None
         try:
@@ -9847,7 +9846,7 @@ def create_ytbot():
                 format="720",
                 caption=f"🎬 <b>YouTube Video</b> ({video_id}){promo}",
                 cookies_text=cookies_text,
-                bot_token=BOT_TOKEN
+                bot_token=active_token
             )
             if res.get("ok"):
                 if res.get("provider") == "github":
@@ -11285,7 +11284,6 @@ def create_ytbot():
                 record_user_purchase(user_id, "Video Unikalizatsiya & Content ID", price_uzs, {"url": target_url})
                 
                 try:
-                    from config import BOT_TOKEN
                     from worker_client import dispatch_task
                     cookies_text = None
                     try:
@@ -11298,7 +11296,7 @@ def create_ytbot():
                         url=target_url,
                         chat_id=message.chat.id,
                         cookies_text=cookies_text,
-                        bot_token=BOT_TOKEN
+                        bot_token=active_token
                     )
                     
                     if res.get("ok"):
@@ -11336,7 +11334,6 @@ def create_ytbot():
                 record_user_purchase(user_id, "Smart Shorts Clipper (3 ta Shorts)", price_uzs, {"url": target_url})
                 
                 try:
-                    from config import BOT_TOKEN
                     from worker_client import dispatch_task
                     cookies_text = None
                     try:
@@ -11349,7 +11346,7 @@ def create_ytbot():
                         url=target_url,
                         chat_id=message.chat.id,
                         cookies_text=cookies_text,
-                        bot_token=BOT_TOKEN
+                        bot_token=active_token
                     )
                     
                     if res.get("ok"):
@@ -11407,7 +11404,6 @@ def create_ytbot():
                 f"⏳ <i>7 GB RAM Cloud Server (GitHub Actions) orqali yuklanmoqda...</i>"
             )
             
-            from config import BOT_TOKEN
             from worker_client import dispatch_task
             cookies_text = None
             try:
@@ -11424,7 +11420,7 @@ def create_ytbot():
                     format="720",
                     caption=f"🎬 <b>YouTube Video</b> ({vid_id}){promo}",
                     cookies_text=cookies_text,
-                    bot_token=BOT_TOKEN
+                    bot_token=active_token
                 )
                 if res.get("ok"):
                     if res.get("provider") == "github":

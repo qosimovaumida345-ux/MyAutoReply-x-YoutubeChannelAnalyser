@@ -11,6 +11,29 @@ SESSION_STRING = os.getenv("SESSION_STRING", "")
 
 # ==================== TELEGRAM BOT ====================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+SECONDARY_BOT_TOKEN = os.getenv("SECONDARY_BOT_TOKEN", "").strip()
+SECONDARY_BOT_TOKENS = list(
+    dict.fromkeys(
+        t.strip()
+        for t in (os.getenv("SECONDARY_BOT_TOKENS", "") + "," + SECONDARY_BOT_TOKEN).split(",")
+        if t.strip() and t.strip() != BOT_TOKEN
+    )
+)
+
+
+def get_all_bot_tokens() -> list[str]:
+    """Return deduplicated list of configured primary and secondary Telegram bot tokens."""
+    candidates = [BOT_TOKEN or os.getenv("BOT_TOKEN", "")]
+    if SECONDARY_BOT_TOKEN:
+        candidates.append(SECONDARY_BOT_TOKEN)
+    env_sec = os.getenv("SECONDARY_BOT_TOKEN", "").strip()
+    if env_sec:
+        candidates.append(env_sec)
+    candidates.extend(SECONDARY_BOT_TOKENS)
+    for part in os.getenv("SECONDARY_BOT_TOKENS", "").split(","):
+        if part.strip():
+            candidates.append(part.strip())
+    return list(dict.fromkeys(t.strip() for t in candidates if t and t.strip()))
 
 # ==================== HUMOCARD SMS LISTENER ====================
 HUMO_SESSION_STRING = os.getenv("HUMO_SESSION_STRING", "").strip()
