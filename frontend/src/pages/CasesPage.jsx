@@ -111,6 +111,18 @@ const DEFAULT_TARGET_GIFT = {
 
 const UPGRADER_MULTIPLIERS = [1.5, 2, 3, 5, 10, 20, 50, 100];
 
+function getUpgraderOdds(multVal) {
+  const mv = Math.max(1.5, Math.min(100, Number(multVal || 2.0)));
+  let houseEdge = 0.55;
+  if (mv <= 2.0) houseEdge = 0.30;
+  else if (mv <= 5.0) houseEdge = 0.38;
+  else if (mv <= 20.0) houseEdge = 0.45;
+  const odds = Math.min(0.60, Math.max(0.004, Number(((1.0 / mv) * (1.0 - houseEdge)).toFixed(4))));
+  const pct = Number((odds * 100).toFixed(odds < 0.01 ? 2 : 1));
+  const deg = Math.max(4, Math.min(216, Math.round(odds * 360)));
+  return { odds, pct, deg };
+}
+
 export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
   const uid = user?.id || 0;
   const [subTab, setSubTab] = useState('cases');
@@ -688,16 +700,16 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
       const startDeg = needleRef.current;
       const curMod = ((startDeg % 360) + 360) % 360;
       const diff = (Number(data.final_angle) - curMod + 360) % 360;
-      const endDeg = startDeg + 1080 + diff;
+      const endDeg = startDeg + 1800 + diff;
       const t0 = performance.now();
-      const duration = 3000;
+      const duration = 3800;
       let lastTickDeg = startDeg;
 
       const frame = (now) => {
         const p = Math.min(1, (now - t0) / duration);
-        const ease = 1 - Math.pow(1 - p, 3.8);
+        const ease = 1 - Math.pow(1 - p, 4.1);
         const deg = startDeg + (endDeg - startDeg) * ease;
-        if (Math.abs(deg - lastTickDeg) >= 28) {
+        if (Math.abs(deg - lastTickDeg) >= 18) {
           playTickSound();
           lastTickDeg = deg;
         }
@@ -857,8 +869,7 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
   const sourceStars = Number(srcGift?.prize_stars || srcGift?.stars || 15);
   const targetStars = Math.round(sourceStars * Number(mult || 2.0));
   const matchedTargets = getMatchingTargets(sourceStars, mult, catalog);
-  const winPercent = Number(Math.min(75, Math.max(1, 100 / Number(mult || 2))).toFixed(1));
-  const winSliceDeg = Math.max(6, Math.min(270, Math.round((winPercent / 100) * 360)));
+  const { pct: winPercent, deg: winSliceDeg } = getUpgraderOdds(mult);
 
   const tabs = [
     { id: 'cases', label: 'Mystery Cases' },
@@ -900,6 +911,7 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
             alignItems: 'center',
             gap: 12,
             overflowX: 'auto',
+            scrollbarWidth: 'none',
             background: '#0A0A0A',
             color: '#FFFFFF',
           }}
@@ -1104,17 +1116,47 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
       {subTab === 'upgrader' && (
         <section className="md-card" style={{ background: '#0A0A0A', color: '#FFFFFF', display: 'grid', gap: 24 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ position: 'relative', width: 210, height: 210, margin: '0 auto' }}>
+            <div style={{ position: 'relative', width: 244, height: 244, margin: '12px auto', flexShrink: 0 }}>
+              {/* Precision 36-tick outer bezel */}
+              <svg
+                viewBox="0 0 244 244"
+                width={244}
+                height={244}
+                aria-hidden="true"
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}
+              >
+                <circle cx="122" cy="122" r="118" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+                {Array.from({ length: 36 }).map((_, idx) => {
+                  const rad = (idx * 10 - 90) * (Math.PI / 180);
+                  const isMajor = idx % 9 === 0;
+                  const rOuter = 117;
+                  const rInner = isMajor ? 108 : 112;
+                  return (
+                    <line
+                      key={idx}
+                      x1={(122 + rInner * Math.cos(rad)).toFixed(2)}
+                      y1={(122 + rInner * Math.sin(rad)).toFixed(2)}
+                      x2={(122 + rOuter * Math.cos(rad)).toFixed(2)}
+                      y2={(122 + rOuter * Math.sin(rad)).toFixed(2)}
+                      stroke={isMajor ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.18)'}
+                      strokeWidth={isMajor ? 1.8 : 1}
+                    />
+                  );
+                })}
+              </svg>
+
+              {/* Win/Loss Sector Track */}
               <div
                 style={{
-                  width: '100%',
-                  height: '100%',
+                  position: 'absolute',
+                  inset: 14,
                   borderRadius: '50%',
-                  background: `conic-gradient(#FF5A1F 0deg ${winSliceDeg}deg, #1E1E22 ${winSliceDeg}deg 360deg)`,
+                  background: `conic-gradient(#FF5A1F 0deg ${winSliceDeg}deg, #1A1A20 ${winSliceDeg}deg 360deg)`,
                   padding: 18,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  boxShadow: upgrading ? '0 0 0 1px rgba(255,90,31,0.45), 0 16px 36px rgba(0,0,0,0.55)' : 'inset 0 0 0 1px rgba(255,255,255,0.08)',
                 }}
               >
                 <div
@@ -1123,25 +1165,60 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
                     height: '100%',
                     borderRadius: '50%',
                     background: '#0A0A0A',
+                    border: '1px solid rgba(255,255,255,0.10)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    gap: 4,
                   }}
                 >
-                  <span className="md-mono" style={{ fontSize: 22, fontWeight: 700 }}>{winPercent}%</span>
-                  <span className="md-mono" style={{ fontSize: 11, color: '#A1A1AA' }}>{mult}x WIN SECTOR</span>
+                  <span className="md-mono" style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                    {winPercent}%
+                  </span>
+                  <span className="md-mono" style={{ fontSize: 10.5, color: '#A1A1AA' }}>
+                    {mult}x TARGET
+                  </span>
+                  {upgrading && (
+                    <span className="md-mono" style={{ fontSize: 9.5, color: '#FF5A1F', fontWeight: 600 }}>
+                      ROLLING
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* Rotating Cursor-Style Pointer Picker */}
               <div
                 style={{
                   position: 'absolute',
                   inset: 0,
                   transform: `rotate(${needleDeg}deg)`,
                   pointerEvents: 'none',
+                  zIndex: 5,
+                  willChange: 'transform',
                 }}
               >
-                <div style={{ width: 4, height: 24, background: '#FFFFFF', margin: '-6px auto 0', borderRadius: 2 }} />
+                <svg
+                  viewBox="0 0 32 38"
+                  width={30}
+                  height={36}
+                  aria-hidden="true"
+                  style={{
+                    display: 'block',
+                    margin: '-14px auto 0',
+                    filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.75))',
+                  }}
+                >
+                  <path
+                    d="M16 35 L4 8 C3.5 5 5.8 2 9 2 L23 2 C26.2 2 28.5 5 28 8 Z"
+                    fill="#FFFFFF"
+                    stroke="#0A0A0A"
+                    strokeWidth="2.2"
+                    strokeLinejoin="round"
+                  />
+                  <polygon points="16,32 10.5,11 21.5,11" fill="#FF5A1F" />
+                  <circle cx="16" cy="7.5" r="2.2" fill="#0A0A0A" />
+                </svg>
               </div>
             </div>
 
@@ -1152,6 +1229,7 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
                   <button
                     key={m}
                     type="button"
+                    disabled={upgrading}
                     onClick={() => {
                       setMult(m);
                       syncTarget(srcGift, m, catalog);
@@ -1190,6 +1268,7 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
                     <button
                       key={g.id || i}
                       type="button"
+                      disabled={upgrading}
                       onClick={() => setSrcGift(g)}
                       className="md-btn md-btn-sm"
                       style={{

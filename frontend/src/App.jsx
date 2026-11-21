@@ -71,6 +71,21 @@ export function App() {
     if (!uid) return;
     if (force) setSyncLoading(true);
     try {
+      if (force) {
+        const waUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        if (waUser && waUser.id === uid) {
+          await apiFetchJson('/api/user/sync-profile', {
+            method: 'POST',
+            body: JSON.stringify({
+              tg_user_id: uid,
+              first_name: waUser.first_name || undefined,
+              last_name: waUser.last_name || undefined,
+              username: waUser.username || undefined,
+              photo_url: waUser.photo_url || undefined,
+            }),
+          }).catch(() => {});
+        }
+      }
       const { ok, data } = await apiFetchJson(
         `/api/bot_user?tg_user_id=${encodeURIComponent(uid)}${force ? '&refresh=1' : ''}`
       );
@@ -84,6 +99,7 @@ export function App() {
           id: uid,
           first_name: data.first_name || prev.first_name || `Creator #${uid}`,
           username: data.username || '',
+          photo_url: data.photo_url || prev.photo_url || '',
           is_vip: Boolean(data.is_vip),
           is_owner: Boolean(data.is_owner),
         }));
@@ -124,7 +140,13 @@ export function App() {
         }).then(({ data }) => {
           if (data?.ok && data?.token) {
             saveAuthSession({ token: data.token, tgUserId: qUid, firstName: `Creator #${qUid}` });
-            setUser({ id: qUid, first_name: `Creator #${qUid}`, is_vip: Boolean(data.is_vip), is_owner: Boolean(data.is_owner) });
+            setUser({
+              id: qUid,
+              first_name: `Creator #${qUid}`,
+              photo_url: data.photo_url || '',
+              is_vip: Boolean(data.is_vip),
+              is_owner: Boolean(data.is_owner),
+            });
             refreshUser(false);
             if (window.location.pathname === '/' || window.location.pathname === '/login') {
               navigate('/studio');
@@ -152,9 +174,22 @@ export function App() {
               id: data.tg_user_id,
               first_name: fn,
               username: u.username || '',
+              photo_url: data.photo_url || u.photo_url || '',
               is_vip: Boolean(data.is_vip),
               is_owner: Boolean(data.is_owner),
             });
+            if (u.photo_url || u.first_name) {
+              apiFetchJson('/api/user/sync-profile', {
+                method: 'POST',
+                body: JSON.stringify({
+                  tg_user_id: data.tg_user_id,
+                  first_name: u.first_name || undefined,
+                  last_name: u.last_name || undefined,
+                  username: u.username || undefined,
+                  photo_url: u.photo_url || undefined,
+                }),
+              }).catch(() => {});
+            }
             refreshUser(false);
           }
         });
@@ -175,13 +210,14 @@ export function App() {
             setUser({
               id: vUid,
               first_name: data.user?.first_name || `Creator #${vUid}`,
+              photo_url: data.photo_url || data.user?.photo_url || '',
               is_vip: Boolean(data.is_vip),
               is_owner: Boolean(data.is_owner),
             });
             refreshUser(false);
           } else {
             clearAuthSession();
-            setUser({ id: 0, first_name: '', is_vip: false, is_owner: false });
+            setUser({ id: 0, first_name: '', photo_url: '', is_vip: false, is_owner: false });
           }
         });
       }

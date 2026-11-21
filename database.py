@@ -6108,10 +6108,13 @@ def execute_atomic_upgrade_transaction(
     target_slug: str,
     is_admin: bool = False
 ) -> dict:
-    """O'ta tezkor (bitta atomik tranzaksiya) Upgrader aylanishi:
-    - Barcha tekshiruvlar, qulflash, 5:1 ketma-ketlik hisobi va yangilash bitta DB ulanishida bajariladi (~200ms).
+    """Atomik CSPRNG Upgrader tranzaksiyasi:
+    - Hech qanday deterministik 5:1/6-urinish kafolatlangan yutuq sikli yo'q.
+    - Har bir urinishda yondirilgan Stars ning 35% qismi kassa foydasiga muhrlanadi,
+      65% qismi global `upgrader_prize_pool_stars` zaxirasiga o'tadi.
+    - Yutuq faqat mustaqil CSPRNG tasodifi va zaxira qoplashi yetarli bo'lgandagina beriladi.
     """
-    import random
+    import secrets
     conn = get_db()
     if not conn:
         return {"ok": False, "error": "Ma'lumotlar bazasiga ulanishda xatolik!"}
@@ -6150,14 +6153,18 @@ def execute_atomic_upgrade_transaction(
             return {
                 "ok": False,
                 "need_inventory": True,
-                "error": "Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling — Upgrader faqat inventardagi sovg'alar bilan bepul ishlaydi."
+                "error": "Inventaringizda upgrade qilish uchun sovg'a yo'q! Avval Keys (Case) ochib sovg'a yutib oling — Upgrader faqat inventardagi sovg'alar bilan ishlaydi."
             }
 
         actual_source_id = int(row["id"] if isinstance(row, dict) else row[0])
         source_name = str(row["prize_name"] if isinstance(row, dict) else (row[2] or "Telegram Gift"))
         actual_item_stars = max(1, int(row["prize_stars"] if isinstance(row, dict) else (row[3] or item_stars or 15)))
+        actual_target_stars = max(
+            int(round(actual_item_stars * 1.5)),
+            min(int(round(actual_item_stars * 100.0)), int(round(actual_item_stars * float(mult_val))))
+        )
 
-        # 2. Urinishlar sonini aniqlash (5 marta yutqazib, 1 marta yutadigan qat'iy sikl)
+        # 2. Telemetriya hisoblagichini yangilash (faqat statistika uchun; yutuqqa ta'sir qilmaydi)
         cfg_key = f"upgrader_plays_{int(tg_user_id)}"
         cur.execute("SELECT value FROM bot_config WHERE key = %s FOR UPDATE", (cfg_key,))
         cfg_row = cur.fetchone()
@@ -6166,12 +6173,6 @@ def execute_atomic_upgrade_transaction(
             plays_before = max(0, int(val_str or 0))
         except Exception:
             plays_before = 0
-
-        # Qoida: har 6-urinish (0,1,2,3,4 -> yutqazadi, 5 -> yutadi)
-        if (plays_before % 6) == 5:
-            won = True
-        else:
-            won = False
         plays_after = plays_before + 1
 
         cur.execute("""
@@ -6180,33 +6181,80 @@ def execute_atomic_upgrade_transaction(
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
         """, (cfg_key, str(plays_after)))
 
-        # 3. Final burchak (landing angle):
-        if won:
-            margin = max(2, min(8, green_slice_deg // 5))
-            low_deg = min(margin, max(1, green_slice_deg - 1))
-            high_deg = max(low_deg, green_slice_deg - margin)
-            final_angle = random.randint(low_deg, high_deg)
-        else:
-            # Near-miss: strelka yashil sektorga juda yaqin keladi, lekin kirmaydi!
-            if plays_before % 2 == 0:
-                final_angle = random.randint(353, 358)
-            else:
-                near_after = min(352, green_slice_deg + random.randint(2, 7))
-                final_angle = max(green_slice_deg + 2, near_after)
+        # 3. Global Kassa Zaxira Puli (`upgrader_prize_pool_stars`): 35% sof kassa foydasi, 65% mukofot puli
+        pool_key = "upgrader_prize_pool_stars"
+        cur.execute("SELECT value FROM bot_config WHERE key = %s FOR UPDATE", (pool_key,))
+        pool_row = cur.fetchone()
+        pool_str = (pool_row["value"] if isinstance(pool_row, dict) else pool_row[0]) if pool_row else "0"
+        try:
+            pool_before = max(0, int(float(pool_str or 0)))
+        except Exception:
+            pool_before = 0
 
-        # 4. Inventarda sovg'ani yangilash
+        pool_contribution = (actual_item_stars * 65) // 100
+        available_pool = pool_before + pool_contribution
+
+        # Mustaqil kriptografik tasodif (pattern / timing taxmini mumkin emas)
+        roll_val = secrets.randbelow(1_000_000) / 1_000_000.0
+        raw_won = roll_val < float(calc_odds)
+
+        if raw_won:
+            if is_admin:
+                won = True
+                pool_after = available_pool
+            else:
+                required_pool = actual_target_stars if float(mult_val) <= 20.0 else int(actual_target_stars * 1.15)
+                if actual_target_stars <= available_pool and available_pool >= required_pool:
+                    won = True
+                    pool_after = max(0, available_pool - actual_target_stars)
+                else:
+                    won = False
+                    pool_after = available_pool
+        else:
+            won = False
+            pool_after = available_pool
+
+        cur.execute("""
+            INSERT INTO bot_config (key, value, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """, (pool_key, str(pool_after)))
+
+        # 4. Tabiiy, skriptlanganga o'xshamaydigan final landing burchagi
+        safe_green_deg = max(4, min(216, int(green_slice_deg)))
+        if won:
+            low_deg = 2 if safe_green_deg > 4 else 1
+            high_deg = max(low_deg, safe_green_deg - 2)
+            span = max(1, high_deg - low_deg + 1)
+            final_angle = low_deg + secrets.randbelow(span)
+        else:
+            loss_min = min(355, safe_green_deg + 3)
+            loss_max = 357
+            if secrets.randbelow(100) < 25:
+                # 25% hollarda yaqin o'tib ketish (near-miss) — tabiiy hayajon uchun
+                if secrets.randbelow(2) == 0:
+                    near_hi = min(loss_max, loss_min + 12)
+                    final_angle = loss_min + secrets.randbelow(max(1, near_hi - loss_min + 1))
+                else:
+                    near_lo = max(loss_min, 344)
+                    final_angle = near_lo + secrets.randbelow(max(1, loss_max - near_lo + 1))
+            else:
+                # 75% hollarda butun yo'qotish sektori bo'ylab teng taqsimlangan tasodifiy burchak
+                final_angle = loss_min + secrets.randbelow(max(1, loss_max - loss_min + 1))
+
+        # 5. Inventarda sovg'ani yangilash
         resolved_target_gift_id = str(target_slug or target_icon or "gift").strip()
         if won:
             cur.execute("""
                 UPDATE pending_gifts
                 SET status = 'upgraded_used', error_message = %s
                 WHERE id = %s AND tg_user_id = %s
-            """, (f"Upgraded to {target_name} ({target_stars} Stars)", actual_source_id, int(tg_user_id)))
+            """, (f"Upgraded to {target_name} ({actual_target_stars} Stars)", actual_source_id, int(tg_user_id)))
             cur.execute("""
                 INSERT INTO pending_gifts (tg_user_id, gift_id, case_name, prize_name, prize_stars, status, created_at)
                 VALUES (%s, %s, %s, %s, %s, 'inventory', CURRENT_TIMESTAMP)
                 RETURNING id
-            """, (int(tg_user_id), resolved_target_gift_id, "Stars Upgrader", str(target_name), int(target_stars)))
+            """, (int(tg_user_id), resolved_target_gift_id, "Stars Upgrader", str(target_name), int(actual_target_stars)))
         else:
             cur.execute("""
                 UPDATE pending_gifts
@@ -6214,13 +6262,13 @@ def execute_atomic_upgrade_transaction(
                 WHERE id = %s AND tg_user_id = %s
             """, (actual_source_id, int(tg_user_id)))
 
-        # 5. User balansini olish
+        # 6. User balansini olish
         user_balance = 0
         if int(tg_user_id) > 1000:
             cur.execute("SELECT balance_uzs FROM user_balances WHERE tg_user_id = %s", (int(tg_user_id),))
             ub_row = cur.fetchone()
             if ub_row:
-                user_balance = int(ub_row["balance_uzs"] if isinstance(ub_row, dict) else ub_row[0] or 0)
+                user_balance = int((ub_row.get("balance_uzs", 0) if isinstance(ub_row, dict) else ub_row[0]) or 0)
 
         conn.commit()
 
@@ -6228,14 +6276,14 @@ def execute_atomic_upgrade_transaction(
             "ok": True,
             "won": won,
             "multiplier": round(mult_val, 2),
-            "odds_percent": round(calc_odds * 100, 1),
+            "odds_percent": round(calc_odds * 100, 2 if calc_odds < 0.01 else 1),
             "final_angle": final_angle,
-            "green_slice_deg": green_slice_deg,
+            "green_slice_deg": safe_green_deg,
             "source_inventory_id": actual_source_id,
             "source_name": source_name,
             "item_stars": actual_item_stars,
             "stake_uzs": 0,
-            "target_stars": target_stars,
+            "target_stars": actual_target_stars,
             "target_name": target_name,
             "target_icon": target_icon,
             "target_slug": resolved_target_gift_id,

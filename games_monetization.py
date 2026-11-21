@@ -878,17 +878,13 @@ def open_stars_case(tg_user_id: int, tier_id: str, user_name: str = "") -> dict:
     super_luck = False
     chosen = None
 
-    # 1. BAD LUCK PROTECTION (Kassa kafolatlangan 15+ Stars foydada qoladi!)
+    # 1. BAD LUCK PROTECTION (Faqat kirish darajadagi 25-75 Stars keyslarda, kassa kamida 40% foyda bilan)
     if bad_luck_streak >= 3 and not is_owner:
-        # Masalan: 25 Stars keysda max yutuq 15 Stars (Kassaga kamida 10 Stars foyda qoladi)
-        # 75 Stars keysda max yutuq 50 Stars (Kassaga kamida 25 Stars foyda qoladi)
-        # 250 Stars keysda max yutuq 150 Stars (Kassaga kamida 100 Stars foyda qoladi)
-        max_allowed_stars = max(10, int(case["price_stars"] * 0.65))
-        # Premium obuna Super Luck bilan berilmaydi (faqat real depozit bilan olinadi)
+        max_allowed_stars = max(10, int(case["price_stars"] * 0.60))
         candidates = [d for d in drops if d["stars"] <= max_allowed_stars and not d.get("is_premium")]
         if candidates:
-            # Eng yaxshi mos sovg'ani tanlaymiz
-            chosen = candidates[-1]
+            # Cross-tier farmingni oldini olish uchun qimmat keyslarda eng quyi xavfsiz drop beriladi
+            chosen = candidates[-1] if case["price_stars"] <= 75 else candidates[0]
             super_luck = True
             update_user_bad_luck(tg_user_id, is_loss=False, stars_cost=case["price_stars"])
 
@@ -2072,6 +2068,22 @@ def join_and_resolve_battle(battle_id: str, guest_id: int, guest_name: str) -> d
 
 
 # ==================== 10. CONTROLLED UPGRADER (INVENTORY-STAKED FREE UPGRADER) ====================
+def compute_upgrader_odds(mult_val: float) -> tuple[float, int]:
+    """Compute house-edged win probability and sector angle for multiplier (1.5x..100x)."""
+    mv = max(1.5, min(100.0, float(mult_val or 2.0)))
+    if mv <= 2.0:
+        house_edge = 0.30
+    elif mv <= 5.0:
+        house_edge = 0.38
+    elif mv <= 20.0:
+        house_edge = 0.45
+    else:
+        house_edge = 0.55
+    calc_odds = min(0.60, max(0.004, round((1.0 / mv) * (1.0 - house_edge), 4)))
+    green_slice_deg = max(4, min(216, int(round(calc_odds * 360))))
+    return calc_odds, green_slice_deg
+
+
 def execute_upgrade_roll(
     user_id: int,
     item_stars: int,
@@ -2104,14 +2116,12 @@ def execute_upgrade_roll(
 
     target_stars = max(int(round(item_stars * 1.5)), min(int(round(item_stars * 100.0)), int(target_stars or round(item_stars * mult_val))))
 
-    # 2. Foiz va Yashil/Qizil sektor burchagini hisoblash
-    nominal_odds = 1.0 / mult_val
-    calc_odds = min(0.75, max(0.01, round(nominal_odds, 4)))
-    green_slice_deg = max(6, min(270, int(round(calc_odds * 360))))
+    # 2. House-Edged foiz va sektor burchagi
+    calc_odds, green_slice_deg = compute_upgrader_odds(mult_val)
 
     resolved_target_gift_id = str(target_slug or target_inventory_id or target_icon or "gift").strip()
 
-    # 3. Yagona o'ta tezkor atomik tranzaksiya (barcha tekshiruvlar, inventar almashtirish, 5:1 ketma-ketlik)
+    # 3. Atomik CSPRNG + House Reserve Pool tranzaksiyasi
     res = execute_atomic_upgrade_transaction(
         tg_user_id=user_id,
         source_row_id=source_inventory_id,

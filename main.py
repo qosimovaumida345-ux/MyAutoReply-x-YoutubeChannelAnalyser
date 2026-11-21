@@ -646,6 +646,7 @@ import re as _re
 import html as _html
 import gzip as _gzip
 import hmac as _hmac
+import hashlib as _hashlib
 import io as _io
 from urllib.parse import urlparse as _urlparse, parse_qs as _parse_qs
 
@@ -1208,7 +1209,7 @@ async def handle_api_bot_user(request):
             "last_name": details.get("last_name") or "",
             "username": details.get("username") or "",
             "photo_file_id": details.get("photo_file_id"),
-            "photo_url": f"/api/user/avatar/{uid}",
+            "photo_url": _build_signed_avatar_url(uid, force_refresh=force_sync),
             "balance_uzs": details.get("balance_uzs", 0),
             "ton_balance": details.get("ton_balance", 0.0),
             "is_vip": bool(vip_info.get("is_vip")),
@@ -3063,12 +3064,7 @@ async def handle_api_telegram_file(request):
                     with open(lp, "rb") as f:
                         content = f.read()
                     return web.Response(body=content, content_type="image/webp", headers=headers)
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            cf_p = os.path.join(base_dir, "nft_assets", "creatorflow_avatar.jpg")
-            if os.path.exists(cf_p):
-                with open(cf_p, "rb") as f:
-                    return web.Response(body=f.read(), content_type="image/jpeg", headers=headers)
-            return web.Response(status=404, text="Photo not found")
+            return web.Response(status=404, text="File not found")
             
         async with aiohttp.ClientSession() as session:
             # 1. file_path ni olish
@@ -3167,12 +3163,7 @@ async def handle_api_telegram_file(request):
                 with open(lp, "rb") as f:
                     content = f.read()
                 return web.Response(body=content, content_type="image/webp", headers=headers)
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        cf_p = os.path.join(base_dir, "nft_assets", "creatorflow_avatar.jpg")
-        if os.path.exists(cf_p):
-            with open(cf_p, "rb") as f:
-                return web.Response(body=f.read(), content_type="image/jpeg", headers=headers)
-        return web.Response(status=404, text="Photo not found")
+        return web.Response(status=404, text="File not found")
 
 async def handle_favicon(request):
     """Serve MonoDeck SVG brand favicon or .ico with long-term cache headers"""
@@ -3201,8 +3192,63 @@ async def handle_favicon(request):
     from ui_theme import FAVICON_SVG
     return web.Response(text=FAVICON_SVG, content_type="image/svg+xml")
 
+def _make_avatar_sig(user_id: int) -> str:
+    """Build HMAC-SHA256 signature binding an avatar URL to its Telegram user_id."""
+    import crypto_auth
+    secret = crypto_auth._get_signing_key()
+    return _hmac.new(secret, f"avatar:{int(user_id)}".encode("utf-8"), _hashlib.sha256).hexdigest()[:20]
+
+
+def _verify_avatar_sig(user_id: int, sig: str) -> bool:
+    """Verify avatar URL signature in constant time."""
+    if not sig or not isinstance(sig, str) or len(sig.strip()) < 16:
+        return False
+    return _hmac.compare_digest(_make_avatar_sig(user_id), sig.strip())
+
+
+def _build_signed_avatar_url(user_id: int, force_refresh: bool = False) -> str:
+    """Build signed avatar URL suitable for <img> tags (works in Mini App iframes without cookies)."""
+    base = f"/api/user/avatar/{int(user_id)}?sig={_make_avatar_sig(int(user_id))}"
+    if force_refresh:
+        base += f"&refresh=1&v={int(time.time())}"
+    return base
+
+
+def _detect_raster_mime(data: bytes):
+    """Validate image magic bytes and return safe raster MIME type or None."""
+    if not data or len(data) < 12:
+        return None
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def _is_safe_tg_avatar_url(url: str) -> bool:
+    """Strictly allow HTTPS Telegram CDN avatar URLs only (SSRF guard)."""
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed = _urlparse(url.strip())
+        if parsed.scheme != "https":
+            return False
+        host = (parsed.hostname or "").lower()
+        return (
+            host in ("t.me", "telegram.org", "cdn4.telegram-cdn.org", "cdn5.telegram-cdn.org", "cdn1.telegram-cdn.org")
+            or host.endswith(".telegram-cdn.org")
+            or host.endswith(".telesco.pe")
+        )
+    except Exception:
+        return False
+
+
 async def handle_api_user_avatar(request):
-    """Foydalanuvchining rasmiy Telegram avatarini keshlangan holda yuklovchi endpoint (Strict Validation + Anti-Abuse)"""
+    """Foydalanuvchining rasmiy Telegram avatarini HMAC imzo/autentifikatsiya orqali yuklovchi endpoint (Zero fake fallback)"""
+    import aiohttp
+
     uid_str = request.match_info.get("user_id", "").strip()
     if not uid_str.isdigit():
         return web.Response(status=400, text="Invalid user_id")
@@ -3217,54 +3263,96 @@ async def handle_api_user_avatar(request):
     if not local_avatar.startswith(avatars_dir + os.sep):
         return web.Response(status=400, text="Invalid user_id")
 
+    refresh = request.query.get("refresh", "0") in ("1", "true")
+    sig = request.query.get("sig", "").strip()
+    auth_uid = get_authenticated_user_id(request)
+    is_authorized = _verify_avatar_sig(user_id, sig) or (auth_uid and auth_uid == user_id) or is_admin_request(request)
+
     headers = {
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-        "Access-Control-Allow-Origin": "*"
+        "Cache-Control": "no-store" if refresh else "private, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
     }
 
-    # 1. Mahalliy keshda mavjud bo'lsa darhol uzatamiz
-    if os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 1000:
-        with open(local_avatar, "rb") as f:
-            content = f.read()
-        return web.Response(body=content, content_type="image/jpeg", headers=headers)
-
-    # 2. Telegram Bot API orqali yuklab olish (faqat autentifikatsiyalangan foydalanuvchi yoki admin uchun — disk/API DoS himoyasi)
-    auth_uid = get_authenticated_user_id(request)
-    if (auth_uid and auth_uid == user_id) or is_admin_request(request):
+    # 1. Serve cached disk image if valid raster and fresh (< 6h) when not force-refreshed
+    cache_ttl = 21600
+    if not refresh and os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 256:
         try:
-            from config import BOT_TOKEN
-            token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
-            if token:
-                async with aiohttp.ClientSession() as session:
-                    url = f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id={user_id}&limit=1"
-                    async with session.get(url, timeout=5) as r:
-                        res = await r.json()
-                        if res.get("ok") and res.get("result", {}).get("photos"):
-                            best_photo = res["result"]["photos"][0][-1]
-                            fid = best_photo["file_id"]
-                            async with session.get(f"https://api.telegram.org/bot{token}/getFile?file_id={fid}", timeout=5) as fr:
-                                fres = await fr.json()
-                                if fres.get("ok"):
-                                    fp = fres["result"]["file_path"]
-                                    dl_url = f"https://api.telegram.org/file/bot{token}/{fp}"
-                                    async with session.get(dl_url, timeout=10) as dr:
-                                        if dr.status == 200:
-                                            img_data = await dr.content.read(2 * 1024 * 1024 + 1)
-                                            if len(img_data) <= 2 * 1024 * 1024:
-                                                with open(local_avatar, "wb") as f:
-                                                    f.write(img_data)
-                                                return web.Response(body=img_data, content_type="image/jpeg", headers=headers)
-        except Exception as e:
-            print(f"[handle_api_user_avatar] Error fetching for {user_id}: {e}")
+            age = time.time() - os.path.getmtime(local_avatar)
+            with open(local_avatar, "rb") as f:
+                cached_bytes = f.read()
+            cached_mime = _detect_raster_mime(cached_bytes)
+            if cached_mime and (age < cache_ttl or not is_authorized):
+                return web.Response(body=cached_bytes, content_type=cached_mime, headers=headers)
+        except Exception:
+            pass
 
-    # 3. Neutral brand fallback (never leaks owner's personal photo)
-    default_brand = os.path.join(base_dir, "nft_assets", "creatorflow_avatar.jpg")
-    if os.path.exists(default_brand):
-        with open(default_brand, "rb") as f:
-            content = f.read()
-        return web.Response(body=content, content_type="image/jpeg", headers=headers)
+    if not is_authorized:
+        return web.Response(status=404, text="Avatar not found", headers={"Cache-Control": "no-store"})
 
-    return web.Response(status=404, text="Avatar not found")
+    # 2. Fetch fresh Telegram profile photo via Bot API (getUserProfilePhotos -> getFile -> file)
+    try:
+        from config import BOT_TOKEN
+        token = BOT_TOKEN or os.getenv("BOT_TOKEN", "")
+        if token and not token.startswith("123456:"):
+            async with aiohttp.ClientSession() as session:
+                url = f"https://api.telegram.org/bot{token}/getUserProfilePhotos?user_id={user_id}&limit=1"
+                async with session.get(url, timeout=5) as r:
+                    res = await r.json()
+                    if res.get("ok") and res.get("result", {}).get("photos"):
+                        best_photo = res["result"]["photos"][0][-1]
+                        fid = best_photo["file_id"]
+                        async with session.get(f"https://api.telegram.org/bot{token}/getFile?file_id={fid}", timeout=5) as fr:
+                            fres = await fr.json()
+                            if fres.get("ok"):
+                                fp = fres["result"]["file_path"]
+                                dl_url = f"https://api.telegram.org/file/bot{token}/{fp}"
+                                async with session.get(dl_url, timeout=10) as dr:
+                                    if dr.status == 200:
+                                        img_data = await dr.content.read(2 * 1024 * 1024 + 1)
+                                        mime = _detect_raster_mime(img_data)
+                                        if mime and len(img_data) <= 2 * 1024 * 1024:
+                                            with open(local_avatar, "wb") as f:
+                                                f.write(img_data)
+                                            return web.Response(body=img_data, content_type=mime, headers=headers)
+
+                # 3. Fallback: persisted Telegram CDN photo_url from bot_users (if privacy restricted Bot API photos)
+                try:
+                    import database
+                    conn = database.get_db()
+                    if conn:
+                        try:
+                            cur = conn.cursor()
+                            cur.execute("SELECT photo_url FROM bot_users WHERE tg_user_id = %s", (user_id,))
+                            prow = cur.fetchone()
+                            db_url = (prow["photo_url"] if isinstance(prow, dict) else prow[0]) if prow else None
+                        finally:
+                            conn.close()
+                        if db_url and _is_safe_tg_avatar_url(str(db_url)):
+                            async with session.get(str(db_url).strip(), timeout=8) as dr2:
+                                if dr2.status == 200:
+                                    img_data = await dr2.content.read(2 * 1024 * 1024 + 1)
+                                    mime = _detect_raster_mime(img_data)
+                                    if mime and len(img_data) <= 2 * 1024 * 1024:
+                                        with open(local_avatar, "wb") as f:
+                                            f.write(img_data)
+                                        return web.Response(body=img_data, content_type=mime, headers=headers)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[handle_api_user_avatar] Error fetching for {user_id}: {e}")
+
+    # Serve stale valid cache if network transiently failed
+    if os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 256:
+        try:
+            with open(local_avatar, "rb") as f:
+                stale_bytes = f.read()
+            stale_mime = _detect_raster_mime(stale_bytes)
+            if stale_mime:
+                return web.Response(body=stale_bytes, content_type=stale_mime, headers=headers)
+        except Exception:
+            pass
+
+    return web.Response(status=404, text="Avatar not found", headers={"Cache-Control": "private, max-age=120"})
 
 async def handle_api_stars_open_case_uzs(request):
     """Web Dashboard orqali UZS (so'm) balansi bilan keys ochish (Anti-IDOR himoyalangan).
@@ -5249,6 +5337,7 @@ async def handle_api_auth_verify_otp(request):
             "ok": True,
             "token": auth_token,
             "tg_user_id": tg_user_id,
+            "photo_url": _build_signed_avatar_url(tg_user_id),
             "is_vip": is_vip,
             "is_owner": is_owner
         }
@@ -5323,11 +5412,13 @@ async def handle_api_auth_verify_webapp(request):
         is_owner = bool(OWNER_ID and tg_user_id == OWNER_ID) or (tg_user_id == 6735799833)
         is_vip = is_owner or bool(is_bot_admin(tg_user_id)) or bool(is_user_vip(tg_user_id))
 
+        signed_avatar_url = _build_signed_avatar_url(tg_user_id)
         resp_dict = {
             "ok": True,
             "token": auth_token,
             "tg_user_id": tg_user_id,
             "user": user_obj,
+            "photo_url": signed_avatar_url,
             "is_vip": is_vip,
             "is_owner": is_owner
         }
@@ -5418,9 +5509,11 @@ async def handle_api_auth_verify_token(request):
         balance = get_user_balance(tg_user_id)
         is_kyc = is_user_kyc_verified(tg_user_id)
 
+        signed_avatar_url = _build_signed_avatar_url(tg_user_id)
         user_data = {
             "id": tg_user_id,
             "tg_user_id": tg_user_id,
+            "photo_url": signed_avatar_url,
             "is_vip": is_vip,
             "is_admin": is_admin_flag,
             "is_owner": is_owner,
@@ -5432,6 +5525,7 @@ async def handle_api_auth_verify_token(request):
             "ok": True,
             "token": token,
             "tg_user_id": tg_user_id,
+            "photo_url": signed_avatar_url,
             "is_vip": is_vip,
             "is_owner": is_owner,
             "user": user_data

@@ -23,8 +23,57 @@ export function Navbar({
   t,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const menuRef = useRef(null);
   const isAuthed = Boolean(user && user.id > 0);
+  const avatarUrl = user?.photo_url || '';
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
+
+  const renderUserAvatar = (size = 22) => {
+    if (avatarUrl && !avatarFailed) {
+      return (
+        <img
+          src={avatarUrl}
+          alt={user?.first_name || 'Profile'}
+          width={size}
+          height={size}
+          onError={() => setAvatarFailed(true)}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: 999,
+            objectFit: 'cover',
+            flexShrink: 0,
+            border: '1px solid var(--border)',
+            background: 'var(--bg)',
+          }}
+        />
+      );
+    }
+    return (
+      <span
+        className="md-mono"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: size,
+          height: size,
+          borderRadius: 999,
+          background: 'var(--ink)',
+          color: '#FFFFFF',
+          fontSize: Math.max(10, Math.round(size * 0.5)),
+          fontWeight: 600,
+          flexShrink: 0,
+        }}
+      >
+        {(user?.first_name || 'M').slice(0, 1).toUpperCase()}
+      </span>
+    );
+  };
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -132,23 +181,7 @@ export function Navbar({
                   aria-haspopup="menu"
                   style={{ paddingRight: 10 }}
                 >
-                  <span
-                    className="md-mono"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 20,
-                      height: 20,
-                      borderRadius: 999,
-                      background: 'var(--ink)',
-                      color: '#FFFFFF',
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {(user.first_name || 'M').slice(0, 1).toUpperCase()}
-                  </span>
+                  {renderUserAvatar(22)}
                   <span style={{ maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {user.first_name || `#${user.id}`}
                   </span>
@@ -172,13 +205,19 @@ export function Navbar({
                         padding: '8px 10px',
                         borderBottom: '1px solid var(--border)',
                         marginBottom: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
                       }}
                     >
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>
-                        {user.first_name || `Creator #${user.id}`}
-                      </div>
-                      <div className="md-mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        ID {user.id} &middot; {Number(userStats?.balance_uzs || 0).toLocaleString()} UZS
+                      {renderUserAvatar(32)}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {user.first_name || `Creator #${user.id}`}
+                        </div>
+                        <div className="md-mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          ID {user.id} &middot; {Number(userStats?.balance_uzs || 0).toLocaleString()} UZS
+                        </div>
                       </div>
                     </div>
 

@@ -525,3 +525,101 @@ def test_upgraded_shield_captcha_all_four_modes_end_to_end():
     )
     assert res_q2["ok"] is False
     assert res_q2["error"] == "incorrect_solution"
+
+
+def test_upgrader_anti_exploit_and_pool_solvency_guarantee():
+    from unittest.mock import MagicMock
+    import secrets
+    import database
+    import games_monetization as gm
+
+    # 1. House-edged odds: player EV must stay strictly <= 0.70 across all multipliers (1.5x..100x)
+    for m in (1.5, 2.0, 3.0, 5.0, 10.0, 20.0, 50.0, 100.0):
+        odds, deg = gm.compute_upgrader_odds(m)
+        assert 0.0 < odds <= 0.60
+        assert 4 <= deg <= 216
+        assert (m * odds) <= 0.705, f"Expected <= 70% EV at {m}x, got {m * odds}"
+
+    def _run_tx(plays_before: int, pool_before: int, item_stars: int, mult: float, rand_num: int, expect_insert: bool = False):
+        mock_cur = MagicMock()
+        side_effects = [
+            {"id": 101, "gift_id": "delicious-cake", "prize_name": "Delicious Cake", "prize_stars": item_stars, "status": "pending"},
+            {"value": str(plays_before)},
+            {"value": str(pool_before)},
+        ]
+        if expect_insert:
+            side_effects.append({"id": 202})
+        side_effects.append({"balance_uzs": 50000})
+        mock_cur.fetchone.side_effect = side_effects
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value = mock_cur
+
+        def _fake_randbelow(n):
+            if n == 1_000_000:
+                return rand_num
+            return 0
+
+        with patch.object(database, "get_db", return_value=mock_conn), \
+             patch.object(secrets, "randbelow", side_effect=_fake_randbelow):
+            return gm.execute_upgrade_roll(
+                user_id=555666,
+                item_stars=item_stars,
+                target_stars=int(round(item_stars * mult)),
+                target_name="Plush Pepe",
+                target_icon="pepe",
+                source_inventory_id=101,
+                target_slug="plushpepe",
+                multiplier=mult,
+            )
+
+    # 2. Old 6th-spin exploit (plays_before == 5 on 100x with cheap 15* gift) MUST NOT win when pool < required 100x payout
+    res_exploit = _run_tx(plays_before=5, pool_before=100, item_stars=15, mult=100.0, rand_num=0, expect_insert=False)
+    assert res_exploit.get("ok") is True, res_exploit
+    assert res_exploit["won"] is False, "100x 6th-spin exploit with insufficient reserve must be blocked!"
+    assert res_exploit["final_angle"] > res_exploit["green_slice_deg"]
+
+    # 3. Normal 2x loss when CSPRNG rolls outside odds -> burns gift, adds 65% to pool
+    res_loss = _run_tx(plays_before=5, pool_before=5000, item_stars=100, mult=2.0, rand_num=900_000, expect_insert=False)
+    assert res_loss.get("ok") is True, res_loss
+    assert res_loss["won"] is False
+    assert res_loss["final_angle"] > res_loss["green_slice_deg"]
+
+    # 4. Legit win when CSPRNG rolls inside odds AND pool covers target_stars
+    res_win = _run_tx(plays_before=2, pool_before=5000, item_stars=100, mult=2.0, rand_num=100, expect_insert=True)
+    assert res_win.get("ok") is True, res_win
+    assert res_win["won"] is True
+    assert 1 <= res_win["final_angle"] <= res_win["green_slice_deg"]
+
+
+@pytest.mark.asyncio
+async def test_avatar_hmac_signing_and_no_creatorflow_fallback():
+    from aiohttp.test_utils import make_mocked_request
+
+    sig = main._make_avatar_sig(123456789)
+    assert len(sig) == 20
+    assert main._verify_avatar_sig(123456789, sig) is True
+    assert main._verify_avatar_sig(123456789, "deadbeef000000000000") is False
+    assert main._verify_avatar_sig(987654321, sig) is False
+
+    # Image validation & SSRF guard
+    assert main._detect_raster_mime(b"\xff\xd8\xff\xe0" + b"0" * 20) == "image/jpeg"
+    assert main._detect_raster_mime(b"\x89PNG\r\n\x1a\n" + b"0" * 20) == "image/png"
+    assert main._detect_raster_mime(b"<svg></svg>") is None
+    assert main._is_safe_tg_avatar_url("https://t.me/i/userpic/320/test.jpg") is True
+    assert main._is_safe_tg_avatar_url("http://127.0.0.1/secret.jpg") is False
+
+    # Uncached + unauthenticated/missing avatar must return 404 (never creatorflow_avatar.jpg!)
+    req_404 = make_mocked_request("GET", "/api/user/avatar/888999777?sig=badbadbadbadbadbad00", match_info={"user_id": "888999777"})
+    resp_404 = await main.handle_api_user_avatar(req_404)
+    assert resp_404.status == 404
+
+
+def test_upgrader_cursor_wheel_and_navbar_avatar_source():
+    cases_src = (ROOT_DIR / "frontend" / "src" / "pages" / "CasesPage.jsx").read_text(encoding="utf-8")
+    nav_src = (ROOT_DIR / "frontend" / "src" / "components" / "Navbar.jsx").read_text(encoding="utf-8")
+    assert "const duration = 3800;" in cases_src
+    assert "getUpgraderOdds" in cases_src
+    assert "startDeg + 1800 + diff" in cases_src
+    assert "<polygon points=\"16,32 10.5,11 21.5,11\" fill=\"#FF5A1F\" />" in cases_src
+    assert "user?.photo_url" in nav_src
+    assert "onError={() => setAvatarFailed(true)}" in nav_src
