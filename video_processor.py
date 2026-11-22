@@ -4,62 +4,144 @@ import asyncio
 from PIL import Image, ImageDraw, ImageFont
 
 # ==========================================
-# 1. WATERMARK TOZALASH (OpenCV)
+# 1. WATERMARK ANIQLASH VA TOZALASH (OpenCV + FFmpeg delogo)
 # ==========================================
-def remove_watermark(input_mp4, output_mp4):
+def detect_watermark_regions(input_mp4: str, max_samples: int = 8) -> list[tuple[int, int, int, int]]:
     """
-    TikTok/Instagram watermarkini olib tashlash (OpenCV yordamida blur qilish).
-    Asosan pastki markaz va ba'zi burchaklardagi logolarni xiralashtiradi.
+    Videodagi statik yoki yarim-shaffof watermark (logo, username, TikTok/Reels belgilari)
+    hududlarini avtomatik aniqlash.
+    4 ta burchak va pastki/yuqori markaz zonalarida kadrlar bo'ylab o'zgarmas edge (Sobel)
+    klasterlarini topib, (x, y, w, h) koordinatalarini qaytaradi.
     """
     try:
         import cv2
         import numpy as np
-        print(f"[WATERMARK] Tozalanmoqda: {input_mp4}")
-        
-        cap = cv2.VideoCapture(input_mp4)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    except Exception:
+        return []
+
+    cap = cv2.VideoCapture(input_mp4)
+    if not cap.isOpened():
+        return []
+
+    try:
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        temp_no_audio = output_mp4 + "_temp.mp4"
-        out = cv2.VideoWriter(temp_no_audio, fourcc, fps, (width, height))
-        
-        # TikTok logosi odatda pastki o'ng va yuqori chapda bo'ladi (yoki aksincha)
-        # Biz umumiy pastki qism va burchaklarni blur qilamiz
-        while True:
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if width < 64 or height < 64:
+            return []
+
+        if total_frames > max_samples:
+            indices = [int(i * (total_frames - 1) / max(1, max_samples - 1)) for i in range(max_samples)]
+        else:
+            indices = list(range(max(1, total_frames)))
+
+        edge_accum = np.zeros((height, width), dtype=np.float32)
+        sampled = 0
+        for idx in indices:
+            if total_frames > 0:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
-            if not ret:
-                break
-                
-            # Pastki o'ng burchak (TikTok/Reels logolari)
-            h_start, h_end = int(height * 0.85), height
-            w_start, w_end = int(width * 0.70), width
-            
-            roi = frame[h_start:h_end, w_start:w_end]
-            blurred = cv2.GaussianBlur(roi, (51, 51), 0)
-            frame[h_start:h_end, w_start:w_end] = blurred
-            
-            # Yuqori chap burchak
-            h2_start, h2_end = 0, int(height * 0.15)
-            w2_start, w2_end = 0, int(width * 0.35)
-            
-            roi2 = frame[h2_start:h2_end, w2_start:w2_end]
-            blurred2 = cv2.GaussianBlur(roi2, (51, 51), 0)
-            frame[h2_start:h2_end, w2_start:w2_end] = blurred2
-            
-            out.write(frame)
-            
+            if not ret or frame is None:
+                continue
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+            gy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+            mag = cv2.magnitude(gx, gy)
+            edge_accum += (mag > 42.0).astype(np.float32)
+            sampled += 1
+
+        if sampled < 2:
+            return []
+
+        persistence = edge_accum / float(sampled)
+        mask = (persistence >= 0.70).astype(np.uint8) * 255
+
+        # Common watermark zones: 4 corners + bottom-center + top-center ticker
+        cw, ch = int(width * 0.28), int(height * 0.20)
+        zones = [
+            (0, 0, cw, ch),                                  # top-left
+            (width - cw, 0, width, ch),                      # top-right
+            (0, height - ch, cw, height),                    # bottom-left
+            (width - cw, height - ch, width, height),        # bottom-right
+            (int(width * 0.25), int(height * 0.80), int(width * 0.75), height),  # bottom-center
+            (int(width * 0.25), 0, int(width * 0.75), int(height * 0.14)),       # top-center
+        ]
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (11, 7))
+        boxes: list[tuple[int, int, int, int]] = []
+        for x1, y1, x2, y2 in zones:
+            roi = mask[y1:y2, x1:x2]
+            if roi.size == 0:
+                continue
+            closed = cv2.morphologyEx(roi, cv2.MORPH_CLOSE, kernel)
+            contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours:
+                bx, by, bw, bh = cv2.boundingRect(cnt)
+                area = bw * bh
+                if bw < 14 or bh < 10 or area < 220:
+                    continue
+                if bw > int(width * 0.45) and bh > int(height * 0.30):
+                    continue
+                gx1 = max(2, x1 + bx - 6)
+                gy1 = max(2, y1 + by - 6)
+                gw = min(width - gx1 - 2, bw + 12)
+                gh = min(height - gy1 - 2, bh + 12)
+                if gw >= 12 and gh >= 10:
+                    boxes.append((gx1, gy1, gw, gh))
+        return boxes[:6]
+    except Exception:
+        return []
+    finally:
         cap.release()
-        out.release()
-        
-        # Ovozni qaytarib qo'shish
-        os.system(f'ffmpeg -y -i "{temp_no_audio}" -i "{input_mp4}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 "{output_mp4}" -loglevel quiet')
-        
-        if os.path.exists(temp_no_audio):
-            os.remove(temp_no_audio)
-            
-        return output_mp4
+
+
+def _get_video_dimensions(input_mp4: str) -> tuple[int, int]:
+    try:
+        import cv2
+        cap = cv2.VideoCapture(input_mp4)
+        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        if w > 0 and h > 0:
+            return w, h
+    except Exception:
+        pass
+    return 0, 0
+
+
+def remove_watermark(input_mp4, output_mp4):
+    """
+    Videodagi watermarkni avtomatik aniqlash va FFmpeg delogo + chet qirqish orqali tozalash.
+    Ovozni asl sifatida (-c:a copy) saqlaydi.
+    """
+    try:
+        print(f"[WATERMARK] Avtomatik tekshirilmoqda va tozalanmoqda: {input_mp4}")
+        boxes = detect_watermark_regions(input_mp4)
+        vf_parts = []
+        if boxes:
+            for (x, y, w, h) in boxes:
+                vf_parts.append(f"delogo=x={x}:y={y}:w={w}:h={h}:show=0")
+            print(f"[WATERMARK] {len(boxes)} ta watermark hududi aniqlandi: {boxes}")
+        else:
+            # Fallback for floating/corner watermarks when static edge box isn't found
+            w, h = _get_video_dimensions(input_mp4)
+            if w >= 120 and h >= 120:
+                vf_parts.append("crop=iw*0.94:ih*0.94:iw*0.03:ih*0.03,scale=trunc(iw/2)*2:trunc(ih/2)*2")
+            else:
+                return input_mp4
+
+        vf_str = ",".join(vf_parts)
+        cmd = [
+            "ffmpeg", "-y", "-i", input_mp4,
+            "-vf", vf_str,
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
+            "-c:a", "copy", "-movflags", "+faststart",
+            output_mp4,
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=240)
+        if res.returncode == 0 and os.path.exists(output_mp4) and os.path.getsize(output_mp4) > 1024:
+            return output_mp4
+        return input_mp4
     except Exception as e:
         print(f"Watermark tozalash xatosi: {e}")
         return input_mp4
@@ -231,7 +313,7 @@ def process_video_advanced(input_mp4, channel_title="", channel_pfp=""):
     import os
     final_output = input_mp4
     
-    clean_watermark = os.getenv("WATERMARK_CLEAN", "false").lower() == "true"
+    clean_watermark = os.getenv("WATERMARK_CLEAN", "true").lower() != "false"
     add_captions = os.getenv("AUTO_CAPTIONS", "false").lower() == "true"
     
     # 1. Watermark tozalash

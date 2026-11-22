@@ -48,6 +48,12 @@ export function StudioPage({ user, navigate, t }) {
   const [previewVideo, setPreviewVideo] = useState(null);
   const [holdingVideoId, setHoldingVideoId] = useState('');
   const holdTimerRef = useRef(null);
+  const [candidates, setCandidates] = useState([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [inspectedTask, setInspectedTask] = useState(null);
+  const [taskHistory, setTaskHistory] = useState([]);
+  const [taskActionBusy, setTaskActionBusy] = useState(false);
 
   const loadAll = useCallback(
     async (forceRefresh = false, chOverride = null) => {
@@ -211,6 +217,101 @@ export function StudioPage({ user, navigate, t }) {
           },
         ]
       : [];
+
+  const handleSearchCandidates = async (overrideQuery = '') => {
+    const q = (overrideQuery || topic || '').trim();
+    if (!q) {
+      setNotice('Avval mavzu yoki kalit so\'z kiriting.');
+      return;
+    }
+    setDrawerOpen(true);
+    setInspectedTask(null);
+    setTaskHistory([]);
+    setCandidatesLoading(true);
+    setNotice('');
+    try {
+      const res = await apiFetchJson(`/api/videos?q=${encodeURIComponent(q)}&type=short&maxResults=8`);
+      const list = Array.isArray(res.data?.videos) ? res.data.videos : [];
+      setCandidates(list);
+      if (list.length === 0) {
+        setNotice(res.data?.warning || 'Namuna videolar topilmadi.');
+      }
+    } catch {
+      setNotice('Namunalarni yuklashda xatolik yuz berdi.');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const handleInspectTask = async (task) => {
+    if (!task?.id) return;
+    setDrawerOpen(true);
+    setInspectedTask(task);
+    setCandidatesLoading(true);
+    setNotice('');
+    try {
+      const res = await apiFetchJson(`/api/autopost-tasks/${task.id}/details`);
+      if (res.data?.ok) {
+        setInspectedTask(res.data.task || task);
+        setTaskHistory(Array.isArray(res.data.history) ? res.data.history : []);
+        setCandidates(Array.isArray(res.data.candidates) ? res.data.candidates : []);
+        setSelectedIds([]);
+      } else {
+        setNotice(res.data?.error || 'Vazifa ma\'lumotini yuklab bo\'lmadi.');
+      }
+    } catch {
+      setNotice('Tarmoq xatosi.');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const handleTaskAction = async (taskId, action, useGithub = false) => {
+    if (!taskId) return;
+    setTaskActionBusy(true);
+    setNotice('');
+    try {
+      const res = await apiFetchJson('/api/autopost-tasks/action', {
+        method: 'POST',
+        body: JSON.stringify({
+          task_id: taskId,
+          action,
+          selected_video_ids: selectedIds,
+          use_github: useGithub,
+        }),
+      });
+      if (res.data?.ok) {
+        if (action === 'delete') {
+          setNotice(`Task #${taskId} o'chirildi.`);
+          if (inspectedTask?.id === taskId) {
+            setDrawerOpen(false);
+            setInspectedTask(null);
+          }
+        } else {
+          setNotice(
+            res.data.dispatch === 'github_actions'
+              ? `Task #${taskId} 7 GB GitHub Actions worker'ga yuborildi (avto watermark tozalash yoqilgan).`
+              : `Task #${taskId} ishga tushirildi (avto watermark tozalash yoqilgan).`
+          );
+        }
+        await loadAll(false);
+      } else {
+        setNotice(res.data?.error || 'Amalni bajarib bo\'lmadi.');
+      }
+    } catch {
+      setNotice('Tarmoq xatosi.');
+    } finally {
+      setTaskActionBusy(false);
+    }
+  };
+
+  const formatDuration = (sec) => {
+    const n = Number(sec);
+    if (!n || Number.isNaN(n)) return '';
+    const m = Math.floor(n / 60);
+    const s = Math.floor(n % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
 
   return (
     <main className="md-container md-page">
@@ -396,11 +497,24 @@ export function StudioPage({ user, navigate, t }) {
       {/* Autopost Queue & Active Task */}
       <section className="md-card" style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <IconChart size={16} color="var(--accent)" />
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 600 }}>
               {t('autopostTitle')}
             </h2>
+            <span
+              className="md-mono"
+              style={{
+                fontSize: 10.5,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: 'rgba(16, 185, 129, 0.12)',
+                color: '#10b981',
+                fontWeight: 600,
+              }}
+            >
+              AUTO WATERMARK CLEAN: ON
+            </span>
           </div>
           {stats.autopost?.active_task && (
             <span className="md-mono" style={{ fontSize: 11.5, color: 'var(--accent)' }}>
@@ -416,29 +530,47 @@ export function StudioPage({ user, navigate, t }) {
           <input
             type="text"
             className="md-input"
-            style={{ flex: '1 1 260px' }}
+            style={{ flex: '1 1 240px' }}
             placeholder={
               selectedIds.length > 0
-                ? `${selectedIds.length} selected video(s) ready to queue`
+                ? `${selectedIds.length} ta tanlangan video postga tayyor`
                 : t('autopostTopicPlaceholder')
             }
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             disabled={selectedIds.length > 0}
           />
+          <button
+            type="button"
+            disabled={candidatesLoading}
+            onClick={() => handleSearchCandidates()}
+            className="md-btn md-btn-rect"
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {candidatesLoading && !inspectedTask ? 'Qidirilmoqda...' : 'Namunalarni ko\'rish'}
+          </button>
           <input
             type="number"
             min={1}
             max={10}
             aria-label={t('autopostCount')}
             className="md-input md-mono"
-            style={{ width: 92 }}
+            style={{ width: 82 }}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
           />
           <button type="submit" disabled={submitting} className="md-btn md-btn-accent md-btn-rect">
-            {submitting ? t('loading') : t('autopostLaunch')}
+            {submitting ? t('loading') : selectedIds.length > 0 ? `Tanlanganini Post Qilish (${selectedIds.length})` : t('autopostLaunch')}
           </button>
+          {selectedIds.length > 0 && (
+            <button
+              type="button"
+              className="md-btn md-btn-sm"
+              onClick={() => setSelectedIds([])}
+            >
+              Tozalash
+            </button>
+          )}
         </form>
 
         {notice && (
@@ -456,34 +588,238 @@ export function StudioPage({ user, navigate, t }) {
                   <th>Topic / Query</th>
                   <th>Progress</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {tasks.slice(0, 8).map((task) => (
-                  <tr key={task.id || `${task.topic}-${task.created_at}`}>
-                    <td className="md-mono">#{task.id || '-'}</td>
-                    <td>{task.topic || task.search_query || task.title || 'Scheduled Shorts'}</td>
-                    <td className="md-mono">
-                      {task.completed_count !== undefined
-                        ? `${task.completed_count}/${task.total_count || 1}`
-                        : '-'}
-                    </td>
-                    <td>
-                      <span
-                        className="md-mono"
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          color: task.status === 'done' || task.status === 'completed' ? 'var(--ok)' : 'var(--accent)',
-                        }}
-                      >
-                        {String(task.status || 'pending').toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {tasks.slice(0, 8).map((task) => {
+                  const isActiveRow = inspectedTask?.id === task.id && drawerOpen;
+                  return (
+                    <tr
+                      key={task.id || `${task.topic}-${task.created_at}`}
+                      onClick={() => handleInspectTask(task)}
+                      style={{
+                        cursor: 'pointer',
+                        background: isActiveRow ? 'rgba(255, 79, 24, 0.06)' : undefined,
+                      }}
+                    >
+                      <td className="md-mono">#{task.id || '-'}</td>
+                      <td>
+                        <div style={{ fontWeight: 500 }}>{task.topic || task.search_query || task.title || 'Scheduled Shorts'}</div>
+                        <div className="md-mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                          Bosib namunalarni ko&apos;ring
+                        </div>
+                      </td>
+                      <td className="md-mono">
+                        {task.completed_count !== undefined
+                          ? `${task.completed_count}/${task.total_count || 1}`
+                          : '-'}
+                      </td>
+                      <td>
+                        <span
+                          className="md-mono"
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: task.status === 'done' || task.status === 'completed' ? 'var(--ok)' : 'var(--accent)',
+                          }}
+                        >
+                          {String(task.status || 'pending').toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                        <div style={{ display: 'inline-flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="md-btn md-btn-sm"
+                            onClick={() => handleInspectTask(task)}
+                          >
+                            Preview
+                          </button>
+                          <button
+                            type="button"
+                            disabled={taskActionBusy}
+                            className="md-btn md-btn-sm md-btn-accent"
+                            onClick={() => handleTaskAction(task.id, 'run_now', false)}
+                          >
+                            Run
+                          </button>
+                          <button
+                            type="button"
+                            disabled={taskActionBusy}
+                            className="md-btn md-btn-sm"
+                            onClick={() => handleTaskAction(task.id, 'delete', false)}
+                          >
+                            Del
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Candidate Videos & Task Inspector Drawer */}
+        {drawerOpen && (
+          <div
+            style={{
+              marginTop: 18,
+              padding: 16,
+              borderRadius: 12,
+              border: '1px solid var(--border-strong)',
+              background: 'var(--bg)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600 }}>
+                  {inspectedTask
+                    ? `Task #${inspectedTask.id}: ${inspectedTask.search_query || inspectedTask.topic}`
+                    : `Qidiruv namunalari: "${topic}"`}
+                </div>
+                <div className="md-mono" style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  Post qilishdan oldin videoni ko&apos;rib chiqing &middot; Watermark avtomatik o&apos;chiriladi
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {inspectedTask && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={taskActionBusy}
+                      className="md-btn md-btn-sm md-btn-accent"
+                      onClick={() => handleTaskAction(inspectedTask.id, 'run_now', false)}
+                    >
+                      {selectedIds.length > 0 ? `Tanlanganini Run (${selectedIds.length})` : 'Hozir Run Qilish'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={taskActionBusy}
+                      className="md-btn md-btn-sm"
+                      onClick={() => handleTaskAction(inspectedTask.id, 'run_now', true)}
+                    >
+                      GitHub Actions (7GB)
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="md-btn md-btn-sm"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  Yopish
+                </button>
+              </div>
+            </div>
+
+            {taskHistory.length > 0 && (
+              <div style={{ marginBottom: 14, padding: 10, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}>
+                <div className="md-mono" style={{ fontSize: 11, fontWeight: 600, marginBottom: 6 }}>
+                  TASK HISTORY ({taskHistory.length})
+                </div>
+                {taskHistory.map((h) => (
+                  <div key={h.id} className="md-mono" style={{ fontSize: 11.5, display: 'flex', justifyContent: 'space-between', gap: 8, padding: '4px 0' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.source_title || h.source_video_id}
+                    </span>
+                    <span style={{ color: h.status === 'uploaded' ? 'var(--ok)' : 'var(--accent)' }}>
+                      {String(h.status || '').toUpperCase()} {h.error_msg ? `(${String(h.error_msg).slice(0, 48)})` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {candidatesLoading ? (
+              <div className="md-mono" style={{ fontSize: 12, color: 'var(--muted)', padding: '14px 0' }}>
+                Namuna videolar yuklanmoqda...
+              </div>
+            ) : candidates.length === 0 ? (
+              <div className="md-mono" style={{ fontSize: 12, color: 'var(--muted)', padding: '14px 0' }}>
+                Namuna videolar topilmadi.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                {candidates.map((cand) => {
+                  const vid = sanitizeYoutubeId(cand.id);
+                  const checked = vid && selectedIds.includes(vid);
+                  return (
+                    <div
+                      key={cand.id}
+                      style={{
+                        border: checked ? '1.5px solid var(--accent)' : '1px solid var(--border)',
+                        borderRadius: 10,
+                        background: 'var(--surface)',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      <div style={{ position: 'relative', aspectRatio: '16 / 9', background: '#111' }}>
+                        <img
+                          src={cand.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
+                          alt={cand.title}
+                          loading="lazy"
+                          decoding="async"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                        {cand.duration ? (
+                          <span
+                            className="md-mono"
+                            style={{
+                              position: 'absolute',
+                              right: 6,
+                              bottom: 6,
+                              fontSize: 10,
+                              padding: '2px 5px',
+                              borderRadius: 4,
+                              background: 'rgba(0,0,0,0.78)',
+                              color: '#fff',
+                            }}
+                          >
+                            {formatDuration(cand.duration)}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {cand.title}
+                        </div>
+                        <div className="md-mono" style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                          {cand.channel || 'YouTube'} {cand.views ? `· ${Number(cand.views).toLocaleString()} views` : ''}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 'auto' }}>
+                          <button
+                            type="button"
+                            className="md-btn md-btn-sm"
+                            style={{ flex: 1 }}
+                            onClick={() => setPreviewVideo({ id: vid, title: cand.title, views: cand.views })}
+                          >
+                            Ko&apos;rish
+                          </button>
+                          <button
+                            type="button"
+                            className={`md-btn md-btn-sm${checked ? ' md-btn-accent' : ''}`}
+                            onClick={() => vid && toggleSelectVideo(vid)}
+                          >
+                            {checked ? 'Tanlandi' : 'Tanlash'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </section>

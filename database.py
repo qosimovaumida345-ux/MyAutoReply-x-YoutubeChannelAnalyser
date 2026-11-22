@@ -1935,6 +1935,63 @@ def get_pending_tasks():
         conn.close()
 
 
+def get_autopost_task_by_id(task_id):
+    """ID bo'yicha bitta autopost vazifasini olish."""
+    conn = get_db()
+    if not conn: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM autopost_tasks WHERE id = %s", (int(task_id),))
+        return cur.fetchone()
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def reset_stale_autopost_tasks(stale_minutes: int = 15) -> int:
+    """Qotib qolgan 'processing'/'running' vazifalarni 'pending' holatiga qaytarish."""
+    conn = get_db()
+    if not conn: return 0
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE autopost_tasks
+            SET status = 'pending', updated_at = NOW()
+            WHERE status IN ('processing', 'running')
+              AND updated_at < NOW() - (%s * INTERVAL '1 minute')
+            """,
+            (max(1, int(stale_minutes)),),
+        )
+        affected = cur.rowcount or 0
+        conn.commit()
+        return affected
+    except Exception:
+        conn.rollback()
+        return 0
+    finally:
+        conn.close()
+
+
+def delete_autopost_task(task_id: int, tg_user_id: int) -> bool:
+    """Foydalanuvchiga tegishli autopost vazifasini o'chirish."""
+    conn = get_db()
+    if not conn: return False
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM autopost_history WHERE task_id = %s AND tg_user_id = %s", (int(task_id), int(tg_user_id)))
+        cur.execute("DELETE FROM autopost_tasks WHERE id = %s AND tg_user_id = %s", (int(task_id), int(tg_user_id)))
+        deleted = (cur.rowcount or 0) > 0
+        conn.commit()
+        return deleted
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
 # ==================== AUTO-POST HISTORY ====================
 
 

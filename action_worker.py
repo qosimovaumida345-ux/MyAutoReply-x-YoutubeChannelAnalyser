@@ -290,9 +290,19 @@ async def handle_uniqualize():
         raise Exception("Asosiy video yuklanmadi.")
 
     ffmpeg_bin = _get_ffmpeg()
+    vf_filters = []
+    try:
+        from video_processor import detect_watermark_regions
+        wm_boxes = detect_watermark_regions(actual_raw)
+        for (wx, wy, ww, wh) in wm_boxes:
+            vf_filters.append(f"delogo=x={wx}:y={wy}:w={ww}:h={wh}:show=0")
+    except Exception as wm_err:
+        logger.warning(f"Watermark detection skipped: {wm_err}")
+    vf_filters.append("eq=contrast=1.03:brightness=0.01:saturation=1.04,scale='min(1080,iw)':-2")
+
     cmd = [
         ffmpeg_bin, "-y", "-i", actual_raw,
-        "-vf", "eq=contrast=1.03:brightness=0.01:saturation=1.04,scale='min(1080,iw)':-2",
+        "-vf", ",".join(vf_filters),
         "-af", "atempo=1.02,asetrate=44100*1.015,aresample=44100",
         "-map_metadata", "-1",
         "-c:v", "libx264", "-preset", "veryfast", "-crf", "22",
@@ -378,6 +388,39 @@ async def handle_clip():
             await _send_video(CHAT_ID, seg_path, cap)
 
 
+async def handle_autopost():
+    """GitHub Actions 7 GB RAM muhitida Autopost vazifasini bajarish (avto watermark tozalash bilan)."""
+    import re as _re
+    m = _re.search(r"(\d+)$", TARGET_URL or "")
+    if not m:
+        raise Exception(f"Noto'g'ri autopost task identifikatori: {TARGET_URL}")
+    task_id = int(m.group(1))
+    os.environ["WATERMARK_CLEAN"] = "true"
+
+    from database import get_autopost_task_by_id, update_autopost_task
+    from autopost import autopost_worker
+
+    task = get_autopost_task_by_id(task_id)
+    if not task:
+        raise Exception(f"Autopost task #{task_id} topilmadi.")
+    if task.get("status") == "completed":
+        logger.info(f"Task #{task_id} allaqachon tugallangan.")
+        return
+
+    update_autopost_task(task_id, status="processing")
+    await autopost_worker(
+        task_id=task_id,
+        tg_user_id=task["tg_user_id"],
+        search_query=task["search_query"],
+        count=int(task.get("total_count") or 1),
+        client=None,
+        chat_id=int(CHAT_ID or task["tg_user_id"]),
+        proxy_url=PROXY or None,
+        apply_watermark=bool(task.get("apply_watermark", False)),
+        channel_id=task.get("yt_channel_id"),
+    )
+
+
 async def main():
     if not TARGET_URL or not CHAT_ID:
         logger.error(f"Noto'g'ri parametrlar: TARGET_URL={TARGET_URL}, CHAT_ID={CHAT_ID}")
@@ -392,6 +435,8 @@ async def main():
             await handle_uniqualize()
         elif TASK_TYPE == "clip":
             await handle_clip()
+        elif TASK_TYPE == "autopost":
+            await handle_autopost()
         else:
             logger.error(f"Noma'lum TASK_TYPE: {TASK_TYPE}")
             await _send_msg(CHAT_ID, f"❌ Noma'lum vazifa turi: {TASK_TYPE}")

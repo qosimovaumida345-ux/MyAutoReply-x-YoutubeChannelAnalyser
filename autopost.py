@@ -314,10 +314,145 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
     return response.get("id")
 
 
+def search_youtube_candidates(query: str, max_results: int = 8, video_type: str = "shorts") -> list[dict]:
+    """
+    Qidiruv so'rovi bo'yicha YouTube videolarini topish.
+    1-navbatda YouTube Data API v3 ishlatiladi; kvota tugasa yoki xato bersa
+    avtomatik yt_dlp ytsearch fallback orqali namuna videolar ro'yxatini qaytaradi.
+    """
+    import re as _re
+    import yt_dlp
+
+    q = (query or "").strip()
+    if not q:
+        return []
+
+    # Strip inline selected IDs tag if present in task query
+    m_vids = _re.search(r"\[vids:([A-Za-z0-9_,-]+)\]", q)
+    explicit_ids: list[str] = []
+    if m_vids:
+        explicit_ids = [v.strip() for v in m_vids.group(1).split(",") if v.strip()]
+        q = _re.sub(r"\s*\[vids:[A-Za-z0-9_,-]+\]", "", q).strip()
+    elif q.startswith("__IDS__:"):
+        explicit_ids = [v.strip() for v in q.replace("__IDS__:", "").split(",") if v.strip()]
+
+    # 1. Try YouTube Data API v3 first
+    try:
+        yt = build_youtube_api()
+        if explicit_ids:
+            res = yt.videos().list(part="snippet,contentDetails,statistics", id=",".join(explicit_ids[:20])).execute()
+        else:
+            search_q = f"{q} #shorts" if video_type in ("short", "shorts") and "short" not in q.lower() else q
+            res = yt.search().list(
+                q=search_q,
+                part="snippet",
+                maxResults=min(max(1, int(max_results)), 25),
+                type="video",
+            ).execute()
+        items = res.get("items", [])
+        out: list[dict] = []
+        for item in items:
+            vid_id = item["id"].get("videoId", "") if isinstance(item.get("id"), dict) else str(item.get("id", ""))
+            if not vid_id:
+                continue
+            snip = item.get("snippet") or {}
+            thumbs = snip.get("thumbnails") or {}
+            thumb_url = (
+                (thumbs.get("high") or {}).get("url")
+                or (thumbs.get("medium") or {}).get("url")
+                or f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+            )
+            stats = item.get("statistics") or {}
+            out.append({
+                "id": vid_id,
+                "title": snip.get("title") or "Untitled",
+                "description": snip.get("description") or "",
+                "channel": snip.get("channelTitle") or "",
+                "thumbnail": thumb_url,
+                "published": snip.get("publishedAt") or "",
+                "views": int(stats.get("viewCount", 0) or 0),
+                "duration": 0,
+            })
+        if out:
+            return out[:max_results]
+    except Exception as e:
+        print(f"[search_youtube_candidates] API fallback to yt_dlp: {e}")
+
+    # 2. Fallback: yt_dlp ytsearch (zero YouTube API quota cost)
+    try:
+        ydl_opts = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": "in_playlist",
+            "skip_download": True,
+        }
+        if explicit_ids:
+            out = []
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                for vid in explicit_ids[:max_results]:
+                    try:
+                        info = ydl.extract_info(f"https://www.youtube.com/watch?v={vid}", download=False)
+                        if info:
+                            out.append({
+                                "id": vid,
+                                "title": info.get("title") or f"Video {vid}",
+                                "description": (info.get("description") or "")[:400],
+                                "channel": info.get("uploader") or info.get("channel") or "",
+                                "thumbnail": info.get("thumbnail") or f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
+                                "published": info.get("upload_date") or "",
+                                "views": int(info.get("view_count") or 0),
+                                "duration": int(info.get("duration") or 0),
+                            })
+                    except Exception:
+                        out.append({
+                            "id": vid,
+                            "title": f"Video {vid}",
+                            "description": "",
+                            "channel": "",
+                            "thumbnail": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
+                            "published": "",
+                            "views": 0,
+                            "duration": 0,
+                        })
+            return out
+
+        search_term = f"{q} shorts" if video_type in ("short", "shorts") and "short" not in q.lower() else q
+        fetch_n = min(30, max(max_results * 2, 10))
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"ytsearch{fetch_n}:{search_term}", download=False)
+        entries = (info or {}).get("entries") or []
+        out = []
+        for entry in entries:
+            if not entry:
+                continue
+            vid = entry.get("id") or ""
+            if not vid:
+                continue
+            dur = int(entry.get("duration") or 0)
+            if video_type in ("short", "shorts") and dur > 120:
+                continue
+            out.append({
+                "id": vid,
+                "title": entry.get("title") or f"Video {vid}",
+                "description": (entry.get("description") or "")[:400],
+                "channel": entry.get("uploader") or entry.get("channel") or "",
+                "thumbnail": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg",
+                "published": entry.get("upload_date") or "",
+                "views": int(entry.get("view_count") or 0),
+                "duration": dur,
+            })
+            if len(out) >= max_results:
+                break
+        return out
+    except Exception as e2:
+        print(f"[search_youtube_candidates] yt_dlp fallback error: {e2}")
+        return []
+
+
 # ==================== AUTO-POST WORKER ====================
 
-async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat_id, proxy_url=None, apply_watermark=False):
-    """Background task: videolarni qidiradi, yuklab oladi va kanalga post qiladi"""
+async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat_id, proxy_url=None, apply_watermark=False, channel_id=None, selected_video_ids=None):
+    """Background task: videolarni qidiradi, watermarkni tozalaydi, yuklab oladi va kanalga post qiladi"""
     try:
         async def safe_send(text):
             if client:
@@ -332,8 +467,16 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
 
         await safe_send(f"🔄 `Auto-post boshlandi: {count} ta video '{search_query}' bo'yicha...`")
 
-        # 1. Credentials tekshirish
-        conn_data = get_yt_connection(tg_user_id)
+        # 1. Credentials tekshirish (kerakli kanalni tanlash)
+        if not channel_id:
+            try:
+                from database import get_autopost_task_by_id
+                trow = get_autopost_task_by_id(task_id)
+                if trow:
+                    channel_id = trow.get("yt_channel_id")
+            except Exception:
+                pass
+        conn_data = get_yt_connection(tg_user_id, channel_id=channel_id)
         if not conn_data or not conn_data.get("access_token"):
             await safe_send("❌ `Kanalingiz ulanmagan! Avval /ytlogin orqali kanalingizni ulang.`")
             update_autopost_task(task_id, status="failed")
@@ -354,49 +497,42 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             except Exception as e:
                 print(f"PFP Error: {e}")
 
-        # 2. Videolarni qidirish (YouTube API orqali - auto key rotation)
-        yt = build_youtube_api()
-        
-        if search_query.startswith("__IDS__:"):
-            vid_ids = search_query.replace("__IDS__:", "").split(",")
-            search_res = yt.videos().list(
-                part="snippet",
-                id=",".join(vid_ids)
-            ).execute()
+        # 2. Videolarni qidirish (API + yt_dlp fallback)
+        if selected_video_ids and isinstance(selected_video_ids, (list, tuple)):
+            query_for_search = "__IDS__:" + ",".join(str(v).strip() for v in selected_video_ids if str(v).strip())
         else:
-            search_res = yt.search().list(
-                q=search_query,
-                part="snippet",
-                maxResults=min(count, 50),  # YouTube API max 50
-                type="video"
-            ).execute()
+            query_for_search = search_query
 
-        videos = search_res.get("items", [])
-        if not videos:
+        candidate_items = await asyncio.to_thread(
+            search_youtube_candidates,
+            query_for_search,
+            max(int(count) * 4, 10),
+            "shorts",
+        )
+        if not candidate_items:
             await safe_send("❌ `Videolar topilmadi.`")
             update_autopost_task(task_id, status="failed")
             return
 
         success_count = 0
-        process_idx = 0  # FIX: process_idx aniqlanmagan edi → NameError crash bo'lardi
+        process_idx = 0
         update_autopost_task(task_id, status="running")
-        for idx, item in enumerate(videos, 1):
-            if isinstance(item["id"], dict):
-                vid_id = item["id"].get("videoId", "")
-            else:
-                vid_id = item["id"]
-                
-            if not vid_id: continue
-                
-            title = item["snippet"]["title"]
-            desc = item["snippet"]["description"]
+        for item in candidate_items:
+            if success_count >= int(count):
+                break
+            vid_id = item.get("id", "")
+            if not vid_id:
+                continue
+
+            title = item.get("title") or f"Short #{vid_id}"
+            desc = item.get("description") or ""
 
             # Avval yuklangan videoni skip qilish
             if has_video_been_posted(tg_user_id, vid_id):
                 print(f"[autopost] Skip (allaqachon yuklangan): {vid_id}")
                 continue
 
-            process_idx += 1  # FIX: faqat haqiqiy yuklanadigan videolar uchun oshirish
+            process_idx += 1
 
             # DB ga yozish
             hist_id = add_autopost_history(task_id, tg_user_id, vid_id, title)

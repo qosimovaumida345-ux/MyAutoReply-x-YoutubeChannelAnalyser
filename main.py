@@ -322,6 +322,30 @@ async def _run_main_autopost_task(task):
         _main_running_tasks["count"] = max(0, _main_running_tasks["count"] - 1)
 
 
+async def _poll_pending_autopost_tasks_loop():
+    """ROLE=main: bazada 'pending' holatida turgan autopost vazifalarini (masalan, #1) avtomatik ishga tushiradi."""
+    await asyncio.sleep(5)
+    try:
+        from database import reset_stale_autopost_tasks
+        reset_stale_autopost_tasks(15)
+    except Exception:
+        pass
+
+    while True:
+        try:
+            from database import get_pending_tasks
+            pending = await asyncio.to_thread(get_pending_tasks)
+            for t in (pending or []):
+                if str(t.get("status", "")).lower() == "pending":
+                    tid = t.get("id")
+                    if tid:
+                        await dispatch_or_run_autopost(tid)
+                        break
+        except Exception as e:
+            print(f"[autopost-poller] xato: {e}")
+        await asyncio.sleep(12)
+
+
 async def dispatch_or_run_stream(task_id):
     """ROLE=main: yangi yaratilgan stream task_id ni marshrutlaydi."""
     from config import STREAMER_URLS, MAIN_MAX_CONCURRENT_TASKS
@@ -1396,10 +1420,22 @@ async def handle_api_videos(request):
                     "duration": v.get("contentDetails", {}).get("duration", ""),
                 })
         
+        if not videos:
+            from autopost import search_youtube_candidates
+            videos = await asyncio.to_thread(search_youtube_candidates, q, max_results, video_type or "shorts")
+
         _video_search_cache[cache_key] = {"videos": videos, "ts": _time.time()}
         return web.Response(text=json.dumps({"videos": videos}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         err_msg = str(e)
+        try:
+            from autopost import search_youtube_candidates
+            fallback_videos = await asyncio.to_thread(search_youtube_candidates, q, max_results, video_type or "shorts")
+            if fallback_videos:
+                _video_search_cache[cache_key] = {"videos": fallback_videos, "ts": _time.time()}
+                return web.Response(text=json.dumps({"videos": fallback_videos, "source": "yt_dlp"}), content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
+        except Exception:
+            pass
         if "quotaExceeded" in err_msg or "rateLimitExceeded" in err_msg or "403" in err_msg:
             return web.Response(text=json.dumps({
                 "videos": [],
@@ -1616,6 +1652,109 @@ async def handle_api_best_time(request):
     except Exception as e:
         print(f"[api/best-time] error: {e}")
         return web.Response(text=json.dumps({"error": "Eng yaxshi vaqtni hisoblashda xatolik yuz berdi"}), content_type="application/json", status=500)
+
+async def handle_api_autopost_task_details(request):
+    """Autopost vazifasi tafsilotlari: tarixi + qidiruv bo'yicha namuna videolar ro'yxati."""
+    tg_user_id, auth_err = _require_user_auth(request, allow_admin=True)
+    if auth_err:
+        return auth_err
+    tid_str = request.match_info.get("task_id", "").strip()
+    if not tid_str.isdigit():
+        return web.json_response({"ok": False, "error": "Noto'g'ri task_id"}, status=400)
+    task_id = int(tid_str)
+
+    from database import get_autopost_task_by_id, get_autopost_history
+    from autopost import search_youtube_candidates
+
+    task = get_autopost_task_by_id(task_id)
+    if not task:
+        return web.json_response({"ok": False, "error": "Vazifa topilmadi"}, status=404)
+    if int(task.get("tg_user_id", 0)) != int(tg_user_id) and not is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Ruxsat yo'q"}, status=403)
+
+    history = get_autopost_history(task_id) or []
+    hist_list = []
+    for h in history:
+        row = dict(h)
+        if row.get("created_at"):
+            row["created_at"] = str(row["created_at"])
+        hist_list.append(row)
+
+    task_out = dict(task)
+    for dt_k in ("created_at", "updated_at"):
+        if task_out.get(dt_k):
+            task_out[dt_k] = str(task_out[dt_k])
+
+    candidates = await asyncio.to_thread(
+        search_youtube_candidates,
+        str(task.get("search_query") or ""),
+        8,
+        str(task.get("video_type") or "shorts"),
+    )
+    return web.json_response({"ok": True, "task": task_out, "history": hist_list, "candidates": candidates})
+
+
+async def handle_api_autopost_task_action(request):
+    """Autopost vazifasini ishga tushirish, qayta urinish yoki o'chirish (GitHub Actions / Local)."""
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "Noto'g'ri JSON"}, status=400)
+
+    tg_user_id, auth_err = _require_user_auth(request, data, allow_admin=True)
+    if auth_err:
+        return auth_err
+
+    task_id = _safe_int(data.get("task_id"), 0)
+    action = str(data.get("action") or "").strip().lower()
+    if task_id <= 0 or action not in ("run_now", "retry", "delete"):
+        return web.json_response({"ok": False, "error": "Noto'g'ri task_id yoki action"}, status=400)
+
+    from database import get_autopost_task_by_id, update_autopost_task, delete_autopost_task, get_db
+    task = get_autopost_task_by_id(task_id)
+    if not task:
+        return web.json_response({"ok": False, "error": "Vazifa topilmadi"}, status=404)
+    if int(task.get("tg_user_id", 0)) != int(tg_user_id) and not is_admin_request(request):
+        return web.json_response({"ok": False, "error": "Ruxsat yo'q"}, status=403)
+
+    if action == "delete":
+        ok_del = delete_autopost_task(task_id, int(task["tg_user_id"]))
+        return web.json_response({"ok": ok_del, "deleted": ok_del})
+
+    selected_ids = data.get("selected_video_ids") or []
+    if isinstance(selected_ids, list) and selected_ids:
+        clean_ids = [v for v in (_extract_valid_video_id(str(x)) for x in selected_ids[:20]) if v]
+        if clean_ids:
+            conn = get_db()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    cur.execute(
+                        "UPDATE autopost_tasks SET search_query = %s, total_count = %s, updated_at = NOW() WHERE id = %s",
+                        ("__IDS__:" + ",".join(clean_ids), len(clean_ids), task_id),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+
+    update_autopost_task(task_id, status="pending")
+
+    use_gh = bool(data.get("use_github")) or os.getenv("GITHUB_AUTOPOST_OFFLOAD", "false").lower() == "true"
+    dispatched = "local"
+    if use_gh:
+        try:
+            from worker_client import trigger_github_worker
+            ok_gh, _ = await trigger_github_worker("autopost", f"autopost://task/{task_id}", str(task["tg_user_id"]))
+            if ok_gh:
+                dispatched = "github_actions"
+        except Exception:
+            pass
+
+    if dispatched == "local":
+        asyncio.create_task(dispatch_or_run_autopost(task_id))
+
+    return web.json_response({"ok": True, "status": "pending", "dispatch": dispatched})
+
 
 async def handle_api_video_formats(request):
     """Video uchun mavjud formatlarni olish (fallback va tezkor response bilan)"""
@@ -2175,7 +2314,7 @@ async def handle_api_autopost_create(request):
         if auth_err:
             return auth_err
 
-        video_ids = data.get("video_ids") or []
+        video_ids = data.get("selected_video_ids") or data.get("video_ids") or []
         topic = str(data.get("topic") or data.get("search_query") or "").strip()[:200]
         video_type = str(data.get("video_type") or "shorts").strip().lower()
         if video_type not in ("shorts", "video", "long"):
@@ -2650,11 +2789,36 @@ async def handle_nft_image(request):
     elif ext == ".gif":
         content_type = "image/gif"
 
-    return web.FileResponse(real_path, headers={
-        "Content-Type": content_type,
+    if ext == ".gif":
+        return web.FileResponse(real_path, headers={
+            "Content-Type": content_type,
+            "Cache-Control": "public, max-age=604800, immutable",
+            "Access-Control-Allow-Origin": "*"
+        })
+
+    try:
+        target_w = int(request.query.get("w", "240"))
+    except Exception:
+        target_w = 240
+    target_w = max(48, min(512, target_w))
+    cache_key = f"nft:{clean_name}:{target_w}"
+    cached_entry = _RASTER_FAST_CACHE.get(cache_key)
+    if not cached_entry:
+        with open(real_path, "rb") as rf:
+            raw_img = rf.read()
+        compact_data, compact_mime = _compress_raster_image(raw_img, max_dim=target_w, quality=80)
+        cached_entry = _cache_raster_put(cache_key, compact_data, compact_mime)
+
+    body_bytes, resp_mime, etag = cached_entry
+    resp_headers = {
         "Cache-Control": "public, max-age=604800, immutable",
-        "Access-Control-Allow-Origin": "*"
-    })
+        "Access-Control-Allow-Origin": "*",
+        "ETag": etag,
+        "Content-Length": str(len(body_bytes)),
+    }
+    if request.headers.get("If-None-Match") == etag:
+        return web.Response(status=304, headers=resp_headers)
+    return web.Response(body=body_bytes, content_type=resp_mime, headers=resp_headers)
 
 _FRAGMENT_IMG_CACHE = {}
 _FRAGMENT_IMG_CACHE_MAX = 200
@@ -2664,6 +2828,15 @@ async def handle_fragment_image_proxy(request):
     slug = request.match_info.get("slug", "").strip()
     if not slug or not _SLUG_PATTERN.match(slug) or len(slug) > 80:
         return web.Response(status=400, text="Invalid slug")
+
+    cache_entry = _RASTER_FAST_CACHE.get(f"frag:{slug}")
+    if cache_entry:
+        c_bytes, c_mime, etag = cache_entry
+        return web.Response(
+            body=c_bytes,
+            content_type=c_mime,
+            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable", "ETag": etag, "Content-Length": str(len(c_bytes))}
+        )
         
     if slug in _FRAGMENT_IMG_CACHE:
         return web.Response(
@@ -2684,13 +2857,12 @@ async def handle_fragment_image_proxy(request):
                     img_bytes = await resp.content.read(5 * 1024 * 1024 + 1)
                     if len(img_bytes) > 5 * 1024 * 1024:
                         return web.Response(status=502, text="Upstream image too large")
-                    if len(_FRAGMENT_IMG_CACHE) >= _FRAGMENT_IMG_CACHE_MAX:
-                        _FRAGMENT_IMG_CACHE.pop(next(iter(_FRAGMENT_IMG_CACHE)), None)
-                    _FRAGMENT_IMG_CACHE[slug] = img_bytes
+                    compact_data, compact_mime = _compress_raster_image(img_bytes, max_dim=240, quality=80)
+                    _, _, etag = _cache_raster_put(f"frag:{slug}", compact_data, compact_mime)
                     return web.Response(
-                        body=img_bytes,
-                        content_type=upstream_ct if upstream_ct in ("image/jpeg", "image/png", "image/webp", "image/gif") else "image/jpeg",
-                        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable"}
+                        body=compact_data,
+                        content_type=compact_mime,
+                        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=604800, immutable", "ETag": etag, "Content-Length": str(len(compact_data))}
                     )
                 else:
                     return web.Response(status=resp.status, text="Image not found on Fragment")
@@ -3215,6 +3387,45 @@ def _build_signed_avatar_url(user_id: int, force_refresh: bool = False) -> str:
     return base
 
 
+_RASTER_FAST_CACHE: dict[str, tuple[bytes, str, str]] = {}
+_RASTER_FAST_CACHE_MAX = 256
+
+
+def _compress_raster_image(raw_bytes: bytes, max_dim: int = 96, quality: int = 82) -> tuple[bytes, str]:
+    """Downscale and compress static raster images to compact WebP without breaking animations."""
+    if not raw_bytes or len(raw_bytes) < 12:
+        return raw_bytes, "application/octet-stream"
+    fallback_mime = _detect_raster_mime(raw_bytes) or "image/jpeg"
+    try:
+        from io import BytesIO
+        from PIL import Image, ImageOps
+        with Image.open(BytesIO(raw_bytes)) as img:
+            # Skip multi-frame animated images (e.g., animated WebP/GIF)
+            if getattr(img, "is_animated", False) and getattr(img, "n_frames", 1) > 1:
+                return raw_bytes, fallback_mime
+            img = ImageOps.exif_transpose(img)
+            if max_dim > 0 and (img.width > max_dim or img.height > max_dim):
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA" if "A" in img.getbands() else "RGB")
+            out = BytesIO()
+            img.save(out, format="WEBP", quality=quality, method=4)
+            compact = out.getvalue()
+            if compact and (len(compact) < len(raw_bytes) or fallback_mime != "image/webp"):
+                return compact, "image/webp"
+    except Exception:
+        pass
+    return raw_bytes, fallback_mime
+
+
+def _cache_raster_put(key: str, data: bytes, mime: str) -> tuple[bytes, str, str]:
+    etag = f'"{_hashlib.sha256(data).hexdigest()[:16]}"'
+    if len(_RASTER_FAST_CACHE) >= _RASTER_FAST_CACHE_MAX:
+        _RASTER_FAST_CACHE.pop(next(iter(_RASTER_FAST_CACHE)), None)
+    _RASTER_FAST_CACHE[key] = (data, mime, etag)
+    return data, mime, etag
+
+
 def _detect_raster_mime(data: bytes):
     """Validate image magic bytes and return safe raster MIME type or None."""
     if not data or len(data) < 12:
@@ -3270,20 +3481,34 @@ async def handle_api_user_avatar(request):
     is_authorized = _verify_avatar_sig(user_id, sig) or (auth_uid and auth_uid == user_id) or is_admin_request(request)
 
     headers = {
-        "Cache-Control": "no-store" if refresh else "private, max-age=3600",
+        "Cache-Control": "no-store" if refresh else "public, max-age=3600, stale-while-revalidate=86400",
         "Access-Control-Allow-Origin": "*",
     }
 
+    def _serve_compact_avatar(raw_data: bytes, persist_path: str | None = None):
+        compact_data, compact_mime = _compress_raster_image(raw_data, max_dim=96, quality=82)
+        if persist_path and (len(raw_data) > 10240 or compact_data != raw_data):
+            try:
+                with open(persist_path, "wb") as wf:
+                    wf.write(compact_data)
+            except Exception:
+                pass
+        _, _, etag = _cache_raster_put(f"avatar:{user_id}", compact_data, compact_mime)
+        resp_headers = {**headers, "ETag": etag, "Content-Length": str(len(compact_data))}
+        if not refresh and request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers=resp_headers)
+        return web.Response(body=compact_data, content_type=compact_mime, headers=resp_headers)
+
     # 1. Serve cached disk image if valid raster and fresh (< 6h) when not force-refreshed
     cache_ttl = 21600
-    if not refresh and os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 256:
+    if not refresh and os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 64:
         try:
             age = time.time() - os.path.getmtime(local_avatar)
             with open(local_avatar, "rb") as f:
                 cached_bytes = f.read()
             cached_mime = _detect_raster_mime(cached_bytes)
             if cached_mime and (age < cache_ttl or not is_authorized):
-                return web.Response(body=cached_bytes, content_type=cached_mime, headers=headers)
+                return _serve_compact_avatar(cached_bytes, persist_path=local_avatar if len(cached_bytes) > 10240 else None)
         except Exception:
             pass
 
@@ -3300,7 +3525,8 @@ async def handle_api_user_avatar(request):
                 async with session.get(url, timeout=5) as r:
                     res = await r.json()
                     if res.get("ok") and res.get("result", {}).get("photos"):
-                        best_photo = res["result"]["photos"][0][-1]
+                        sizes = res["result"]["photos"][0]
+                        best_photo = sizes[1] if len(sizes) > 1 else sizes[0]
                         fid = best_photo["file_id"]
                         async with session.get(f"https://api.telegram.org/bot{token}/getFile?file_id={fid}", timeout=5) as fr:
                             fres = await fr.json()
@@ -3312,9 +3538,7 @@ async def handle_api_user_avatar(request):
                                         img_data = await dr.content.read(2 * 1024 * 1024 + 1)
                                         mime = _detect_raster_mime(img_data)
                                         if mime and len(img_data) <= 2 * 1024 * 1024:
-                                            with open(local_avatar, "wb") as f:
-                                                f.write(img_data)
-                                            return web.Response(body=img_data, content_type=mime, headers=headers)
+                                            return _serve_compact_avatar(img_data, persist_path=local_avatar)
 
                 # 3. Fallback: persisted Telegram CDN photo_url from bot_users (if privacy restricted Bot API photos)
                 try:
@@ -3334,22 +3558,20 @@ async def handle_api_user_avatar(request):
                                     img_data = await dr2.content.read(2 * 1024 * 1024 + 1)
                                     mime = _detect_raster_mime(img_data)
                                     if mime and len(img_data) <= 2 * 1024 * 1024:
-                                        with open(local_avatar, "wb") as f:
-                                            f.write(img_data)
-                                        return web.Response(body=img_data, content_type=mime, headers=headers)
+                                        return _serve_compact_avatar(img_data, persist_path=local_avatar)
                 except Exception:
                     pass
     except Exception as e:
         print(f"[handle_api_user_avatar] Error fetching for {user_id}: {e}")
 
     # Serve stale valid cache if network transiently failed
-    if os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 256:
+    if os.path.exists(local_avatar) and os.path.getsize(local_avatar) > 64:
         try:
             with open(local_avatar, "rb") as f:
                 stale_bytes = f.read()
             stale_mime = _detect_raster_mime(stale_bytes)
             if stale_mime:
-                return web.Response(body=stale_bytes, content_type=stale_mime, headers=headers)
+                return _serve_compact_avatar(stale_bytes)
         except Exception:
             pass
 
@@ -5643,6 +5865,8 @@ async def start_web_server(port):
     app.router.add_get("/api/channels", handle_api_channels)
     app.router.add_post("/api/channels/select", handle_api_channel_select)
     app.router.add_get("/api/autopost-tasks", handle_api_autopost_tasks)
+    app.router.add_get("/api/autopost-tasks/{task_id}/details", handle_api_autopost_task_details)
+    app.router.add_post("/api/autopost-tasks/action", handle_api_autopost_task_action)
     app.router.add_get("/api/videos", handle_api_videos)
     app.router.add_get("/api/trending", handle_api_trending)
     app.router.add_get("/api/health-score", handle_api_health_score)
@@ -6178,6 +6402,7 @@ async def main():
         return
 
     tasks.append(run_autopilot_worker())
+    tasks.append(_poll_pending_autopost_tasks_loop())
     await asyncio.gather(*tasks)
 
 

@@ -40,6 +40,9 @@ export function Navbar({
           alt={user?.first_name || 'Profile'}
           width={size}
           height={size}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
           onError={() => setAvatarFailed(true)}
           style={{
             width: size,

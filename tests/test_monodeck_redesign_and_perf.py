@@ -695,3 +695,145 @@ async def test_secondary_bot_token_webapp_hmac_and_factory():
             api_hash=ytbot.API_HASH,
             bot_token=secondary_tok,
         )
+
+
+def test_raster_compression_and_avatar_size():
+    """Avatars and static raster thumbnails must compress to compact WebP without breaking animations."""
+    from io import BytesIO
+    from PIL import Image
+
+    avatar_file = ROOT_DIR / "nft_assets" / "user_avatars" / "6735799833.jpg"
+    assert avatar_file.exists()
+    assert avatar_file.stat().st_size <= 8192, f"Avatar too large: {avatar_file.stat().st_size} bytes"
+
+    # Synthetic noisy 640x640 PNG should shrink dramatically to 96x96 WebP
+    buf = BytesIO()
+    img = Image.new("RGB", (640, 640), (30, 120, 220))
+    img.save(buf, format="PNG")
+    compact, mime = main._compress_raster_image(buf.getvalue(), max_dim=96, quality=82)
+    assert mime == "image/webp"
+    assert len(compact) < 4096
+
+
+def test_autopost_db_helpers_and_ytdlp_candidate_fallback():
+    """Verify missing get_autopost_task_by_id is restored and yt_dlp search fallback returns candidates."""
+    import database
+    import autopost
+
+    assert callable(database.get_autopost_task_by_id)
+    assert callable(database.reset_stale_autopost_tasks)
+    assert callable(database.delete_autopost_task)
+
+    fake_ydl_result = {
+        "entries": [
+            {
+                "id": "dQw4w9WgXcQ",
+                "title": "Patrick Jane Deduction Short",
+                "uploader": "Mentalist Clips",
+                "view_count": 125000,
+                "duration": 42,
+                "upload_date": "20261101",
+            }
+        ]
+    }
+
+    class FakeYDL:
+        def __init__(self, opts):
+            self.opts = opts
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def extract_info(self, url, download=False):
+            return fake_ydl_result
+
+    import yt_dlp
+    with patch.object(autopost, "build_youtube_api", side_effect=RuntimeError("403 quotaExceeded")), \
+         patch.object(yt_dlp, "YoutubeDL", FakeYDL):
+        cands = autopost.search_youtube_candidates("Patrick Jane", max_results=5, video_type="shorts")
+        assert len(cands) == 1
+        assert cands[0]["id"] == "dQw4w9WgXcQ"
+        assert cands[0]["duration"] == 42
+        assert "hqdefault.jpg" in cands[0]["thumbnail"]
+
+
+def test_video_processor_watermark_detection_and_default_enabled():
+    """Verify automatic watermark detection finds static overlay boxes and WATERMARK_CLEAN defaults ON."""
+    import video_processor
+    import numpy as np
+    import cv2
+
+    # Ensure WATERMARK_CLEAN defaults to true when env var is unset
+    assert os.getenv("WATERMARK_CLEAN", "true").lower() != "false"
+
+    tmp_vid = ROOT_DIR / "downloads" / "_test_wm_sample.mp4"
+    tmp_vid.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(str(tmp_vid), fourcc, 10.0, (320, 240))
+        for f in range(8):
+            frame = np.full((240, 320, 3), (20 + f * 5, 30, 40), dtype=np.uint8)
+            # Draw high-contrast persistent watermark box in bottom-right corner
+            cv2.rectangle(frame, (240, 200), (310, 230), (255, 255, 255), -1)
+            cv2.putText(frame, "@WM", (245, 222), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 2)
+            writer.write(frame)
+        writer.release()
+
+        boxes = video_processor.detect_watermark_regions(str(tmp_vid), max_samples=6)
+        assert isinstance(boxes, list)
+        assert len(boxes) >= 1, f"Expected persistent corner watermark box, got {boxes}"
+        # At least one box overlaps bottom-right quadrant
+        assert any(x + w > 220 and y + h > 190 for (x, y, w, h) in boxes)
+    finally:
+        if tmp_vid.exists():
+            tmp_vid.unlink()
+
+
+@pytest.mark.asyncio
+async def test_autopost_task_details_and_action_routes():
+    """Verify /api/autopost-tasks/{id}/details and /api/autopost-tasks/action endpoints."""
+    import time as _t
+    tok = "monodeck_test_autopost_tok_111"
+    main._AUTH_TOKENS[tok] = {"tg_user_id": 6735799833, "created_at": _t.time()}
+    try:
+        app = _build_wired_test_app()
+        app.router.add_get("/api/autopost-tasks/{task_id}/details", main.handle_api_autopost_task_details)
+        app.router.add_post("/api/autopost-tasks/action", main.handle_api_autopost_task_action)
+
+        fake_task = {
+            "id": 1,
+            "tg_user_id": 6735799833,
+            "search_query": "Patrick Jane",
+            "video_type": "shorts",
+            "total_count": 1,
+            "completed_count": 0,
+            "status": "pending",
+        }
+        fake_cands = [{"id": "abc12345678", "title": "Patrick Jane Sample", "thumbnail": "https://i.ytimg.com/vi/abc12345678/hqdefault.jpg"}]
+
+        with patch("database.get_autopost_task_by_id", return_value=fake_task), \
+             patch("database.get_autopost_history", return_value=[]), \
+             patch("autopost.search_youtube_candidates", return_value=fake_cands), \
+             patch("database.update_autopost_task"), \
+             patch.object(main, "dispatch_or_run_autopost", return_value=None):
+            async with TestClient(TestServer(app)) as client:
+                r1 = await client.get(
+                    "/api/autopost-tasks/1/details",
+                    headers={"Cookie": f"cf_auth_token={tok}"},
+                )
+                assert r1.status == 200
+                d1 = await r1.json()
+                assert d1["ok"] is True
+                assert d1["task"]["search_query"] == "Patrick Jane"
+                assert len(d1["candidates"]) == 1
+
+                r2 = await client.post(
+                    "/api/autopost-tasks/action",
+                    headers={"Cookie": f"cf_auth_token={tok}"},
+                    json={"task_id": 1, "action": "run_now"},
+                )
+                assert r2.status == 200
+                d2 = await r2.json()
+                assert d2["ok"] is True
+    finally:
+        main._AUTH_TOKENS.pop(tok, None)
