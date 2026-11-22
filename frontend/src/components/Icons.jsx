@@ -3,10 +3,20 @@ import React from 'react';
 export function BrandMark({ size = 24 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="20" height="20" rx="5" fill="#0A0A0A" />
-      <rect x="5.5" y="6" width="5" height="12" rx="1.2" fill="#FFFFFF" />
-      <rect x="13" y="6" width="5.5" height="5.2" rx="1.2" fill="#FF5A1F" />
-      <rect x="13" y="12.8" width="5.5" height="5.2" rx="1.2" fill="#FFFFFF" />
+      <defs>
+        <linearGradient id="md-brand-bg" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#18181B" />
+          <stop offset="100%" stopColor="#09090B" />
+        </linearGradient>
+        <linearGradient id="md-brand-accent" x1="13" y1="6" x2="18.5" y2="11.2" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FF7A45" />
+          <stop offset="100%" stopColor="#FF4F18" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#md-brand-bg)" stroke="rgba(255,255,255,0.14)" strokeWidth="0.8" />
+      <rect x="5.5" y="6" width="5.2" height="12" rx="1.4" fill="#FFFFFF" />
+      <rect x="12.8" y="6" width="5.7" height="5.3" rx="1.4" fill="url(#md-brand-accent)" />
+      <rect x="12.8" y="12.7" width="5.7" height="5.3" rx="1.4" fill="#FFFFFF" fillOpacity="0.92" />
     </svg>
   );
 }

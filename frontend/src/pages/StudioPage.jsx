@@ -109,13 +109,24 @@ export function StudioPage({ user, navigate, t }) {
 
   const handleSelectChannel = async (channelId) => {
     if (!channelId) return;
+    const prevChannel = selectedChannel;
     setSelectedChannel(channelId);
     if (!uid) return;
-    await apiFetchJson('/api/channels/select', {
-      method: 'POST',
-      body: JSON.stringify({ tg_user_id: uid, channel_id: channelId }),
-    }).catch(() => {});
-    loadAll(true, channelId);
+    try {
+      const res = await apiFetchJson('/api/channels/select', {
+        method: 'POST',
+        body: JSON.stringify({ tg_user_id: uid, channel_id: channelId }),
+      });
+      if (res.data?.ok === false) {
+        setSelectedChannel(prevChannel);
+        setNotice(res.data?.error || 'Kanalni tanlab bo\'lmadi.');
+        return;
+      }
+      loadAll(true, channelId);
+    } catch {
+      setSelectedChannel(prevChannel);
+      setNotice('Tarmoq xatosi: kanal tanlanmadi.');
+    }
   };
 
   const handleQueueAutopost = async (e) => {
@@ -128,33 +139,57 @@ export function StudioPage({ user, navigate, t }) {
       setNotice('Enter a topic or check at least one video for Auto-Post.');
       return;
     }
+    const cleanTopic = topic.trim();
+    const taskCount = selectedIds.length > 0 ? selectedIds.length : Math.max(1, Math.min(10, Number(count || 1)));
+    const tempTask = {
+      id: `tmp_${Date.now()}`,
+      topic: selectedIds.length > 0 ? `${selectedIds.length} ta tanlangan video` : cleanTopic,
+      search_query: cleanTopic,
+      completed_count: 0,
+      total_count: taskCount,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    const prevTasks = tasks;
+    const prevTopic = topic;
+    const prevSel = selectedIds;
+
+    // Optimistic UI: show queued task immediately without blocking
+    setTasks((prev) => [tempTask, ...prev]);
+    setTopic('');
+    setSelectedIds([]);
+    setNotice('Auto-Post navbatga qo\'shildi...');
     setSubmitting(true);
-    setNotice('');
+
     try {
       const payload = {
         tg_user_id: uid,
         channel_id: selectedChannel || undefined,
         video_type: 'shorts',
       };
-      if (selectedIds.length > 0) {
-        payload.video_ids = selectedIds;
+      if (prevSel.length > 0) {
+        payload.video_ids = prevSel;
       } else {
-        payload.topic = topic.trim();
-        payload.count = Math.max(1, Math.min(10, Number(count || 1)));
+        payload.topic = cleanTopic;
+        payload.count = taskCount;
       }
       const { data } = await apiFetchJson('/api/autopost-create', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
       if (data?.ok || data?.success) {
-        setNotice(`Auto-Post task (#${data.task_id || ''}) queued cleanly.`);
-        setTopic('');
-        setSelectedIds([]);
+        setNotice(`Auto-Post task (#${data.task_id || ''}) navbatga qo'shildi.`);
         loadAll(false);
       } else {
+        setTasks(prevTasks);
+        setTopic(prevTopic);
+        setSelectedIds(prevSel);
         setNotice(data?.error || 'Could not queue task. Check channel connection.');
       }
     } catch {
+      setTasks(prevTasks);
+      setTopic(prevTopic);
+      setSelectedIds(prevSel);
       setNotice('Network error while creating task.');
     } finally {
       setSubmitting(false);
@@ -268,8 +303,28 @@ export function StudioPage({ user, navigate, t }) {
 
   const handleTaskAction = async (taskId, action, useGithub = false) => {
     if (!taskId) return;
+    const prevTasks = tasks;
     setTaskActionBusy(true);
-    setNotice('');
+
+    // Optimistic UI update immediately
+    if (action === 'delete') {
+      setTasks((prev) => prev.filter((item) => item.id !== taskId));
+      if (inspectedTask?.id === taskId) {
+        setDrawerOpen(false);
+        setInspectedTask(null);
+      }
+      setNotice(`Task #${taskId} o'chirildi.`);
+    } else {
+      setTasks((prev) =>
+        prev.map((item) => (item.id === taskId ? { ...item, status: 'running' } : item))
+      );
+      setNotice(
+        useGithub
+          ? `Task #${taskId} 7 GB GitHub Actions worker'ga yuborildi (avto watermark tozalash yoqilgan).`
+          : `Task #${taskId} ishga tushirildi (avto watermark tozalash yoqilgan).`
+      );
+    }
+
     try {
       const res = await apiFetchJson('/api/autopost-tasks/action', {
         method: 'POST',
@@ -281,25 +336,14 @@ export function StudioPage({ user, navigate, t }) {
         }),
       });
       if (res.data?.ok) {
-        if (action === 'delete') {
-          setNotice(`Task #${taskId} o'chirildi.`);
-          if (inspectedTask?.id === taskId) {
-            setDrawerOpen(false);
-            setInspectedTask(null);
-          }
-        } else {
-          setNotice(
-            res.data.dispatch === 'github_actions'
-              ? `Task #${taskId} 7 GB GitHub Actions worker'ga yuborildi (avto watermark tozalash yoqilgan).`
-              : `Task #${taskId} ishga tushirildi (avto watermark tozalash yoqilgan).`
-          );
-        }
         await loadAll(false);
       } else {
-        setNotice(res.data?.error || 'Amalni bajarib bo\'lmadi.');
+        setTasks(prevTasks);
+        setNotice(`Bajarilmadi: ${res.data?.error || 'Amalni bajarib bo\'lmadi.'}`);
       }
     } catch {
-      setNotice('Tarmoq xatosi.');
+      setTasks(prevTasks);
+      setNotice('Tarmoq xatosi: amal bekor qilindi.');
     } finally {
       setTaskActionBusy(false);
     }

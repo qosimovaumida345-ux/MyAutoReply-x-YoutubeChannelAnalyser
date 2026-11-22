@@ -8,11 +8,12 @@ import { loadConfetti, loadLottiePlayer } from '../lib/lazyScripts.js';
 const DEFAULT_CASES = [
   {
     id: 'tier_1',
-    name: 'Bronze Starter Case',
-    price_stars: 25,
-    price_uzs: 10000,
+    name: 'Bronze Starter Vault',
+    price_stars: 100,
+    price_uzs: 40000,
+    drop_count: 39,
     image_url: '/api/nft/image/case_bronze_3d.webp?v=20261017_3d_v3',
-    badge: '25 Stars',
+    badge: "100 Stars / 40,000 so'm",
     drops: [
       { stars: 15, name: 'Delicious Cake', rarity: 'common', icon: 'cake', file_id: 'CAACAgIAAxUAAWrS2uMNAAEndT73SuyOCoLmhF990QACgRgAApWfiUpqxk-ZAWRQxj0E', file_type: 'tgs', is_nft: false },
       { stars: 25, name: 'Green Star', rarity: 'rare', icon: 'star', file_id: 'CAACAgIAAxUAAWrS2uM0EZJ7Dun5N1H-6YKcZfl3AAKNSAACsU84SMuB4ge7V_wGPQQ', file_type: 'tgs', is_nft: false },
@@ -21,11 +22,12 @@ const DEFAULT_CASES = [
   },
   {
     id: 'tier_2',
-    name: 'Silver Creator Case',
-    price_stars: 75,
-    price_uzs: 30000,
+    name: 'Silver Collector Case',
+    price_stars: 250,
+    price_uzs: 100000,
+    drop_count: 48,
     image_url: '/api/nft/image/case_silver_3d.webp?v=20261017_3d_v3',
-    badge: '75 Stars',
+    badge: "250 Stars / 100,000 so'm",
     drops: [
       { stars: 50, name: 'Bouquet of Flowers', rarity: 'common', icon: 'bouquet', file_id: 'CAACAgIAAxUAAWrS2uNt8sIHLaoAAZeEbczG8VU45QAC3iUAAkUg4ErI5hOgFM9DXj0E', file_type: 'tgs', is_nft: false },
       { stars: 100, name: 'Champagne Bottle', rarity: 'rare', icon: 'champagne', file_id: 'CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ', file_type: 'tgs', is_nft: false },
@@ -35,10 +37,11 @@ const DEFAULT_CASES = [
   {
     id: 'tier_3',
     name: 'Gold Pro Studio Case',
-    price_stars: 250,
-    price_uzs: 100000,
+    price_stars: 500,
+    price_uzs: 200000,
+    drop_count: 41,
     image_url: '/api/nft/image/case_gold_3d.webp?v=20261017_3d_v3',
-    badge: '250 Stars',
+    badge: "500 Stars / 200,000 so'm",
     drops: [
       { stars: 100, name: 'Champagne Bottle', rarity: 'common', icon: 'champagne', file_id: 'CAACAgIAAxUAAWrS2uMx4JgUgDH02-Jwj0U2KxJcAALXGAACy0WJSqKYQ7cuIwaJPQQ', file_type: 'tgs', is_nft: false },
       { stars: 250, name: 'Diamond Ring', rarity: 'rare', icon: 'diamond_ring', file_id: 'CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ', file_type: 'tgs', is_nft: false },
@@ -48,10 +51,11 @@ const DEFAULT_CASES = [
   {
     id: 'tier_4',
     name: 'Platinum VIP Master Case',
-    price_stars: 750,
-    price_uzs: 300000,
+    price_stars: 1500,
+    price_uzs: 600000,
+    drop_count: 31,
     image_url: '/api/nft/image/case_platinum_3d.webp?v=20261017_3d_v3',
-    badge: '750 Stars',
+    badge: "1,500 Stars / 600,000 so'm",
     drops: [
       { stars: 500, name: 'Golden Trophy', rarity: 'common', icon: 'trophy', file_id: 'CAACAgIAAxUAAWrS2uMFG7qgWfi13TTbrx2ii_xcAAKZGwACzagQS38R6izkF899PQQ', file_type: 'tgs', is_nft: false },
       { stars: 1000, name: 'Space Rocket', rarity: 'rare', icon: 'rocket', file_id: 'CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ', file_type: 'tgs', is_nft: false },
@@ -60,11 +64,12 @@ const DEFAULT_CASES = [
   },
   {
     id: 'tier_5',
-    name: 'Diamond Galaxy Case',
-    price_stars: 2500,
-    price_uzs: 1000000,
+    name: 'Diamond Sovereign Case',
+    price_stars: 5000,
+    price_uzs: 2000000,
+    drop_count: 17,
     image_url: '/api/nft/image/case_galaxy_3d.webp?v=20261017_3d_v3',
-    badge: '2,500 Stars',
+    badge: "5,000 Stars / 2,000,000 so'm",
     drops: [
       { stars: 1000, name: 'Space Rocket', rarity: 'common', icon: 'rocket', file_id: 'CAACAgIAAxUAAWrS2uPbTElMd6flAcykOHYcFzHFAALLGwAC14mRSzvrMNfF90DPPQQ', file_type: 'tgs', is_nft: false },
       { stars: 1500, name: 'Plush Collectible', rarity: 'rare', icon: 'plush', file_id: 'CAACAgIAAxUAAWrS2uNcxJcCHL0czrh7bzrdly-gAALoTwACJx74Ss1NNn7ovmiePQQ', file_type: 'tgs', is_nft: true },
@@ -123,15 +128,37 @@ function getUpgraderOdds(multVal) {
   return { odds, pct, deg };
 }
 
-export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
+export function CasesPage({ user, userStats, onRefreshUser, onAdjustBalance, navigate, t }) {
   const uid = user?.id || 0;
   const [subTab, setSubTab] = useState('cases');
-  const [cases, setCases] = useState(DEFAULT_CASES);
+  const [cases, setCases] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('md_cases_v3') || 'null');
+      return Array.isArray(cached) && cached.length > 0 ? cached : DEFAULT_CASES;
+    } catch {
+      return DEFAULT_CASES;
+    }
+  });
   const [drops, setDrops] = useState([]);
   const [battles, setBattles] = useState([]);
-  const [userGifts, setUserGifts] = useState([]);
+  const [userGifts, setUserGifts] = useState(() => {
+    if (!uid) return [];
+    try {
+      const cached = JSON.parse(localStorage.getItem(`md_gifts_v3_${uid}`) || 'null');
+      return Array.isArray(cached) ? cached : [];
+    } catch {
+      return [];
+    }
+  });
   const [catalog, setCatalog] = useState([]);
-  const [streakData, setStreakData] = useState(null);
+  const [streakData, setStreakData] = useState(() => {
+    if (!uid) return null;
+    try {
+      return JSON.parse(localStorage.getItem(`md_streak_v3_${uid}`) || 'null');
+    } catch {
+      return null;
+    }
+  });
   const [feedback, setFeedback] = useState('');
 
   // Unboxing & 5.5s CS:GO Reel states
@@ -305,6 +332,9 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
     ]);
     if (cRes.data?.ok && Array.isArray(cRes.data.cases) && cRes.data.cases.length > 0) {
       setCases(cRes.data.cases);
+      try {
+        localStorage.setItem('md_cases_v3', JSON.stringify(cRes.data.cases));
+      } catch {}
     }
     if (dRes.data?.ok && Array.isArray(dRes.data.drops)) {
       setDrops(dRes.data.drops);
@@ -324,6 +354,11 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
     ]);
     if (invRes?.data?.ok && Array.isArray(invRes.data.gifts)) {
       setUserGifts(invRes.data.gifts);
+      if (uid > 0) {
+        try {
+          localStorage.setItem(`md_gifts_v3_${uid}`, JSON.stringify(invRes.data.gifts));
+        } catch {}
+      }
       setSrcGift((prev) => {
         if (prev?.id && invRes.data.gifts.some((g) => g.id === prev.id)) {
           return invRes.data.gifts.find((g) => g.id === prev.id);
@@ -333,6 +368,11 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
     }
     if (stRes?.data?.ok) {
       setStreakData(stRes.data);
+      if (uid > 0) {
+        try {
+          localStorage.setItem(`md_streak_v3_${uid}`, JSON.stringify(stRes.data));
+        } catch {}
+      }
     }
   }, [uid]);
 
@@ -537,16 +577,25 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
     }
     const name = g.prize_name || g.name || 'Gift';
     if (!window.confirm(`Withdraw "${name}" to your Telegram profile?`)) return;
-    const { data } = await apiFetchJson('/api/stars/withdraw-gift', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, record_id: g.id }),
-    });
-    if (data?.ok) {
-      setFeedback(data.message || `${name} queued for Telegram withdrawal.`);
-      loadUserScoped();
-      onRefreshUser?.(true);
-    } else {
-      setFeedback(data?.error || 'Withdrawal failed.');
+    const prevGifts = userGifts;
+    setUserGifts((prev) => prev.filter((item) => item.id !== g.id));
+    setFeedback(`${name} Telegram hisobingizga chiqarilmoqda...`);
+    try {
+      const { data } = await apiFetchJson('/api/stars/withdraw-gift', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid, record_id: g.id }),
+      });
+      if (data?.ok) {
+        setFeedback(data.message || `${name} queued for Telegram withdrawal.`);
+        loadUserScoped();
+        onRefreshUser?.(true);
+      } else {
+        setUserGifts(prevGifts);
+        setFeedback(data?.error || 'Withdrawal failed.');
+      }
+    } catch {
+      setUserGifts(prevGifts);
+      setFeedback('Tarmoq xatosi: sovg\'ani chiqarib bo\'lmadi.');
     }
   };
 
@@ -558,16 +607,27 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
     const stars = Number(g.prize_stars || g.stars || 15);
     const refund = Math.round(stars * 0.75 * 400);
     if (!window.confirm(`Convert "${g.prize_name || g.name}" for ${refund.toLocaleString()} UZS (75% cashback)?`)) return;
-    const { data } = await apiFetchJson('/api/stars/recycle-gift', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, record_id: g.id, prize_stars: stars }),
-    });
-    if (data?.ok) {
-      setFeedback(`Sold gift for +${Number(data.refund_uzs || refund).toLocaleString()} UZS.`);
-      loadUserScoped();
-      onRefreshUser?.(true);
-    } else {
-      setFeedback(data?.error || 'Could not convert gift.');
+    const prevGifts = userGifts;
+    setUserGifts((prev) => prev.filter((item) => item.id !== g.id));
+    onAdjustBalance?.(refund);
+    setFeedback(`+${refund.toLocaleString()} UZS hisobingizga qo'shildi.`);
+    try {
+      const { data } = await apiFetchJson('/api/stars/recycle-gift', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid, record_id: g.id, prize_stars: stars }),
+      });
+      if (data?.ok) {
+        loadUserScoped();
+        onRefreshUser?.(true);
+      } else {
+        setUserGifts(prevGifts);
+        onAdjustBalance?.(-refund);
+        setFeedback(data?.error || 'Could not convert gift.');
+      }
+    } catch {
+      setUserGifts(prevGifts);
+      onAdjustBalance?.(-refund);
+      setFeedback('Tarmoq xatosi: sovg\'a sotilmadi.');
     }
   };
 
@@ -577,16 +637,45 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
       return;
     }
     const uName = user?.username ? `@${user.username}` : user?.first_name || 'Creator';
-    const { data } = await apiFetchJson('/api/stars/pvp-battle/create', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, user_name: uName, tier_id: tierId }),
-    });
-    if (data?.ok) {
-      setFeedback('PvP duel created! Waiting for opponent.');
-      loadPublic();
-      onRefreshUser?.(true);
-    } else {
-      setFeedback(data?.error || 'Could not create battle.');
+    const caseObj = cases.find((x) => x.id === tierId);
+    const costUzs = Number(caseObj?.price_uzs || (caseObj?.price_stars || 100) * 400);
+    if (Number(userStats?.balance_uzs || 0) < costUzs) {
+      setFeedback(`Balans yetarli emas! Duel narxi: ${costUzs.toLocaleString()} UZS.`);
+      return;
+    }
+    const tempId = `opt_${Date.now()}`;
+    const prevBattles = battles;
+    const optimisticBattle = {
+      id: tempId,
+      host_id: uid,
+      host_name: uName,
+      case_name: caseObj?.name || 'Mystery Duel',
+      case_icon: caseObj?.icon || 'trophy',
+      cost_stars: caseObj?.price_stars || 100,
+      cost_uzs: costUzs,
+      pot_stars: (caseObj?.price_stars || 100) * 2,
+      pot_uzs: costUzs * 2,
+    };
+    setBattles((prev) => [optimisticBattle, ...prev]);
+    onAdjustBalance?.(-costUzs);
+    setFeedback('PvP duel yaratildi! Raqib kutilmoqda.');
+    try {
+      const { data } = await apiFetchJson('/api/stars/pvp-battle/create', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid, user_name: uName, tier_id: tierId }),
+      });
+      if (data?.ok) {
+        loadPublic();
+        onRefreshUser?.(true);
+      } else {
+        setBattles(prevBattles);
+        onAdjustBalance?.(costUzs);
+        setFeedback(data?.error || 'Could not create battle.');
+      }
+    } catch {
+      setBattles(prevBattles);
+      onAdjustBalance?.(costUzs);
+      setFeedback('Tarmoq xatosi: PvP duel yaratilmadi.');
     }
   };
 
@@ -634,16 +723,29 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
       return;
     }
     if (!window.confirm('Cancel this PvP battle for a 100% UZS refund?')) return;
-    const { data } = await apiFetchJson('/api/stars/pvp-battle/cancel', {
-      method: 'POST',
-      body: JSON.stringify({ battle_id: battleId, user_id: uid }),
-    });
-    if (data?.ok) {
-      setFeedback(data.message || 'PvP duel cancelled and 100% refunded.');
-      loadPublic();
-      onRefreshUser?.(true);
-    } else {
-      setFeedback(data?.error || 'Could not cancel battle.');
+    const targetB = battles.find((x) => x.id === battleId);
+    const refundUzs = Number(targetB?.cost_uzs || (targetB?.cost_stars || 0) * 400);
+    const prevBattles = battles;
+    setBattles((prev) => prev.filter((x) => x.id !== battleId));
+    if (refundUzs > 0) onAdjustBalance?.(refundUzs);
+    setFeedback('PvP duel bekor qilindi va 100% qaytarildi.');
+    try {
+      const { data } = await apiFetchJson('/api/stars/pvp-battle/cancel', {
+        method: 'POST',
+        body: JSON.stringify({ battle_id: battleId, user_id: uid }),
+      });
+      if (data?.ok) {
+        loadPublic();
+        onRefreshUser?.(true);
+      } else {
+        setBattles(prevBattles);
+        if (refundUzs > 0) onAdjustBalance?.(-refundUzs);
+        setFeedback(data?.error || 'Could not cancel battle.');
+      }
+    } catch {
+      setBattles(prevBattles);
+      if (refundUzs > 0) onAdjustBalance?.(-refundUzs);
+      setFeedback('Tarmoq xatosi: duel bekor qilinmadi.');
     }
   };
 
@@ -832,18 +934,54 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
       navigate('/login');
       return;
     }
-    const { data } = await apiFetchJson('/api/stars/daily-streak/claim', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid }),
-    });
-    if (data?.ok) {
-      setStreakClaimedModal(data.reward || { title: 'Daily Reward' });
-      playWinFanfare();
-      if (window.confetti) window.confetti({ particleCount: 90, spread: 65 });
-      loadUserScoped();
-      loadPublic();
-    } else {
-      setFeedback(data?.error || 'Daily reward already claimed.');
+    const prevStreak = streakData;
+    const currDay = Number(prevStreak?.current_day || 1);
+    const list = prevStreak?.rewards?.length ? prevStreak.rewards : DEFAULT_STREAK_REWARDS;
+    const expectedReward = list[currDay - 1] || { title: 'Daily Reward', icon: 'seo' };
+    const isDay7Bonus = currDay === 7 || expectedReward.type === 'stars_bonus';
+
+    // Optimistic UI: show claimed immediately without waiting for backend
+    const optimisticStreak = {
+      ...(prevStreak || {}),
+      rewards: list,
+      current_day: currDay,
+      streak_days: Number(prevStreak?.streak_days || 0) + 1,
+      can_claim: false,
+      claimed_today: true,
+    };
+    setStreakData(optimisticStreak);
+    try {
+      localStorage.setItem(`md_streak_v3_${uid}`, JSON.stringify(optimisticStreak));
+    } catch {}
+    setStreakClaimedModal(expectedReward);
+    if (isDay7Bonus) onAdjustBalance?.(40000);
+    playWinFanfare();
+    if (window.confetti) window.confetti({ particleCount: 90, spread: 65 });
+
+    try {
+      const { data } = await apiFetchJson('/api/stars/daily-streak/claim', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid }),
+      });
+      if (data?.ok) {
+        if (data.reward) setStreakClaimedModal(data.reward);
+        loadUserScoped();
+        loadPublic();
+        onRefreshUser?.(true);
+      } else {
+        setStreakData(prevStreak);
+        if (prevStreak) {
+          try { localStorage.setItem(`md_streak_v3_${uid}`, JSON.stringify(prevStreak)); } catch {}
+        }
+        if (isDay7Bonus) onAdjustBalance?.(-40000);
+        setStreakClaimedModal(null);
+        setFeedback(`Olinmadi: ${data?.error || 'Bugungi kunlik sovg\'ani olib bo\'lmadi.'}`);
+      }
+    } catch {
+      setStreakData(prevStreak);
+      if (isDay7Bonus) onAdjustBalance?.(-40000);
+      setStreakClaimedModal(null);
+      setFeedback('Olinmadi: server bilan aloqa xatosi.');
     }
   };
 
@@ -852,17 +990,44 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
       navigate('/login');
       return;
     }
-    const { data } = await apiFetchJson('/api/stars/redeem-service', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, service_id: srvId }),
-    });
-    if (data?.ok) {
-      setRedeemModal(data);
-      playWinFanfare();
-      if (window.confetti) window.confetti({ particleCount: 90, spread: 65 });
-      onRefreshUser?.(true);
-    } else {
-      setFeedback(data?.error || 'Insufficient balance to redeem service.');
+    const srv = REDEEM_SERVICES.find((s) => s.id === srvId);
+    const priceUzs = Number((srv?.stars || 0) * 400);
+    if (srv && Number(userStats?.balance_uzs || 0) < priceUzs) {
+      setFeedback(`Mablag' yetarli emas! Xizmat narxi: ${priceUzs.toLocaleString()} UZS.`);
+      return;
+    }
+
+    // Optimistic UI: show activated immediately
+    if (priceUzs > 0) onAdjustBalance?.(-priceUzs);
+    if (srv) {
+      setRedeemModal({
+        ok: true,
+        service: srv,
+        price_uzs: priceUzs,
+        auto_activated: true,
+        message: `${srv.title} hisobingizga (ID: #${uid}) avtomatik faollashtirildi!`,
+      });
+    }
+    playWinFanfare();
+    if (window.confetti) window.confetti({ particleCount: 90, spread: 65 });
+
+    try {
+      const { data } = await apiFetchJson('/api/stars/redeem-service', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid, service_id: srvId }),
+      });
+      if (data?.ok) {
+        setRedeemModal(data);
+        onRefreshUser?.(true);
+      } else {
+        if (priceUzs > 0) onAdjustBalance?.(priceUzs);
+        setRedeemModal(null);
+        setFeedback(`Faollashtirilmadi: ${data?.error || 'Balans yetarli emas yoki xatolik.'}`);
+      }
+    } catch {
+      if (priceUzs > 0) onAdjustBalance?.(priceUzs);
+      setRedeemModal(null);
+      setFeedback('Faollashtirilmadi: server bilan aloqa xatosi.');
     }
   };
 
@@ -976,7 +1141,7 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
                   <div>
                     <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600 }}>{c.name}</h2>
                     <p className="md-mono" style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      {uzs.toLocaleString()} UZS &middot; {(c.drops || []).length} drops
+                      {uzs.toLocaleString()} UZS &middot; {c.drops?.length > 3 ? c.drops.length : c.drop_count || c.drops?.length || 0} drops
                     </p>
                   </div>
                   <div style={{ display: 'grid', gap: 8 }}>
@@ -1332,8 +1497,8 @@ export function CasesPage({ user, userStats, onRefreshUser, navigate, t }) {
           <div className="md-grid-cards">
             {streakRewards.map((r, i) => {
               const curr = streakData?.current_day || 1;
-              const isClaimed = Boolean(streakData && i + 1 < curr);
-              const isToday = Boolean(!streakData ? i === 0 : i + 1 === curr);
+              const isClaimed = Boolean(streakData && (i + 1 < curr || (streakData.claimed_today && i + 1 === curr)));
+              const isToday = Boolean(!streakData ? i === 0 : !streakData.claimed_today && i + 1 === curr);
               return (
                 <div
                   key={i}

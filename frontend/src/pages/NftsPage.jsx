@@ -4,11 +4,25 @@ import { IconCheck, IconSearch } from '../components/Icons.jsx';
 import { apiFetchJson, safeOpenExternal } from '../lib/auth.js';
 import { loadLottiePlayer } from '../lib/lazyScripts.js';
 
-export function NftsPage({ user, onRefreshUser, navigate, t }) {
+export function NftsPage({ user, onRefreshUser, onAdjustBalance, navigate, t }) {
   const uid = user?.id || 0;
   const [gifts, setGifts] = useState([]);
-  const [nfts, setNfts] = useState([]);
-  const [rate, setRate] = useState({ rate_text: '1 TON = Live Market Rate' });
+  const [nfts, setNfts] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('md_market_nfts_v3') || 'null');
+      return Array.isArray(cached) ? cached : [];
+    } catch {
+      return [];
+    }
+  });
+  const [rate, setRate] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('md_market_rate_v3') || 'null');
+      return cached && cached.rate_text ? cached : { rate_text: '1 TON = Live Market Rate' };
+    } catch {
+      return { rate_text: '1 TON = Live Market Rate' };
+    }
+  });
   const [search, setSearch] = useState('');
   const [filterSlug, setFilterSlug] = useState('all');
   const [visible, setVisible] = useState(36);
@@ -25,8 +39,18 @@ export function NftsPage({ user, onRefreshUser, navigate, t }) {
     try {
       const { data } = await apiFetchJson('/api/stars/marketplace-nfts');
       if (data?.ok) {
-        if (Array.isArray(data.items)) setNfts(data.items);
-        if (data.rate) setRate(data.rate);
+        if (Array.isArray(data.items)) {
+          setNfts(data.items);
+          try {
+            localStorage.setItem('md_market_nfts_v3', JSON.stringify(data.items));
+          } catch {}
+        }
+        if (data.rate) {
+          setRate(data.rate);
+          try {
+            localStorage.setItem('md_market_rate_v3', JSON.stringify(data.rate));
+          } catch {}
+        }
       }
     } finally {
       setLoading(false);
@@ -53,16 +77,25 @@ export function NftsPage({ user, onRefreshUser, navigate, t }) {
     }
     const name = g.prize_name || g.name || 'Gift';
     if (!window.confirm(`Withdraw "${name}" to your Telegram profile?`)) return;
-    const { data } = await apiFetchJson('/api/stars/withdraw-gift', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, record_id: g.id }),
-    });
-    if (data?.ok) {
-      setNotice(data.message || 'Gift queued for Telegram delivery.');
-      loadInventory();
-      onRefreshUser?.(true);
-    } else {
-      setNotice(data?.error || 'Could not withdraw gift.');
+    const prevGifts = gifts;
+    setGifts((prev) => prev.filter((item) => item.id !== g.id));
+    setNotice(`${name} Telegram hisobingizga yuborilmoqda...`);
+    try {
+      const { data } = await apiFetchJson('/api/stars/withdraw-gift', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid, record_id: g.id }),
+      });
+      if (data?.ok) {
+        setNotice(data.message || 'Gift queued for Telegram delivery.');
+        loadInventory();
+        onRefreshUser?.(true);
+      } else {
+        setGifts(prevGifts);
+        setNotice(data?.error || 'Could not withdraw gift.');
+      }
+    } catch {
+      setGifts(prevGifts);
+      setNotice('Tarmoq xatosi: sovg\'ani chiqarib bo\'lmadi.');
     }
   };
 
@@ -74,16 +107,27 @@ export function NftsPage({ user, onRefreshUser, navigate, t }) {
     const stars = Number(g.prize_stars || g.stars || 15);
     const refund = Math.round(stars * 0.75 * 400);
     if (!window.confirm(`Sell "${g.prize_name || g.name}" for ${refund.toLocaleString()} UZS (75% cashback)?`)) return;
-    const { data } = await apiFetchJson('/api/stars/recycle-gift', {
-      method: 'POST',
-      body: JSON.stringify({ user_id: uid, record_id: g.id, prize_stars: stars }),
-    });
-    if (data?.ok) {
-      setNotice(`Converted to +${Number(data.refund_uzs || refund).toLocaleString()} UZS.`);
-      loadInventory();
-      onRefreshUser?.(true);
-    } else {
-      setNotice(data?.error || 'Could not convert gift.');
+    const prevGifts = gifts;
+    setGifts((prev) => prev.filter((item) => item.id !== g.id));
+    onAdjustBalance?.(refund);
+    setNotice(`+${refund.toLocaleString()} UZS hisobingizga qo'shildi.`);
+    try {
+      const { data } = await apiFetchJson('/api/stars/recycle-gift', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: uid, record_id: g.id, prize_stars: stars }),
+      });
+      if (data?.ok) {
+        loadInventory();
+        onRefreshUser?.(true);
+      } else {
+        setGifts(prevGifts);
+        onAdjustBalance?.(-refund);
+        setNotice(data?.error || 'Could not convert gift.');
+      }
+    } catch {
+      setGifts(prevGifts);
+      onAdjustBalance?.(-refund);
+      setNotice('Tarmoq xatosi: sovg\'a sotilmadi.');
     }
   };
 

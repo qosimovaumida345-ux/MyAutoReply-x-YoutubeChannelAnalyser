@@ -53,13 +53,43 @@ export function App() {
   const [user, setUser] = useState(() => {
     const uid = getStoredUid();
     const tok = getStoredToken();
-    return uid > 0 && tok
-      ? { id: uid, first_name: `Creator #${uid}`, is_vip: false, is_owner: false }
-      : { id: 0, first_name: '', is_vip: false, is_owner: false };
+    if (uid > 0 && tok) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(`md_user_profile_v3_${uid}`) || 'null');
+        if (cached && cached.id === uid) return cached;
+      } catch {}
+      return { id: uid, first_name: `Creator #${uid}`, is_vip: false, is_owner: false };
+    }
+    return { id: 0, first_name: '', is_vip: false, is_owner: false };
   });
 
-  const [userStats, setUserStats] = useState({ balance_uzs: 0, ton_balance: 0 });
+  const [userStats, setUserStats] = useState(() => {
+    const uid = getStoredUid();
+    if (uid > 0) {
+      try {
+        const cached = JSON.parse(localStorage.getItem(`md_user_stats_v3_${uid}`) || 'null');
+        if (cached && typeof cached.balance_uzs === 'number') return cached;
+      } catch {}
+    }
+    return { balance_uzs: 0, ton_balance: 0 };
+  });
   const [syncLoading, setSyncLoading] = useState(false);
+
+  const adjustBalanceOptimistic = useCallback((deltaUzs) => {
+    setUserStats((prev) => {
+      const next = {
+        ...prev,
+        balance_uzs: Math.max(0, Number(prev?.balance_uzs || 0) + Number(deltaUzs || 0)),
+      };
+      const uid = getStoredUid();
+      if (uid > 0) {
+        try {
+          localStorage.setItem(`md_user_stats_v3_${uid}`, JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
+  }, []);
 
   const setLang = (next) => {
     setLangState(next);
@@ -90,19 +120,29 @@ export function App() {
         `/api/bot_user?tg_user_id=${encodeURIComponent(uid)}${force ? '&refresh=1' : ''}`
       );
       if (ok && data && (data.ok || data.balance_uzs !== undefined)) {
-        setUserStats({
+        const nextStats = {
           balance_uzs: Number(data.balance_uzs || 0),
           ton_balance: Number(data.ton_balance || 0),
+        };
+        setUserStats(nextStats);
+        try {
+          localStorage.setItem(`md_user_stats_v3_${uid}`, JSON.stringify(nextStats));
+        } catch {}
+        setUser((prev) => {
+          const nextUser = {
+            ...prev,
+            id: uid,
+            first_name: data.first_name || prev.first_name || `Creator #${uid}`,
+            username: data.username || '',
+            photo_url: data.photo_url || prev.photo_url || '',
+            is_vip: Boolean(data.is_vip),
+            is_owner: Boolean(data.is_owner),
+          };
+          try {
+            localStorage.setItem(`md_user_profile_v3_${uid}`, JSON.stringify(nextUser));
+          } catch {}
+          return nextUser;
         });
-        setUser((prev) => ({
-          ...prev,
-          id: uid,
-          first_name: data.first_name || prev.first_name || `Creator #${uid}`,
-          username: data.username || '',
-          photo_url: data.photo_url || prev.photo_url || '',
-          is_vip: Boolean(data.is_vip),
-          is_owner: Boolean(data.is_owner),
-        }));
       }
     } finally {
       if (force) setSyncLoading(false);
@@ -270,12 +310,12 @@ export function App() {
           {route === '/downloader' && <DownloaderPage user={user} navigate={navigate} t={t} />}
           {route === '/cases' && (
             <Suspense fallback={<ChunkFallback />}>
-              <CasesPage user={user} userStats={userStats} onRefreshUser={refreshUser} navigate={navigate} t={t} />
+              <CasesPage user={user} userStats={userStats} onRefreshUser={refreshUser} onAdjustBalance={adjustBalanceOptimistic} navigate={navigate} t={t} />
             </Suspense>
           )}
           {route === '/nfts' && (
             <Suspense fallback={<ChunkFallback />}>
-              <NftsPage user={user} onRefreshUser={refreshUser} navigate={navigate} t={t} />
+              <NftsPage user={user} onRefreshUser={refreshUser} onAdjustBalance={adjustBalanceOptimistic} navigate={navigate} t={t} />
             </Suspense>
           )}
         </div>

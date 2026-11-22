@@ -837,3 +837,41 @@ async def test_autopost_task_details_and_action_routes():
                 assert d2["ok"] is True
     finally:
         main._AUTH_TOKENS.pop(tok, None)
+
+
+def test_cases_default_prices_match_backend_no_flash():
+    """Verify CasesPage DEFAULT_CASES matches backend STARS_CASES prices so wrong prices never flash before load."""
+    from games_monetization import STARS_CASES
+
+    src = (ROOT_DIR / "frontend" / "src" / "pages" / "CasesPage.jsx").read_text(encoding="utf-8")
+    # Old stale prices 25 Stars / 75 Stars / Bronze Starter Case must be gone
+    assert "price_stars: 25," not in src
+    assert "price_stars: 75," not in src
+    assert "price_stars: 750," not in src
+    assert "price_stars: 2500," not in src
+
+    for tier_id, info in STARS_CASES.items():
+        assert f"id: '{tier_id}'" in src
+        assert f"price_stars: {info['price_stars']}" in src
+        assert f"price_uzs: {info['price_uzs']}" in src
+
+
+def test_service_logos_and_optimistic_ui_present():
+    """Verify GiftMedia renders crisp vector SVG emblems and optimistic rollback exists in Cases, NFTs, and Studio."""
+    gm_src = (ROOT_DIR / "frontend" / "src" / "components" / "GiftMedia.jsx").read_text(encoding="utf-8")
+    assert "renderServiceVectorLogo" in gm_src
+    assert "getCaseBackdropTheme" in gm_src
+    for fn_key in ("gm-ap-bg", "gm-as-bg", "gm-seo-bg", "gm-uq-bg", "gm-sc-bg", "gm-st-bg"):
+        assert fn_key in gm_src
+
+    cases_src = (ROOT_DIR / "frontend" / "src" / "pages" / "CasesPage.jsx").read_text(encoding="utf-8")
+    assert "claimed_today: true" in cases_src
+    assert "Olinmadi:" in cases_src
+    assert "onAdjustBalance" in cases_src
+
+    app_src = (ROOT_DIR / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
+    assert "md_user_stats_v3_" in app_src
+    assert "adjustBalanceOptimistic" in app_src
+
+    studio_src = (ROOT_DIR / "frontend" / "src" / "pages" / "StudioPage.jsx").read_text(encoding="utf-8")
+    assert "setTasks(prevTasks)" in studio_src
