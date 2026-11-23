@@ -1,5 +1,5 @@
 """
-CreatorFlow Action Worker — GitHub Actions Ubuntu runner (7 GB RAM) muhitida ishlaydi.
+Mono Deck Studio Action Worker — GitHub Actions Ubuntu runner (7 GB RAM) muhitida ishlaydi.
 Video yuklash, unikalizatsiya va Shorts kesish vazifalarini bajarib,
 natijani Telegram Bot API orqali to'g'ridan-to'g'ri foydalanuvchiga yuboradi.
 """

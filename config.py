@@ -160,11 +160,8 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "aiko_64").lstrip("@")  # Asosiy ad
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "").strip()
 
 def get_admin_secret() -> str:
-    """Xavfsiz admin maxfiy kaliti (Bot tokenidan mutlaqo mustaqil)"""
-    sec = os.getenv("ADMIN_SECRET", "").strip()
-    if sec:
-        return sec
-    return "creatorflow_admin_secret_key"
+    """Xavfsiz admin maxfiy kaliti (sukut bo'yicha bo'sh, hardcoded zaxira yo'q)"""
+    return os.getenv("ADMIN_SECRET", "").strip()
 
 
 # ==================== PROXY ====================
@@ -204,6 +201,22 @@ def _resolve_app_base_url() -> str:
 APP_BASE_URL = _resolve_app_base_url()
 WEB_APP_URL = APP_BASE_URL
 APP_DOMAIN = APP_BASE_URL.split("://", 1)[-1].split("/", 1)[0]
+
+def get_web_app_url() -> str:
+    """Resolve current web URL safely, rejecting legacy botclient-d1jn.onrender.com even in WEB_URL env."""
+    for candidate in (
+        os.getenv("WEB_URL"),
+        os.getenv("APP_BASE_URL"),
+        os.getenv("WEB_APP_URL"),
+        APP_BASE_URL,
+    ):
+        clean = str(candidate or "").strip().rstrip("/")
+        if not clean or "botclient-d1jn.onrender.com" in clean.lower():
+            continue
+        if not clean.startswith(("http://", "https://")):
+            clean = "https://" + clean
+        return clean
+    return "https://monodeck.site"
 
 BOT_USERNAME = os.getenv("BOT_USERNAME", "monodeck_app").strip().lstrip("@") or "monodeck_app"
 _RUNTIME_BOT_USERNAME = ""

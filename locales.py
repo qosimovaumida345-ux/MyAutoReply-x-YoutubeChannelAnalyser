@@ -1,5 +1,5 @@
 """
-Multi-Language (i18n) Engine for YouTube Analytics & Monetization Bot
+Multi-Language (i18n) Engine for Mono Deck Studio Bot
 Qo'llab-quvvatlanadigan tillar:
 - uz: O'zbekcha 🇺🇿
 - ru: Русский 🇷🇺

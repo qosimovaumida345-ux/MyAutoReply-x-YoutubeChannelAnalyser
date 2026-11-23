@@ -26,11 +26,11 @@ def load_super_features(bot: Client):
     async def get_rivals(client, message):
         await message.reply_text(f"{ce('TOOL_SPY')} <b>Raqobatchilar:</b>\n\nHozircha raqobatchilar ro'yxati poylanmoqda. /addrival orqali qo'shing.")
 
-    # 1. Advanced /dl command with multiple qualities and MP3
-    @bot.on_message(filters.command("dl") & filters.private)
+    # 1. Advanced /dlq command with multiple qualities and MP3
+    @bot.on_message(filters.command(["dlq", "dlformat"]) & filters.private)
     async def dl_advanced(client, message):
         if len(message.command) < 2:
-            await message.reply_text(f"{ce('STATUS_ERROR')} URL bering: <code>/dl https://youtube.com/...</code>")
+            await message.reply_text(f"{ce('STATUS_ERROR')} URL bering: <code>/dlq https://youtube.com/...</code>")
             return
             
         url = message.text.split(maxsplit=1)[1].strip()

@@ -31,6 +31,7 @@ from config import (
     get_bot_username,
     set_runtime_bot_username,
     extract_username_from_me,
+    get_web_app_url,
 )
 from autopost import exchange_code_with_redirect, get_auth_url, pending_oauth
 from database import save_yt_connection
@@ -2752,7 +2753,7 @@ async def handle_nft_metadata(request):
     elif "Premium" in title or "Star" in title or "Yulduz" in title:
         img_name = "TG_PREMIUM.png"
         
-    web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+    web_url = get_web_app_url()
     image_url = f"{web_url}/api/nft/image/{img_name}"
     video_url = f"{web_url}/api/nft/video/{img_name.replace('.png', '.mp4')}"
     
@@ -6431,7 +6432,7 @@ async def main():
                 tasks.append(_run_secondary_bot())
                 print(f"🎬 {BRAND_NAME} Secondary Bot #{idx} qo'shildi")
     else:
-        print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
+        print(f"⚠️  BOT_TOKEN topilmadi — {BRAND_NAME} Bot o'chirilgan")
 
     if not tasks:
         print(f"⚠️  Bot tokenlari topilmadi — {BRAND_NAME} web-only rejimda ishlamoqda.")

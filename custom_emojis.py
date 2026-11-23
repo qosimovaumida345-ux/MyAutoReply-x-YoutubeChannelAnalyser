@@ -1,5 +1,5 @@
 """
-CreatorFlow Studio & AutoReply AI — Telegram Custom Emoji Master Registry
+Mono Deck Studio — Telegram Custom Emoji Master Registry
 
 Ushbu modulda bot, web dashboard va barcha tizimlar uchun 174 ta tasdiqlangan Master Reestr saqlanadi.
 Barcha xizmatlar (Instagram, YouTube, Video, Audio, Comment, Support, Dashboard, Web, /goal, /boost),
@@ -61,7 +61,13 @@ ALIASES = {
     "BRAINFM": "BRAND_BRAINFM",
     "BSC": "PAY_CRYPTO_USDT",
     "BTN_BACK": "BTN_BACK",
+    "BTN_FORWARD": "BTN_NEXT",
     "BTN_NEXT": "BTN_NEXT",
+    "CLOCK": "STATUS_LOADING",
+    "GAME_LOTTERY": "GIFT_TROPHY",
+    "MUSIC": "MEDIA_AUDIO_MP3",
+    "SECURITY_SHIELD": "STATUS_SECURITY",
+    "TOOL_SERVICES": "BTN_SERVICES",
     "CAKE": "GIFT_CAKE",
     "CALENDAR": "DEV_API_DOCS",
     "CANCEL": "STATUS_ERROR",
@@ -460,7 +466,7 @@ CUSTOM_EMOJI_REGISTRY = MasterRegistryDict({
     "BTN_DASHBOARD": {
         "num": 10,
         "name": "Web Dashboard",
-        "location": "CreatorFlow Web Studio va tahlil oynasini ochish",
+        "location": "Mono Deck Studio Web Dashboard va tahlil oynasini ochish",
         "purpose": "Web Mini-App orqali boshqarish",
         "id": "6327577233305112811",
         "fallback_name": "[Dashboard]",

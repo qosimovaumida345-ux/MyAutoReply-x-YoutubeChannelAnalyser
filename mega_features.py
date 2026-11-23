@@ -23,7 +23,7 @@ from pyrogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
     CallbackQuery, Message, WebAppInfo
 )
-from config import OWNER_ID
+from config import OWNER_ID, get_web_app_url
 from custom_emojis import e, ce
 from locales import t
 import database as db
@@ -244,7 +244,7 @@ async def get_current_ton_rate_uzs() -> int:
 def seed_premade_nfts():
     """Tayyor 3D NFT modellarini har biridan 5 tadan (stock) bazaga kiritish"""
     try:
-        from config import OWNER_ID
+        from config import OWNER_ID, get_web_app_url
         admin_id = OWNER_ID if OWNER_ID != 0 else 6735799833
         base_dir = os.path.dirname(os.path.abspath(__file__))
         downloads_dir = os.path.join(base_dir, "downloads")
@@ -1002,16 +1002,44 @@ def load_mega_features(bot: Client):
         ok, res = admin_create_promo(code, bonus, limit)
         await message.reply_text(res)
 
-    @bot.on_message(filters.command("redeem") & filters.private)
+    def _redeem_code_unified(uid: int, raw_code: str) -> str:
+        """Promokod va sovg'a vaucherlarini (GIFT-*) yagona /redeem oqimida faollashtirish."""
+        code = str(raw_code or "").strip()
+        if not code:
+            return f"{ce('ERROR')} Kodni kiriting!"
+
+        def _try_voucher():
+            v_res = db.redeem_voucher(uid, code)
+            if v_res.get("ok"):
+                return True, (
+                    f"{ce('SUCCESS')} <b>Vaucher muvaffaqiyatli faollashtirildi!</b>\n\n"
+                    f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{v_res['amount_uzs']:,} so'm</code>\n"
+                    f"⚖️ <b>Yangi balansingiz:</b> <code>{v_res['new_balance']:,} so'm</code>"
+                )
+            return False, f"{ce('ERROR')} {v_res.get('error', 'Yaroqsiz vaucher!')}"
+
+        if code.upper().startswith("GIFT-"):
+            v_ok, v_msg = _try_voucher()
+            if v_ok:
+                return v_msg
+            p_ok, p_msg = user_redeem_promo(uid, code)
+            return p_msg if p_ok else v_msg
+
+        p_ok, p_msg = user_redeem_promo(uid, code)
+        if p_ok:
+            return p_msg
+        v_ok, v_msg = _try_voucher()
+        return v_msg if v_ok else p_msg
+
+    @bot.on_message(filters.command("redeem"))
     async def redeem_cmd(client, message: Message):
         parts = message.command
         if len(parts) < 2:
             USER_STATES[message.from_user.id] = {"action": "waiting_promo_code"}
-            await message.reply_text(f"{ce('TICKET')} <b>Promokodingizni kiriting:</b>")
+            await message.reply_text(f"{ce('TICKET')} <b>Promokod yoki vaucher kodingizni kiriting:</b>")
             return
 
-        code = parts[1]
-        ok, res = user_redeem_promo(message.from_user.id, code)
+        res = _redeem_code_unified(message.from_user.id, parts[1])
         await message.reply_text(res)
 
     @bot.on_callback_query(filters.regex(r"^enter_promo_code$"))
@@ -1989,9 +2017,7 @@ def load_mega_features(bot: Client):
         w = db.get_user_ton_wallet(uid)
         if not w or not w.get("wallet_address"):
             await cb.answer("Avval TON hamyoningizni ulang!", show_alert=True)
-            from config import WEB_APP_URL
-            import os
-            web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+            web_url = get_web_app_url()
             wallet_kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{e('TONKEEPER')} TON Hamyonni Ulash (Mini App)", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={uid}"))],
                 [InlineKeyboardButton(f"{e('WALLET_CONNECT')} Hamyon Sozlamalari", callback_data="menu_wallet")],
@@ -2010,9 +2036,7 @@ def load_mega_features(bot: Client):
         await cb.answer()
         buyer_wallet = w["wallet_address"]
 
-        from config import WEB_APP_URL
-        import os
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+        web_url = get_web_app_url()
         # TEP-64 Off-chain Metadata JSON URL (Haqiqiy kolleksiya, nom, rasm va 3D video bilan)
         content_uri = f"{web_url}/api/nft/meta/{item_id}.json"
 
@@ -2075,9 +2099,7 @@ def load_mega_features(bot: Client):
         w = db.get_user_ton_wallet(uid)
         if not w or not w.get("wallet_address"):
             await cb.answer("Avval TON hamyoningizni ulang!", show_alert=True)
-            from config import WEB_APP_URL
-            import os
-            web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+            web_url = get_web_app_url()
             wallet_kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{e('TONKEEPER')} TON Hamyonni Ulash (Mini App)", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={uid}"))],
                 [InlineKeyboardButton(f"{e('WALLET_CONNECT')} Hamyon Sozlamalari", callback_data="menu_wallet")],
@@ -2127,9 +2149,7 @@ def load_mega_features(bot: Client):
                 status="draft"
             )
 
-        from config import WEB_APP_URL
-        import os
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL).rstrip("/")
+        web_url = get_web_app_url()
         content_uri = f"{web_url}/api/nft/meta/{admin_item_id}.json"
 
         amount_nano = 50_000_000  # Faqat 0.05 TON tarmoq deploy gas to'lovi
@@ -2346,10 +2366,10 @@ def load_mega_features(bot: Client):
                     await message.reply_text(f"{ce('CHECK')} {res}")
                 message.stop_propagation()
 
-            # 6. Promokod kiritish
+            # 6. Promokod yoki vaucher kiritish
             elif action == "waiting_promo_code":
                 USER_STATES.pop(uid, None)
-                ok, res = user_redeem_promo(uid, text)
+                res = _redeem_code_unified(uid, text)
                 await message.reply_text(res)
                 message.stop_propagation()
 

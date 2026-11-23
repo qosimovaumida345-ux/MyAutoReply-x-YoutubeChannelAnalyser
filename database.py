@@ -2281,16 +2281,6 @@ def update_autopilot_last_run(user_id):
         cur.close()
         conn.close()
 
-def get_autopost_task_by_id(task_id):
-    conn = get_db()
-    if not conn: return None
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM autopost_tasks WHERE id = %s", (task_id,))
-        return cur.fetchone()
-    finally:
-        conn.close()
-
 def claim_pending_autopost_task():
     conn = get_db()
     if not conn: return None
@@ -4089,30 +4079,6 @@ def purchase_vip_subscription(tg_user_id: int) -> dict:
         conn.rollback()
         print(f"purchase_vip_subscription error: {e}")
         return {"ok": False, "error": str(e)}
-    finally:
-        conn.close()
-
-def is_user_vip(tg_user_id: int) -> bool:
-    """Foydalanuvchi VIP abonentimi? (Kesh bilan tezkor)"""
-    cached = _get_cached(f"vip_{tg_user_id}")
-    if cached is not None:
-        return bool(cached)
-
-    conn = get_db()
-    if not conn: return False
-    try:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT expires_at FROM vip_subscriptions
-            WHERE tg_user_id = %s AND NOW() < expires_at
-        """, (tg_user_id,))
-        row = cur.fetchone()
-        res = bool(row)
-        _set_cached(f"vip_{tg_user_id}", res, 180)
-        return res
-    except Exception as e:
-        print(f"is_user_vip error: {e}")
-        return False
     finally:
         conn.close()
 
@@ -7355,23 +7321,34 @@ def is_user_vip(tg_user_id: int) -> bool:
             WHERE tg_user_id = %s
         """, (tg_user_id,))
         row = cur.fetchone()
-        if not row:
-            _set_cached(f"vip_{tg_user_id}", False, 180)
-            return False
-        
-        is_vip = bool(row["is_vip"] if isinstance(row, dict) else row[0])
-        exp = row["vip_expires_at"] if isinstance(row, dict) else row[1]
-        
-        if is_vip and exp:
-            import datetime
-            if datetime.datetime.now() > exp:
-                cur.execute("UPDATE user_vip_subscriptions SET is_vip = FALSE WHERE tg_user_id = %s", (tg_user_id,))
-                conn.commit()
-                _set_cached(f"vip_{tg_user_id}", False, 180)
-                return False
+        if row:
+            is_vip = bool(row["is_vip"] if isinstance(row, dict) else row[0])
+            exp = row["vip_expires_at"] if isinstance(row, dict) else row[1]
 
-        _set_cached(f"vip_{tg_user_id}", is_vip, 300 if is_vip else 180)
-        return is_vip
+            if is_vip and exp:
+                import datetime
+                if datetime.datetime.now() > exp:
+                    cur.execute("UPDATE user_vip_subscriptions SET is_vip = FALSE WHERE tg_user_id = %s", (tg_user_id,))
+                    conn.commit()
+                    is_vip = False
+            if is_vip:
+                _set_cached(f"vip_{tg_user_id}", True, 180)
+                return True
+
+        # Fallback: legacy vip_subscriptions table compatibility
+        try:
+            cur.execute("""
+                SELECT expires_at FROM vip_subscriptions
+                WHERE tg_user_id = %s AND NOW() < expires_at
+            """, (tg_user_id,))
+            if cur.fetchone():
+                _set_cached(f"vip_{tg_user_id}", True, 180)
+                return True
+        except Exception:
+            pass
+
+        _set_cached(f"vip_{tg_user_id}", False, 180)
+        return False
     except Exception as e:
         print(f"is_user_vip error: {e}")
         return False

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Kriptografik HMAC-SHA256 Signed Opaque Token Engine
-Mualliflik: CreatorFlow Advanced Security Layer
+Mualliflik: Mono Deck Studio Advanced Security Layer
 Ochiq kalitsiz, buzib bo'lmas, vaqtga va bir martalik noncelarga asoslangan xavfsiz admin sessiya tokeni.
 """
 import os

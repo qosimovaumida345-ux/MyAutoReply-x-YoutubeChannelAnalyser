@@ -32,7 +32,7 @@ from pyrogram.types import (
 )
 from googleapiclient.discovery import build
 
-from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me
+from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me, get_web_app_url
 from config import (
     generate_with_fallback_async, generate_with_fallback,
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
@@ -1123,17 +1123,16 @@ def games_menu_kb(user_id=None):
         [InlineKeyboardButton(f"{ce('GAME_WHEEL_SPIN')} {t('btn_spin_wheel', lang)}", callback_data="spin_wheel"),
          InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} {t('btn_mystery_box', lang)}", callback_data="box_menu")],
         [InlineKeyboardButton(f"{ce('GAME_COINFLIP')} {t('btn_coin_flip', lang)}", callback_data="game_duel_info"),
-         InlineKeyboardButton(f"{ce('GAME_LOTTERY')} {t('btn_lottery', lang)}", callback_data="lottery_menu")],
+         InlineKeyboardButton(f"{ce('GIFT_TROPHY')} {t('btn_lottery', lang)}", callback_data="lottery_menu")],
         [InlineKeyboardButton(f"{ce('GIFT_TROPHY')} {t('btn_leaderboard', lang)}", callback_data="menu_leaderboard"),
          InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")]
     ])
 
 def main_menu_kb(user_id=None, lang=None):
-    import os
     from config import KYC_ENABLED
     lang = lang or _resolve_lang(user_id)
     uid = int(user_id) if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()) else None
-    web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+    web_url = get_web_app_url()
     
     if KYC_ENABLED:
         tier_info = get_user_verification_tier(uid) if uid else {"is_vip": False, "is_face_verified": False, "has_phone": False}
@@ -1181,7 +1180,7 @@ def wallet_menu_kb(user_id=None, lang=None):
     from database import get_user_ton_wallet, get_binance_crypto_config
     lang = lang or _resolve_lang(user_id)
     uid = int(user_id) if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()) else None
-    web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+    web_url = get_web_app_url()
     rows = [
         [InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} {t('btn_pay_humo', lang)}", callback_data="pay_humo_menu")],
         [InlineKeyboardButton(f"{ce('PAY_STARS')} {t('btn_pay_stars', lang)}", callback_data="pay_stars_menu")],
@@ -1502,14 +1501,14 @@ def channel_menu_kb(lang="uz", user_id=None):
         except Exception as e:
             print(f"[channel_menu_kb] Xato: {e}")
             
-    web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+    web_url = get_web_app_url()
     uid_val = user_id or 0
     rows.extend([
         [InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} {t('btn_full_stats', lang)}", callback_data="ch_full"),
          InlineKeyboardButton(f"{ce('TOOL_SUBS')} {t('btn_subs', lang)}", callback_data="ch_subs")],
         [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} {t('btn_recent_videos', lang)}", callback_data="ch_recent"),
          InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} {t('btn_popular_videos', lang)}", callback_data="ch_popular")],
-        [InlineKeyboardButton(f"{ce('TOOL_SERVICES')} {t('btn_playlists', lang)}", callback_data="ch_playlists"),
+        [InlineKeyboardButton(f"{ce('BTN_SERVICES')} {t('btn_playlists', lang)}", callback_data="ch_playlists"),
          InlineKeyboardButton(f"{ce('TOOL_PROMPT_PACK')} {t('btn_about_channel', lang)}", callback_data="ch_about")],
         [InlineKeyboardButton(f"{ce('BRAND_CANVA')} {t('btn_banner_avatar', lang)}", callback_data="ch_banner"),
          InlineKeyboardButton(f"{ce('TOOL_SEO_TAGS')} {t('btn_keywords', lang)}", callback_data="ch_keywords")],
@@ -1556,7 +1555,7 @@ def search_menu_kb(lang="uz"):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"{ce('TOOL_SPY')} {t('btn_search_video', lang)}", callback_data="sr_video"),
          InlineKeyboardButton(f"{ce('TOOL_SPY')} {t('btn_search_channel', lang)}", callback_data="sr_channel")],
-        [InlineKeyboardButton(f"{ce('TOOL_SERVICES')} {t('btn_search_playlist', lang)}", callback_data="sr_playlist")],
+        [InlineKeyboardButton(f"{ce('BTN_SERVICES')} {t('btn_search_playlist', lang)}", callback_data="sr_playlist")],
         [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back', lang)}", callback_data="back_main")],
     ])
 
@@ -1577,7 +1576,7 @@ def tools_menu_kb(lang="uz"):
          InlineKeyboardButton(f"{ce('BRAND_CANVA')} {t('btn_get_thumb', lang)}", callback_data="tl_thumb")],
         [InlineKeyboardButton(f"{ce('STATUS_SECURITY')} {t('btn_compare', lang)}", callback_data="tl_compare"),
          InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_calculator', lang)}", callback_data="tl_calc")],
-        [InlineKeyboardButton(f"{ce('TOOL_SERVICES')} {t('btn_categories', lang)}", callback_data="tl_categories"),
+        [InlineKeyboardButton(f"{ce('BTN_SERVICES')} {t('btn_categories', lang)}", callback_data="tl_categories"),
          InlineKeyboardButton(f"{ce('TOOL_WEB')} {t('btn_country_trending', lang)}", callback_data="tl_region")],
         [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back', lang)}", callback_data="back_main")],
     ])
@@ -1602,7 +1601,7 @@ def channel_action_kb(channel_id, lang="uz"):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(f"{ce('MEDIA_VIDEO_HD')} {t('btn_recent_videos', lang)}", callback_data=f"cact_recent_{channel_id}"),
          InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} {t('btn_popular_videos', lang)}", callback_data=f"cact_popular_{channel_id}")],
-        [InlineKeyboardButton(f"{ce('TOOL_SERVICES')} {t('btn_playlists', lang)}", callback_data=f"cact_playlists_{channel_id}"),
+        [InlineKeyboardButton(f"{ce('BTN_SERVICES')} {t('btn_playlists', lang)}", callback_data=f"cact_playlists_{channel_id}"),
          InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} {t('btn_growth', lang)}", callback_data=f"cact_growth_{channel_id}")],
         [InlineKeyboardButton(f"{ce('DEV_API_DOCS')} {t('btn_report', lang)}", callback_data=f"cact_report_{channel_id}"),
          InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_earnings', lang)}", callback_data=f"cact_earn_{channel_id}")],
@@ -1727,7 +1726,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     @bot.on_message(filters.command("apikeys") & filters.private)
     async def cmd_apikeys(client, message):
         """YouTube API kalitlari holatini tekshirish (Faqat admin uchun)"""
-        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
+        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me, get_web_app_url, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
         from googleapiclient.discovery import build
         from googleapiclient.errors import HttpError
         
@@ -1991,7 +1990,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             nav_row.append(InlineKeyboardButton(f"{ce('BTN_BACK')} Oldingi", callback_data=f"adm_users_{cur_p - 1}"))
         nav_row.append(InlineKeyboardButton(f"{ce('DEV_API_DOCS')} {cur_p}/{total_p}", callback_data="adm_users_noop"))
         if cur_p < total_p:
-            nav_row.append(InlineKeyboardButton(f"Keyingi {ce('BTN_FORWARD')}", callback_data=f"adm_users_{cur_p + 1}"))
+            nav_row.append(InlineKeyboardButton(f"Keyingi {ce('BTN_NEXT')}", callback_data=f"adm_users_{cur_p + 1}"))
         if nav_row:
             buttons.append(nav_row)
 
@@ -2759,7 +2758,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
 
         phone = contact.phone_number.strip()
         save_telegram_phone(user_id, phone)
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        web_url = get_web_app_url()
         
         txt = (
             f"{ce('SUCCESS')} <b>Tabriklaymiz! Kirish verifikatsiyasi muvaffaqiyatli yakunlandi!</b>\n\n"
@@ -3059,7 +3058,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
 
         from database import is_user_kyc_verified, get_user_kyc
         is_verified = is_user_kyc_verified(user_id)
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        web_url = get_web_app_url()
         
         if is_verified:
             kyc_data = get_user_kyc(user_id) or {}
@@ -3098,7 +3097,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from database import get_user_verification_tier, get_user_vip_info, get_telegram_phone
         tier_info = get_user_verification_tier(user_id)
         vip_info = get_user_vip_info(user_id)
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        web_url = get_web_app_url()
         ph = get_telegram_phone(user_id)
         lang = lang or get_user_language(user_id)
         raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
@@ -3262,7 +3261,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     @bot.on_callback_query(filters.regex(r"^vip_pay_ton$"))
     async def cb_vip_pay_ton(client, cb: CallbackQuery):
         user_id = cb.from_user.id
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        web_url = get_web_app_url()
         text = (
             f"{ce('TON')} <b>TON Kriptovalyutasi Orqali VIP Obuna</b>\n\n"
             f"Tonkeeper yoki Telegram Wallet orqali tezkor to'lov qilishingiz mumkin.\n"
@@ -3818,7 +3817,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                 InlineKeyboardButton(f"{ce('DEV_CODE_SNIPPET')} Python Kod Namunasi", callback_data="api_code_sample")
             ],
             [
-                InlineKeyboardButton(f"{ce('SECURITY_SHIELD')} 🛡 BotShield Captcha", callback_data="captcha_view"),
+                InlineKeyboardButton(f"{ce('STATUS_SECURITY')} 🛡 BotShield Captcha", callback_data="captcha_view"),
                 InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Web Dokumentatsiya (Docs)", url=docs_url)
             ]
         ]
@@ -3960,7 +3959,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         verifs = stats.get("total_verifications", 0)
         
         text = (
-            f"{ce('SECURITY_SHIELD')} <b>BotShield — Sayt va Botlar uchun Captcha Xizmati</b>\n\n"
+            f"{ce('STATUS_SECURITY')} <b>BotShield — Sayt va Botlar uchun Captcha Xizmati</b>\n\n"
             f"Veb-saytingiz, Telegram Mini App yoki ro'yxatdan o'tish shakllaringizni spam va avtomatlashtirilgan botlardan 100% himoya qiling!\n\n"
             f"✨ <b>Asosiy Imkoniyatlar:</b>\n"
             f"• 4 xil insoniy captcha (Pazl, 9 talik rasmlar, Aylantirish, Ketma-ketlik)\n"
@@ -4402,38 +4401,6 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             reply_markup=InlineKeyboardMarkup(buttons)
         )
 
-    @bot.on_message(filters.command(["flushgifts", "pendinggifts"]) & filters.private)
-    async def flush_gifts_cmd(client, message: Message):
-        if not check_is_admin(message.from_user):
-            await message.reply_text("❌ Ushbu buyruq faqat bot administratori uchun!")
-            return
-            
-        from database import get_pending_gifts
-        from games_monetization import process_pending_gifts_batch
-        
-        pending = get_pending_gifts(limit=50)
-        if not pending:
-            await message.reply_text("✅ Kutilayotgan sovg'alar navbati bo'sh. Barcha sovg'alar jo'natilgan!")
-            return
-            
-        wait_m = await message.reply_text(f"⏳ Navbatdagi <b>{len(pending)} ta</b> sovg'ani jo'natish boshlandi...")
-        bot_token = getattr(client, "bot_token", None) or BOT_TOKEN
-        res = await process_pending_gifts_batch(bot_token=bot_token, limit=20)
-        
-        sent_c = res.get("sent_count", 0)
-        failed_c = res.get("failed_count", 0)
-        rem_c = res.get("remaining", 0)
-        b_stop = res.get("balance_stopped", False)
-        
-        status_note = "\n⚠️ <b>Bot Stars balansi tugadi! Fragment orqali to'ldiring.</b>" if b_stop else ""
-        await wait_m.edit_text(
-            f"📊 <b>Sovg'alar Navbati Hisoboti:</b>\n\n"
-            f"✅ <b>Jo'natildi:</b> {sent_c} ta\n"
-            f"❌ <b>Xatolik:</b> {failed_c} ta\n"
-            f"⏳ <b>Navbatda qoldi:</b> {rem_c} ta"
-            f"{status_note}"
-        )
-
     @bot.on_callback_query(filters.regex(r"^buy_gcase_([a-zA-Z0-9_]+)$"))
     async def buy_gcase_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
@@ -4833,24 +4800,6 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"💰 <b>Har birining qiymati:</b> <code>{amount:,} so'm</code>\n\n"
             f"🎁 <b>Promokodlar:</b>\n{codes_text}\n\n"
             f"<i>Foydalanuvchilar /redeem &lt;kod&gt; orqali faollashtirishi mumkin.</i>"
-        )
-
-    @bot.on_message(filters.command("redeem"))
-    async def redeem_cmd(client, message):
-        parts = message.text.strip().split()
-        if len(parts) < 2:
-            await message.reply_text("ℹ️ <b>Foydalanish:</b> <code>/redeem &lt;kod&gt;</code>\n\n<b>Masalan:</b> <code>/redeem GIFT-XXXX-YYYY</code>")
-            return
-        code = parts[1].strip()
-        res = redeem_voucher(message.from_user.id, code)
-        if not res.get("ok"):
-            await message.reply_text(f"❌ {res.get('error', 'Yaroqsiz vaucher!')}")
-            return
-            
-        await message.reply_text(
-            f"🎉 <b>Vaucher muvaffaqiyatli faollashtirildi!</b>\n\n"
-            f"💰 <b>Hisobingizga qo'shildi:</b> <code>+{res['amount_uzs']:,} so'm</code>\n"
-            f"💳 <b>Yangi balansingiz:</b> <code>{res['new_balance']:,} so'm</code>"
         )
 
 
@@ -5898,7 +5847,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def teamwork_preview_cmd(client, message):
         user_id = message.from_user.id
         lang = get_user_language(user_id)
-        web_url = os.environ.get("WEB_URL", WEB_APP_URL)
+        web_url = get_web_app_url()
         text = (
             f"{ce('BRAND_JAM')} <b>Mono Deck Studio Jamoaviy Hamkorlik & Teamwork Preview</b>\n\n"
             f"YouTube kanal va media-loyihalarni professional jamoa bilan birgalikda boshqaring:\n\n"
@@ -6402,7 +6351,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             await message.reply_text("❌ Xatolik yuz berdi. DB ulanmagan.")
             return
             
-        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me
+        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me, get_web_app_url
         is_admin = str(message.from_user.id) == str(OWNER_ID)
         cur = conn.cursor()
         if is_admin:
@@ -7750,7 +7699,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('PAY_STARS')} Telegram Stars orqali to'ldirish", callback_data="pay_stars_menu")],
-                [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton(f"{ce('BTN_WALLET')} Hisobni to'ldirish (HUMO / Stars / Crypto)", callback_data="menu_wallet")],
                 [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_marketplace")]
             ])
             await cb.message.edit_text(text, reply_markup=kb)
@@ -7907,7 +7856,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} HUMO / Uzcard orqali to'ldirish", callback_data="pay_humo_menu")],
-                [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} CryptoPay / TON orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton(f"{ce('BTN_WALLET')} Hisobni to'ldirish (HUMO / Stars / Crypto)", callback_data="menu_wallet")],
                 [InlineKeyboardButton(f"{ce('PAY_STARS')} Stars orqali to'ldirish", callback_data="pay_stars_menu")],
                 [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data=f"mkt_view_{service}")]
             ])
@@ -8069,7 +8018,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} HUMO / Uzcard orqali to'ldirish", callback_data="pay_humo_menu")],
-                [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} CryptoPay / TON orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton(f"{ce('BTN_WALLET')} Hisobni to'ldirish (HUMO / Stars / Crypto)", callback_data="menu_wallet")],
                 [InlineKeyboardButton(f"{ce('PAY_STARS')} Stars orqali to'ldirish", callback_data="pay_stars_menu")],
                 [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="mkt_view_coding_agent")]
             ])
@@ -8314,7 +8263,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                 f"Iltimos, avval hisobingizni to'ldiring:"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
+                [InlineKeyboardButton(f"{ce('BTN_WALLET')} Hisobni to'ldirish (HUMO / Stars / Crypto)", callback_data="menu_wallet")],
                 [InlineKeyboardButton(f"{ce('PAY_STARS')} Stars orqali to'ldirish", callback_data="pay_stars_menu")],
                 [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="mkt_view_proxy")]
             ])
@@ -8412,8 +8361,8 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                 f"Iltimos, avval hisobingizni to'ldiring:"
             )
             kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("CryptoPay orqali to'ldirish", callback_data="pay_crypto_menu")],
-                [InlineKeyboardButton("Stars orqali to'ldirish", callback_data="pay_stars_menu")],
+                [InlineKeyboardButton(f"{ce('BTN_WALLET')} Hisobni to'ldirish (HUMO / Stars / Crypto)", callback_data="menu_wallet")],
+                [InlineKeyboardButton(f"{ce('PAY_STARS')} Stars orqali to'ldirish", callback_data="pay_stars_menu")],
                 [InlineKeyboardButton("Orqaga", callback_data="mkt_view_autostream")]
             ])
             await cb.message.edit_text(text, reply_markup=kb)
@@ -11920,7 +11869,7 @@ async def gift_autoflush_worker(bot: Client):
     """Har 15 daqiqada kutilayotgan sovg'alarni avtomatik jo'natadi va bot Stars balansi yetishmasa adminga bildirishnoma beradi"""
     from games_monetization import process_pending_gifts_batch
     from database import get_pending_gifts
-    from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me
+    from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me, get_web_app_url
     import os, time
     
     admin_id = 0

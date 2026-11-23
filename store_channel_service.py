@@ -205,11 +205,11 @@ PROMO_TEMPLATES = [
     },
     {
         "id": "autostream_247",
-        "emoji_theme": ("MEDIA_AUTOPILOT", "CLOCK", "CHANNEL"),
+        "emoji_theme": ("MEDIA_AUTOPILOT", "STATUS_LOADING", "CHANNEL"),
         "title": "24/7 JONLI EFIR (AUTOSTREAM) CLOUD!",
         "body": (
             f"{ce('MEDIA_AUTOPILOT')} <b>Kompyuteringizni yoqmasdan YouTube Live qiling!</b>\n\n"
-            f"{ce('CLOCK')} Musiqa, lo-fi yoki tayyor videoni 24 soat uzluksiz efirga uzating\n"
+            f"{ce('STATUS_LOADING')} Musiqa, lo-fi yoki tayyor videoni 24 soat uzluksiz efirga uzating\n"
             f"{ce('CHANNEL')} Soatlik tomosha (watch hours) va obunachilarni tabiiy oshiring\n"
             f"{ce('SUCCESS')} Barcha oqim bulutli serverda ishlaydi"
         ),
@@ -270,12 +270,12 @@ PROMO_TEMPLATES = [
     },
     {
         "id": "fast_downloader",
-        "emoji_theme": ("DOWNLOAD", "MUSIC", "CLIPPERS"),
+        "emoji_theme": ("DOWNLOAD", "MEDIA_AUDIO_MP3", "CLIPPERS"),
         "title": "YOUTUBE, TIKTOK VA INSTAGRAM YUKLOVCHI!",
         "body": (
             f"{ce('DOWNLOAD')} <b>Link tashlang — soniyalarda toza video yoki MP3 oling!</b>\n\n"
             f"{ce('CLIPPERS')} Reels va Shorts larni logotipsiz yuqori sifatda yuklash\n"
-            f"{ce('MUSIC')} Istalgan klipdan toza audio ajratib olish\n"
+            f"{ce('MEDIA_AUDIO_MP3')} Istalgan klipdan toza audio ajratib olish\n"
             f"{ce('ROCKET')} 7 GB Cloud Runner katta fayllarni ham qotmasdan tortadi"
         ),
         "btn_text": "Video yuklash",

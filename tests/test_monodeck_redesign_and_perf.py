@@ -1570,3 +1570,54 @@ def test_collectible_bot_username_and_zero_autoreplybot_urls():
     manifest = ton_connect_page.get_ton_manifest()
     assert manifest["url"].startswith("https://")
     assert "t.me" not in manifest["url"]
+
+
+def test_p0_p1_audit_fixes_zero_duplicates_and_safe_defaults():
+    """Regression guard covering all P0/P1 audit findings: no duplicate defs/commands, safe URLs/secrets, valid emoji keys."""
+    import ast
+    import os
+    import re
+    import config
+    import custom_emojis
+
+    # 1. database.py must have zero duplicate top-level def/class names
+    db_src = (ROOT_DIR / "database.py").read_text(encoding="utf-8")
+    db_tree = ast.parse(db_src)
+    top_names = [n.name for n in db_tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+    assert len(top_names) == len(set(top_names)), "Duplicate top-level definition in database.py"
+
+    # 2. get_admin_secret must return empty string when ADMIN_SECRET is unset (never hardcoded fallback)
+    with patch.dict(os.environ, {"ADMIN_SECRET": ""}, clear=False):
+        assert config.get_admin_secret() == ""
+
+    # 3. get_web_app_url must ignore botclient-d1jn.onrender.com even in WEB_URL env
+    with patch.dict(os.environ, {"WEB_URL": "https://botclient-d1jn.onrender.com"}, clear=False):
+        assert config.get_web_app_url() == "https://monodeck.site"
+    with patch.dict(os.environ, {"WEB_URL": "https://monodeck.site/"}, clear=False):
+        assert config.get_web_app_url() == "https://monodeck.site"
+
+    # 4. Zero legacy WEB_URL or stale CryptoPay insufficient-balance buttons
+    for fname in ("ytbot.py", "mega_features.py", "main.py"):
+        src = (ROOT_DIR / fname).read_text(encoding="utf-8")
+        assert 'os.environ.get("WEB_URL", WEB_APP_URL)' not in src, f"Raw WEB_URL bypass in {fname}"
+    yt_src = (ROOT_DIR / "ytbot.py").read_text(encoding="utf-8")
+    assert "CryptoPay orqali to'ldirish" not in yt_src
+    assert "CryptoPay / TON orqali to'ldirish" not in yt_src
+
+    # 5. Zero unregistered ce()/e() keys in root Python modules
+    for p in ROOT_DIR.glob("*.py"):
+        if p.name == "custom_emojis.py":
+            continue
+        txt = p.read_text(encoding="utf-8", errors="ignore")
+        for m in re.finditer(r'(?<![a-zA-Z0-9_])(?:ce|e)\(\s*["\']([a-zA-Z0-9_]+)["\']\s*\)', txt):
+            key = m.group(1)
+            assert key in custom_emojis.CUSTOM_EMOJI_REGISTRY, f"Unregistered emoji {key} in {p.name}"
+
+    # 6. Zero duplicate commands across ytbot.py, mega_features.py, super_features.py
+    seen_cmds = {}
+    for fname in ("ytbot.py", "mega_features.py", "super_features.py"):
+        txt = (ROOT_DIR / fname).read_text(encoding="utf-8")
+        for m in re.finditer(r"filters\.command\(([^)]+)\)", txt):
+            for cmd in re.findall(r'["\']([a-zA-Z0-9_]+)["\']', m.group(1)):
+                assert cmd not in seen_cmds, f"Duplicate command /{cmd} in {seen_cmds[cmd]} and {fname}"
+                seen_cmds[cmd] = fname
