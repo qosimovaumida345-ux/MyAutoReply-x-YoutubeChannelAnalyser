@@ -2624,6 +2624,44 @@ def load_mega_features(bot: Client):
                     await message.reply_text(f"{ce('SUCCESS')} Chek kodi (<code>{rrn_code}</code>) saqlandi!")
                 message.stop_propagation()
 
+            # 16b. Custom Crypto / Binance TxID tekshiruvi
+            elif action == "waiting_crypto_txid":
+                USER_STATES.pop(uid, None)
+                raw_tx = text.strip()
+                wait_msg = await message.reply_text("🔍 <b>Tranzaksiya tekshirilmoqda (Binance / Blockchain)...</b>")
+                try:
+                    from binance_crypto_verifier import verify_crypto_tx_by_id
+                    v_res = await verify_crypto_tx_by_id(raw_tx)
+                    if not v_res.get("ok"):
+                        await wait_msg.edit_text(
+                            f"{ce('ERROR')} <b>To'lov tasdiqlanmadi:</b>\n{v_res.get('error', 'Tranzaksiya topilmadi.')}\n\n"
+                            "Qayta urinish uchun <b>/balance -> Crypto Deposit</b> orqali TxID yuboring."
+                        )
+                    else:
+                        c_res = await asyncio.to_thread(
+                            db.claim_and_credit_crypto_tx,
+                            uid,
+                            v_res["tx_id"],
+                            v_res["network"],
+                            v_res["asset"],
+                            v_res["amount_crypto"],
+                            v_res["amount_uzs"],
+                        )
+                        if not c_res.get("ok"):
+                            await wait_msg.edit_text(f"{ce('ERROR')} {c_res.get('error', 'Balansga yozishda xato.')}")
+                        else:
+                            await wait_msg.edit_text(
+                                f"{ce('SUCCESS')} <b>KRIPTO TO'LOV MUVAFFAQIYATLI TASDIQLANDI!</b>\n\n"
+                                f"🌐 <b>Tarmoq:</b> <code>{v_res['network']}</code>\n"
+                                f"🪙 <b>Summa:</b> <code>{v_res['amount_crypto']} {v_res['asset']}</code> (~${v_res['usd_value']})\n"
+                                f"💰 <b>Hisobingizga qo'shildi:</b> <code>+{v_res['amount_uzs']:,} so'm</code>\n"
+                                f"⚖️ <b>Yangi balans:</b> <code>{c_res['new_balance']:,} so'm</code>\n"
+                                f"🧾 <b>TxID:</b> <code>{v_res['tx_id'][:28]}...</code>"
+                            )
+                except Exception as crypto_err:
+                    await wait_msg.edit_text(f"{ce('ERROR')} Tekshirishda xatolik: {str(crypto_err)[:200]}")
+                message.stop_propagation()
+
             # 17. VenteBot Reseller Aktivatsiya ma'lumotini kutish
             elif action == "waiting_vb_activation":
                 USER_STATES.pop(uid, None)

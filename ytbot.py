@@ -3573,6 +3573,58 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         else:
             await message.reply_text(f"{ce('DEV_API_DOCS')} TON hamyon manzili hali o'rnatilmagan. O'rnatish: <code>/setton &lt;manzil&gt;</code>")
 
+    @bot.on_message(filters.command("setbinance"))
+    async def setbinance_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text(f"{ce('STATUS_WARNING')} Bu buyruq faqat bot egasi uchun!")
+            return
+        parts = message.text.strip().split()
+        if len(parts) < 2:
+            await message.reply_text(
+                f"{ce('PAY_TON_CRYPTO')} <b>Binance Pay &amp; API Sozlash:</b>\n\n"
+                "<code>/setbinance &lt;BINANCE_UID&gt; [READONLY_API_KEY] [API_SECRET]</code>\n\n"
+                "<i>Xavfsizlik uchun yuborilgan xabaringiz avtomatik o'chiriladi.</i>"
+            )
+            return
+        b_uid = parts[1].strip()
+        set_config("binance_uid", b_uid)
+        if len(parts) >= 3:
+            set_config("binance_api_key", parts[2].strip())
+        if len(parts) >= 4:
+            set_config("binance_api_secret", parts[3].strip())
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        await client.send_message(
+            message.chat.id,
+            f"{ce('STATUS_SUCCESS')} <b>Binance sozlamalari saqlandi!</b>\n"
+            f"🆔 <b>Binance UID:</b> <code>{b_uid}</code>\n"
+            f"🔑 <b>Read-Only API Key:</b> <code>{'Sozlandi' if len(parts) >= 3 else 'Avvalgi saqlandi'}</code>",
+        )
+
+    @bot.on_message(filters.command("setusdt"))
+    async def setusdt_cmd(client, message):
+        if not check_is_admin(message.from_user):
+            await message.reply_text(f"{ce('STATUS_WARNING')} Bu buyruq faqat bot egasi uchun!")
+            return
+        parts = message.text.strip().split()
+        if len(parts) < 2:
+            await message.reply_text(
+                f"{ce('PAY_TON_CRYPTO')} <b>USDT Depozit Manzillarini Sozlash:</b>\n\n"
+                "<code>/setusdt &lt;TRC20_ADDRESS&gt; [BEP20_ADDRESS]</code>"
+            )
+            return
+        trc20 = parts[1].strip()
+        set_config("usdt_trc20_address", trc20)
+        if len(parts) >= 3:
+            set_config("usdt_bep20_address", parts[2].strip())
+        await message.reply_text(
+            f"{ce('STATUS_SUCCESS')} <b>USDT manzillar saqlandi!</b>\n"
+            f"🟢 <b>TRC20:</b> <code>{trc20}</code>\n"
+            + (f"🟡 <b>BEP20:</b> <code>{parts[2].strip()}</code>" if len(parts) >= 3 else "")
+        )
+
     # ==================== /addkey & /stock (AI API Keys Do'koni) ====================
     @bot.on_message(filters.command("addkey"))
     async def addkey_cmd(client, message):
@@ -7209,15 +7261,49 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     @bot.on_callback_query(filters.regex(r"^(?:pay_crypto_menu|pay_ton_menu)$"))
     async def cb_pay_crypto_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
-        lang = get_user_language(user_id)
-        if not await check_service_available("crypto_pay", cb, lang):
-            return
+        from database import get_binance_crypto_config
+        from config import USD_TO_UZS_RATE
+
+        cfg = get_binance_crypto_config()
+        lines = []
+        if cfg.get("binance_uid"):
+            lines.append(f"🟡 <b>Binance Pay UID:</b> <code>{cfg['binance_uid']}</code> <i>(0% komissiya)</i>")
+        if cfg.get("usdt_trc20_address"):
+            lines.append(f"🟢 <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
+        if cfg.get("usdt_bep20_address"):
+            lines.append(f"🟠 <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
+        if cfg.get("ton_wallet_address"):
+            lines.append(f"💎 <b>TON / Walt Network:</b> <code>{cfg['ton_wallet_address']}</code>")
+
+        addr_block = "\n".join(lines) if lines else "⚠️ <i>Admin hali hamyon manzillarini /setbinance yoki /setusdt bilan kiritmagan.</i>"
         text = (
-            f"{e('CRYPTO')} <b>CryptoPay (@CryptoBot) orqali to'ldirish</b>\n\n"
-            f"USDT yoki GRAM (sobiq TON) orqali bir zumda to'ldiring.\n"
-            f"Kerakli paketni tanlang:"
+            f"{e('CRYPTO')} <b>Crypto / Binance Pay — Custom Summa To'lov</b>\n\n"
+            f"💵 <b>Kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
+            f"<b>Istalgan summada quyidagi manzillardan biriga o'tkazing:</b>\n"
+            f"{addr_block}\n\n"
+            f"🧾 <b>Tasdiqlash (10 soniya):</b>\n"
+            f"To'lovni yuborgach, chekdagi <b>Tranzaksiya ID (TxID / TxHash / Binance Order ID)</b> raqamini "
+            f"pastdagi tugmani bosib chatga yuboring — tizim o'zi aniq summani hisoblab balansingizni to'ldiradi!"
         )
-        await cb.message.edit_text(text, reply_markup=crypto_packages_kb())
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} TxID / Order ID yuborish", callback_data="crypto_enter_txid")],
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_wallet")],
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^crypto_enter_txid$"))
+    async def cb_crypto_enter_txid(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from mega_features import USER_STATES
+        USER_STATES[user_id] = {"action": "waiting_crypto_txid"}
+        text = (
+            f"{ce('INVOICE')} <b>Tranzaksiya ID (TxID / Binance Order ID) ni yuboring</b>\n\n"
+            "Binance Pay Order ID yoki blockchain TxHash ni shu yerga matn sifatida tashlang.\n"
+            "<i>Tizim to'lov miqdorini jonli kursda hisoblab darhol balansingizga qo'shadi!</i>"
+        )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="pay_crypto_menu")]])
+        await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^crypto_pkg_([0-9d]+)_([A-Z]+)$"))

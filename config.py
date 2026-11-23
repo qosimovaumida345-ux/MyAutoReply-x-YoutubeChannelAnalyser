@@ -220,8 +220,13 @@ def get_bot_username() -> str:
 SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "monodeck_support").strip().lstrip("@") or "monodeck_support"
 ADSENSE_CLIENT_ID = os.getenv("ADSENSE_CLIENT_ID", "ca-pub-4094396006908725").strip() or "ca-pub-4094396006908725"
 
-# ==================== CRYPTOPAY & WEBAPP ====================
+# ==================== CRYPTOPAY, BINANCE & WEBAPP ====================
 CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN", "")
+BINANCE_UID = os.getenv("BINANCE_UID", "").strip()
+BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "").strip()
+BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "").strip()
+USDT_TRC20_ADDRESS = os.getenv("USDT_TRC20_ADDRESS", "").strip()
+USDT_BEP20_ADDRESS = os.getenv("USDT_BEP20_ADDRESS", "").strip()
 
 # ==================== VENTEBOT RESELLER API ====================
 VENTEBOT_API_KEY = os.getenv("VENTEBOT_API_KEY", "").strip()
@@ -236,4 +241,4 @@ VIP_PRICE_STARS = int(os.getenv("VIP_PRICE_STARS", "250"))
 
 # ==================== FEATURE TOGGLES ====================
 KYC_ENABLED = os.getenv("KYC_ENABLED", "false").lower() in ("true", "1", "yes")
-ENABLE_CRYPTO_PAY = os.getenv("ENABLE_CRYPTO_PAY", "false").lower() in ("true", "1", "yes")
+ENABLE_CRYPTO_PAY = os.getenv("ENABLE_CRYPTO_PAY", "true").lower() in ("true", "1", "yes")

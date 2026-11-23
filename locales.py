@@ -434,6 +434,7 @@ TRANSLATIONS = {
         "uz": (
             '💰 <b>Sizning Balansingiz:</b> <code>{balance:,} so\'m</code>\n\n'
             "To'lov turlari:\n"
+            '• 💎 <b>Crypto (Binance Pay / USDT / TON — istalgan summa)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Sovg\'a Vaucherlari (/redeem)</b>\n\n'
@@ -442,6 +443,7 @@ TRANSLATIONS = {
         "ru": (
             '💰 <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n'
             "Способы пополнения:\n"
+            '• 💎 <b>Crypto (Binance Pay / USDT / TON — любая сумма)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Подарочные Ваучеры (/redeem)</b>\n\n'
@@ -450,6 +452,7 @@ TRANSLATIONS = {
         "en": (
             '💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n'
             "Payment methods:\n"
+            '• 💎 <b>Crypto (Binance Pay / USDT / TON — Custom Amount)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Gift Vouchers (/redeem)</b>\n\n'
@@ -458,6 +461,7 @@ TRANSLATIONS = {
         "es": (
             '💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n'
             "Métodos de pago:\n"
+            '• 💎 <b>Crypto (Binance Pay / USDT / TON)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Vales de Regalo (/redeem)</b>\n\n'
@@ -466,6 +470,7 @@ TRANSLATIONS = {
         "tr": (
             '💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n'
             "Ödeme Yöntemleri:\n"
+            '• 💎 <b>Kripto (Binance Pay / USDT / TON)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Hediye Kuponları (/redeem)</b>\n\n'

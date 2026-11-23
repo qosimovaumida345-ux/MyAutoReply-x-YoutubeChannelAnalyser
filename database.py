@@ -8840,3 +8840,141 @@ def purge_fake_and_test_users(bot_token: str = "", dry_run: bool = False) -> dic
         conn.close()
 
 
+# ==================== CUSTOM-AMOUNT CRYPTO & BINANCE TXID CLAIMS ====================
+
+def get_binance_crypto_config() -> dict:
+    """Binance Pay va Kripto depozit sozlamalarini DB yoki .env dan olish."""
+    from config import (
+        BINANCE_UID,
+        BINANCE_API_KEY,
+        BINANCE_API_SECRET,
+        USDT_TRC20_ADDRESS,
+        USDT_BEP20_ADDRESS,
+    )
+    return {
+        "binance_uid": (get_bot_config("binance_uid") or BINANCE_UID or "").strip(),
+        "binance_api_key": (get_bot_config("binance_api_key") or BINANCE_API_KEY or "").strip(),
+        "binance_api_secret": (get_bot_config("binance_api_secret") or BINANCE_API_SECRET or "").strip(),
+        "usdt_trc20_address": (get_bot_config("usdt_trc20_address") or USDT_TRC20_ADDRESS or "").strip(),
+        "usdt_bep20_address": (get_bot_config("usdt_bep20_address") or USDT_BEP20_ADDRESS or "").strip(),
+        "ton_wallet_address": (get_ton_wallet() or "").strip(),
+    }
+
+
+def _ensure_claimed_crypto_table(cur) -> None:
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS claimed_crypto_txs (
+            id SERIAL PRIMARY KEY,
+            tx_id TEXT UNIQUE NOT NULL,
+            tg_user_id BIGINT NOT NULL,
+            network TEXT,
+            asset TEXT,
+            amount_crypto NUMERIC,
+            amount_uzs BIGINT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
+
+def is_crypto_tx_claimed(tx_id: str) -> bool:
+    """TxID / Order ID avval ishlatilgan yoki yo'qligini tekshirish (anti-replay)."""
+    clean_id = str(tx_id or "").strip()
+    if not clean_id:
+        return False
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        _ensure_claimed_crypto_table(cur)
+        conn.commit()
+        cur.execute("SELECT 1 FROM claimed_crypto_txs WHERE tx_id = %s LIMIT 1", (clean_id,))
+        return bool(cur.fetchone())
+    except Exception:
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+
+def claim_and_credit_crypto_tx(
+    tg_user_id: int,
+    tx_id: str,
+    network: str,
+    asset: str,
+    amount_crypto: float,
+    amount_uzs: int,
+) -> dict:
+    """
+    Tasdiqlangan TxID / Binance Order ID ni atomar tarzda bazaga yozadi (1 marta ishlatish kafolati)
+    va user balansini UZS ga oshiradi.
+    """
+    clean_id = str(tx_id or "").strip()
+    uid = int(tg_user_id)
+    credit = max(0, int(amount_uzs))
+    if not clean_id or credit <= 0:
+        return {"ok": False, "error": "Noto'g'ri TxID yoki summa."}
+
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "Baza bilan aloqa yo'q."}
+    try:
+        cur = conn.cursor()
+        _ensure_claimed_crypto_table(cur)
+        cur.execute(
+            """
+            INSERT INTO claimed_crypto_txs (tx_id, tg_user_id, network, asset, amount_crypto, amount_uzs)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (tx_id) DO NOTHING
+            RETURNING id
+            """,
+            (clean_id, uid, str(network or "CRYPTO")[:32], str(asset or "USDT")[:16], float(amount_crypto), credit),
+        )
+        row = cur.fetchone()
+        if not row:
+            conn.rollback()
+            return {"ok": False, "already_claimed": True, "error": "Ushbu tranzaksiya (TxID) allaqachon ishlatilgan!"}
+
+        cur.execute(
+            """
+            INSERT INTO user_balances (tg_user_id, balance_uzs, total_deposited_uzs, updated_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (tg_user_id) DO UPDATE
+            SET balance_uzs = user_balances.balance_uzs + EXCLUDED.balance_uzs,
+                total_deposited_uzs = COALESCE(user_balances.total_deposited_uzs, 0) + EXCLUDED.balance_uzs,
+                updated_at = NOW()
+            RETURNING balance_uzs
+            """,
+            (uid, credit, credit),
+        )
+        b_row = cur.fetchone()
+        new_bal = int(b_row["balance_uzs"] if isinstance(b_row, dict) else b_row[0])
+
+        try:
+            cur.execute(
+                """
+                INSERT INTO payment_transactions (tg_user_id, method, amount_original, currency, amount_uzs, status, invoice_id, completed_at)
+                VALUES (%s, %s, %s, %s, %s, 'completed', %s, NOW())
+                """,
+                (uid, str(network or "crypto")[:24], float(amount_crypto), str(asset or "USDT")[:16], credit, clean_id[:120]),
+            )
+        except Exception:
+            pass
+
+        conn.commit()
+        return {
+            "ok": True,
+            "tx_id": clean_id,
+            "network": network,
+            "asset": asset,
+            "amount_crypto": float(amount_crypto),
+            "amount_uzs": credit,
+            "new_balance": new_bal,
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"ok": False, "error": str(e)}
+    finally:
+        conn.close()
+
+

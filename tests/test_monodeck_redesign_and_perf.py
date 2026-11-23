@@ -984,3 +984,68 @@ def test_promo_video_renderer_produces_valid_rgb_frames():
             img = gpv.render_frame(t_sec, 24.0, lang)
             assert img.size == (1080, 1920)
             assert img.mode == "RGB"
+
+
+@pytest.mark.asyncio
+async def test_custom_amount_binance_pay_and_txid_anti_replay():
+    """Verify Binance Pay Order ID custom-amount verification, URL normalization, UZS conversion, and replay guard."""
+    import binance_crypto_verifier as bcv
+    import database
+
+    assert bcv.normalize_tx_id("https://tronscan.org/#/transaction/ab12cd34ef567890") == "ab12cd34ef567890"
+    assert bcv.normalize_tx_id("  338192045678123456  ") == "338192045678123456"
+
+    fake_cfg = {
+        "binance_uid": "554433221",
+        "binance_api_key": "test_key",
+        "binance_api_secret": "test_secret",
+        "usdt_trc20_address": "",
+        "usdt_bep20_address": "",
+        "ton_wallet_address": "",
+    }
+    fake_pay = {
+        "found": True,
+        "source": "binance_pay",
+        "network": "BINANCE_PAY",
+        "asset": "USDT",
+        "amount_crypto": 12.5,
+        "tx_id": "338192045678123456",
+    }
+
+    with patch("database.get_binance_crypto_config", return_value=fake_cfg), \
+         patch("database.is_crypto_tx_claimed", return_value=False), \
+         patch.object(bcv, "verify_binance_pay_tx", return_value=fake_pay), \
+         patch.object(bcv, "get_live_usd_price", return_value=1.0), \
+         patch.object(bcv, "USD_TO_UZS_RATE", 12850):
+        res = await bcv.verify_crypto_tx_by_id("338192045678123456")
+        assert res["ok"] is True
+        assert res["amount_crypto"] == 12.5
+        assert res["asset"] == "USDT"
+        assert res["amount_uzs"] == int(round(12.5 * 12850))
+
+    # Already claimed TxID must be rejected immediately (anti-replay)
+    with patch("database.is_crypto_tx_claimed", return_value=True):
+        res_dup = await bcv.verify_crypto_tx_by_id("338192045678123456")
+        assert res_dup["ok"] is False
+
+    # Atomic claim_and_credit_crypto_tx returns error on conflict
+    class ConflictCursor:
+        def execute(self, sql, params=None):
+            pass
+        def fetchone(self):
+            return None
+
+    class ConflictConn:
+        def cursor(self):
+            return ConflictCursor()
+        def rollback(self):
+            pass
+        def commit(self):
+            pass
+        def close(self):
+            pass
+
+    with patch("database.get_db", return_value=ConflictConn()):
+        c_dup = database.claim_and_credit_crypto_tx(6735799833, "338192045678123456", "BINANCE_PAY", "USDT", 12.5, 160625)
+        assert c_dup["ok"] is False
+        assert c_dup.get("already_claimed") is True
