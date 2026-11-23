@@ -2656,7 +2656,7 @@ def load_mega_features(bot: Client):
                                 f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{v_res['amount_crypto']} {v_res['asset']}</code> (~${v_res['usd_value']})\n"
                                 f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{v_res['amount_uzs']:,} so'm</code>\n"
                                 f"{ce('PAY_TON_CRYPTO')} <b>Yangi balans:</b> <code>{c_res['new_balance']:,} so'm</code>\n"
-                                f"{ce('PAY_TXID_HASH')} <b>TxID:</b> <code>{v_res['tx_id'][:28]}...</code>"
+                                f"{ce('DEV_API_DOCS')} <b>TxID:</b> <code>{v_res['tx_id'][:28]}...</code>"
                             )
                 except Exception as crypto_err:
                     await wait_msg.edit_text(f"{ce('ERROR')} Tekshirishda xatolik: {str(crypto_err)[:200]}")
@@ -2688,7 +2688,7 @@ def load_mega_features(bot: Client):
                             f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot To'lov Cheki Tayyor!</b>\n\n"
                             f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{amt_usd:g} USDT</code>\n"
                             f"{ce('BTN_WALLET')} <b>Hisobga tushadi:</b> <code>+{amount_uzs:,} so'm</code>\n"
-                            f"{ce('PAY_TXID_HASH')} <b>Invoice:</b> <code>#{inv_id}</code>\n\n"
+                            f"{ce('DEV_API_DOCS')} <b>Invoice:</b> <code>#{inv_id}</code>\n\n"
                             "<i>1-tugma orqali to'lang va 2-tugma bilan balansga tushiring:</i>",
                             reply_markup=InlineKeyboardMarkup([
                                 [InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot orqali to'lash ({amt_usd:g} USDT)", url=inv["pay_url"])],

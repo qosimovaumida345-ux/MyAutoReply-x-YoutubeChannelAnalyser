@@ -2475,7 +2475,7 @@ async def handle_cryptopay_webhook(request):
                 # Bot egasiga (@CryptoBot dagi shaxsiy hisobiga) avtomatik o'tkazish
                 paid_amount = payload_info.get("amount") or custom_data.get("amount")
                 owner_id = int(os.getenv("OWNER_ID", "0"))
-                auto_transfer = os.getenv("AUTO_TRANSFER_CRYPTO_TO_OWNER", "true").lower() in ("true", "1", "yes")
+                auto_transfer = os.getenv("AUTO_TRANSFER_CRYPTO_TO_OWNER", "false").lower() in ("true", "1", "yes")
                 if owner_id and auto_transfer and paid_amount:
                     from crypto_pay import transfer_crypto_pay
                     spend_id = f"fwd_{invoice_id}_{tx_id}"

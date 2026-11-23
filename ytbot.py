@@ -7223,14 +7223,14 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         if cfg.get("binance_uid"):
             lines.append(f"{ce('PAY_BINANCE')} <b>Binance Pay UID:</b> <code>{cfg['binance_uid']}</code> <i>(0% komissiya)</i>")
         if cfg.get("usdt_trc20_address"):
-            lines.append(f"{ce('PAY_TRC20_TRON')} <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
+            lines.append(f"{ce('PAY_CRYPTO_USDT')} <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
         if cfg.get("usdt_bep20_address"):
-            lines.append(f"{ce('PAY_BEP20_BNB')} <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
+            lines.append(f"{ce('PAY_CRYPTO_USDT')} <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
         if cfg.get("ton_wallet_address"):
             lines.append(f"{ce('PAY_TON_CRYPTO')} <b>TON Network:</b> <code>{cfg['ton_wallet_address']}</code>")
             if cfg.get("ton_wallet_memo"):
                 lines.append(
-                    f"{ce('PAY_MEMO_TAG')} <b>TON Memo / Tag:</b> <code>{cfg['ton_wallet_memo']}</code> "
+                    f"{ce('STATUS_WARNING')} <b>TON Memo / Tag:</b> <code>{cfg['ton_wallet_memo']}</code> "
                     "<i>(Binance TON depozit uchun izohga yozish shart!)</i>"
                 )
 
@@ -7246,7 +7246,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"💵 <b>Kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
             f"<b>Istalgan summada quyidagi manzillardan biriga o'tkazing:</b>\n"
             f"{addr_block}\n\n"
-            f"{ce('PAY_TXID_HASH')} <b>Tasdiqlash (10 soniya):</b>\n"
+            f"{ce('DEV_API_DOCS')} <b>Tasdiqlash (10 soniya):</b>\n"
             f"To'lovni yuborgach, chekdagi <b>Tranzaksiya ID (TxID / TxHash / Binance Order ID)</b> raqamini "
             f"pastdagi tugmani bosib chatga yuboring — tizim o'zi aniq summani hisoblab balansingizni to'ldiradi!"
         )
@@ -7254,7 +7254,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         if cryptobot_token:
             rows.append([InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot Avto-To'lov (Custom summa)", callback_data="cryptobot_custom_amount")])
         if lines:
-            rows.append([InlineKeyboardButton(f"{ce('PAY_TXID_HASH')} TxID / Order ID yuborish", callback_data="crypto_enter_txid")])
+            rows.append([InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} TxID / Order ID yuborish", callback_data="crypto_enter_txid")])
         rows.append([InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_wallet")])
         kb = InlineKeyboardMarkup(rows)
         await cb.message.edit_text(text, reply_markup=kb)
@@ -7266,7 +7266,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from mega_features import USER_STATES
         USER_STATES[user_id] = {"action": "waiting_crypto_txid"}
         text = (
-            f"{ce('PAY_TXID_HASH')} <b>Tranzaksiya ID (TxID / Binance Order ID) ni yuboring</b>\n\n"
+            f"{ce('DEV_API_DOCS')} <b>Tranzaksiya ID (TxID / Binance Order ID) ni yuboring</b>\n\n"
             "Binance Pay Order ID yoki blockchain TxHash ni shu yerga matn sifatida tashlang.\n"
             "<i>Tizim to'lov miqdorini jonli kursda hisoblab darhol balansingizga qo'shadi!</i>"
         )
@@ -7377,7 +7377,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"{ce('PAY_CRYPTOBOT')} <b>Tizim:</b> @CryptoBot ({asset})\n"
             f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{amt_crypto} {asset}</code>\n"
             f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{amount_uzs:,} so'm</code>\n"
-            f"{ce('PAY_TXID_HASH')} <b>Invoice ID:</b> <code>#{inv_id}</code>",
+            f"{ce('DEV_API_DOCS')} <b>Invoice ID:</b> <code>#{inv_id}</code>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BTN_WALLET')} Hamyon", callback_data="menu_wallet")]]),
         )
         await cb.answer("✅ To'lov tasdiqlandi!", show_alert=False)

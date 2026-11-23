@@ -1131,10 +1131,6 @@ def test_ton_address_canonical_hex_and_crypto_emojis():
     for key in (
         "PAY_BINANCE",
         "PAY_CRYPTOBOT",
-        "PAY_TRC20_TRON",
-        "PAY_BEP20_BNB",
-        "PAY_TXID_HASH",
-        "PAY_MEMO_TAG",
     ):
         assert key in custom_emojis.CUSTOM_EMOJI_REGISTRY
         assert len(custom_emojis.ce(key)) >= 1
