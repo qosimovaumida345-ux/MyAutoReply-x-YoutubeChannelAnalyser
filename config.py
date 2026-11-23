@@ -205,7 +205,7 @@ APP_BASE_URL = _resolve_app_base_url()
 WEB_APP_URL = APP_BASE_URL
 APP_DOMAIN = APP_BASE_URL.split("://", 1)[-1].split("/", 1)[0]
 
-BOT_USERNAME = os.getenv("BOT_USERNAME", "monodeck_bot").strip().lstrip("@") or "monodeck_bot"
+BOT_USERNAME = os.getenv("BOT_USERNAME", "monodeck_app").strip().lstrip("@") or "monodeck_app"
 _RUNTIME_BOT_USERNAME = ""
 
 def set_runtime_bot_username(username: str) -> None:
@@ -236,3 +236,4 @@ VIP_PRICE_STARS = int(os.getenv("VIP_PRICE_STARS", "250"))
 
 # ==================== FEATURE TOGGLES ====================
 KYC_ENABLED = os.getenv("KYC_ENABLED", "false").lower() in ("true", "1", "yes")
+ENABLE_CRYPTO_PAY = os.getenv("ENABLE_CRYPTO_PAY", "false").lower() in ("true", "1", "yes")

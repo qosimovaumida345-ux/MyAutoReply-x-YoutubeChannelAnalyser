@@ -33,7 +33,7 @@ TRANSLATIONS = {
     },
     "main_menu": {
         "uz": (
-            "⚡ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
+            "⚡ <b>Mono Deck Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Foydalanuvchi:</b> <b>{name}</b>\n"
             "⚡ <b>Tizim holati:</b> <code>Online 🟢</code>\n"
@@ -49,7 +49,7 @@ TRANSLATIONS = {
             "👇 <i>Kerakli bo'limni tanlang:</i>"
         ),
         "ru": (
-            "⚡ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
+            "⚡ <b>Mono Deck Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Пользователь:</b> <b>{name}</b>\n"
             "⚡ <b>Статус системы:</b> <code>Online 🟢</code>\n"
@@ -65,7 +65,7 @@ TRANSLATIONS = {
             "👇 <i>Выберите нужный раздел:</i>"
         ),
         "en": (
-            "⚡ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
+            "⚡ <b>Mono Deck Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>User:</b> <b>{name}</b>\n"
             "⚡ <b>System Status:</b> <code>Online 🟢</code>\n"
@@ -81,7 +81,7 @@ TRANSLATIONS = {
             "👇 <i>Select an option below:</i>"
         ),
         "es": (
-            "⚡ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
+            "⚡ <b>Mono Deck Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Usuario:</b> <b>{name}</b>\n"
             "⚡ <b>Estado del sistema:</b> <code>Online 🟢</code>\n"
@@ -97,7 +97,7 @@ TRANSLATIONS = {
             "👇 <i>Selecciona una opción abajo:</i>"
         ),
         "tr": (
-            "⚡ <b>CreatorFlow Studio | YouTube AI Suite</b>\n"
+            "⚡ <b>Mono Deck Studio | YouTube AI Suite</b>\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "👤 <b>Kullanıcı:</b> <b>{name}</b>\n"
             "⚡ <b>Sistem Durumu:</b> <code>Online 🟢</code>\n"
@@ -434,7 +434,7 @@ TRANSLATIONS = {
         "uz": (
             '💰 <b>Sizning Balansingiz:</b> <code>{balance:,} so\'m</code>\n\n'
             "To'lov turlari:\n"
-            '• 💎 <b>TON (The Open Network)</b>\n'
+            '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Sovg\'a Vaucherlari (/redeem)</b>\n\n'
             "<i>Balansni to'ldirish uchun kerakli to'lov usulini tanlang:</i>"
@@ -442,7 +442,7 @@ TRANSLATIONS = {
         "ru": (
             '💰 <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n'
             "Способы пополнения:\n"
-            '• 💎 <b>TON (The Open Network)</b>\n'
+            '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Подарочные Ваучеры (/redeem)</b>\n\n'
             "<i>Выберите удобный способ оплаты для пополнения:</i>"
@@ -450,7 +450,7 @@ TRANSLATIONS = {
         "en": (
             '💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n'
             "Payment methods:\n"
-            '• 💎 <b>TON (The Open Network)</b>\n'
+            '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Gift Vouchers (/redeem)</b>\n\n'
             "<i>Choose your preferred payment method below:</i>"
@@ -458,7 +458,7 @@ TRANSLATIONS = {
         "es": (
             '💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n'
             "Métodos de pago:\n"
-            '• 💎 <b>TON (The Open Network)</b>\n'
+            '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Vales de Regalo (/redeem)</b>\n\n'
             "<i>Elige tu método de pago preferido a continuación:</i>"
@@ -466,7 +466,7 @@ TRANSLATIONS = {
         "tr": (
             '💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n'
             "Ödeme Yöntemleri:\n"
-            '• 💎 <b>TON (The Open Network)</b>\n'
+            '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Hediye Kuponları (/redeem)</b>\n\n'
             "<i>Bakiyenizi yüklemek için aşağıdaki yöntemlerden birini seçin:</i>"
@@ -1015,11 +1015,11 @@ TRANSLATIONS = {
         "tr": "<b>YouTube Rakip Casusu ve SEO Analizi</b>\n\nAnaliz etmek istediğiniz YouTube video veya Shorts bağlantısını gönderin:"
     },
     "bundles_menu_text": {
-        "uz": "<b>CreatorFlow Super To'plamlar (Bundles)</b>\n\nBir nechta premium xizmatlarni birgalikda 40% gacha chegirma bilan xarid qiling:",
-        "ru": "<b>Супер Наборы CreatorFlow (Bundles)</b>\n\nПриобретайте премиум инструменты вместе со скидкой до 40%:",
-        "en": "<b>CreatorFlow Super Bundles</b>\n\nGet all essential creator tools bundled together with up to 40% savings:",
-        "es": "<b>Súper Paquetes de CreatorFlow (Bundles)</b>\n\nObtén herramientas premium combinadas con hasta un 40% de descuento:",
-        "tr": "<b>CreatorFlow Süper Paketleri (Bundles)</b>\n\nEn iyi içerik üretici araçlarını %40'a varan indirimle paket olarak alın:"
+        "uz": "<b>Mono Deck Studio Super To'plamlar (Bundles)</b>\n\nBir nechta premium xizmatlarni birgalikda 40% gacha chegirma bilan xarid qiling:",
+        "ru": "<b>Супер Наборы Mono Deck Studio (Bundles)</b>\n\nПриобретайте премиум инструменты вместе со скидкой до 40%:",
+        "en": "<b>Mono Deck Studio Super Bundles</b>\n\nGet all essential creator tools bundled together with up to 40% savings:",
+        "es": "<b>Súper Paquetes de Mono Deck Studio (Bundles)</b>\n\nObtén herramientas premium combinadas con hasta un 40% de descuento:",
+        "tr": "<b>Mono Deck Studio Süper Paketleri (Bundles)</b>\n\nEn iyi içerik üretici araçlarını %40'a varan indirimle paket olarak alın:"
     }
 
 }
@@ -1109,18 +1109,18 @@ EXTRA_I18N = {
 
     # Menu texts
     "tariffs_title": {
-        "uz": "👑 <b>CreatorFlow Studio — Foydalanuvchi Darajalari & Tariflar</b>\n\n{status_line}\n\n• Sharti: {target_ch} kanaliga a'zolik + Telefon raqam ulashilgan\n• Kunlik limit: 15 ta bepul so'rov (video yuklash, audio ajratish)\n• Do'kon: Barcha mahsulot va API kalitlarni sotib olish\n• O'yinlar: Lucky Wheel (kunlik bepul) va Mystery Box\n\n🛡 <b>2. TO'LIQ VERIFIED (FULL 3D BIOMETRIK / BEPUL)</b>\n• Sharti: 3D Face ID skaneri dan o'tish\n• Kunlik limit: 25 ta kengaytirilgan so'rov\n• Ishonchli nishon: Rasmiy tasdiqlangan foydalanuvchi\n\n👑 <b>3. CREATORFLOW VIP STATUS ({vip_price} UZS / OY)</b>\n• Narxi: {vip_price} so'm / 30 kun (yoki {vip_stars} ⭐ Stars)\n• Cheksiz limitlar: Kunlik barcha amallar cheklovlarsiz!\n• 24/7 Ustuvor navbat: Priority Worker va Streamer kuchi\n• Keshbek: Har bir xariddan 10% keshbek\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Kerakli amalni tanlang:</i>",
-        "ru": "👑 <b>CreatorFlow Studio — Уровни пользователей и Тарифы</b>\n\n{status_line}\n\n• Условие: подписка на канал {target_ch} + привязанный номер\n• Дневной лимит: 15 бесплатных запросов (скачивание, аудио)\n• Магазин: Покупка всех сервисов и API ключей\n• Игры: Колесо фортуны и Mystery Box\n\n🛡 <b>2. ПОЛНАЯ ВЕРИФИКАЦИЯ (3D BIOMETRICS / БЕСПЛАТНО)</b>\n• Условие: Прохождение 3D Face ID сканера\n• Дневной лимит: 25 расширенных запросов\n• Значок доверия: Официально подтвержденный пользователь\n\n👑 <b>3. CREATORFLOW VIP СТАТУС ({vip_price} UZS / МЕСЯЦ)</b>\n• Цена: {vip_price} сум / 30 дней (или {vip_stars} ⭐ Stars)\n• Безлимит: Все функции без ограничений!\n• 24/7 Приоритетная очередь обработки\n• Кэшбэк: 10% с каждой покупки\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Выберите действие:</i>",
-        "en": "👑 <b>CreatorFlow Studio — User Tiers & Plans</b>\n\n{status_line}\n\n• Condition: Subscribed to {target_ch} + verified phone\n• Daily limit: 15 free requests (downloads, audio extraction)\n• Marketplace: Buy all digital tools and API keys\n• Games: Daily Lucky Wheel & Mystery Cases\n\n🛡 <b>2. FULLY VERIFIED (3D BIOMETRIC / FREE)</b>\n• Condition: Pass 3D Face ID scan (MediaPipe)\n• Daily limit: 25 enhanced requests\n• Verified badge: Trusted Creator Badge\n\n👑 <b>3. CREATORFLOW VIP STATUS ({vip_price} UZS / MO)</b>\n• Price: {vip_price} UZS / 30 days (or {vip_stars} ⭐ Stars)\n• Unlimited limits: All daily bot actions fully unlimited!\n• 24/7 Priority Queue: Priority worker & fast stream\n• 10% Cashback: On every marketplace purchase\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Select an action below:</i>",
-        "es": "👑 <b>CreatorFlow Studio — Niveles de Usuario y Planes</b>\n\n{status_line}\n\n• Requisito: Suscrito al canal {target_ch} + teléfono verificado\n• Límite diario: 15 solicitudes gratuitas\n• Tienda: Compra de todas las herramientas y claves API\n• Juegos: Ruleta de la Suerte y Mystery Cases\n\n🛡 <b>2. TOTALMENTE VERIFICADO (BIOMÉTRICO 3D / GRATIS)</b>\n• Requisito: Escaneo 3D Face ID\n• Límite diario: 25 solicitudes avanzadas\n\n👑 <b>3. ESTADO CREATORFLOW VIP ({vip_price} UZS / MES)</b>\n• Precio: {vip_price} UZS / 30 días (o {vip_stars} ⭐ Stars)\n• Sin límites: ¡Acciones ilimitadas todos los días!\n• Cola prioritaria 24/7 y 10% de reembolso\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Selecciona una acción:</i>",
-        "tr": "👑 <b>CreatorFlow Studio — Kullanıcı Seviyeleri ve Tarifeler</b>\n\n{status_line}\n\n• Şart: {target_ch} kanalına abonelik + doğrulanmış telefon\n• Günlük limit: 15 ücretsiz istek (video indirme, ses)\n• Mağaza: Tüm dijital araçlar ve API anahtarları\n• Oyunlar: Şans Çarkı ve Gizemli Kasalar\n\n🛡 <b>2. TAM DOĞRULANMIŞ (3D BİYOMETRİK / ÜCRETSİZ)</b>\n• Şart: 3D Face ID taraması\n• Günlük limit: 25 gelişmiş istek\n\n👑 <b>3. CREATORFLOW VIP STATÜSÜ ({vip_price} UZS / AY)</b>\n• Fiyat: {vip_price} UZS / 30 gün (veya {vip_stars} ⭐ Stars)\n• Sınırsız: Tüm günlük işlemler tamamen sınırsız!\n• 24/7 Öncelikli sıra ve %10 geri ödeme\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Aşağıdan bir işlem seçin:</i>"
+        "uz": "👑 <b>Mono Deck Studio — Foydalanuvchi Darajalari & Tariflar</b>\n\n{status_line}\n\n• Sharti: {target_ch} kanaliga a'zolik + Telefon raqam ulashilgan\n• Kunlik limit: 15 ta bepul so'rov (video yuklash, audio ajratish)\n• Do'kon: Barcha mahsulot va API kalitlarni sotib olish\n• O'yinlar: Lucky Wheel (kunlik bepul) va Mystery Box\n\n🛡 <b>2. TO'LIQ VERIFIED (FULL 3D BIOMETRIK / BEPUL)</b>\n• Sharti: 3D Face ID skaneri dan o'tish\n• Kunlik limit: 25 ta kengaytirilgan so'rov\n• Ishonchli nishon: Rasmiy tasdiqlangan foydalanuvchi\n\n👑 <b>3. MONO DECK STUDIO VIP STATUS ({vip_price} UZS / OY)</b>\n• Narxi: {vip_price} so'm / 30 kun (yoki {vip_stars} ⭐ Stars)\n• Cheksiz limitlar: Kunlik barcha amallar cheklovlarsiz!\n• 24/7 Ustuvor navbat: Priority Worker va Streamer kuchi\n• Keshbek: Har bir xariddan 10% keshbek\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Kerakli amalni tanlang:</i>",
+        "ru": "👑 <b>Mono Deck Studio — Уровни пользователей и Тарифы</b>\n\n{status_line}\n\n• Условие: подписка на канал {target_ch} + привязанный номер\n• Дневной лимит: 15 бесплатных запросов (скачивание, аудио)\n• Магазин: Покупка всех сервисов и API ключей\n• Игры: Колесо фортуны и Mystery Box\n\n🛡 <b>2. ПОЛНАЯ ВЕРИФИКАЦИЯ (3D BIOMETRICS / БЕСПЛАТНО)</b>\n• Условие: Прохождение 3D Face ID сканера\n• Дневной лимит: 25 расширенных запросов\n• Значок доверия: Официально подтвержденный пользователь\n\n👑 <b>3. MONO DECK STUDIO VIP СТАТУС ({vip_price} UZS / МЕСЯЦ)</b>\n• Цена: {vip_price} сум / 30 дней (или {vip_stars} ⭐ Stars)\n• Безлимит: Все функции без ограничений!\n• 24/7 Приоритетная очередь обработки\n• Кэшбэк: 10% с каждой покупки\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Выберите действие:</i>",
+        "en": "👑 <b>Mono Deck Studio — User Tiers & Plans</b>\n\n{status_line}\n\n• Condition: Subscribed to {target_ch} + verified phone\n• Daily limit: 15 free requests (downloads, audio extraction)\n• Marketplace: Buy all digital tools and API keys\n• Games: Daily Lucky Wheel & Mystery Cases\n\n🛡 <b>2. FULLY VERIFIED (3D BIOMETRIC / FREE)</b>\n• Condition: Pass 3D Face ID scan (MediaPipe)\n• Daily limit: 25 enhanced requests\n• Verified badge: Trusted Creator Badge\n\n👑 <b>3. MONO DECK STUDIO VIP STATUS ({vip_price} UZS / MO)</b>\n• Price: {vip_price} UZS / 30 days (or {vip_stars} ⭐ Stars)\n• Unlimited limits: All daily bot actions fully unlimited!\n• 24/7 Priority Queue: Priority worker & fast stream\n• 10% Cashback: On every marketplace purchase\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Select an action below:</i>",
+        "es": "👑 <b>Mono Deck Studio — Niveles de Usuario y Planes</b>\n\n{status_line}\n\n• Requisito: Suscrito al canal {target_ch} + teléfono verificado\n• Límite diario: 15 solicitudes gratuitas\n• Tienda: Compra de todas las herramientas y claves API\n• Juegos: Ruleta de la Suerte y Mystery Cases\n\n🛡 <b>2. TOTALMENTE VERIFICADO (BIOMÉTRICO 3D / GRATIS)</b>\n• Requisito: Escaneo 3D Face ID\n• Límite diario: 25 solicitudes avanzadas\n\n👑 <b>3. ESTADO MONO DECK STUDIO VIP ({vip_price} UZS / MES)</b>\n• Precio: {vip_price} UZS / 30 días (o {vip_stars} ⭐ Stars)\n• Sin límites: ¡Acciones ilimitadas todos los días!\n• Cola prioritaria 24/7 y 10% de reembolso\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Selecciona una acción:</i>",
+        "tr": "👑 <b>Mono Deck Studio — Kullanıcı Seviyeleri ve Tarifeler</b>\n\n{status_line}\n\n• Şart: {target_ch} kanalına abonelik + doğrulanmış telefon\n• Günlük limit: 15 ücretsiz istek (video indirme, ses)\n• Mağaza: Tüm dijital araçlar ve API anahtarları\n• Oyunlar: Şans Çarkı ve Gizemli Kasalar\n\n🛡 <b>2. TAM DOĞRULANMIŞ (3D BİYOMETRİK / ÜCRETSİZ)</b>\n• Şart: 3D Face ID taraması\n• Günlük limit: 25 gelişmiş istek\n\n👑 <b>3. MONO DECK STUDIO VIP STATÜSÜ ({vip_price} UZS / AY)</b>\n• Fiyat: {vip_price} UZS / 30 gün (veya {vip_stars} ⭐ Stars)\n• Sınırsız: Tüm günlük işlemler tamamen sınırsız!\n• 24/7 Öncelikli sıra ve %10 geri ödeme\n━━━━━━━━━━━━━━━━━━━━━\n👇 <i>Aşağıdan bir işlem seçin:</i>"
     },
     "status_vip": {
-        "uz": "👑 <b>Joriy statusingiz:</b> <b>CREATORFLOW VIP</b> (Tugash: <code>{exp}</code>)",
-        "ru": "👑 <b>Ваш статус:</b> <b>CREATORFLOW VIP</b> (Истекает: <code>{exp}</code>)",
-        "en": "👑 <b>Your status:</b> <b>CREATORFLOW VIP</b> (Expires: <code>{exp}</code>)",
-        "es": "👑 <b>Su estado:</b> <b>CREATORFLOW VIP</b> (Vence: <code>{exp}</code>)",
-        "tr": "👑 <b>Mevcut statünüz:</b> <b>CREATORFLOW VIP</b> (Bitiş: <code>{exp}</code>)"
+        "uz": "👑 <b>Joriy statusingiz:</b> <b>MONO DECK STUDIO VIP</b> (Tugash: <code>{exp}</code>)",
+        "ru": "👑 <b>Ваш статус:</b> <b>MONO DECK STUDIO VIP</b> (Истекает: <code>{exp}</code>)",
+        "en": "👑 <b>Your status:</b> <b>MONO DECK STUDIO VIP</b> (Expires: <code>{exp}</code>)",
+        "es": "👑 <b>Su estado:</b> <b>MONO DECK STUDIO VIP</b> (Vence: <code>{exp}</code>)",
+        "tr": "👑 <b>Mevcut statünüz:</b> <b>MONO DECK STUDIO VIP</b> (Bitiş: <code>{exp}</code>)"
     },
     "status_face": {
         "uz": "🛡 <b>Joriy statusingiz:</b> <b>To'liq Tasdiqlangan (3D Biometrik)</b>",
@@ -1158,11 +1158,11 @@ EXTRA_I18N = {
         "tr": "3D KYC (Tam Biyometrik)"
     },
     "forcesub_prompt": {
-        "uz": "📢 <b>CreatorFlow Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\nBot xizmatlaridan to'liq foydalanish va yangiliklarni kuzatish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n⚠️ <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>",
-        "ru": "📢 <b>CreatorFlow Studio — Подпишитесь на официальный канал!</b>\n\nЧтобы полноценно использовать функции бота, подпишитесь на наш официальный канал <b>@{ch_clean}</b>:\n\n⚠️ <i>После подписки нажмите кнопку «✅ Проверить подписку» ниже.</i>",
-        "en": "📢 <b>CreatorFlow Studio — Join Our Official Channel!</b>\n\nTo access all bot features, please join our official <b>@{ch_clean}</b> channel:\n\n⚠️ <i>After joining, tap «✅ Check Subscription» below.</i>",
-        "es": "📢 <b>CreatorFlow Studio — ¡Únete a nuestro canal oficial!</b>\n\nPara acceder a todas las funciones, suscríbete a nuestro canal <b>@{ch_clean}</b>:\n\n⚠️ <i>Luego presiona «✅ Verificar suscripción» abajo.</i>",
-        "tr": "📢 <b>CreatorFlow Studio — Resmi Kanalımıza Katılın!</b>\n\nTüm bot özelliklerine erişmek için resmi <b>@{ch_clean}</b> kanalımıza abone olun:\n\n⚠️ <i>Katıldıktan sonra aşağıdaki «✅ Aboneliği Kontrol Et» butonuna dokunun.</i>"
+        "uz": "📢 <b>Mono Deck Studio — Rasmiy Kanalga A'zo Bo'ling!</b>\n\nBot xizmatlaridan to'liq foydalanish va yangiliklarni kuzatish uchun rasmiy <b>@{ch_clean}</b> kanalimizga obuna bo'ling:\n\n⚠️ <i>A'zo bo'lgach, pastdagi «✅ Obunani tekshirish» tugmasini bosing.</i>",
+        "ru": "📢 <b>Mono Deck Studio — Подпишитесь на официальный канал!</b>\n\nЧтобы полноценно использовать функции бота, подпишитесь на наш официальный канал <b>@{ch_clean}</b>:\n\n⚠️ <i>После подписки нажмите кнопку «✅ Проверить подписку» ниже.</i>",
+        "en": "📢 <b>Mono Deck Studio — Join Our Official Channel!</b>\n\nTo access all bot features, please join our official <b>@{ch_clean}</b> channel:\n\n⚠️ <i>After joining, tap «✅ Check Subscription» below.</i>",
+        "es": "📢 <b>Mono Deck Studio — ¡Únete a nuestro canal oficial!</b>\n\nPara acceder a todas las funciones, suscríbete a nuestro canal <b>@{ch_clean}</b>:\n\n⚠️ <i>Luego presiona «✅ Verificar suscripción» abajo.</i>",
+        "tr": "📢 <b>Mono Deck Studio — Resmi Kanalımıza Katılın!</b>\n\nTüm bot özelliklerine erişmek için resmi <b>@{ch_clean}</b> kanalımıza abone olun:\n\n⚠️ <i>Katıldıktan sonra aşağıdaki «✅ Aboneliği Kontrol Et» butonuna dokunun.</i>"
     },
     "phone_req_prompt": {
         "uz": "🛡 <b>Xavfsizlik & Kirish Verifikatsiyasi</b>\n\nHurmatli foydalanuvchi, firibgarlikning oldini olish hamda hisobingiz xavfsizligini ta'minlash uchun botdan foydalanishdan avval telefon raqamingizni tasdiqlang!\n\n⚠️ <b>Qo'lda yozilgan raqam qabul qilinmaydi.</b>\nIltimos, pastdagi <b>«📱 Telefon raqamimni ulashish»</b> tugmasini bosing:",
@@ -1200,11 +1200,11 @@ EXTRA_I18N = {
         "tr": "⚔️ <b>PvP Yazı Tura Düellosu (Coin Flip)</b>\n\nDiğer oyunculara karşı bahis yapın ve oynayın! Kazanan kasanın %90'ını alır.\n\nℹ️ <b>Nasıl oynanır:</b>\nSohbete <code>/duel &lt;miktar&gt; [burgut|panja]</code> komutunu gönderin.\n\n<b>Örnek:</b> <code>/duel 5000 burgut</code>{duels_text}"
     },
     "marketplace_header_text": {
-        "uz": "🏪 <b>CreatorFlow Raqamli Xizmatlar & Marketplace</b>\n\n💰 <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n🌐 <b>Proxy & Server Quvvati:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 so'm\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n🤖 <b>AI Modellar & Developer Vositalar:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 so'm\n• ⚡ <b>OpenRouter API:</b> 25,000 so'm\n• 💎 <b>Google Gemini API:</b> 25,000 so'm\n• 🚀 <b>Groq Cloud API:</b> 18,000 so'm\n\n🎨 <b>Kreativ & Kontent:</b>\n• 🖼 <b>Flux.1 AI Rasm:</b> 18,000 so'm\n• 💡 <b>500+ Viral Prompt Pack:</b> 25,000 so'm\n• 🎬 <b>Vertical Shorts Kesish:</b> 5,000 so'm\n\n🚀 <b>Kanal O'sishi:</b> Layk 500 so'm, Obuna 1,000 so'm, Izoh 300 so'm\n\n📌 <i>Kerakli xizmat yoki toifani tanlang:</i>",
-        "ru": "🏪 <b>Цифровые Сервисы и Маркетплейс CreatorFlow</b>\n\n💰 <b>Текущий баланс:</b> <code>{bal:,} сум</code>\n\n🌐 <b>Прокси и Серверы:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 сум\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 сум / час\n\n🤖 <b>AI Модели и Инструменты Разработчика:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 сум\n• ⚡ <b>OpenRouter API:</b> 25,000 сум\n• 💎 <b>Google Gemini API:</b> 25,000 сум\n• 🚀 <b>Groq Cloud API:</b> 18,000 сум\n\n🎨 <b>Креатив и Контент:</b>\n• 🖼 <b>Flux.1 AI Генерация изображений:</b> 18,000 сум\n• 💡 <b>500+ Вирусных Промптов:</b> 25,000 сум\n• 🎬 <b>Нарезка Shorts:</b> 5,000 сум\n\n🚀 <b>Продвижение каналов:</b> Лайк 500 сум, Подписка 1,000 сум, Комментарий 300 сум\n\n📌 <i>Выберите услугу или категорию ниже:</i>",
-        "en": "🏪 <b>CreatorFlow Digital Services & Marketplace</b>\n\n💰 <b>Current Balance:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy & Cloud Power:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 UZS / hour\n\n🤖 <b>AI Models & Developer Tools:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Creative & Media:</b>\n• 🖼 <b>Flux.1 AI Image Generation:</b> 18,000 UZS\n• 💡 <b>500+ Viral Prompt Pack:</b> 25,000 UZS\n• 🎬 <b>Vertical Shorts Clipper:</b> 5,000 UZS\n\n🚀 <b>Channel Growth:</b> Likes 500 UZS, Subs 1,000 UZS, Comments 300 UZS\n\n📌 <i>Choose a product or category below:</i>",
-        "es": "🏪 <b>Servicios Digitales y Mercado CreatorFlow</b>\n\n💰 <b>Saldo actual:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy y Nube:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Cloud:</b> 2,500 UZS / hora\n\n🤖 <b>Modelos AI y Herramientas:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Creatividad y Contenido:</b>\n• 🖼 <b>Flux.1 AI Imágenes:</b> 18,000 UZS\n• 💡 <b>500+ Pack de Prompts Virales:</b> 25,000 UZS\n• 🎬 <b>Recorte de Shorts:</b> 5,000 UZS\n\n🚀 <b>Crecimiento del Canal:</b> Likes 500 UZS, Subs 1,000 UZS, Comentarios 300 UZS\n\n📌 <i>Selecciona un producto o categoría abajo:</i>",
-        "tr": "🏪 <b>CreatorFlow Dijital Hizmetler ve Mağaza</b>\n\n💰 <b>Mevcut Bakiye:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy ve Bulut Gücü:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Bulut Slotu:</b> 2,500 UZS / saat\n\n🤖 <b>Yapay Zeka Modelleri ve Geliştirici Araçları:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Yaratıcılık ve Medya:</b>\n• 🖼 <b>Flux.1 Yapay Zeka Görsel:</b> 18,000 UZS\n• 💡 <b>500+ Viral Prompt Paketi:</b> 25,000 UZS\n• 🎬 <b>Shorts Kırpıcı:</b> 5,000 UZS\n\n🚀 <b>Kanal Büyütme:</b> Beğeni 500 UZS, Abone 1,000 UZS, Yorum 300 UZS\n\n📌 <i>Aşağıdan bir ürün veya kategori seçin:</i>"
+        "uz": "🏪 <b>Mono Deck Studio Raqamli Xizmatlar & Marketplace</b>\n\n💰 <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n🌐 <b>Proxy & Server Quvvati:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 so'm\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 so'm / soat\n\n🤖 <b>AI Modellar & Developer Vositalar:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 so'm\n• ⚡ <b>OpenRouter API:</b> 25,000 so'm\n• 💎 <b>Google Gemini API:</b> 25,000 so'm\n• 🚀 <b>Groq Cloud API:</b> 18,000 so'm\n\n🎨 <b>Kreativ & Kontent:</b>\n• 🖼 <b>Flux.1 AI Rasm:</b> 18,000 so'm\n• 💡 <b>500+ Viral Prompt Pack:</b> 25,000 so'm\n• 🎬 <b>Vertical Shorts Kesish:</b> 5,000 so'm\n\n🚀 <b>Kanal O'sishi:</b> Layk 500 so'm, Obuna 1,000 so'm, Izoh 300 so'm\n\n📌 <i>Kerakli xizmat yoki toifani tanlang:</i>",
+        "ru": "🏪 <b>Цифровые Сервисы и Маркетплейс Mono Deck Studio</b>\n\n💰 <b>Текущий баланс:</b> <code>{bal:,} сум</code>\n\n🌐 <b>Прокси и Серверы:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 сум\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 сум / час\n\n🤖 <b>AI Модели и Инструменты Разработчика:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 сум\n• ⚡ <b>OpenRouter API:</b> 25,000 сум\n• 💎 <b>Google Gemini API:</b> 25,000 сум\n• 🚀 <b>Groq Cloud API:</b> 18,000 сум\n\n🎨 <b>Креатив и Контент:</b>\n• 🖼 <b>Flux.1 AI Генерация изображений:</b> 18,000 сум\n• 💡 <b>500+ Вирусных Промптов:</b> 25,000 сум\n• 🎬 <b>Нарезка Shorts:</b> 5,000 сум\n\n🚀 <b>Продвижение каналов:</b> Лайк 500 сум, Подписка 1,000 сум, Комментарий 300 сум\n\n📌 <i>Выберите услугу или категорию ниже:</i>",
+        "en": "🏪 <b>Mono Deck Studio Digital Services & Marketplace</b>\n\n💰 <b>Current Balance:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy & Cloud Power:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Cloud Slot:</b> 2,500 UZS / hour\n\n🤖 <b>AI Models & Developer Tools:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Creative & Media:</b>\n• 🖼 <b>Flux.1 AI Image Generation:</b> 18,000 UZS\n• 💡 <b>500+ Viral Prompt Pack:</b> 25,000 UZS\n• 🎬 <b>Vertical Shorts Clipper:</b> 5,000 UZS\n\n🚀 <b>Channel Growth:</b> Likes 500 UZS, Subs 1,000 UZS, Comments 300 UZS\n\n📌 <i>Choose a product or category below:</i>",
+        "es": "🏪 <b>Servicios Digitales y Mercado Mono Deck Studio</b>\n\n💰 <b>Saldo actual:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy y Nube:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Cloud:</b> 2,500 UZS / hora\n\n🤖 <b>Modelos AI y Herramientas:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Creatividad y Contenido:</b>\n• 🖼 <b>Flux.1 AI Imágenes:</b> 18,000 UZS\n• 💡 <b>500+ Pack de Prompts Virales:</b> 25,000 UZS\n• 🎬 <b>Recorte de Shorts:</b> 5,000 UZS\n\n🚀 <b>Crecimiento del Canal:</b> Likes 500 UZS, Subs 1,000 UZS, Comentarios 300 UZS\n\n📌 <i>Selecciona un producto o categoría abajo:</i>",
+        "tr": "🏪 <b>Mono Deck Studio Dijital Hizmetler ve Mağaza</b>\n\n💰 <b>Mevcut Bakiye:</b> <code>{bal:,} UZS</code>\n\n🌐 <b>Proxy ve Bulut Gücü:</b>\n• 🌐 <b>Dedicated Private Proxy:</b> 18,000 UZS\n• 📡 <b>24/7 Autostream Bulut Slotu:</b> 2,500 UZS / saat\n\n🤖 <b>Yapay Zeka Modelleri ve Geliştirici Araçları:</b>\n• 💻 <b>Claude Code / Codex:</b> 15,000 UZS\n• ⚡ <b>OpenRouter API:</b> 25,000 UZS\n• 💎 <b>Google Gemini API:</b> 25,000 UZS\n• 🚀 <b>Groq Cloud API:</b> 18,000 UZS\n\n🎨 <b>Yaratıcılık ve Medya:</b>\n• 🖼 <b>Flux.1 Yapay Zeka Görsel:</b> 18,000 UZS\n• 💡 <b>500+ Viral Prompt Paketi:</b> 25,000 UZS\n• 🎬 <b>Shorts Kırpıcı:</b> 5,000 UZS\n\n🚀 <b>Kanal Büyütme:</b> Beğeni 500 UZS, Abone 1,000 UZS, Yorum 300 UZS\n\n📌 <i>Aşağıdan bir ürün veya kategori seçin:</i>"
     }
 }
 

@@ -875,3 +875,112 @@ def test_service_logos_and_optimistic_ui_present():
 
     studio_src = (ROOT_DIR / "frontend" / "src" / "pages" / "StudioPage.jsx").read_text(encoding="utf-8")
     assert "setTasks(prevTasks)" in studio_src
+
+
+def test_fake_user_cleaner_protects_real_users_and_removes_synthetic():
+    """Verify is_synthetic_fake_user_id and purge_fake_and_test_users never delete real users."""
+    import database
+
+    assert database.is_synthetic_fake_user_id(99999999) is True
+    assert database.is_synthetic_fake_user_id(888888888) is True
+    assert database.is_synthetic_fake_user_id(123456) is True
+    assert database.is_synthetic_fake_user_id(6735799833) is False
+    assert database.is_synthetic_fake_user_id(743301587) is False
+
+    deleted_sql = []
+
+    class FakeCursor:
+        def __init__(self):
+            self._rows = []
+
+        def execute(self, sql, params=None):
+            if "FROM user_balances WHERE balance_uzs > 0" in sql:
+                self._rows = [{"tg_user_id": 743301587}]
+            elif "SELECT tg_user_id, first_name, username FROM bot_users" in sql:
+                self._rows = [
+                    {"tg_user_id": 6735799833, "first_name": "Aiko", "username": "aiko_64"},
+                    {"tg_user_id": 743301587, "first_name": "Azamat", "username": "Lionkingw"},
+                    {"tg_user_id": 847568463, "first_name": "Hamida", "username": None},
+                    {"tg_user_id": 99999999, "first_name": None, "username": None},
+                ]
+            elif sql.startswith("DELETE "):
+                deleted_sql.append((sql, params))
+            else:
+                self._rows = []
+
+        def fetchall(self):
+            return self._rows
+
+    class FakeConn:
+        def __init__(self):
+            self.cur = FakeCursor()
+        def cursor(self):
+            return self.cur
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+        def close(self):
+            pass
+
+    with patch("database.get_db", return_value=FakeConn()):
+        res = database.purge_fake_and_test_users(bot_token="", dry_run=False)
+        assert res["ok"] is True
+        assert res["deleted_ids"] == [99999999]
+        assert res["protected_skipped"] == 3
+
+
+def test_daily_channel_promo_non_repeating_and_monodeck_branded():
+    """Verify store_channel_service rotates unique templates, custom emojis, and uses Mono Deck Studio branding."""
+    import store_channel_service
+
+    assert len(store_channel_service.PROMO_TEMPLATES) >= 12
+    for tpl in store_channel_service.PROMO_TEMPLATES:
+        assert "CreatorFlow" not in tpl["title"]
+        assert "CreatorFlow" not in tpl["body"]
+        assert "emoji_theme" in tpl and len(tpl["emoji_theme"]) >= 3
+
+    saved_state = []
+    with patch.object(store_channel_service, "_load_recent_promo_ids", side_effect=lambda: list(saved_state[-10:])), \
+         patch.object(store_channel_service, "_save_recent_promo_ids", side_effect=lambda ids: saved_state.clear() or saved_state.extend(ids)):
+        seen_ids = []
+        for _ in range(10):
+            picked = store_channel_service.select_next_daily_promo()
+            assert picked["id"] not in seen_ids, f"Repeated promo template within 10 days: {picked['id']}"
+            seen_ids.append(picked["id"])
+
+
+def test_wallet_menu_no_literal_masked_and_crypto_hidden_when_disabled():
+    """Verify wallet_menu_kb formats {masked} properly and hides TON/CryptoPay when ENABLE_CRYPTO_PAY=False."""
+    import config
+    import ytbot
+
+    fake_wallet = {"wallet_address": "UQB5es0x95ojgzAoAXmCtJYX2BbK1mwtyBzeqZupOVoxC5gz"}
+    with patch("database.get_user_ton_wallet", return_value=fake_wallet), \
+         patch.object(config, "ENABLE_CRYPTO_PAY", True), \
+         patch.object(config, "CRYPTO_PAY_TOKEN", ""):
+        kb_on = ytbot.wallet_menu_kb(6735799833, "en")
+        texts_on = [btn.text for row in kb_on.inline_keyboard for btn in row]
+        assert any("UQB5...C5gz" in s for s in texts_on)
+        assert all("{masked}" not in s for s in texts_on)
+
+    with patch("database.get_user_ton_wallet", return_value=fake_wallet), \
+         patch.object(config, "ENABLE_CRYPTO_PAY", False), \
+         patch.object(config, "CRYPTO_PAY_TOKEN", ""):
+        kb_off = ytbot.wallet_menu_kb(6735799833, "en")
+        texts_off = [btn.text for row in kb_off.inline_keyboard for btn in row]
+        assert not any("TON Wallet" in s or "Via TON" in s for s in texts_off)
+        assert any("HUMO / Uzcard" in s for s in texts_off)
+        assert any("Telegram Stars" in s for s in texts_off)
+
+
+def test_promo_video_renderer_produces_valid_rgb_frames():
+    """Verify kinetic Telegram promo renderer creates crisp 1080x1920 frames across all 5 scenes."""
+    import sys
+    sys.path.insert(0, str(ROOT_DIR / "scripts"))
+    import generate_promo_videos as gpv
+    for lang in ("uz", "en"):
+        for t_sec in (2.0, 6.5, 12.2, 18.0, 22.0):
+            img = gpv.render_frame(t_sec, 24.0, lang)
+            assert img.size == (1080, 1920)
+            assert img.mode == "RGB"

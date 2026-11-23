@@ -346,6 +346,22 @@ async def _poll_pending_autopost_tasks_loop():
         await asyncio.sleep(12)
 
 
+async def _fake_user_cleanup_loop():
+    """Har 10 daqiqada bazadagi soxta/test user ID larni xavfsiz tozalaydi (haqiqiy userlarga tegmaydi)."""
+    await asyncio.sleep(30)
+    while True:
+        try:
+            from database import purge_fake_and_test_users
+            from config import BOT_TOKEN
+            tok = (os.getenv("BOT_TOKEN") or BOT_TOKEN or "").strip()
+            res = await asyncio.to_thread(purge_fake_and_test_users, tok, False)
+            if res.get("deleted_ids"):
+                print(f"[fake-user-cleaner] O'chirilgan soxta ID lar: {res['deleted_ids']} (himoyalangan={res.get('protected_skipped')})")
+        except Exception as e:
+            print(f"[fake-user-cleaner] xato: {e}")
+        await asyncio.sleep(600)
+
+
 async def dispatch_or_run_stream(task_id):
     """ROLE=main: yangi yaratilgan stream task_id ni marshrutlaydi."""
     from config import STREAMER_URLS, MAIN_MAX_CONCURRENT_TASKS
@@ -6189,10 +6205,16 @@ async def main():
         print("⚠️  SESSION_STRING topilmadi — Userbot o'chirilgan")
     
     BOT_TOKEN = os.getenv("BOT_TOKEN") or BOT_TOKEN
-    # 2. MonoDeck Bot
+    # Agar vaqtinchalik SECONDARY_BOT_TOKEN mavjud bo'lsa, faqat o'sha yangi botni ishga tushirish (eski tokenni o'chirish)
+    _sec_only_candidates = [t for t in _get_configured_bot_tokens() if t != BOT_TOKEN]
+    if _sec_only_candidates and os.getenv("USE_PRIMARY_ALSO", "false").lower() != "true":
+        BOT_TOKEN = _sec_only_candidates[0]
+        print(f"🔄 {BRAND_NAME}: faqat yangi asosiy token ishga tushirilmoqda (eski bot tokeni o'chirildi).")
+
+    # 2. Mono Deck Studio Bot
     if BOT_TOKEN:
         from ytbot import create_ytbot
-        bot = create_ytbot()
+        bot = create_ytbot(bot_token=BOT_TOKEN)
         if bot:
             ytbot_instance = bot
             async def _register_bot_commands(target_bot):
@@ -6371,28 +6393,29 @@ async def main():
             tasks.append(run_bot())
             print(f"🎬 {BRAND_NAME} Bot qo'shildi")
 
-        # 3. Ikkilamchi bepul botlar (SECONDARY_BOT_TOKEN / SECONDARY_BOT_TOKENS) — bitta umumiy baza va tizimda
-        secondary_tokens = [t for t in _get_configured_bot_tokens() if t != BOT_TOKEN]
-        for idx, sec_token in enumerate(secondary_tokens, start=1):
-            sec_bot = create_ytbot(bot_token=sec_token, session_name=f"yt_analytics_bot_secondary_{idx}")
-            if not sec_bot:
-                continue
-            secondary_bot_instances.append(sec_bot)
+        # Ixtiyoriy ikkilamchi botlar faqat USE_PRIMARY_ALSO=true bo'lgandagina qo'shimcha ishlaydi
+        if os.getenv("USE_PRIMARY_ALSO", "false").lower() == "true":
+            secondary_tokens = [t for t in _get_configured_bot_tokens() if t != BOT_TOKEN]
+            for idx, sec_token in enumerate(secondary_tokens, start=1):
+                sec_bot = create_ytbot(bot_token=sec_token, session_name=f"yt_analytics_bot_secondary_{idx}")
+                if not sec_bot:
+                    continue
+                secondary_bot_instances.append(sec_bot)
 
-            async def _run_secondary_bot(client=sec_bot, slot=idx):
-                await client.start()
-                sec_uname = ""
-                try:
-                    me_sec = await client.get_me()
-                    sec_uname = getattr(me_sec, "username", "") or ""
-                except Exception:
-                    pass
-                await _register_bot_commands(client)
-                print(f"✨ {BRAND_NAME} Secondary Bot #{slot} (@{sec_uname}) bitta umumiy bazaga ulandi!")
-                await asyncio.Event().wait()
+                async def _run_secondary_bot(client=sec_bot, slot=idx):
+                    await client.start()
+                    sec_uname = ""
+                    try:
+                        me_sec = await client.get_me()
+                        sec_uname = getattr(me_sec, "username", "") or ""
+                    except Exception:
+                        pass
+                    await _register_bot_commands(client)
+                    print(f"✨ {BRAND_NAME} Secondary Bot #{slot} (@{sec_uname}) bitta umumiy bazaga ulandi!")
+                    await asyncio.Event().wait()
 
-            tasks.append(_run_secondary_bot())
-            print(f"🎬 {BRAND_NAME} Secondary Bot #{idx} qo'shildi")
+                tasks.append(_run_secondary_bot())
+                print(f"🎬 {BRAND_NAME} Secondary Bot #{idx} qo'shildi")
     else:
         print("⚠️  BOT_TOKEN topilmadi — YouTube Bot o'chirilgan")
 
@@ -6403,6 +6426,7 @@ async def main():
 
     tasks.append(run_autopilot_worker())
     tasks.append(_poll_pending_autopost_tasks_loop())
+    tasks.append(_fake_user_cleanup_loop())
     await asyncio.gather(*tasks)
 
 

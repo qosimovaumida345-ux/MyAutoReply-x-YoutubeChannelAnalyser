@@ -7357,7 +7357,7 @@ def get_user_verification_tier(tg_user_id: int) -> dict:
     if vip_active:
         tier_code = "vip"
         tier_level = 4
-        tier_title = "CreatorFlow VIP (69,000 UZS)"
+        tier_title = "Mono Deck Studio VIP (69,000 UZS)"
     elif is_face:
         tier_code = "full_verified"
         tier_level = 3
@@ -7691,7 +7691,7 @@ def redeem_fast_drop_promo(code: str, tg_user_id: int) -> tuple:
         elif reward_type == "vip":
             conn.commit()
             activate_user_vip(tg_user_id, days=reward_val)
-            return True, f"Tabriklaymiz! Sizga {reward_val} kunlik CreatorFlow VIP berildi!", reward_val
+            return True, f"Tabriklaymiz! Sizga {reward_val} kunlik Mono Deck Studio VIP berildi!", reward_val
         else:
             conn.commit()
             return True, "Promokod muvaffaqiyatli ishlatildi!", reward_val
@@ -8695,6 +8695,147 @@ def is_captcha_challenge_used(challenge_id: str) -> bool:
     except Exception as e:
         print(f"is_captcha_challenge_used error: {e}")
         return False
+    finally:
+        conn.close()
+
+
+# ==================== FAKE / TEST USER CLEANER ====================
+
+_KNOWN_SYNTHETIC_IDS = frozenset({
+    12345, 123456, 1234567, 12345678, 123456789, 1234567890,
+    987654321, 777666, 999111, 111222, 123123, 555666, 999888,
+})
+
+
+def is_synthetic_fake_user_id(tg_user_id) -> bool:
+    """Test yoki sintetik soxta Telegram user ID larni aniq ajratish (haqiqiy userlarga tegmaydi)."""
+    try:
+        uid = int(tg_user_id)
+    except Exception:
+        return True
+    if uid <= 0 or uid < 100000 or uid > 9500000000:
+        return True
+    if uid in _KNOWN_SYNTHETIC_IDS:
+        return True
+    s = str(uid)
+    if len(s) >= 6 and len(set(s)) == 1:
+        return True
+    return False
+
+
+def _verify_tg_user_missing_on_telegram(bot_token: str, uid: int) -> bool:
+    """Telegram getChat orqali chat umuman mavjud emasligini tekshirish (faqat 'chat not found' -> True)."""
+    if not bot_token or bot_token.startswith("123456:"):
+        return False
+    import json
+    import urllib.error
+    import urllib.request
+    url = f"https://api.telegram.org/bot{bot_token}/getChat?chat_id={int(uid)}"
+    try:
+        with urllib.request.urlopen(url, timeout=6) as resp:
+            data = json.load(resp)
+            return False if data.get("ok") else False
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = json.load(e)
+            desc = str(err_body.get("description") or "").lower()
+            return e.code == 400 and ("chat not found" in desc or "user not found" in desc or "invalid user" in desc)
+        except Exception:
+            return False
+    except Exception:
+        return False
+
+
+def purge_fake_and_test_users(bot_token: str = "", dry_run: bool = False) -> dict:
+    """
+    Bazadan faqat testlar paytida qolib ketgan soxta / mavjud bo'lmagan user ID larni tozalash.
+    Haqiqiy foydalanuvchilar (ism/username bor, balans>0, xaridi bor, YouTube ulangan yoki OWNER_ID) QAT'IY himoyalanadi.
+    """
+    conn = get_db()
+    if not conn:
+        return {"ok": False, "error": "DB unavailable", "deleted_ids": [], "checked": 0, "protected_skipped": 0}
+
+    try:
+        from config import OWNER_ID
+        owner_id = int(OWNER_ID) if OWNER_ID else 6735799833
+    except Exception:
+        owner_id = 6735799833
+
+    deleted_ids: list[int] = []
+    protected_skipped = 0
+    checked = 0
+
+    try:
+        cur = conn.cursor()
+        # Himoyalangan barcha haqiqiy faol user ID lar
+        protected_ids: set[int] = {owner_id}
+        for sql in (
+            "SELECT tg_user_id FROM user_balances WHERE balance_uzs > 0 OR ton_balance > 0",
+            "SELECT DISTINCT tg_user_id FROM yt_connections",
+            "SELECT DISTINCT tg_user_id FROM user_purchases",
+            "SELECT DISTINCT tg_user_id FROM pending_gifts",
+            "SELECT DISTINCT tg_user_id FROM payment_transactions WHERE status = 'completed'",
+        ):
+            try:
+                cur.execute(sql)
+                for r in cur.fetchall() or []:
+                    val = r["tg_user_id"] if isinstance(r, dict) else r[0]
+                    if val is not None:
+                        protected_ids.add(int(val))
+            except Exception:
+                conn.rollback()
+
+        cur.execute("SELECT tg_user_id, first_name, username FROM bot_users ORDER BY tg_user_id")
+        rows = cur.fetchall() or []
+
+        to_delete: list[int] = []
+        for row in rows:
+            uid = int(row["tg_user_id"] if isinstance(row, dict) else row[0])
+            fname = str((row["first_name"] if isinstance(row, dict) else row[1]) or "").strip()
+            uname = str((row["username"] if isinstance(row, dict) else row[2]) or "").strip()
+            checked += 1
+
+            # Haqiqiy foydalanuvchini aslo o'chirmaslik
+            if uid in protected_ids:
+                protected_skipped += 1
+                continue
+
+            synthetic = is_synthetic_fake_user_id(uid)
+            if synthetic:
+                to_delete.append(uid)
+                continue
+
+            # Agar ism ham, username ham bo'sh bo'lsa va Telegram API ham tasdiqlamasa tekshirish
+            if not fname and not uname and bot_token:
+                if _verify_tg_user_missing_on_telegram(bot_token, uid):
+                    to_delete.append(uid)
+                else:
+                    protected_skipped += 1
+            else:
+                protected_skipped += 1
+
+        if to_delete and not dry_run:
+            for uid in to_delete:
+                for tbl in ("web_sessions", "user_balances", "autopost_tasks", "bot_users"):
+                    try:
+                        cur.execute(f"DELETE FROM {tbl} WHERE tg_user_id = %s", (uid,))
+                    except Exception:
+                        conn.rollback()
+                deleted_ids.append(uid)
+            conn.commit()
+        elif dry_run:
+            deleted_ids = to_delete
+
+        return {
+            "ok": True,
+            "checked": checked,
+            "deleted_ids": deleted_ids,
+            "protected_skipped": protected_skipped,
+            "dry_run": dry_run,
+        }
+    except Exception as e:
+        conn.rollback()
+        return {"ok": False, "error": str(e), "deleted_ids": [], "checked": checked, "protected_skipped": protected_skipped}
     finally:
         conn.close()
 

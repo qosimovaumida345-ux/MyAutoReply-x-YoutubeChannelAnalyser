@@ -1166,28 +1166,32 @@ def main_menu_kb(user_id=None, lang=None):
 
 def wallet_menu_kb(user_id=None, lang=None):
     import os
+    from config import ENABLE_CRYPTO_PAY, CRYPTO_PAY_TOKEN
     from database import get_user_ton_wallet
     lang = lang or _resolve_lang(user_id)
     uid = int(user_id) if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()) else None
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
-    ton_wallet = get_user_ton_wallet(uid) if uid else None
-    if ton_wallet:
-        addr = ton_wallet.get("wallet_address", "")
-        masked = f"{addr[:4]}...{addr[-4:]}" if len(addr) > 10 else "OK"
-        ton_btn_text = f"{t('btn_ton_wallet_connected', lang)} ({masked})"
-    else:
-        ton_btn_text = t("btn_ton_wallet_connect", lang)
-
-    return InlineKeyboardMarkup([
+    rows = [
         [InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} {t('btn_pay_humo', lang)}", callback_data="pay_humo_menu")],
         [InlineKeyboardButton(f"{ce('PAY_STARS')} {t('btn_pay_stars', lang)}", callback_data="pay_stars_menu")],
-        [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {t('btn_pay_ton', lang)}", callback_data="pay_crypto_menu")],
-        [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {ton_btn_text}", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={user_id or 0}"))],
+    ]
+    if ENABLE_CRYPTO_PAY or bool(CRYPTO_PAY_TOKEN):
+        ton_wallet = get_user_ton_wallet(uid) if uid else None
+        if ton_wallet:
+            addr = ton_wallet.get("wallet_address", "")
+            masked = f"{addr[:4]}...{addr[-4:]}" if len(addr) > 10 else "OK"
+            ton_btn_text = t("btn_ton_wallet_connected", lang, masked=masked)
+        else:
+            ton_btn_text = t("btn_ton_wallet_connect", lang)
+        rows.append([InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {t('btn_pay_ton', lang)}", callback_data="pay_crypto_menu")])
+        rows.append([InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {ton_btn_text}", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={user_id or 0}"))])
+    rows.extend([
         [InlineKeyboardButton(f"{ce('PAY_CASHOUT')} {t('btn_cashout', lang)}", callback_data="menu_cashout")],
         [InlineKeyboardButton(f"{ce('PAY_PROMOCODE')} {t('btn_redeem_promo', lang)}", callback_data="enter_promo_code")],
         [InlineKeyboardButton(f"{ce('BTN_ORDERS')} {t('btn_pay_history', lang)}", callback_data="pay_history")],
         [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")],
     ])
+    return InlineKeyboardMarkup(rows)
 
 def humo_packages_kb(lang="uz"):
     lang = _resolve_lang(lang)
@@ -2520,7 +2524,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                     f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n\n"
                     f"{ce('KEY')} <b>Chek ID:</b> <code>{r_hash}</code>\n"
                     f"{ce('CHECK')} <b>Status:</b> <code>TASDIQLANGAN (Render Cloud)</code>\n"
-                    f"{ce('SHIELD')} <b>Kafolat:</b> Ushbu buyurtma CreatorFlow tizimida 100% rasmiy va kafolatlangan.\n\n"
+                    f"{ce('SHIELD')} <b>Kafolat:</b> Ushbu buyurtma Mono Deck Studio tizimida 100% rasmiy va kafolatlangan.\n\n"
                     f"<b>━━━━━━━━━━━━━━━━━━━━━</b>",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BTN_SERVICES')} Do'konga o'tish", callback_data="menu_marketplace")]])
                 )
@@ -2639,10 +2643,10 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"{ce('CHANNEL')} <b>Kanal a'zoligi:</b> Tasdiqlangan\n"
             f"{ce('CHECK')} <b>Status:</b> 🥉 <b>Yarim Verified (Baza)</b>\n\n"
             f"Endi botning barcha xizmatlari va do'kondan xarid qilish imkoniyati siz uchun ochiq!\n\n"
-            f"{ce('CROWN')} <b>CreatorFlow Foydalanuvchi Darajalari & Tariflar:</b>\n"
+            f"{ce('CROWN')} <b>Mono Deck Studio Foydalanuvchi Darajalari & Tariflar:</b>\n"
             f"• 🥉 <b>Yarim Verified:</b> O'tildi (15 ta kunlik so'rov, bepul)\n"
             f"• 🥈 <b>To'liq Verified (3D Face ID):</b> Ixtiyoriy (25 ta kunlik so'rov, ishonchli xaridor nishoni)\n"
-            f"• 👑 <b>CreatorFlow VIP ({VIP_PRICE_UZS:,} UZS / oy):</b> Cheksiz limitlar, 24/7 ustuvor navbat, restocklarda birinchi navbatda xarid va keshbek!\n\n"
+            f"• 👑 <b>Mono Deck Studio VIP ({VIP_PRICE_UZS:,} UZS / oy):</b> Cheksiz limitlar, 24/7 ustuvor navbat, restocklarda birinchi navbatda xarid va keshbek!\n\n"
             f"Quyidagi tugmalar orqali xizmatlarni boshqarishingiz mumkin:"
         )
         from config import KYC_ENABLED
@@ -2887,7 +2891,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         gq_stock = stock.get("groq", 0)
         pr_stock = get_proxies_stock_count()
         text = (
-            f"{ce('STORE')} <b>CreatorFlow Raqamli Xizmatlar & Marketplace</b>\n\n"
+            f"{ce('STORE')} <b>Mono Deck Studio Raqamli Xizmatlar & Marketplace</b>\n\n"
             f"{ce('MONEY')} <b>Joriy balans:</b> <code>{bal:,} so'm</code>\n\n"
             f"<b>{ce('GLOBE')} Proxy & Server Quvvati:</b>\n"
             f"• {ce('PROXY')} <b>Dedicated Private Proxy:</b> 18,000 so'm — <i>Zaxirada: {pr_stock} ta</i>\n"
@@ -3027,7 +3031,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         bal = get_user_balance(user_id)
 
         text = (
-            f"{ce('CROWN')} <b>CreatorFlow VIP Obunasi — To'lov Tizimini Tanlang</b>\n\n"
+            f"{ce('CROWN')} <b>Mono Deck Studio VIP Obunasi — To'lov Tizimini Tanlang</b>\n\n"
             f"{ce('BTN_WALLET')} <b>Narxi:</b> <code>{VIP_PRICE_UZS:,} so'm</code> / 30 kun\n"
             f"{ce('PAY_HUMO_UZCARD')} <b>Sizning balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
             f"To'lovni amalga oshirish uchun quyidagi usullardan birini tanlang:\n"
@@ -3037,15 +3041,17 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"4. <b>TON / Kriptovalyuta</b> — Tonkeeper / Wallet orqali"
         )
 
+        from config import ENABLE_CRYPTO_PAY, CRYPTO_PAY_TOKEN
         btns = []
         if bal >= VIP_PRICE_UZS:
             btns.append([InlineKeyboardButton(f"{ce('STATUS_LIGHTNING')} Balansdan To'lash ({VIP_PRICE_UZS:,} so'm)", callback_data="vip_pay_balance")])
         btns.extend([
             [InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} Humo / Uzcard (69,000 UZS)", callback_data="vip_pay_humo")],
             [InlineKeyboardButton(f"{ce('PAY_STARS')} Telegram Stars ({VIP_PRICE_STARS} Stars)", callback_data="vip_pay_stars")],
-            [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} TON / Kripto orqali to'lash", callback_data="vip_pay_ton")],
-            [InlineKeyboardButton(f"{ce('BTN_BACK')} Tariflarga qaytish", callback_data="menu_tariffs")]
         ])
+        if ENABLE_CRYPTO_PAY or bool(CRYPTO_PAY_TOKEN):
+            btns.append([InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} TON / Kripto orqali to'lash", callback_data="vip_pay_ton")])
+        btns.append([InlineKeyboardButton(f"{ce('BTN_BACK')} Tariflarga qaytish", callback_data="menu_tariffs")])
         await cb.message.edit_text(text, reply_markup=InlineKeyboardMarkup(btns))
         await cb.answer()
 
@@ -3063,14 +3069,14 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         if deduct_user_balance(user_id, VIP_PRICE_UZS):
             activate_user_vip(user_id, days=30, plan_type="vip_69k")
             u_name = f"@{cb.from_user.username}" if cb.from_user.username else (cb.from_user.first_name or "Mijoz")
-            asyncio.create_task(broadcast_channel_purchase(client, u_name, "CreatorFlow VIP Obunasi (30 kun)", VIP_PRICE_UZS))
+            asyncio.create_task(broadcast_channel_purchase(client, u_name, "Mono Deck Studio VIP Obunasi (30 kun)", VIP_PRICE_UZS))
 
             ans = (
-                f"{ce('SUCCESS')} <b>TABRIKLAYMIZ! CREATORFLOW VIP FAOLLASHTIRILDI!</b>\n\n"
-                f"{ce('CROWN')} <b>Status:</b> CreatorFlow VIP Pro (30 kun)\n"
+                f"{ce('SUCCESS')} <b>TABRIKLAYMIZ! MONO DECK STUDIO VIP FAOLLASHTIRILDI!</b>\n\n"
+                f"{ce('CROWN')} <b>Status:</b> Mono Deck Studio VIP Pro (30 kun)\n"
                 f"{ce('CHECK')} Barcha kunlik limitlar cheksiz qilindi!\n"
                 f"{ce('ROCKET')} 24/7 Ustuvor navbat va do'konda keshbek tizimi yoqildi.\n\n"
-                f"<i>CreatorFlow oilasiga xush kelibsiz!</i>"
+                f"<i>Mono Deck Studio oilasiga xush kelibsiz!</i>"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('BTN_HOME')} Asosiy Menyu", callback_data="back_main")],
@@ -3124,7 +3130,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             from pyrogram.types import LabeledPrice
             await client.send_invoice(
                 chat_id=user_id,
-                title="CreatorFlow VIP (30 kun)",
+                title="Mono Deck Studio VIP (30 kun)",
                 description="Cheksiz limitlar, 24/7 ustuvor navbat va do'konda keshbek",
                 payload=f"vip_stars_{user_id}",
                 currency="XTR",
@@ -3145,7 +3151,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"Pastdagi tugma orqali WebApp hamyon sahifasini oching:"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} TON Hamyonni Ochish", web_app=WebAppInfo(url=f"{web_url}/tonconnect?user_id={user_id}&purpose=vip"))],
+            [InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} TON Hamyonni Ochish", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={user_id}&purpose=vip"))],
             [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="vip_buy_69k")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
@@ -5776,7 +5782,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         lang = get_user_language(user_id)
         web_url = os.environ.get("WEB_URL", WEB_APP_URL)
         text = (
-            f"{ce('BRAND_JAM')} <b>CreatorFlow Jamoaviy Hamkorlik & Teamwork Preview</b>\n\n"
+            f"{ce('BRAND_JAM')} <b>Mono Deck Studio Jamoaviy Hamkorlik & Teamwork Preview</b>\n\n"
             f"YouTube kanal va media-loyihalarni professional jamoa bilan birgalikda boshqaring:\n\n"
             f"👥 <b>Jamoaviy Rollar & Vakolatlar:</b>\n"
             f"• 👑 <b>Kanal Egasi (Owner):</b> Moliyaviy nazorat, to'lovlar va to'liq egalik\n"
@@ -7017,8 +7023,6 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def cb_pay_humo_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
-        if not await check_service_available("crypto_pay", cb, lang):
-            return
         from database import get_user_pending_humo_deposit
         pending = get_user_pending_humo_deposit(user_id)
         if pending:
@@ -7166,8 +7170,6 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def cb_pay_stars_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
-        if not await check_service_available("crypto_pay", cb, lang):
-            return
         text = (
             f"{e('STAR')} <b>Telegram Stars orqali hisob to'ldirish</b>\n\n"
             f"Telegram Stars — Telegramning rasmiy xavfsiz to'lov vositasi.\n"
@@ -7181,8 +7183,6 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         stars = int(cb.matches[0].group(1))
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
-        if not await check_service_available("crypto_pay", cb, lang):
-            return
         amount_uzs = 12500
         for pkg in STARS_PACKAGES:
             if pkg["stars"] == stars:
@@ -8521,7 +8521,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
 
         receipt_card = (
             f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n"
-            f"{ce('VERIFIED')} <b>CREATORFLOW OFFICIAL RECEIPT</b>\n"
+            f"{ce('VERIFIED')} <b>MONO DECK STUDIO OFFICIAL RECEIPT</b>\n"
             f"{ce('SHIELD')} <i>Raqamli Kafolat va Xarid Cheki</i>\n"
             f"<b>━━━━━━━━━━━━━━━━━━━━━</b>\n\n"
             f"{ce('KEY')} <b>Chek ID:</b> <code>{receipt_hash}</code>\n"
@@ -8539,7 +8539,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                 f"<code>{html.escape(delivered_data)}</code>\n\n"
             )
         receipt_card += (
-            f"{ce('STAR')} <i>Ushbu chek rasmiy hisoblanadi va CreatorFlow tizimida 100% kafolatga ega.</i>\n"
+            f"{ce('STAR')} <i>Ushbu chek rasmiy hisoblanadi va Mono Deck Studio tizimida 100% kafolatga ega.</i>\n"
             f"<b>━━━━━━━━━━━━━━━━━━━━━</b>"
         )
         return receipt_card, receipt_hash
@@ -8931,8 +8931,8 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
         text = (
-            f"{ce('BOT')} <b>Aiko AI — CreatorFlow Smart Savdo Maslahatchisi</b>\n\n"
-            f"Assalomu alaykum! Men CreatorFlow sun'iy intellekt savdo maslahatchisiman.\n"
+            f"{ce('BOT')} <b>Aiko AI — Mono Deck Studio Smart Savdo Maslahatchisi</b>\n\n"
+            f"Assalomu alaykum! Men Mono Deck Studio sun'iy intellekt savdo maslahatchisiman.\n"
             f"Sizga ijodingiz, video montaj va kanalingiz uchun eng maqbul vositani tanlashda ko'maklashaman.\n\n"
             f"<i>Qaysi yo'nalish bo'yicha mahsulot izlayapsiz? Pastdagi toifalardan birini tanlang:</i>"
         )
@@ -8954,9 +8954,9 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                 f"{ce('MEDIA_AUTOPILOT')} <b>Aiko AI Tavsiyasi: Video & YouTube Ijodkorlari Uchun</b>\n\n"
                 f"1. {ce('BRAND_CAPCUT')} <b>CapCut Pro (1-12 oylik):</b>\n"
                 f"   4K eksport, avtomatik titrlar, AI fon tozalash va barcha VIP effektlar uchun 1-raqamli vosita!\n\n"
-                f"2. {ce('PAY_VIP_CROWN')} <b>CreatorFlow VIP Obuna:</b>\n"
+                f"2. {ce('PAY_VIP_CROWN')} <b>Mono Deck Studio VIP Obuna:</b>\n"
                 f"   YouTube video yuklash, tahlil qilish va 24/7 avtomatik jonli efir oqimi uchun cheksiz imkoniyat.\n\n"
-                f"{ce('STAR')} <b>Tavsiya qilinadigan to'plam:</b> <i>CreatorFlow Ultimate Starter Pack (35% chegirma bilan!)</i>"
+                f"{ce('STAR')} <b>Tavsiya qilinadigan to'plam:</b> <i>Mono Deck Studio Ultimate Starter Pack (35% chegirma bilan!)</i>"
             )
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Super To'plamni Ko'rish", callback_data="vb_bundles")],
@@ -8995,7 +8995,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         else:
             rec_text = (
                 f"{ce('MEDIA_AUTOPILOT')} <b>Aiko AI: Eng Ko'p Sotilgan va Qadrlangan Xizmatlar</b>\n\n"
-                f"{ce('MEDAL_GOLD')} <b>1. CreatorFlow VIP (69,000 UZS)</b> — Har kuni 100+ ijodkor tanlaydi\n"
+                f"{ce('MEDAL_GOLD')} <b>1. Mono Deck Studio VIP (69,000 UZS)</b> — Har kuni 100+ ijodkor tanlaydi\n"
                 f"{ce('MEDAL_SILVER')} <b>2. CapCut Pro 1 Oylik</b> — Eng arzon narx va bir lahzada yetkazish\n"
                 f"{ce('MEDAL_BRONZE')} <b>3. ChatGPT Plus Shared/Private</b> — Kafolatli faollashtirish"
             )
@@ -9018,18 +9018,18 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from database import get_user_balance
         bal = get_user_balance(user_id)
         text = (
-            f"{ce('GIFT')} <b>CREATORFLOW SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
+            f"{ce('GIFT')} <b>MONO DECK STUDIO SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
             f"Bitta xarid bilan kerakli barcha xizmatlarni ulkan chegirma bilan oling!\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🎁 <b>1. CREATORFLOW ULTIMATE STARTER PACK</b>\n"
-            f"• {ce('PAY_VIP_CROWN')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"🎁 <b>1. MONO DECK STUDIO ULTIMATE STARTER PACK</b>\n"
+            f"• {ce('PAY_VIP_CROWN')} 1 Oylik Mono Deck Studio VIP Status (69,000 UZS qiymatida)\n"
             f"• {ce('BRAND_CAPCUT')} CapCut Pro 1 Oylik Obuna (40,000 UZS qiymatida)\n"
             f"• {ce('TOOL_PROMPT_PACK')} 500+ Viral Prompts & SEO Tags Pack (15,000 UZS)\n"
             f"<i>Alohida narxi: 124,000 so'm</i>\n"
             f"{ce('BTN_WALLET')} <b>To'plam narxi:</b> <code>79,000 so'm</code> (<b>36% tejaysiz!</b>)\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"🤖 <b>2. AI MASTER CREATOR PACK</b>\n"
-            f"• {ce('PAY_VIP_CROWN')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('PAY_VIP_CROWN')} 1 Oylik Mono Deck Studio VIP Status (69,000 UZS qiymatida)\n"
             f"• {ce('BRAND_CHATGPT')} ChatGPT Plus / {ce('BRAND_CLAUDE')} Claude Pro kaliti (80,000 UZS qiymatida)\n"
             f"<i>Alohida narxi: 149,000 so'm</i>\n"
             f"{ce('BTN_WALLET')} <b>To'plam narxi:</b> <code>99,000 so'm</code> (<b>34% tejaysiz!</b>)\n"
@@ -9053,18 +9053,18 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from database import get_user_balance
         bal = get_user_balance(user_id)
         text = (
-            f"{ce('GIFT')} <b>CREATORFLOW SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
+            f"{ce('GIFT')} <b>MONO DECK STUDIO SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
             f"Bitta xarid bilan kerakli barcha xizmatlarni ulkan chegirma bilan oling!\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"{ce('GIFT_CASE_BOX')} <b>1. CREATORFLOW ULTIMATE STARTER PACK</b>\n"
-            f"• {ce('PAY_VIP_CROWN')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"{ce('GIFT_CASE_BOX')} <b>1. MONO DECK STUDIO ULTIMATE STARTER PACK</b>\n"
+            f"• {ce('PAY_VIP_CROWN')} 1 Oylik Mono Deck Studio VIP Status (69,000 UZS qiymatida)\n"
             f"• {ce('BRAND_CAPCUT')} CapCut Pro 1 Oylik Obuna (40,000 UZS qiymatida)\n"
             f"• {ce('TOOL_PROMPT_PACK')} 500+ Viral Prompts & SEO Tags Pack (15,000 UZS)\n"
             f"<i>Alohida narxi: 124,000 so'm</i>\n"
             f"{ce('BTN_WALLET')} <b>To'plam narxi:</b> <code>79,000 so'm</code> (<b>36% tejaysiz!</b>)\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"{ce('BRAND_CHATGPT')} <b>2. AI MASTER CREATOR PACK</b>\n"
-            f"• {ce('PAY_VIP_CROWN')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('PAY_VIP_CROWN')} 1 Oylik Mono Deck Studio VIP Status (69,000 UZS qiymatida)\n"
             f"• {ce('BRAND_CHATGPT')} ChatGPT Plus / {ce('BRAND_CLAUDE')} Claude Pro kaliti (80,000 UZS qiymatida)\n"
             f"<i>Alohida narxi: 149,000 so'm</i>\n"
             f"{ce('BTN_WALLET')} <b>To'plam narxi:</b> <code>99,000 so'm</code> (<b>34% tejaysiz!</b>)\n"
@@ -9087,13 +9087,13 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         bal = get_user_balance(user_id)
 
         if b_type == "starter":
-            b_name = "CreatorFlow Ultimate Starter Pack"
+            b_name = "Mono Deck Studio Ultimate Starter Pack"
             b_price = 79000
-            deliv = "CreatorFlow VIP (30 kun) yoqildi + CapCut Pro 1 oylik litsenziya hisobingizga biriktirildi."
+            deliv = "Mono Deck Studio VIP (30 kun) yoqildi + CapCut Pro 1 oylik litsenziya hisobingizga biriktirildi."
         else:
             b_name = "AI Master Creator Pack"
             b_price = 99000
-            deliv = "CreatorFlow VIP (30 kun) yoqildi + ChatGPT Plus kaliti hisobingizga biriktirildi."
+            deliv = "Mono Deck Studio VIP (30 kun) yoqildi + ChatGPT Plus kaliti hisobingizga biriktirildi."
 
         if bal < b_price:
             diff = b_price - bal
@@ -9230,18 +9230,18 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from database import get_user_balance
         bal = get_user_balance(user_id)
         text = (
-            f"{ce('GIFT')} <b>CREATORFLOW SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
+            f"{ce('GIFT')} <b>MONO DECK STUDIO SUPER TO'PLAMLAR (SMART BUNDLES)</b>\n\n"
             f"Bitta xarid bilan kerakli barcha xizmatlarni ulkan chegirma bilan oling!\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n"
-            f"{ce('GIFT_CASE_BOX')} <b>1. CREATORFLOW ULTIMATE STARTER PACK</b>\n"
-            f"• {ce('PAY_VIP_CROWN')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"{ce('GIFT_CASE_BOX')} <b>1. MONO DECK STUDIO ULTIMATE STARTER PACK</b>\n"
+            f"• {ce('PAY_VIP_CROWN')} 1 Oylik Mono Deck Studio VIP Status (69,000 UZS qiymatida)\n"
             f"• {ce('BRAND_CAPCUT')} CapCut Pro 1 Oylik Obuna (40,000 UZS qiymatida)\n"
             f"• {ce('TOOL_PROMPT_PACK')} 500+ Viral Prompts & SEO Tags Pack (15,000 UZS)\n"
             f"<i>Alohida narxi: 124,000 so'm</i>\n"
             f"{ce('BTN_WALLET')} <b>To'plam narxi:</b> <code>79,000 so'm</code> (<b>36% tejaysiz!</b>)\n"
             f"━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"{ce('BRAND_CHATGPT')} <b>2. AI MASTER CREATOR PACK</b>\n"
-            f"• {ce('PAY_VIP_CROWN')} 1 Oylik CreatorFlow VIP Status (69,000 UZS qiymatida)\n"
+            f"• {ce('PAY_VIP_CROWN')} 1 Oylik Mono Deck Studio VIP Status (69,000 UZS qiymatida)\n"
             f"• {ce('BRAND_CHATGPT')} ChatGPT Plus / {ce('BRAND_CLAUDE')} Claude Pro kaliti (80,000 UZS qiymatida)\n"
             f"<i>Alohida narxi: 149,000 so'm</i>\n"
             f"{ce('BTN_WALLET')} <b>To'plam narxi:</b> <code>99,000 so'm</code> (<b>34% tejaysiz!</b>)\n"
@@ -9260,8 +9260,8 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = message.from_user.id
         lang = get_user_language(user_id)
         text = (
-            f"{ce('BOT')} <b>Aiko AI — CreatorFlow Smart Savdo Maslahatchisi</b>\n\n"
-            f"Assalomu alaykum! Men CreatorFlow sun'iy intellekt maslahatchisiman.\n"
+            f"{ce('BOT')} <b>Aiko AI — Mono Deck Studio Smart Savdo Maslahatchisi</b>\n\n"
+            f"Assalomu alaykum! Men Mono Deck Studio sun'iy intellekt maslahatchisiman.\n"
             f"Sizga ijodingiz va loyihangiz uchun eng mos vosita yoki xizmatni tanlashda yordam beraman.\n\n"
             f"<i>Qaysi yo'nalish bo'yicha qidiryapsiz? Pastdagi toifalardan birini tanlang:</i>"
         )
@@ -11012,7 +11012,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                         
                         code = create_gift_case_voucher(u_id, tier_key, case_name, price_stars)
                         bot_username = getattr(client, "me", None)
-                        b_uname = getattr(bot_username, "username", "") or "CreatorFlow_Studio_Bot"
+                        b_uname = getattr(bot_username, "username", "") or "monodeck_app"
                         gift_link = f"https://t.me/{b_uname}?start=gcase_{code}"
                         
                         share_text = f"🎁 Sizga do'stingizdan 1 ta {case_name} sovg'a yuborildi! Ochish uchun bosing: {gift_link}"
