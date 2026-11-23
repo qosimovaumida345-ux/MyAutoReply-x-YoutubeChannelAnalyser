@@ -241,4 +241,10 @@ VIP_PRICE_STARS = int(os.getenv("VIP_PRICE_STARS", "250"))
 
 # ==================== FEATURE TOGGLES ====================
 KYC_ENABLED = os.getenv("KYC_ENABLED", "false").lower() in ("true", "1", "yes")
-ENABLE_CRYPTO_PAY = os.getenv("ENABLE_CRYPTO_PAY", "true").lower() in ("true", "1", "yes")
+_raw_crypto_enable = os.getenv("ENABLE_CRYPTO_PAY", "").strip().lower()
+if _raw_crypto_enable in ("false", "0", "no"):
+    ENABLE_CRYPTO_PAY = False
+elif _raw_crypto_enable in ("true", "1", "yes"):
+    ENABLE_CRYPTO_PAY = True
+else:
+    ENABLE_CRYPTO_PAY = bool(BINANCE_API_KEY or CRYPTO_PAY_TOKEN)

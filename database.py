@@ -8843,21 +8843,22 @@ def purge_fake_and_test_users(bot_token: str = "", dry_run: bool = False) -> dic
 # ==================== CUSTOM-AMOUNT CRYPTO & BINANCE TXID CLAIMS ====================
 
 def get_binance_crypto_config() -> dict:
-    """Binance Pay va Kripto depozit sozlamalarini DB yoki .env dan olish."""
-    from config import (
-        BINANCE_UID,
-        BINANCE_API_KEY,
-        BINANCE_API_SECRET,
-        USDT_TRC20_ADDRESS,
-        USDT_BEP20_ADDRESS,
-    )
+    """Binance Pay va Kripto depozit sozlamalarini qat'iy .env muhit o'zgaruvchilaridan olish."""
+    import config as _cfg
+
+    def _env_or_cfg(env_key: str, cfg_attr: str) -> str:
+        raw_env = os.getenv(env_key)
+        if raw_env is not None:
+            return raw_env.strip()
+        return (getattr(_cfg, cfg_attr, "") or "").strip()
+
     return {
-        "binance_uid": (get_bot_config("binance_uid") or BINANCE_UID or "").strip(),
-        "binance_api_key": (get_bot_config("binance_api_key") or BINANCE_API_KEY or "").strip(),
-        "binance_api_secret": (get_bot_config("binance_api_secret") or BINANCE_API_SECRET or "").strip(),
-        "usdt_trc20_address": (get_bot_config("usdt_trc20_address") or USDT_TRC20_ADDRESS or "").strip(),
-        "usdt_bep20_address": (get_bot_config("usdt_bep20_address") or USDT_BEP20_ADDRESS or "").strip(),
-        "ton_wallet_address": (get_ton_wallet() or "").strip(),
+        "binance_uid": _env_or_cfg("BINANCE_UID", "BINANCE_UID"),
+        "binance_api_key": _env_or_cfg("BINANCE_API_KEY", "BINANCE_API_KEY"),
+        "binance_api_secret": _env_or_cfg("BINANCE_API_SECRET", "BINANCE_API_SECRET"),
+        "usdt_trc20_address": _env_or_cfg("USDT_TRC20_ADDRESS", "USDT_TRC20_ADDRESS"),
+        "usdt_bep20_address": _env_or_cfg("USDT_BEP20_ADDRESS", "USDT_BEP20_ADDRESS"),
+        "ton_wallet_address": (os.getenv("TON_WALLET_ADDRESS", "") or "").strip(),
     }
 
 

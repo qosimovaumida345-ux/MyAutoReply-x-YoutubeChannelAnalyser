@@ -1049,3 +1049,59 @@ async def test_custom_amount_binance_pay_and_txid_anti_replay():
         c_dup = database.claim_and_credit_crypto_tx(6735799833, "338192045678123456", "BINANCE_PAY", "USDT", 12.5, 160625)
         assert c_dup["ok"] is False
         assert c_dup.get("already_claimed") is True
+
+
+def test_binance_crypto_config_env_only_and_commands_removed():
+    """Verify Binance/crypto credentials are read strictly from .env, commands removed, and disabled by default."""
+    import importlib
+    import os
+    import config
+    import database
+    import ytbot
+
+    yt_src = (ROOT_DIR / "ytbot.py").read_text(encoding="utf-8")
+    assert 'filters.command("setbinance")' not in yt_src
+    assert 'filters.command("setusdt")' not in yt_src
+
+    # DB values in bot_config must NOT be used by get_binance_crypto_config
+    with patch("database.get_bot_config", return_value="db_should_be_ignored"), \
+         patch.dict(
+             os.environ,
+             {
+                 "BINANCE_UID": "987654321",
+                 "BINANCE_API_KEY": "env_ro_key",
+                 "BINANCE_API_SECRET": "env_ro_secret",
+                 "USDT_TRC20_ADDRESS": "TEnvOnlyAddress123",
+                 "USDT_BEP20_ADDRESS": "0xEnvOnlyAddress123",
+                 "TON_WALLET_ADDRESS": "UQB5_ENV_ONLY",
+             },
+             clear=False,
+         ):
+        cfg = database.get_binance_crypto_config()
+        assert cfg["binance_uid"] == "987654321"
+        assert cfg["binance_api_key"] == "env_ro_key"
+        assert cfg["binance_api_secret"] == "env_ro_secret"
+        assert cfg["usdt_trc20_address"] == "TEnvOnlyAddress123"
+        assert cfg["usdt_bep20_address"] == "0xEnvOnlyAddress123"
+        assert cfg["ton_wallet_address"] == "UQB5_ENV_ONLY"
+
+    # ENABLE_CRYPTO_PAY defaults to False when env vars are unset
+    clean_env = dict(os.environ)
+    for k in ("ENABLE_CRYPTO_PAY", "BINANCE_API_KEY", "CRYPTO_PAY_TOKEN"):
+        clean_env.pop(k, None)
+    with patch.dict(os.environ, clean_env, clear=True):
+        importlib.reload(config)
+        assert config.ENABLE_CRYPTO_PAY is False
+    # Restore config module state
+    importlib.reload(config)
+
+    with patch.object(config, "ENABLE_CRYPTO_PAY", False), \
+         patch.object(config, "CRYPTO_PAY_TOKEN", ""):
+        txt_off = ytbot._format_wallet_balance_text("en", 30000)
+        assert "Crypto (" not in txt_off
+        assert "Telegram Stars" in txt_off
+
+    with patch.object(config, "ENABLE_CRYPTO_PAY", True), \
+         patch.object(config, "CRYPTO_PAY_TOKEN", ""):
+        txt_on = ytbot._format_wallet_balance_text("en", 30000)
+        assert "Crypto (" in txt_on

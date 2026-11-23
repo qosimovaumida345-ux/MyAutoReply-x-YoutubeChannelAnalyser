@@ -141,8 +141,11 @@ async def verify_binance_deposit_tx(api_key: str, api_secret: str, tx_id: str) -
                     return None
                 for item in rows:
                     dep_tx = str(item.get("txId") or "").strip().lower()
-                    # Binance sometimes appends offset suffixes on internal/account transfers
-                    if not dep_tx or (dep_tx != target and target not in dep_tx):
+                    # Binance sometimes prefixes internal transfers (e.g. "internal transfer 1234567890")
+                    if not dep_tx or not (
+                        dep_tx == target
+                        or (len(target) >= 12 and (dep_tx.endswith(target) or dep_tx.endswith(f" {target}")))
+                    ):
                         continue
                     amt = float(item.get("amount") or 0)
                     if amt <= 0:
@@ -264,7 +267,7 @@ async def verify_crypto_tx_by_id(raw_tx_id: str) -> dict:
         if not (api_key and api_secret or cfg.get("ton_wallet_address") or cfg.get("usdt_trc20_address")):
             return {
                 "ok": False,
-                "error": "To'lov tizimi hali sozlanmagan. Admin /setbinance yoki /setusdt buyrug'ini kiritishi kerak.",
+                "error": "Kripto to'lov tizimi hali sozlanmagan (.env da BINANCE_API_KEY / BINANCE_API_SECRET va hamyon manzillari kiritilmagan).",
             }
         return {
             "ok": False,

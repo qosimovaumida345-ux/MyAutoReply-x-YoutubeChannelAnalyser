@@ -1193,6 +1193,15 @@ def wallet_menu_kb(user_id=None, lang=None):
     ])
     return InlineKeyboardMarkup(rows)
 
+def _format_wallet_balance_text(lang: str, bal: int) -> str:
+    """Format wallet balance caption and hide crypto line when crypto payments are disabled."""
+    from config import ENABLE_CRYPTO_PAY, CRYPTO_PAY_TOKEN
+    text = t("balance_text", lang, balance=bal)
+    if not (ENABLE_CRYPTO_PAY or bool(CRYPTO_PAY_TOKEN)):
+        lines = [ln for ln in text.splitlines() if not any(k in ln for k in ("Crypto (", "Kripto ("))]
+        text = "\n".join(lines)
+    return text
+
 def humo_packages_kb(lang="uz"):
     lang = _resolve_lang(lang)
     buttons = [
@@ -2836,12 +2845,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = message.from_user.id
         lang = get_user_language(user_id)
         bal = get_user_balance(user_id)
-        text = (
-            f"{e('MONEY')} <b>Sizning Balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
-            f"{e('STAR')} <b>Telegram Stars</b> yoki {e('CRYPTO')} <b>CryptoPay</b> orqali "
-            f"hisobingizni bir zumda to'ldirishingiz mumkin.\n\n"
-            f"{e('PIN')} To'lov usulini tanlang:"
-        )
+        text = _format_wallet_balance_text(lang, bal)
         await message.reply_text(text, reply_markup=wallet_menu_kb(user_id))
 
     web_app_data_filter = filters.create(lambda _, __, m: bool(getattr(m, "web_app_data", None)))
@@ -3572,58 +3576,6 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             await message.reply_text(f"{ce('PAY_TON_CRYPTO')} <b>O'rnatilgan TON / GRAM hamyon manzili:</b>\n<code>{curr}</code>")
         else:
             await message.reply_text(f"{ce('DEV_API_DOCS')} TON hamyon manzili hali o'rnatilmagan. O'rnatish: <code>/setton &lt;manzil&gt;</code>")
-
-    @bot.on_message(filters.command("setbinance"))
-    async def setbinance_cmd(client, message):
-        if not check_is_admin(message.from_user):
-            await message.reply_text(f"{ce('STATUS_WARNING')} Bu buyruq faqat bot egasi uchun!")
-            return
-        parts = message.text.strip().split()
-        if len(parts) < 2:
-            await message.reply_text(
-                f"{ce('PAY_TON_CRYPTO')} <b>Binance Pay &amp; API Sozlash:</b>\n\n"
-                "<code>/setbinance &lt;BINANCE_UID&gt; [READONLY_API_KEY] [API_SECRET]</code>\n\n"
-                "<i>Xavfsizlik uchun yuborilgan xabaringiz avtomatik o'chiriladi.</i>"
-            )
-            return
-        b_uid = parts[1].strip()
-        set_config("binance_uid", b_uid)
-        if len(parts) >= 3:
-            set_config("binance_api_key", parts[2].strip())
-        if len(parts) >= 4:
-            set_config("binance_api_secret", parts[3].strip())
-        try:
-            await message.delete()
-        except Exception:
-            pass
-        await client.send_message(
-            message.chat.id,
-            f"{ce('STATUS_SUCCESS')} <b>Binance sozlamalari saqlandi!</b>\n"
-            f"🆔 <b>Binance UID:</b> <code>{b_uid}</code>\n"
-            f"🔑 <b>Read-Only API Key:</b> <code>{'Sozlandi' if len(parts) >= 3 else 'Avvalgi saqlandi'}</code>",
-        )
-
-    @bot.on_message(filters.command("setusdt"))
-    async def setusdt_cmd(client, message):
-        if not check_is_admin(message.from_user):
-            await message.reply_text(f"{ce('STATUS_WARNING')} Bu buyruq faqat bot egasi uchun!")
-            return
-        parts = message.text.strip().split()
-        if len(parts) < 2:
-            await message.reply_text(
-                f"{ce('PAY_TON_CRYPTO')} <b>USDT Depozit Manzillarini Sozlash:</b>\n\n"
-                "<code>/setusdt &lt;TRC20_ADDRESS&gt; [BEP20_ADDRESS]</code>"
-            )
-            return
-        trc20 = parts[1].strip()
-        set_config("usdt_trc20_address", trc20)
-        if len(parts) >= 3:
-            set_config("usdt_bep20_address", parts[2].strip())
-        await message.reply_text(
-            f"{ce('STATUS_SUCCESS')} <b>USDT manzillar saqlandi!</b>\n"
-            f"🟢 <b>TRC20:</b> <code>{trc20}</code>\n"
-            + (f"🟡 <b>BEP20:</b> <code>{parts[2].strip()}</code>" if len(parts) >= 3 else "")
-        )
 
     # ==================== /addkey & /stock (AI API Keys Do'koni) ====================
     @bot.on_message(filters.command("addkey"))
@@ -6756,7 +6708,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         
         if menu == "wallet":
             bal = get_user_balance(user_id)
-            text = t("balance_text", lang, balance=bal)
+            text = _format_wallet_balance_text(lang, bal)
             await cb.message.edit_text(text, reply_markup=wallet_menu_kb(user_id))
             return
 
@@ -7275,7 +7227,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         if cfg.get("ton_wallet_address"):
             lines.append(f"💎 <b>TON / Walt Network:</b> <code>{cfg['ton_wallet_address']}</code>")
 
-        addr_block = "\n".join(lines) if lines else "⚠️ <i>Admin hali hamyon manzillarini /setbinance yoki /setusdt bilan kiritmagan.</i>"
+        addr_block = "\n".join(lines) if lines else "⚠️ <i>Kripto depozit manzillari .env orqali hali sozlanmagan.</i>"
         text = (
             f"{e('CRYPTO')} <b>Crypto / Binance Pay — Custom Summa To'lov</b>\n\n"
             f"💵 <b>Kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
