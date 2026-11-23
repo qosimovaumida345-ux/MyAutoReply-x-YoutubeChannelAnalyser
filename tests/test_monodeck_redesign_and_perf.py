@@ -1524,3 +1524,49 @@ def test_crypto_order_cancel_idor_and_mark_completed():
         assert database.mark_payment_transaction_completed_without_credit(77, "tx_abc") is True
         assert "SET status = 'completed'" in executed[-1][0]
         assert "user_balances" not in executed[-1][0]
+
+
+def test_collectible_bot_username_and_zero_autoreplybot_urls():
+    """Verify Fragment collectible me.usernames extraction, manifest domain, and zero AutoReplyBot leaks."""
+    from types import SimpleNamespace
+    import config
+    import ton_connect_page
+
+    # Collectible Fragment bot: me.username is None, me.usernames has active @monodeck_app
+    collectible_me = SimpleNamespace(
+        username=None,
+        usernames=[
+            SimpleNamespace(username="monodeck_app", active=True),
+            SimpleNamespace(username="monodeck_app_bot", active=True),
+        ],
+    )
+    assert config.extract_username_from_me(collectible_me) == "monodeck_app"
+    assert config.extract_username_from_me(None) == config.get_bot_username()
+    assert config.extract_username_from_me(None) != "AutoReplyBot"
+
+    # Inactive collectible falls back to secondary active/present item cleanly
+    mixed_me = SimpleNamespace(
+        username=None,
+        usernames=[
+            SimpleNamespace(username="old_handle", active=False),
+            SimpleNamespace(username="monodeck_app", active=True),
+        ],
+    )
+    assert config.extract_username_from_me(mixed_me) == "monodeck_app"
+
+    # Zero AutoReplyBot strings left in root runtime Python modules
+    for fname in (
+        "ytbot.py",
+        "main.py",
+        "nft_engine.py",
+        "store_channel_service.py",
+        "mega_features.py",
+        "ton_connect_page.py",
+        "config.py",
+    ):
+        src = (ROOT_DIR / fname).read_text(encoding="utf-8")
+        assert "AutoReplyBot" not in src, f"Stale AutoReplyBot found in {fname}"
+
+    manifest = ton_connect_page.get_ton_manifest()
+    assert manifest["url"].startswith("https://")
+    assert "t.me" not in manifest["url"]

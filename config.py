@@ -217,6 +217,24 @@ def set_runtime_bot_username(username: str) -> None:
 def get_bot_username() -> str:
     return _RUNTIME_BOT_USERNAME or os.getenv("BOT_USERNAME", "").strip().lstrip("@") or BOT_USERNAME
 
+def extract_username_from_me(me_obj) -> str:
+    """Pyrogram get_me() dan asosiy username ni olish (Fragment collectible me.usernames ni ham qo'llab-quvvatlaydi)."""
+    if not me_obj:
+        return get_bot_username()
+    direct = str(getattr(me_obj, "username", "") or "").strip().lstrip("@")
+    if direct:
+        return direct
+    usernames = getattr(me_obj, "usernames", None) or []
+    for item in usernames:
+        uname = str(getattr(item, "username", "") or "").strip().lstrip("@")
+        if uname and getattr(item, "active", True):
+            return uname
+    for item in usernames:
+        uname = str(getattr(item, "username", "") or "").strip().lstrip("@")
+        if uname:
+            return uname
+    return get_bot_username()
+
 SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "monodeck_support").strip().lstrip("@") or "monodeck_support"
 ADSENSE_CLIENT_ID = os.getenv("ADSENSE_CLIENT_ID", "ca-pub-4094396006908725").strip() or "ca-pub-4094396006908725"
 

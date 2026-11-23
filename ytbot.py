@@ -32,7 +32,7 @@ from pyrogram.types import (
 )
 from googleapiclient.discovery import build
 
-from config import OWNER_ID, BRAND_NAME, APP_BASE_URL
+from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me
 from config import (
     generate_with_fallback_async, generate_with_fallback,
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
@@ -1727,7 +1727,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     @bot.on_message(filters.command("apikeys") & filters.private)
     async def cmd_apikeys(client, message):
         """YouTube API kalitlari holatini tekshirish (Faqat admin uchun)"""
-        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
+        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me, ADMIN_USERNAME, YOUTUBE_API_KEYS, WORKING_YT_KEYS, reset_yt_keys, remove_bad_yt_key
         from googleapiclient.discovery import build
         from googleapiclient.errors import HttpError
         
@@ -3310,7 +3310,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from store_channel_service import send_channel_restock_alert
         ok = await send_channel_restock_alert(client)
         if ok:
-            await message.reply(f"{ce('SUCCESS')} @CreatorFlow_Store kanaliga Restock e'loni yuborildi!")
+            await message.reply(f"{ce('SUCCESS')} {STORE_CHANNEL or 'Store'} kanaliga Restock e'loni yuborildi!")
         else:
             await message.reply(f"{ce('CROSS')} Kanalga yuborishda xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
 
@@ -3323,7 +3323,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from store_channel_service import create_and_post_contest
         c_id = await create_and_post_contest(client)
         if c_id:
-            await message.reply(f"{ce('SUCCESS')} @CreatorFlow_Store kanaliga Konkurs #{c_id} e'loni joylandi!")
+            await message.reply(f"{ce('SUCCESS')} {STORE_CHANNEL or 'Store'} kanaliga Konkurs #{c_id} e'loni joylandi!")
         else:
             await message.reply(f"{ce('CROSS')} Konkurs yaratishda xatolik yuz berdi.")
 
@@ -5005,7 +5005,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = message.from_user.id
         lang = get_user_language(user_id)
         me = await client.get_me()
-        bot_user = me.username or "AutoReplyBot"
+        bot_user = extract_username_from_me(me)
         ref_link = f"https://t.me/{bot_user}?start=ref_{user_id}"
         stats = get_referral_stats(user_id)
         share_url = f"https://t.me/share/url?url={urllib.parse.quote(ref_link)}&text={urllib.parse.quote(t('ref_share_message', lang))}"
@@ -5028,9 +5028,8 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def menu_referral_callback(client, callback_query: CallbackQuery):
         user_id = callback_query.from_user.id
         lang = get_user_language(user_id)
-        lang = get_user_language(user_id)
         me = await client.get_me()
-        bot_user = me.username or "AutoReplyBot"
+        bot_user = extract_username_from_me(me)
         ref_link = f"https://t.me/{bot_user}?start=ref_{user_id}"
         stats = get_referral_stats(user_id)
         share_url = f"https://t.me/share/url?url={urllib.parse.quote(ref_link)}&text={urllib.parse.quote(t('ref_share_message', lang))}"
@@ -5184,7 +5183,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def handle_inline_query(client, inline_query: InlineQuery):
         user_id = inline_query.from_user.id
         me = await client.get_me()
-        bot_user = me.username or "AutoReplyBot"
+        bot_user = extract_username_from_me(me)
         q = inline_query.query.strip().lower()
         
         duel_amount = 5000
@@ -5228,7 +5227,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = message.from_user.id
         lang = get_user_language(user_id)
         me = await client.get_me()
-        bot_user = me.username or "AutoReplyBot"
+        bot_user = extract_username_from_me(me)
         
         parts = message.text.strip().split(maxsplit=1)
         if len(parts) < 2:
@@ -6403,7 +6402,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             await message.reply_text("❌ Xatolik yuz berdi. DB ulanmagan.")
             return
             
-        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL
+        from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me
         is_admin = str(message.from_user.id) == str(OWNER_ID)
         cur = conn.cursor()
         if is_admin:
@@ -8754,7 +8753,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = cb.from_user.id
         stats = get_referral_stats(user_id)
         bot_info = await client.get_me()
-        bot_uname = bot_info.username or "Bot"
+        bot_uname = extract_username_from_me(bot_info)
         ref_link = f"https://t.me/{bot_uname}?start=ref_{user_id}"
 
         desc = (
@@ -8766,8 +8765,12 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             f"💰 <b>Jami ishlangan keshbek:</b> <code>{stats['total_earned']:,} so'm</code>\n\n"
             f"<i>💡 Keshbek to'g'ridan-to'g'ri botdagi balansingizga qo'shiladi va istalgan xaridlar uchun ishlatilishi mumkin.</i>"
         )
+        share_href = (
+            f"https://t.me/share/url?url={urllib.parse.quote(ref_link, safe='')}"
+            f"&text={urllib.parse.quote('Mono Deck Studio — AI va Creator Platformasi!')}"
+        )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{ce('TOOL_QR_CODE')} Do'stlarga ulashish", url=f"https://t.me/share/url?url={ref_link}&text=YouTube%20Analytics%20va%20Avtomatizatsiya%20boti!")],
+            [InlineKeyboardButton(f"{ce('TOOL_QR_CODE')} Do'stlarga ulashish", url=share_href)],
             [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_marketplace")]
         ])
         await cb.message.edit_text(desc, reply_markup=kb)
@@ -9259,7 +9262,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def cb_receipt_verify(client, cb: CallbackQuery):
         r_hash = cb.matches[0].group(1)
         await cb.answer(
-            f"✅ CHEK TASDIQLANDI!\nID: {r_hash}\nCreatorFlow tizimida rasmiy ro'yxatdan o'tgan va 100% kafolatlangan.",
+            f"✅ CHEK TASDIQLANDI!\nID: {r_hash}\nMono Deck Studio tizimida rasmiy ro'yxatdan o'tgan va 100% kafolatlangan.",
             show_alert=True
         )
 
@@ -9650,7 +9653,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
         me = await client.get_me()
-        bot_user = me.username or "AutoReplyBot"
+        bot_user = extract_username_from_me(me)
         promo = t("dl_promo_caption", lang, bot_user=bot_user)
         await client.send_video(
             cb.message.chat.id,
@@ -10180,7 +10183,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = cb.from_user.id
         lang = get_user_language(user_id)
         me = await client.get_me()
-        bot_user = me.username or "AutoReplyBot"
+        bot_user = extract_username_from_me(me)
         promo = t("dl_promo_caption", lang, bot_user=bot_user)
         target_url = f"https://www.youtube.com/watch?v={video_id}"
         
@@ -11377,11 +11380,14 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                         
                         code = create_gift_case_voucher(u_id, tier_key, case_name, price_stars)
                         bot_username = getattr(client, "me", None)
-                        b_uname = getattr(bot_username, "username", "") or "monodeck_app"
+                        b_uname = extract_username_from_me(bot_username)
                         gift_link = f"https://t.me/{b_uname}?start=gcase_{code}"
                         
                         share_text = f"🎁 Sizga do'stingizdan 1 ta {case_name} sovg'a yuborildi! Ochish uchun bosing: {gift_link}"
-                        share_url = f"https://t.me/share/url?url={gift_link}&text=Sizga%201%20ta%20{case_name}%20sovg'a%20qilindi!%20Ochish%20uchun%20bosing!"
+                        share_url = (
+                            f"https://t.me/share/url?url={urllib.parse.quote(gift_link, safe='')}"
+                            f"&text={urllib.parse.quote(f'Sizga 1 ta {case_name} sovga qilindi! Ochish uchun bosing!')}"
+                        )
 
                         await client.send_message(
                             u_id,
@@ -11760,7 +11766,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             vid_id = yt_m.group(1)
             target_url = f"https://www.youtube.com/watch?v={vid_id}"
             me = await client.get_me()
-            bot_user = me.username or "AutoReplyBot"
+            bot_user = extract_username_from_me(me)
             promo = t("dl_promo_caption", lang, bot_user=bot_user)
             
             wait_msg = await message.reply_text(
@@ -11914,7 +11920,7 @@ async def gift_autoflush_worker(bot: Client):
     """Har 15 daqiqada kutilayotgan sovg'alarni avtomatik jo'natadi va bot Stars balansi yetishmasa adminga bildirishnoma beradi"""
     from games_monetization import process_pending_gifts_batch
     from database import get_pending_gifts
-    from config import OWNER_ID, BRAND_NAME, APP_BASE_URL
+    from config import OWNER_ID, BRAND_NAME, APP_BASE_URL, extract_username_from_me
     import os, time
     
     admin_id = 0
@@ -11954,7 +11960,7 @@ async def gift_autoflush_worker(bot: Client):
 async def run_ytbot():
     bot = create_ytbot()
     if bot is None:
-        print("YouTube Bot ishga tushmadi. BOT_TOKEN ni tekshiring.")
+        print(f"{BRAND_NAME} Bot ishga tushmadi. BOT_TOKEN ni tekshiring.")
         return
     print(f"{BRAND_NAME} Bot ishga tushmoqda...")
     await bot.start()

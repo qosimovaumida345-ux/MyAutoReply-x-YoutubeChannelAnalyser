@@ -28,7 +28,7 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("worker")
 
-app = FastAPI(title="CreatorFlow Worker", version="1.0")
+app = FastAPI(title="MonoDeck Worker", version="1.0")
 
 # ==================== DOWNLOADS PAPKASI ====================
 DOWNLOADS_DIR = os.path.join(os.path.dirname(__file__), "downloads")
@@ -307,7 +307,7 @@ async def root():
     """Worker server asosiy sahifasi"""
     return {
         "status": "ok",
-        "service": "CreatorFlow Worker",
+        "service": "MonoDeck Worker",
         "bot_token_configured": bool(_resolve_bot_token()),
         "ffmpeg": shutil.which("ffmpeg") is not None,
         "message": "Worker server muvaffaqiyatli ishlamoqda!"
@@ -319,7 +319,7 @@ async def health_check():
     """Worker server holatini tekshirish"""
     return {
         "status": "ok",
-        "worker": "creatorflow-worker",
+        "worker": "monodeck-worker",
         "timestamp": datetime.utcnow().isoformat(),
         "ffmpeg": shutil.which("ffmpeg") is not None,
         "bot_token": bool(_resolve_bot_token())

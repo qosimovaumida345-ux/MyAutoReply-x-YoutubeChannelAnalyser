@@ -30,6 +30,7 @@ from config import (
     SUPPORT_USERNAME,
     get_bot_username,
     set_runtime_bot_username,
+    extract_username_from_me,
 )
 from autopost import exchange_code_with_redirect, get_auth_url, pending_oauth
 from database import save_yt_connection
@@ -6395,8 +6396,9 @@ async def main():
                 await bot.start()
                 try:
                     me = await bot.get_me()
-                    if getattr(me, "username", None):
-                        set_runtime_bot_username(me.username)
+                    resolved_u = extract_username_from_me(me)
+                    if resolved_u:
+                        set_runtime_bot_username(resolved_u)
                 except Exception:
                     pass
                 print(f"✨ {BRAND_NAME} Bot (@{get_bot_username()}) muvaffaqiyatli ishga tushdi!")
@@ -6419,7 +6421,7 @@ async def main():
                     sec_uname = ""
                     try:
                         me_sec = await client.get_me()
-                        sec_uname = getattr(me_sec, "username", "") or ""
+                        sec_uname = extract_username_from_me(me_sec)
                     except Exception:
                         pass
                     await _register_bot_commands(client)

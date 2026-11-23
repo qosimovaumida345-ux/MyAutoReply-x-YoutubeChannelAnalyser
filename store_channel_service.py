@@ -20,7 +20,7 @@ from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
 
-from config import STORE_CHANNEL, VIP_PRICE_UZS, VIP_PRICE_STARS, BRAND_NAME, get_bot_username
+from config import STORE_CHANNEL, VIP_PRICE_UZS, VIP_PRICE_STARS, BRAND_NAME, get_bot_username, extract_username_from_me
 from custom_emojis import ce, get_brand_emoji
 from database import (
     create_channel_contest,
@@ -46,8 +46,9 @@ def set_userbot_client(client: Client):
 
 def _resolve_active_bot_username(client: Optional[Client] = None) -> str:
     bot_me = getattr(client, "me", None) if client else None
-    uname = getattr(bot_me, "username", None) if bot_me else None
-    return (uname or get_bot_username() or "monodeck_app").lstrip("@")
+    if bot_me:
+        return extract_username_from_me(bot_me)
+    return (get_bot_username() or "monodeck_app").lstrip("@")
 
 
 async def _send_channel_message(bot_client: Client, text: str, reply_markup=None) -> Optional[int]:

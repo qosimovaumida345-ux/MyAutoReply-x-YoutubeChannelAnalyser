@@ -21,7 +21,7 @@ import asyncio
 import shutil
 from PIL import Image, ImageDraw
 from pollinations_engine import generate_ai_image_pollinations
-from config import generate_with_fallback_async
+from config import generate_with_fallback_async, get_bot_username
 
 logger = logging.getLogger(__name__)
 
@@ -607,7 +607,7 @@ def build_animated_glb(
     gltf = {
         'asset': {
             'version': '2.0',
-            'generator': 'AutoReply Web3 3D Studio (Roblox & PBR Ready)'
+            'generator': 'MonoDeck Web3 3D Studio (Roblox & PBR Ready)'
         },
         'scenes': [{'nodes': [0]}],
         'nodes': [{
@@ -692,7 +692,7 @@ def create_lazy_mint_voucher(
     min_price_wei = int(min_price_matic * 1e18)
     
     domain = {
-        "name": "AutoReplyNFTStudio",
+        "name": "MonoDeckNFTStudio",
         "version": "1",
         "chainId": chain_id,
         "verifyingContract": NFT_CONTRACT_ADDRESS
@@ -851,12 +851,12 @@ Quyidagi formatda faqat ko'rsatilgan teglar bilan 4 ta qism qaytar:
         "description": lore,
         "image": f"ipfs://{img_cid}",
         "animation_url": f"ipfs://{glb_cid}",
-        "external_url": "https://t.me/AutoReplyBot",
+        "external_url": f"https://t.me/{get_bot_username()}",
         "attributes": [
             {"trait_type": "Format", "value": "Animated 3D GLTF (.glb)"},
             {"trait_type": "Archetype", "value": archetype.capitalize()},
             {"trait_type": "Animation", "value": "Continuous 360° Spin + Hover Loop"},
-            {"trait_type": "Engine", "value": "AutoReply Cyber 3D Engine"},
+            {"trait_type": "Engine", "value": "MonoDeck Cyber 3D Engine"},
             {"trait_type": "Chain", "value": "Polygon Mainnet"},
             {"trait_type": "Rarity", "value": "Mythic"}
         ]

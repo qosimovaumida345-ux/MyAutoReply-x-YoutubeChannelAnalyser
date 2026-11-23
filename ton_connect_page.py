@@ -42,7 +42,7 @@ def _safe_json_for_script(obj) -> str:
     )
 
 
-def get_ton_manifest(base_url: str = "https://t.me") -> dict:
+def get_ton_manifest(base_url: str = "") -> dict:
     """TON Connect manifest JSON"""
     from config import APP_BASE_URL, BRAND_NAME
     clean_url = _sanitize_base_url(base_url, fallback=APP_BASE_URL)
