@@ -1074,6 +1074,7 @@ def test_binance_crypto_config_env_only_and_commands_removed():
                  "USDT_TRC20_ADDRESS": "TEnvOnlyAddress123",
                  "USDT_BEP20_ADDRESS": "0xEnvOnlyAddress123",
                  "TON_WALLET_ADDRESS": "UQB5_ENV_ONLY",
+                 "TON_WALLET_MEMO": "12345678",
              },
              clear=False,
          ):
@@ -1084,10 +1085,18 @@ def test_binance_crypto_config_env_only_and_commands_removed():
         assert cfg["usdt_trc20_address"] == "TEnvOnlyAddress123"
         assert cfg["usdt_bep20_address"] == "0xEnvOnlyAddress123"
         assert cfg["ton_wallet_address"] == "UQB5_ENV_ONLY"
+        assert cfg["ton_wallet_memo"] == "12345678"
 
     # ENABLE_CRYPTO_PAY defaults to False when env vars are unset
     clean_env = dict(os.environ)
-    for k in ("ENABLE_CRYPTO_PAY", "BINANCE_API_KEY", "CRYPTO_PAY_TOKEN"):
+    for k in (
+        "ENABLE_CRYPTO_PAY",
+        "BINANCE_API_KEY",
+        "CRYPTO_PAY_TOKEN",
+        "TON_WALLET_ADDRESS",
+        "USDT_TRC20_ADDRESS",
+        "USDT_BEP20_ADDRESS",
+    ):
         clean_env.pop(k, None)
     with patch.dict(os.environ, clean_env, clear=True):
         importlib.reload(config)
@@ -1105,3 +1114,102 @@ def test_binance_crypto_config_env_only_and_commands_removed():
          patch.object(config, "CRYPTO_PAY_TOKEN", ""):
         txt_on = ytbot._format_wallet_balance_text("en", 30000)
         assert "Crypto (" in txt_on
+
+
+def test_ton_address_canonical_hex_and_crypto_emojis():
+    """Verify _ton_account_hex matches user-friendly UQ.../EQ... with raw 0:<hex> and crypto emoji slots exist."""
+    import binance_crypto_verifier as bcv
+    import custom_emojis
+    import database
+
+    raw_hex = "ab" * 32
+    raw_addr = f"0:{raw_hex}"
+    friendly = database.to_user_friendly_address(raw_addr)
+    assert bcv._ton_account_hex(raw_addr) == raw_hex
+    assert bcv._ton_account_hex(friendly) == raw_hex
+
+    for key in (
+        "PAY_BINANCE",
+        "PAY_CRYPTOBOT",
+        "PAY_TRC20_TRON",
+        "PAY_BEP20_BNB",
+        "PAY_TXID_HASH",
+        "PAY_MEMO_TAG",
+    ):
+        assert key in custom_emojis.CUSTOM_EMOJI_REGISTRY
+        assert len(custom_emojis.ce(key)) >= 1
+
+
+@pytest.mark.asyncio
+async def test_cryptobot_custom_amount_invoice_check_and_single_credit():
+    """Verify get_crypto_pay_invoice parses paid invoice and claim_and_credit_crypto_tx credits atomically once."""
+    import os
+    import crypto_pay
+    import database
+
+    fake_resp_payload = {
+        "ok": True,
+        "result": {
+            "items": [
+                {
+                    "invoice_id": 991122,
+                    "status": "paid",
+                    "asset": "USDT",
+                    "amount": "3.5",
+                }
+            ]
+        },
+    }
+
+    class FakeResp:
+        status = 200
+        async def json(self):
+            return fake_resp_payload
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+
+    class FakeSession:
+        def get(self, *args, **kwargs):
+            return FakeResp()
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+
+    with patch.dict(os.environ, {"CRYPTO_PAY_TOKEN": "123:test_cryptobot_token"}), \
+         patch("aiohttp.ClientSession", return_value=FakeSession()):
+        inv = await crypto_pay.get_crypto_pay_invoice("991122")
+        assert inv is not None
+        assert inv["status"] == "paid"
+        assert inv["asset"] == "USDT"
+        assert float(inv["amount"]) == 3.5
+
+    class SuccessOnceCursor:
+        def __init__(self):
+            self._calls = 0
+        def execute(self, sql, params=None):
+            self._calls += 1
+            self._last_sql = sql
+        def fetchone(self):
+            if "INSERT INTO claimed_crypto_txs" in getattr(self, "_last_sql", ""):
+                return {"id": 1}
+            if "INSERT INTO user_balances" in getattr(self, "_last_sql", ""):
+                return {"balance_uzs": 44975}
+            return None
+
+    class SuccessOnceConn:
+        def cursor(self):
+            return SuccessOnceCursor()
+        def rollback(self):
+            pass
+        def commit(self):
+            pass
+        def close(self):
+            pass
+
+    with patch("database.get_db", return_value=SuccessOnceConn()):
+        ok_res = database.claim_and_credit_crypto_tx(6735799833, "cryptobot_991122", "CRYPTOBOT", "USDT", 3.5, 44975)
+        assert ok_res["ok"] is True
+        assert ok_res["new_balance"] == 44975

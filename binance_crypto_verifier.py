@@ -6,6 +6,7 @@ yoki TON orqali to'lov qilib, faqat Tranzaksiya ID (TxID / TxHash / Binance Orde
 raqamini botga tashlaydi. Tizim Binance Read-Only API hamda ochiq blockchain
 explorerlari orqali to'lovni tasdiqlab, UZS balansini bir zumda to'ldiradi.
 """
+import base64
 import hashlib
 import hmac
 import re
@@ -42,6 +43,27 @@ def normalize_tx_id(raw: str) -> str:
         s = s.rstrip("/").split("/")[-1].split("?")[0]
     s = re.sub(r"[^A-Za-z0-9_+=/:-]", "", s)
     return s.strip()
+
+
+def _ton_account_hex(addr: str) -> str:
+    """Raw ('0:<64-hex>') yoki base64url ('UQ...'/'EQ...') TON manzilni 64 belgili hex ID ga normallashtirish."""
+    s = str(addr or "").strip()
+    if not s:
+        return ""
+    if ":" in s:
+        _, _, h = s.partition(":")
+        h = h.strip().lower()
+        if re.fullmatch(r"[0-9a-f]{64}", h):
+            return h
+        return ""
+    try:
+        padded = s.replace("+", "-").replace("/", "_") + "=" * (-len(s) % 4)
+        raw = base64.urlsafe_b64decode(padded)
+        if len(raw) == 36:
+            return raw[2:34].hex().lower()
+    except Exception:
+        pass
+    return ""
 
 
 def _sign_binance(query_params: dict, api_secret: str) -> str:
@@ -211,9 +233,13 @@ async def verify_public_chain_tx(
                         in_msg = d.get("in_msg") or {}
                         dest = (in_msg.get("destination") or {}).get("address") or ""
                         val_nano = int(in_msg.get("value") or 0)
-                        # Check exact account or out_msgs destination match
+                        # Check canonical account hex (handles UQ.../EQ... vs raw 0:<hex>) or substring fallback
                         if d.get("success") and val_nano > 0:
-                            acct_match = ton_wallet.strip().lower() in dest.lower()
+                            cfg_hex = _ton_account_hex(ton_wallet)
+                            dest_hex = _ton_account_hex(dest)
+                            acct_match = bool(cfg_hex and dest_hex and cfg_hex == dest_hex) or (
+                                ton_wallet.strip().lower() in dest.lower()
+                            )
                             if acct_match:
                                 return {
                                     "found": True,

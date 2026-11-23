@@ -2628,7 +2628,7 @@ def load_mega_features(bot: Client):
             elif action == "waiting_crypto_txid":
                 USER_STATES.pop(uid, None)
                 raw_tx = text.strip()
-                wait_msg = await message.reply_text("🔍 <b>Tranzaksiya tekshirilmoqda (Binance / Blockchain)...</b>")
+                wait_msg = await message.reply_text(f"{ce('STATUS_LOADING')} <b>Tranzaksiya tekshirilmoqda (Binance / Blockchain)...</b>")
                 try:
                     from binance_crypto_verifier import verify_crypto_tx_by_id
                     v_res = await verify_crypto_tx_by_id(raw_tx)
@@ -2652,14 +2652,54 @@ def load_mega_features(bot: Client):
                         else:
                             await wait_msg.edit_text(
                                 f"{ce('SUCCESS')} <b>KRIPTO TO'LOV MUVAFFAQIYATLI TASDIQLANDI!</b>\n\n"
-                                f"🌐 <b>Tarmoq:</b> <code>{v_res['network']}</code>\n"
-                                f"🪙 <b>Summa:</b> <code>{v_res['amount_crypto']} {v_res['asset']}</code> (~${v_res['usd_value']})\n"
-                                f"💰 <b>Hisobingizga qo'shildi:</b> <code>+{v_res['amount_uzs']:,} so'm</code>\n"
-                                f"⚖️ <b>Yangi balans:</b> <code>{c_res['new_balance']:,} so'm</code>\n"
-                                f"🧾 <b>TxID:</b> <code>{v_res['tx_id'][:28]}...</code>"
+                                f"{ce('PAY_TON_CRYPTO')} <b>Tarmoq:</b> <code>{v_res['network']}</code>\n"
+                                f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{v_res['amount_crypto']} {v_res['asset']}</code> (~${v_res['usd_value']})\n"
+                                f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{v_res['amount_uzs']:,} so'm</code>\n"
+                                f"{ce('PAY_TON_CRYPTO')} <b>Yangi balans:</b> <code>{c_res['new_balance']:,} so'm</code>\n"
+                                f"{ce('PAY_TXID_HASH')} <b>TxID:</b> <code>{v_res['tx_id'][:28]}...</code>"
                             )
                 except Exception as crypto_err:
                     await wait_msg.edit_text(f"{ce('ERROR')} Tekshirishda xatolik: {str(crypto_err)[:200]}")
+                message.stop_propagation()
+
+            # 16c. @CryptoBot Custom Summada Hisob-faktura yaratish
+            elif action == "waiting_cryptobot_amount":
+                raw_val = text.strip().lower().replace("$", "").replace("usdt", "").replace(",", ".").strip()
+                try:
+                    amt_usd = float(raw_val)
+                except ValueError:
+                    await message.reply_text(f"{ce('ERROR')} Iltimos faqat raqam kiriting (masalan: <code>2.5</code> yoki <code>10</code>).")
+                    message.stop_propagation()
+                    return
+                if amt_usd < 0.5 or amt_usd > 5000:
+                    await message.reply_text(f"{ce('ERROR')} Summa <b>$0.50</b> dan <b>$5000</b> gacha bo'lishi kerak.")
+                    message.stop_propagation()
+                    return
+                USER_STATES.pop(uid, None)
+                from config import USD_TO_UZS_RATE
+                from crypto_pay import create_crypto_pay_invoice
+                amount_uzs = max(500, int(round(amt_usd * USD_TO_UZS_RATE)))
+                tx_rec = db.create_payment_transaction(uid, "cryptopay", round(amt_usd, 2), "USDT", amount_uzs)
+                try:
+                    inv = await create_crypto_pay_invoice(uid, "USDT", round(amt_usd, 2), amount_uzs, tx_rec)
+                    if inv.get("ok"):
+                        inv_id = inv["invoice_id"]
+                        await message.reply_text(
+                            f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot To'lov Cheki Tayyor!</b>\n\n"
+                            f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{amt_usd:g} USDT</code>\n"
+                            f"{ce('BTN_WALLET')} <b>Hisobga tushadi:</b> <code>+{amount_uzs:,} so'm</code>\n"
+                            f"{ce('PAY_TXID_HASH')} <b>Invoice:</b> <code>#{inv_id}</code>\n\n"
+                            "<i>1-tugma orqali to'lang va 2-tugma bilan balansga tushiring:</i>",
+                            reply_markup=InlineKeyboardMarkup([
+                                [InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot orqali to'lash ({amt_usd:g} USDT)", url=inv["pay_url"])],
+                                [InlineKeyboardButton(f"{ce('STATUS_LOADING')} To'lovni tekshirish", callback_data=f"check_cryptobot_inv_{inv_id}")],
+                                [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="pay_crypto_menu")],
+                            ]),
+                        )
+                    else:
+                        await message.reply_text(f"{ce('ERROR')} @CryptoBot chek yaratilmadi: {inv.get('error', 'Xato')}")
+                except Exception as cb_err:
+                    await message.reply_text(f"{ce('ERROR')} @CryptoBot ulanish xatosi: {str(cb_err)[:200]}")
                 message.stop_propagation()
 
             # 17. VenteBot Reseller Aktivatsiya ma'lumotini kutish

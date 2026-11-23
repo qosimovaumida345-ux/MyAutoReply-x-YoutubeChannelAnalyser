@@ -1404,10 +1404,10 @@ def get_config(key):
         conn.close()
 
 def get_ton_wallet() -> str:
-    """Admin yoki tizim TON hamyon manzilini qaytaradi"""
-    val = get_config("ton_wallet_address")
+    """Admin yoki tizim TON hamyon manzilini qaytaradi (.env birinchi o'rinda)"""
+    val = os.getenv("TON_WALLET_ADDRESS", "").strip()
     if not val:
-        val = os.getenv("TON_WALLET_ADDRESS", "")
+        val = get_config("ton_wallet_address")
     return (val or "").strip()
 
 def set_ton_wallet(address: str) -> bool:
@@ -8858,7 +8858,8 @@ def get_binance_crypto_config() -> dict:
         "binance_api_secret": _env_or_cfg("BINANCE_API_SECRET", "BINANCE_API_SECRET"),
         "usdt_trc20_address": _env_or_cfg("USDT_TRC20_ADDRESS", "USDT_TRC20_ADDRESS"),
         "usdt_bep20_address": _env_or_cfg("USDT_BEP20_ADDRESS", "USDT_BEP20_ADDRESS"),
-        "ton_wallet_address": (os.getenv("TON_WALLET_ADDRESS", "") or "").strip(),
+        "ton_wallet_address": _env_or_cfg("TON_WALLET_ADDRESS", "TON_WALLET_ADDRESS"),
+        "ton_wallet_memo": _env_or_cfg("TON_WALLET_MEMO", "TON_WALLET_MEMO"),
     }
 
 

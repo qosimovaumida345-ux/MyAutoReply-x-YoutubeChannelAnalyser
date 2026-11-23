@@ -7214,33 +7214,49 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
     async def cb_pay_crypto_menu(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         from database import get_binance_crypto_config
-        from config import USD_TO_UZS_RATE
+        from config import USD_TO_UZS_RATE, CRYPTO_PAY_TOKEN
+        import os
 
         cfg = get_binance_crypto_config()
+        cryptobot_token = (os.getenv("CRYPTO_PAY_TOKEN", "") or CRYPTO_PAY_TOKEN or "").strip()
         lines = []
         if cfg.get("binance_uid"):
-            lines.append(f"🟡 <b>Binance Pay UID:</b> <code>{cfg['binance_uid']}</code> <i>(0% komissiya)</i>")
+            lines.append(f"{ce('PAY_BINANCE')} <b>Binance Pay UID:</b> <code>{cfg['binance_uid']}</code> <i>(0% komissiya)</i>")
         if cfg.get("usdt_trc20_address"):
-            lines.append(f"🟢 <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
+            lines.append(f"{ce('PAY_TRC20_TRON')} <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
         if cfg.get("usdt_bep20_address"):
-            lines.append(f"🟠 <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
+            lines.append(f"{ce('PAY_BEP20_BNB')} <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
         if cfg.get("ton_wallet_address"):
-            lines.append(f"💎 <b>TON / Walt Network:</b> <code>{cfg['ton_wallet_address']}</code>")
+            lines.append(f"{ce('PAY_TON_CRYPTO')} <b>TON Network:</b> <code>{cfg['ton_wallet_address']}</code>")
+            if cfg.get("ton_wallet_memo"):
+                lines.append(
+                    f"{ce('PAY_MEMO_TAG')} <b>TON Memo / Tag:</b> <code>{cfg['ton_wallet_memo']}</code> "
+                    "<i>(Binance TON depozit uchun izohga yozish shart!)</i>"
+                )
 
-        addr_block = "\n".join(lines) if lines else "⚠️ <i>Kripto depozit manzillari .env orqali hali sozlanmagan.</i>"
+        if lines:
+            addr_block = "\n".join(lines)
+        elif cryptobot_token:
+            addr_block = f"{ce('PAY_CRYPTOBOT')} <i>To'g'ridan-to'g'ri Telegram ichida @CryptoBot orqali istalgan summada to'lov ochishingiz mumkin.</i>"
+        else:
+            addr_block = "⚠️ <i>Kripto depozit manzillari .env orqali hali sozlanmagan.</i>"
+
         text = (
-            f"{e('CRYPTO')} <b>Crypto / Binance Pay — Custom Summa To'lov</b>\n\n"
+            f"{ce('PAY_CRYPTO_USDT')} <b>Crypto / Binance / TON — Custom Summa To'lov</b>\n\n"
             f"💵 <b>Kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
             f"<b>Istalgan summada quyidagi manzillardan biriga o'tkazing:</b>\n"
             f"{addr_block}\n\n"
-            f"🧾 <b>Tasdiqlash (10 soniya):</b>\n"
+            f"{ce('PAY_TXID_HASH')} <b>Tasdiqlash (10 soniya):</b>\n"
             f"To'lovni yuborgach, chekdagi <b>Tranzaksiya ID (TxID / TxHash / Binance Order ID)</b> raqamini "
             f"pastdagi tugmani bosib chatga yuboring — tizim o'zi aniq summani hisoblab balansingizni to'ldiradi!"
         )
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} TxID / Order ID yuborish", callback_data="crypto_enter_txid")],
-            [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_wallet")],
-        ])
+        rows = []
+        if cryptobot_token:
+            rows.append([InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot Avto-To'lov (Custom summa)", callback_data="cryptobot_custom_amount")])
+        if lines:
+            rows.append([InlineKeyboardButton(f"{ce('PAY_TXID_HASH')} TxID / Order ID yuborish", callback_data="crypto_enter_txid")])
+        rows.append([InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_wallet")])
+        kb = InlineKeyboardMarkup(rows)
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
 
@@ -7250,13 +7266,121 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from mega_features import USER_STATES
         USER_STATES[user_id] = {"action": "waiting_crypto_txid"}
         text = (
-            f"{ce('INVOICE')} <b>Tranzaksiya ID (TxID / Binance Order ID) ni yuboring</b>\n\n"
+            f"{ce('PAY_TXID_HASH')} <b>Tranzaksiya ID (TxID / Binance Order ID) ni yuboring</b>\n\n"
             "Binance Pay Order ID yoki blockchain TxHash ni shu yerga matn sifatida tashlang.\n"
             "<i>Tizim to'lov miqdorini jonli kursda hisoblab darhol balansingizga qo'shadi!</i>"
         )
         kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="pay_crypto_menu")]])
         await cb.message.edit_text(text, reply_markup=kb)
         await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^cryptobot_custom_amount$"))
+    async def cb_cryptobot_custom_amount(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from mega_features import USER_STATES
+        from config import USD_TO_UZS_RATE
+        USER_STATES[user_id] = {"action": "waiting_cryptobot_amount"}
+        text = (
+            f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot Orqali Istalgan Summada To'lov</b>\n\n"
+            f"💵 <b>Joriy kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
+            "Hisobingizni necha <b>USDT ($ USD)</b> ga to'ldirmoqchisiz?\n"
+            "Istalgan summani yozib yuboring (masalan: <code>1.5</code>, <code>5</code>, <code>15</code>, <code>50</code>)\n"
+            "<i>Minimal summa: $0.50 USDT</i>"
+        )
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="pay_crypto_menu")]])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^check_cryptobot_inv_(\d+)$"))
+    async def cb_check_cryptobot_inv(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        inv_id = cb.matches[0].group(1)
+        from crypto_pay import get_crypto_pay_invoice
+        from binance_crypto_verifier import get_live_usd_price
+        from database import claim_and_credit_crypto_tx, get_payment_transaction, get_db
+        from config import USD_TO_UZS_RATE
+        import json
+
+        inv = await get_crypto_pay_invoice(inv_id)
+        if not inv:
+            await cb.answer("❌ @CryptoBot dan invoice ma'lumoti olinmadi. Bir ozdan so'ng urining.", show_alert=True)
+            return
+
+        status = str(inv.get("status") or "").lower()
+        if status != "paid":
+            await cb.answer("⏳ To'lov hali yakunlanmagan! @CryptoBot orqali to'lab, qayta bosing.", show_alert=True)
+            return
+
+        raw_payload = inv.get("payload") or "{}"
+        custom_payload = {}
+        if isinstance(raw_payload, str):
+            try:
+                custom_payload = json.loads(raw_payload)
+            except Exception:
+                custom_payload = {}
+        elif isinstance(raw_payload, dict):
+            custom_payload = raw_payload
+
+        tx_rec = custom_payload.get("tx_id")
+        if tx_rec and str(tx_rec).isdigit():
+            tx_row = await asyncio.to_thread(get_payment_transaction, int(tx_rec))
+            if tx_row:
+                if int(tx_row.get("tg_user_id") or 0) != int(user_id):
+                    await cb.answer("❌ Ushbu hisob-faktura boshqa foydalanuvchiga tegishli.", show_alert=True)
+                    return
+                if tx_row.get("status") == "completed":
+                    await cb.answer("✅ Ushbu @CryptoBot to'lovi allaqachon hisobingizga o'tkazilgan!", show_alert=True)
+                    return
+
+        asset = str(inv.get("asset") or "USDT").upper()
+        amt_crypto = float(inv.get("amount") or 0)
+        if amt_crypto <= 0:
+            await cb.answer("❌ Noto'g'ri to'lov summasi.", show_alert=True)
+            return
+
+        usd_price = await get_live_usd_price(asset)
+        amount_uzs = max(500, int(round(amt_crypto * usd_price * USD_TO_UZS_RATE)))
+
+        c_res = await asyncio.to_thread(
+            claim_and_credit_crypto_tx,
+            user_id,
+            f"cryptobot_{inv_id}",
+            "CRYPTOBOT",
+            asset,
+            amt_crypto,
+            amount_uzs,
+        )
+        if not c_res.get("ok"):
+            await cb.answer(f"⚠️ {c_res.get('error', 'Allaqachon tasdiqlangan!')}", show_alert=True)
+            return
+
+        # Mark payment_transactions row completed if present so webhook won't double-credit
+        if tx_rec and str(tx_rec).isdigit():
+            def _mark_pt_done():
+                conn = get_db()
+                if conn:
+                    try:
+                        cur = conn.cursor()
+                        cur.execute(
+                            "UPDATE payment_transactions SET status = 'completed', invoice_id = %s, updated_at = NOW() WHERE id = %s",
+                            (str(inv_id), int(tx_rec)),
+                        )
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
+                    finally:
+                        conn.close()
+            await asyncio.to_thread(_mark_pt_done)
+
+        await cb.message.edit_text(
+            f"{ce('STATUS_SUCCESS')} <b>@CryptoBot TO'LOVI TASDIQLANDI!</b>\n\n"
+            f"{ce('PAY_CRYPTOBOT')} <b>Tizim:</b> @CryptoBot ({asset})\n"
+            f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{amt_crypto} {asset}</code>\n"
+            f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{amount_uzs:,} so'm</code>\n"
+            f"{ce('PAY_TXID_HASH')} <b>Invoice ID:</b> <code>#{inv_id}</code>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BTN_WALLET')} Hamyon", callback_data="menu_wallet")]]),
+        )
+        await cb.answer("✅ To'lov tasdiqlandi!", show_alert=False)
 
     @bot.on_callback_query(filters.regex(r"^crypto_pkg_([0-9d]+)_([A-Z]+)$"))
     async def cb_crypto_pkg(client, cb: CallbackQuery):

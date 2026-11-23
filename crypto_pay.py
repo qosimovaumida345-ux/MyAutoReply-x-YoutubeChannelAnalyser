@@ -1,6 +1,8 @@
+import os
 import json
 import hmac
 import hashlib
+from typing import Optional
 import aiohttp
 import logging
 from config import CRYPTO_PAY_TOKEN
@@ -10,6 +12,14 @@ logger = logging.getLogger(__name__)
 
 # CryptoPay API Base URL
 BASE_URL = "https://pay.crypt.bot/api"
+
+
+def _get_crypto_pay_token() -> str:
+    """Resolve @CryptoBot token dynamically from .env / os.environ or config fallback."""
+    env_tok = os.getenv("CRYPTO_PAY_TOKEN", "").strip()
+    if env_tok:
+        return env_tok
+    return (CRYPTO_PAY_TOKEN or "").strip()
 
 # Faqat TON paketlari (Foydalanuvchi qoidasi: Faqat TON va Stars)
 CRYPTO_PACKAGES = [
@@ -23,9 +33,10 @@ CRYPTO_PACKAGES = [
 
 async def get_exchange_rates() -> list:
     """CryptoPay API dan real vaqtdagi valyuta kurslarini olish"""
-    if not CRYPTO_PAY_TOKEN:
+    token = _get_crypto_pay_token()
+    if not token:
         return []
-    headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
+    headers = {"Crypto-Pay-API-Token": token}
     url = f"{BASE_URL}/getExchangeRates"
     try:
         async with aiohttp.ClientSession() as session:
@@ -40,10 +51,11 @@ async def get_exchange_rates() -> list:
 
 def verify_crypto_pay_signature(raw_body: bytes, signature: str) -> bool:
     """CryptoPay webhook imzosini tekshirish"""
-    if not CRYPTO_PAY_TOKEN or not signature:
+    token = _get_crypto_pay_token()
+    if not token or not signature:
         return False
     try:
-        secret = hashlib.sha256(CRYPTO_PAY_TOKEN.encode()).digest()
+        secret = hashlib.sha256(token.encode()).digest()
         calc_sig = hmac.new(secret, raw_body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(calc_sig, signature)
     except Exception as e:
@@ -53,11 +65,12 @@ def verify_crypto_pay_signature(raw_body: bytes, signature: str) -> bool:
 
 async def create_crypto_pay_invoice(tg_user_id: int, asset: str, amount: float, amount_uzs: int, tx_id: int) -> dict:
     """CryptoPay orqali to'lov fakturasi (invoice) yaratadi"""
-    if not CRYPTO_PAY_TOKEN:
+    token = _get_crypto_pay_token()
+    if not token:
         raise ValueError("CRYPTO_PAY_TOKEN sozlanmagan! .env faylni tekshiring.")
 
     headers = {
-        "Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN
+        "Crypto-Pay-API-Token": token
     }
     
     payload_data = json.dumps({
@@ -94,13 +107,38 @@ async def create_crypto_pay_invoice(tg_user_id: int, asset: str, amount: float, 
                 return {"ok": False, "error": res.get("error", "Noma'lum xatolik")}
 
 
+async def get_crypto_pay_invoice(invoice_id: str) -> Optional[dict]:
+    """CryptoPay (@CryptoBot) API orqali aniq invoice holatini (status/asset/amount) tekshirish."""
+    token = _get_crypto_pay_token()
+    clean_id = str(invoice_id or "").strip()
+    if not token or not clean_id:
+        return None
+    headers = {"Crypto-Pay-API-Token": token}
+    url = f"{BASE_URL}/getInvoices?invoice_ids={clean_id}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                res = await resp.json()
+                if resp.status == 200 and res.get("ok"):
+                    result = res.get("result")
+                    items = result.get("items", []) if isinstance(result, dict) else (result if isinstance(result, list) else [])
+                    for item in items:
+                        if str(item.get("invoice_id") or "") == clean_id:
+                            return item
+                    return items[0] if items else None
+    except Exception as e:
+        logger.warning(f"get_crypto_pay_invoice error: {e}")
+    return None
+
+
 async def transfer_crypto_pay(user_id: int, asset: str, amount: float, spend_id: str, comment: str = "") -> dict:
     """CryptoPay orqali bot hisobidan Telegram foydalanuvchiga (masalan bot egasiga) to'g'ridan-to'g'ri o'tkazish"""
-    if not CRYPTO_PAY_TOKEN:
+    token = _get_crypto_pay_token()
+    if not token:
         return {"ok": False, "error": "CRYPTO_PAY_TOKEN sozlanmagan"}
         
     headers = {
-        "Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN
+        "Crypto-Pay-API-Token": token
     }
     
     data = {
@@ -129,9 +167,10 @@ async def transfer_crypto_pay(user_id: int, asset: str, amount: float, spend_id:
 
 async def get_crypto_pay_balance() -> dict:
     """CryptoPay bot hisobidagi qoldiqlarni olish"""
-    if not CRYPTO_PAY_TOKEN:
+    token = _get_crypto_pay_token()
+    if not token:
         return {"ok": False, "error": "CRYPTO_PAY_TOKEN sozlanmagan"}
-    headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
+    headers = {"Crypto-Pay-API-Token": token}
     url = f"{BASE_URL}/getBalance"
     try:
         async with aiohttp.ClientSession() as session:
@@ -146,9 +185,10 @@ async def get_crypto_pay_balance() -> dict:
 
 async def get_crypto_pay_me() -> dict:
     """CryptoPay ilova ma'lumotlarini tekshirish"""
-    if not CRYPTO_PAY_TOKEN:
+    token = _get_crypto_pay_token()
+    if not token:
         return {"ok": False, "error": "CRYPTO_PAY_TOKEN sozlanmagan"}
-    headers = {"Crypto-Pay-API-Token": CRYPTO_PAY_TOKEN}
+    headers = {"Crypto-Pay-API-Token": token}
     url = f"{BASE_URL}/getMe"
     try:
         async with aiohttp.ClientSession() as session:

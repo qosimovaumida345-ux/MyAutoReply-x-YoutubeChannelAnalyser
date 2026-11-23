@@ -221,12 +221,14 @@ SUPPORT_USERNAME = os.getenv("SUPPORT_USERNAME", "monodeck_support").strip().lst
 ADSENSE_CLIENT_ID = os.getenv("ADSENSE_CLIENT_ID", "ca-pub-4094396006908725").strip() or "ca-pub-4094396006908725"
 
 # ==================== CRYPTOPAY, BINANCE & WEBAPP ====================
-CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN", "")
+CRYPTO_PAY_TOKEN = os.getenv("CRYPTO_PAY_TOKEN", "").strip()
 BINANCE_UID = os.getenv("BINANCE_UID", "").strip()
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "").strip()
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "").strip()
 USDT_TRC20_ADDRESS = os.getenv("USDT_TRC20_ADDRESS", "").strip()
 USDT_BEP20_ADDRESS = os.getenv("USDT_BEP20_ADDRESS", "").strip()
+TON_WALLET_ADDRESS = os.getenv("TON_WALLET_ADDRESS", "").strip()
+TON_WALLET_MEMO = os.getenv("TON_WALLET_MEMO", "").strip()
 
 # ==================== VENTEBOT RESELLER API ====================
 VENTEBOT_API_KEY = os.getenv("VENTEBOT_API_KEY", "").strip()
@@ -247,4 +249,10 @@ if _raw_crypto_enable in ("false", "0", "no"):
 elif _raw_crypto_enable in ("true", "1", "yes"):
     ENABLE_CRYPTO_PAY = True
 else:
-    ENABLE_CRYPTO_PAY = bool(BINANCE_API_KEY or CRYPTO_PAY_TOKEN)
+    ENABLE_CRYPTO_PAY = bool(
+        BINANCE_API_KEY
+        or CRYPTO_PAY_TOKEN
+        or TON_WALLET_ADDRESS
+        or USDT_TRC20_ADDRESS
+        or USDT_BEP20_ADDRESS
+    )
