@@ -7234,21 +7234,38 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                     "<i>(Binance TON depozit uchun izohga yozish shart!)</i>"
                 )
 
+        addr_section = ""
         if lines:
             addr_block = "\n".join(lines)
-        elif cryptobot_token:
-            addr_block = f"{ce('PAY_CRYPTOBOT')} <i>To'g'ridan-to'g'ri Telegram ichida @CryptoBot orqali istalgan summada to'lov ochishingiz mumkin.</i>"
+            addr_section = (
+                f"<b>2-usul — Binance / On-Chain (Istalgan summa + TxID):</b>\n"
+                f"{addr_block}\n\n"
+                f"{ce('DEV_API_DOCS')} <b>TxID Tasdiqlash (10 soniya):</b> "
+                f"To'lovni yuborgach, chekdagi <b>Tranzaksiya ID (TxID / TxHash / Binance Order ID)</b> ni "
+                f"pastdagi tugma orqali yuboring — tizim o'zi aniq summani hisoblab balansingizga qo'shadi!"
+            )
+
+        cb_section = ""
+        if cryptobot_token:
+            cb_section = (
+                f"{ce('PAY_CRYPTOBOT')} <b>1-usul — @CryptoBot (Avto-to'lov, ko'p koinli):</b>\n"
+                f"Telegram ichida 1 bosishda <code>USDT, TON, BTC, ETH, TRX, BNB</code> orqali "
+                f"istalgan summada to'lang (TxID nusxalash shart emas)."
+            )
+
+        if cb_section and addr_section:
+            body_parts = f"{cb_section}\n\n{addr_section}"
+        elif cb_section:
+            body_parts = cb_section
+        elif addr_section:
+            body_parts = addr_section
         else:
-            addr_block = "⚠️ <i>Kripto depozit manzillari .env orqali hali sozlanmagan.</i>"
+            body_parts = "⚠️ <i>Kripto depozit manzillari .env orqali hali sozlanmagan.</i>"
 
         text = (
-            f"{ce('PAY_CRYPTO_USDT')} <b>Crypto / Binance / TON — Custom Summa To'lov</b>\n\n"
+            f"{ce('PAY_CRYPTO_USDT')} <b>Multi-Crypto — Custom Summa To'lov</b>\n\n"
             f"💵 <b>Kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
-            f"<b>Istalgan summada quyidagi manzillardan biriga o'tkazing:</b>\n"
-            f"{addr_block}\n\n"
-            f"{ce('DEV_API_DOCS')} <b>Tasdiqlash (10 soniya):</b>\n"
-            f"To'lovni yuborgach, chekdagi <b>Tranzaksiya ID (TxID / TxHash / Binance Order ID)</b> raqamini "
-            f"pastdagi tugmani bosib chatga yuboring — tizim o'zi aniq summani hisoblab balansingizni to'ldiradi!"
+            f"{body_parts}"
         )
         rows = []
         if cryptobot_token:
@@ -7281,11 +7298,11 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from config import USD_TO_UZS_RATE
         USER_STATES[user_id] = {"action": "waiting_cryptobot_amount"}
         text = (
-            f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot Orqali Istalgan Summada To'lov</b>\n\n"
-            f"💵 <b>Joriy kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
-            "Hisobingizni necha <b>USDT ($ USD)</b> ga to'ldirmoqchisiz?\n"
-            "Istalgan summani yozib yuboring (masalan: <code>1.5</code>, <code>5</code>, <code>15</code>, <code>50</code>)\n"
-            "<i>Minimal summa: $0.50 USDT</i>"
+            f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot Multi-Coin Avto-To'lov</b>\n\n"
+            f"💵 <b>Joriy kurs:</b> <code>1 USD ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
+            "Hisobingizni necha <b>$ USD</b> ekvivalentida to'ldirmoqchisiz?\n"
+            "Istalgan summani yozib yuboring (masalan: <code>1.5</code>, <code>5</code>, <code>15</code>, <code>50</code>).\n\n"
+            "<i>Keyingi oynada @CryptoBot ichida USDT, TON, BTC, ETH, TRX, BNB, LTC yoki USDC bilan to'lay olasiz (min: $0.50).</i>"
         )
         kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="pay_crypto_menu")]])
         await cb.message.edit_text(text, reply_markup=kb)
@@ -7332,14 +7349,22 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                     await cb.answer("✅ Ushbu @CryptoBot to'lovi allaqachon hisobingizga o'tkazilgan!", show_alert=True)
                     return
 
-        asset = str(inv.get("asset") or "USDT").upper()
-        amt_crypto = float(inv.get("amount") or 0)
-        if amt_crypto <= 0:
-            await cb.answer("❌ Noto'g'ri to'lov summasi.", show_alert=True)
-            return
-
-        usd_price = await get_live_usd_price(asset)
-        amount_uzs = max(500, int(round(amt_crypto * usd_price * USD_TO_UZS_RATE)))
+        if str(inv.get("currency_type") or "").lower() == "fiat" and str(inv.get("fiat") or "").upper() == "USD":
+            asset = str(inv.get("paid_asset") or "USDT").upper()
+            amt_crypto = float(inv.get("paid_amount") or inv.get("amount") or 0)
+            usd_val = float(inv.get("amount") or 0)
+            if usd_val <= 0:
+                await cb.answer("❌ Noto'g'ri to'lov summasi.", show_alert=True)
+                return
+            amount_uzs = max(500, int(round(usd_val * USD_TO_UZS_RATE)))
+        else:
+            asset = str(inv.get("asset") or "USDT").upper()
+            amt_crypto = float(inv.get("amount") or 0)
+            if amt_crypto <= 0:
+                await cb.answer("❌ Noto'g'ri to'lov summasi.", show_alert=True)
+                return
+            usd_price = await get_live_usd_price(asset)
+            amount_uzs = max(500, int(round(amt_crypto * usd_price * USD_TO_UZS_RATE)))
 
         c_res = await asyncio.to_thread(
             claim_and_credit_crypto_tx,

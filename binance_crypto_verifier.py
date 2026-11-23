@@ -190,6 +190,7 @@ async def verify_public_chain_tx(
     ton_wallet: str = "",
     trc20_addr: str = "",
     bep20_addr: str = "",
+    ton_memo: str = "",
 ) -> Optional[dict]:
     """Ochiq blockchain explorerlari (TonAPI / Tronscan) orqali to'lovni zaxira tekshirish."""
     clean_hex = tx_id.lower().removeprefix("0x")
@@ -241,6 +242,21 @@ async def verify_public_chain_tx(
                                 ton_wallet.strip().lower() in dest.lower()
                             )
                             if acct_match:
+                                expected_memo = str(ton_memo or "").strip()
+                                if expected_memo:
+                                    dec_body = in_msg.get("decoded_body")
+                                    if not isinstance(dec_body, dict):
+                                        dec_body = {}
+                                    tx_comment = str(
+                                        dec_body.get("text")
+                                        or dec_body.get("comment")
+                                        or ""
+                                    ).strip()
+                                    if not tx_comment and str(in_msg.get("decoded_op_name") or "").strip().lower() == "text_comment":
+                                        raw_msg_txt = dec_body.get("value") or in_msg.get("message") or ""
+                                        tx_comment = str(raw_msg_txt).strip()
+                                    if tx_comment != expected_memo:
+                                        return None
                                 return {
                                     "found": True,
                                     "source": "tonapi",
@@ -287,6 +303,7 @@ async def verify_crypto_tx_by_id(raw_tx_id: str) -> dict:
             ton_wallet=cfg.get("ton_wallet_address", ""),
             trc20_addr=cfg.get("usdt_trc20_address", ""),
             bep20_addr=cfg.get("usdt_bep20_address", ""),
+            ton_memo=cfg.get("ton_wallet_memo", ""),
         )
 
     if not found:

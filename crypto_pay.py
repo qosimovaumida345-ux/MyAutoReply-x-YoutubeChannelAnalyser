@@ -63,8 +63,16 @@ def verify_crypto_pay_signature(raw_body: bytes, signature: str) -> bool:
         return False
 
 
-async def create_crypto_pay_invoice(tg_user_id: int, asset: str, amount: float, amount_uzs: int, tx_id: int) -> dict:
-    """CryptoPay orqali to'lov fakturasi (invoice) yaratadi"""
+async def create_crypto_pay_invoice(
+    tg_user_id: int,
+    asset: str,
+    amount: float,
+    amount_uzs: int,
+    tx_id: int,
+    currency_type: str = "crypto",
+    accepted_assets: str = "USDT,TON,BTC,ETH,LTC,BNB,TRX,USDC",
+) -> dict:
+    """CryptoPay (@CryptoBot) orqali crypto yoki ko'p koinli fiat-USD to'lov fakturasini yaratadi"""
     token = _get_crypto_pay_token()
     if not token:
         raise ValueError("CRYPTO_PAY_TOKEN sozlanmagan! .env faylni tekshiring.")
@@ -72,22 +80,37 @@ async def create_crypto_pay_invoice(tg_user_id: int, asset: str, amount: float, 
     headers = {
         "Crypto-Pay-API-Token": token
     }
-    
+
     payload_data = json.dumps({
         "tg_user_id": tg_user_id,
         "amount_uzs": amount_uzs,
         "tx_id": tx_id,
-        "asset": asset
+        "asset": asset,
+        "currency_type": currency_type,
     })
 
-    data = {
-        "asset": asset,
-        "amount": str(amount),
-        "description": f"YouTube Bot hisobini to'ldirish ({amount_uzs:,} so'm)",
-        "hidden_message": "To'lovingiz qabul qilindi! Balansingiz muvaffaqiyatli to'ldirildi.",
-        "payload": payload_data,
-        "expires_in": 3600 # 1 soat
-    }
+    ctype = str(currency_type or "crypto").strip().lower()
+    if ctype == "fiat":
+        data = {
+            "currency_type": "fiat",
+            "fiat": (asset or "USD").upper(),
+            "accepted_assets": accepted_assets,
+            "amount": str(amount),
+            "description": f"Mono Deck Studio hisobini to'ldirish ({amount_uzs:,} so'm)",
+            "hidden_message": "To'lovingiz qabul qilindi! Balansingiz muvaffaqiyatli to'ldirildi.",
+            "payload": payload_data,
+            "expires_in": 3600,
+        }
+    else:
+        data = {
+            "currency_type": "crypto",
+            "asset": asset,
+            "amount": str(amount),
+            "description": f"Mono Deck Studio hisobini to'ldirish ({amount_uzs:,} so'm)",
+            "hidden_message": "To'lovingiz qabul qilindi! Balansingiz muvaffaqiyatli to'ldirildi.",
+            "payload": payload_data,
+            "expires_in": 3600,
+        }
 
     url = f"{BASE_URL}/createInvoice"
     async with aiohttp.ClientSession() as session:
@@ -100,7 +123,8 @@ async def create_crypto_pay_invoice(tg_user_id: int, asset: str, amount: float, 
                     "invoice_id": str(result["invoice_id"]),
                     "pay_url": result.get("bot_invoice_url") or result.get("pay_url") or result.get("mini_app_invoice_url"),
                     "amount": result.get("amount"),
-                    "asset": result.get("asset"),
+                    "asset": result.get("asset") or result.get("fiat") or asset,
+                    "currency_type": result.get("currency_type") or ctype,
                 }
             else:
                 logger.error(f"CryptoPay error {resp.status}: {res}")

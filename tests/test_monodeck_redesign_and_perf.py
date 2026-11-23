@@ -1134,6 +1134,8 @@ def test_ton_address_canonical_hex_and_crypto_emojis():
     ):
         assert key in custom_emojis.CUSTOM_EMOJI_REGISTRY
         assert len(custom_emojis.ce(key)) >= 1
+    assert custom_emojis.CUSTOM_EMOJI_REGISTRY["PAY_BINANCE"]["id"] == "5454205576512818013"
+    assert custom_emojis.CUSTOM_EMOJI_REGISTRY["PAY_CRYPTOBOT"]["id"] == "5217705010539812022"
 
 
 @pytest.mark.asyncio
@@ -1209,3 +1211,111 @@ async def test_cryptobot_custom_amount_invoice_check_and_single_credit():
         ok_res = database.claim_and_credit_crypto_tx(6735799833, "cryptobot_991122", "CRYPTOBOT", "USDT", 3.5, 44975)
         assert ok_res["ok"] is True
         assert ok_res["new_balance"] == 44975
+
+
+@pytest.mark.asyncio
+async def test_tonapi_rejects_mismatched_memo_on_shared_binance_wallet():
+    """Verify TonAPI public verification rejects wrong/missing Memo on shared Binance TON wallet."""
+    import binance_crypto_verifier as bcv
+
+    shared_wallet = "EQD5mxRgCuRNLxKxeOjG6r141SroLF5FtomPnet-sgP5xNJb"
+    raw_dest = f"0:{bcv._ton_account_hex(shared_wallet)}"
+
+    def _make_session(comment_val):
+        payload = {
+            "success": True,
+            "hash": "ton_tx_hash_abc123",
+            "in_msg": {
+                "destination": {"address": raw_dest},
+                "value": 5_000_000_000,
+                "decoded_body": {"text": comment_val} if comment_val is not None else {},
+            },
+        }
+
+        class FakeResp:
+            status = 200
+            async def json(self):
+                return payload
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *args):
+                pass
+
+        class FakeSession:
+            def get(self, *args, **kwargs):
+                return FakeResp()
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *args):
+                pass
+
+        return FakeSession()
+
+    with patch("aiohttp.ClientSession", return_value=_make_session("999999999")):
+        bad_res = await bcv.verify_public_chain_tx("ton_tx_hash_abc123", ton_wallet=shared_wallet, ton_memo="174725708")
+        assert bad_res is None
+
+    with patch("aiohttp.ClientSession", return_value=_make_session(None)):
+        empty_res = await bcv.verify_public_chain_tx("ton_tx_hash_abc123", ton_wallet=shared_wallet, ton_memo="174725708")
+        assert empty_res is None
+
+    with patch("aiohttp.ClientSession", return_value=_make_session("174725708")):
+        ok_res = await bcv.verify_public_chain_tx("ton_tx_hash_abc123", ton_wallet=shared_wallet, ton_memo="174725708")
+        assert ok_res is not None
+        assert ok_res["found"] is True
+        assert ok_res["asset"] == "TON"
+        assert ok_res["amount_crypto"] == 5.0
+
+
+@pytest.mark.asyncio
+async def test_cryptobot_fiat_usd_multi_coin_invoice_and_webhook_routes():
+    """Verify fiat-USD multi-coin invoice payload, branding, and dual webhook routes in main.py."""
+    import os
+    import crypto_pay
+
+    captured = {}
+
+    class FakeResp:
+        status = 200
+        async def json(self):
+            return {
+                "ok": True,
+                "result": {
+                    "invoice_id": 778899,
+                    "bot_invoice_url": "https://t.me/CryptoBot?start=IV778899",
+                    "amount": "5.0",
+                    "fiat": "USD",
+                    "currency_type": "fiat",
+                },
+            }
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+
+    class FakeSession:
+        def post(self, url, json=None, headers=None, timeout=None):
+            captured["url"] = url
+            captured["json"] = json
+            return FakeResp()
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *args):
+            pass
+
+    with patch.dict(os.environ, {"CRYPTO_PAY_TOKEN": "123:test_cryptobot_token"}), \
+         patch("aiohttp.ClientSession", return_value=FakeSession()):
+        res = await crypto_pay.create_crypto_pay_invoice(
+            6735799833, "USD", 5.0, 64250, 42, currency_type="fiat"
+        )
+        assert res["ok"] is True
+        assert res["currency_type"] == "fiat"
+        assert captured["json"]["currency_type"] == "fiat"
+        assert captured["json"]["fiat"] == "USD"
+        assert "USDT" in captured["json"]["accepted_assets"]
+        assert "TON" in captured["json"]["accepted_assets"]
+        assert "Mono Deck Studio" in captured["json"]["description"]
+
+    main_src = (ROOT_DIR / "main.py").read_text(encoding="utf-8")
+    assert '"/webhook/cryptopay"' in main_src
+    assert '"/api/cryptopay/webhook"' in main_src

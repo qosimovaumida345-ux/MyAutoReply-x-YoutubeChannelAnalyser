@@ -2679,19 +2679,26 @@ def load_mega_features(bot: Client):
                 from config import USD_TO_UZS_RATE
                 from crypto_pay import create_crypto_pay_invoice
                 amount_uzs = max(500, int(round(amt_usd * USD_TO_UZS_RATE)))
-                tx_rec = db.create_payment_transaction(uid, "cryptopay", round(amt_usd, 2), "USDT", amount_uzs)
+                tx_rec = db.create_payment_transaction(uid, "cryptopay", round(amt_usd, 2), "USD", amount_uzs)
                 try:
-                    inv = await create_crypto_pay_invoice(uid, "USDT", round(amt_usd, 2), amount_uzs, tx_rec)
+                    inv = await create_crypto_pay_invoice(
+                        uid,
+                        "USD",
+                        round(amt_usd, 2),
+                        amount_uzs,
+                        tx_rec,
+                        currency_type="fiat",
+                    )
                     if inv.get("ok"):
                         inv_id = inv["invoice_id"]
                         await message.reply_text(
                             f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot To'lov Cheki Tayyor!</b>\n\n"
-                            f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{amt_usd:g} USDT</code>\n"
+                            f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>${amt_usd:g} USD</code> <i>(USDT / TON / BTC / ETH / TRX / BNB)</i>\n"
                             f"{ce('BTN_WALLET')} <b>Hisobga tushadi:</b> <code>+{amount_uzs:,} so'm</code>\n"
                             f"{ce('DEV_API_DOCS')} <b>Invoice:</b> <code>#{inv_id}</code>\n\n"
-                            "<i>1-tugma orqali to'lang va 2-tugma bilan balansga tushiring:</i>",
+                            "<i>1-tugma orqali istalgan koiningizda to'lang va 2-tugma bilan balansga tushiring:</i>",
                             reply_markup=InlineKeyboardMarkup([
-                                [InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot orqali to'lash ({amt_usd:g} USDT)", url=inv["pay_url"])],
+                                [InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot orqali to'lash (${amt_usd:g})", url=inv["pay_url"])],
                                 [InlineKeyboardButton(f"{ce('STATUS_LOADING')} To'lovni tekshirish", callback_data=f"check_cryptobot_inv_{inv_id}")],
                                 [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="pay_crypto_menu")],
                             ]),

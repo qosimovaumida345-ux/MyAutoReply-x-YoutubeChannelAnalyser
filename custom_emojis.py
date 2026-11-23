@@ -570,7 +570,7 @@ CUSTOM_EMOJI_REGISTRY = MasterRegistryDict({
         "name": "Binance / Binance Pay",
         "location": "Binance Pay UID va Binance birjasi orqali to'lov",
         "purpose": "Binance Pay va Read-Only depozitlar nishoni",
-        "id": "",
+        "id": "5454205576512818013",
         "fallback_name": "[Binance]",
         "fallback_icon": "🟡"
     },
@@ -579,7 +579,7 @@ CUSTOM_EMOJI_REGISTRY = MasterRegistryDict({
         "name": "@CryptoBot Avto-To'lov",
         "location": "Telegram @CryptoBot (Crypto Pay) tezkor hisob-fakturasi",
         "purpose": "CryptoBot mini-ilova to'lov tugmasi",
-        "id": "",
+        "id": "5217705010539812022",
         "fallback_name": "[CryptoBot]",
         "fallback_icon": "🤖"
     },

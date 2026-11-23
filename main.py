@@ -2420,31 +2420,38 @@ async def handle_api_reset_db(request):
 
 async def handle_cryptopay_webhook(request):
     """CryptoPay (@CryptoBot) to'lov webhook qabul qiluvchi"""
-    from crypto_pay import verify_crypto_pay_signature
-    from database import complete_payment_transaction, get_user_balance
-    from config import CRYPTO_PAY_TOKEN
+    from crypto_pay import verify_crypto_pay_signature, _get_crypto_pay_token
+    from database import (
+        complete_payment_transaction,
+        get_user_balance,
+        get_payment_transaction,
+        is_crypto_tx_claimed,
+    )
     import json
-    
+
     try:
         raw_body = await request.read()
         sig = request.headers.get("crypto-pay-api-signature", "")
-        
-        if not CRYPTO_PAY_TOKEN:
+
+        if not _get_crypto_pay_token():
             print("⚠️ CryptoPay webhook rad etildi: CRYPTO_PAY_TOKEN sozlanmagan!")
             return web.json_response({"ok": False, "error": "CryptoPay not configured"}, status=500)
 
         if not sig or not verify_crypto_pay_signature(raw_body, sig):
             print("⚠️ CryptoPay webhook noto'g'ri yoki yetishmayotgan imzo!")
             return web.json_response({"ok": False, "error": "Invalid or missing signature"}, status=403)
-                
+
         data = json.loads(raw_body.decode("utf-8"))
         print(f"📥 CryptoPay webhook keldi: {data.get('update_type')}")
-        
+
         if data.get("update_type") == "invoice_paid":
             payload_info = data.get("payload", {})
             invoice_id = str(payload_info.get("invoice_id", ""))
-            asset = payload_info.get("asset", "USDT")
-            
+            asset = payload_info.get("paid_asset") or payload_info.get("asset") or payload_info.get("fiat") or "USDT"
+
+            if invoice_id and is_crypto_tx_claimed(f"cryptobot_{invoice_id}"):
+                return web.json_response({"ok": True, "already_processed": True})
+
             raw_custom = payload_info.get("payload", "{}")
             if isinstance(raw_custom, str):
                 try:
@@ -2453,27 +2460,31 @@ async def handle_cryptopay_webhook(request):
                     custom_data = {}
             else:
                 custom_data = raw_custom or {}
-                
+
             tx_id = custom_data.get("tx_id")
             tg_user_id = custom_data.get("tg_user_id")
             amount_uzs = custom_data.get("amount_uzs", 0)
-            
+
             if tx_id:
+                existing_pt = get_payment_transaction(int(tx_id))
+                if existing_pt and existing_pt.get("status") == "completed":
+                    return web.json_response({"ok": True, "already_processed": True})
+
                 complete_payment_transaction(int(tx_id), invoice_id=invoice_id)
                 new_bal = get_user_balance(tg_user_id) if tg_user_id else 0
-                
+
                 if ytbot_instance and tg_user_id:
                     notify_text = (
                         f"✅ <b>To'lov muvaffaqiyatli qabul qilindi!</b>\n\n"
-                        f"🪙 <b>Usul:</b> CryptoPay ({asset})\n"
+                        f"🪙 <b>Usul:</b> @CryptoBot ({asset})\n"
                         f"💰 <b>Qo'shilgan summa:</b> +{amount_uzs:,} so'm\n"
                         f"⚖️ <b>Joriy balansingiz:</b> {new_bal:,} so'm\n\n"
-                        f"🚀 Endi layk, obuna yoki izoh xizmatlaridan foydalanishingiz mumkin!"
+                        f"🚀 Endi Mono Deck Studio xizmatlaridan foydalanishingiz mumkin!"
                     )
                     asyncio.create_task(ytbot_instance.send_message(tg_user_id, notify_text))
-                    
-                # Bot egasiga (@CryptoBot dagi shaxsiy hisobiga) avtomatik o'tkazish
-                paid_amount = payload_info.get("amount") or custom_data.get("amount")
+
+                # Bot egasiga (@CryptoBot dagi shaxsiy hisobiga) avtomatik o'tkazish (sukut bo'yicha o'chiq)
+                paid_amount = payload_info.get("paid_amount") or payload_info.get("amount") or custom_data.get("amount")
                 owner_id = int(os.getenv("OWNER_ID", "0"))
                 auto_transfer = os.getenv("AUTO_TRANSFER_CRYPTO_TO_OWNER", "false").lower() in ("true", "1", "yes")
                 if owner_id and auto_transfer and paid_amount:
@@ -5949,6 +5960,7 @@ async def start_web_server(port):
 
     # Yangi: CryptoPay Webhook va KYC WebApp
     app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)
+    app.router.add_post("/api/cryptopay/webhook", handle_cryptopay_webhook)
     app.router.add_get("/kyc/verify", handle_kyc_page)
     app.router.add_get("/kyc", handle_kyc_page)
     app.router.add_get("/kyc/face-scan", handle_kyc_page)
