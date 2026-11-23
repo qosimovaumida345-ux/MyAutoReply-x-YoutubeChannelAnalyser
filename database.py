@@ -859,22 +859,54 @@ def init_db():
             is_active BOOLEAN DEFAULT TRUE,
             check_interval_mins INT DEFAULT 60,
             last_checked_at TIMESTAMP,
+            daily_limit_hit_date DATE,
+            total_synced_count INT DEFAULT 0,
+            yt_channel_id TEXT,
+            last_error TEXT,
             created_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(tg_user_id, ig_username)
         )
     """)
+    for _col_def in (
+        "daily_limit_hit_date DATE",
+        "total_synced_count INT DEFAULT 0",
+        "yt_channel_id TEXT",
+        "last_error TEXT",
+    ):
+        cur.execute(f"ALTER TABLE ig_sync_channels ADD COLUMN IF NOT EXISTS {_col_def}")
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS ig_synced_posts (
             id SERIAL PRIMARY KEY,
             sync_channel_id INT REFERENCES ig_sync_channels(id) ON DELETE CASCADE,
+            tg_user_id BIGINT,
+            yt_channel_id TEXT,
+            ig_username TEXT,
             ig_post_id TEXT NOT NULL,
+            media_pk TEXT,
             media_url TEXT,
             yt_video_id TEXT,
+            file_sha256 TEXT,
+            title_fingerprint TEXT,
+            retry_count INT DEFAULT 0,
+            error_msg TEXT,
             status TEXT DEFAULT 'synced',
             synced_at TIMESTAMP DEFAULT NOW(),
             UNIQUE(sync_channel_id, ig_post_id)
         )
     """)
+    for _col_def in (
+        "tg_user_id BIGINT",
+        "yt_channel_id TEXT",
+        "ig_username TEXT",
+        "media_pk TEXT",
+        "file_sha256 TEXT",
+        "title_fingerprint TEXT",
+        "retry_count INT DEFAULT 0",
+        "error_msg TEXT",
+    ):
+        cur.execute(f"ALTER TABLE ig_synced_posts ADD COLUMN IF NOT EXISTS {_col_def}")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_ig_synced_posts_user_status ON ig_synced_posts (tg_user_id, status, ig_post_id)")
 
     # 10. CapCut Desktop & Pro Tools Referral Pool
     cur.execute("""
@@ -1703,7 +1735,7 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_u
                     yt_channel_title    = %s,
                     yt_channel_username = %s,
                     access_token        = %s,
-                    refresh_token       = %s,
+                    refresh_token       = COALESCE(%s, refresh_token),
                     token_expiry        = %s,
                     channel_thumbnail_url = COALESCE(%s, channel_thumbnail_url),
                     subscriber_count    = COALESCE(%s, subscriber_count),
@@ -1721,7 +1753,7 @@ def save_yt_connection(tg_user_id, yt_channel_id, yt_channel_title, yt_channel_u
                     yt_channel_title    = EXCLUDED.yt_channel_title,
                     yt_channel_username = EXCLUDED.yt_channel_username,
                     access_token        = EXCLUDED.access_token,
-                    refresh_token       = EXCLUDED.refresh_token,
+                    refresh_token       = COALESCE(EXCLUDED.refresh_token, yt_connections.refresh_token),
                     token_expiry        = EXCLUDED.token_expiry,
                     channel_thumbnail_url = COALESCE(EXCLUDED.channel_thumbnail_url, yt_connections.channel_thumbnail_url),
                     subscriber_count    = COALESCE(EXCLUDED.subscriber_count, yt_connections.subscriber_count),
@@ -4642,13 +4674,43 @@ def add_ig_sync_channel(tg_user_id: int, ig_username: str, check_interval_mins: 
     finally:
         conn.close()
 
+def _preserve_ig_synced_history(cur, tg_user_id: int, sync_channel_ids: list) -> None:
+    """Copy synced IG post IDs into autopost_history before channel deletion so ON DELETE CASCADE never loses dedup."""
+    if not sync_channel_ids:
+        return
+    cur.execute("""
+        SELECT ig_post_id, media_url, yt_video_id, title_fingerprint
+        FROM ig_synced_posts
+        WHERE sync_channel_id = ANY(%s) AND status = 'synced'
+    """, (sync_channel_ids,))
+    rows = cur.fetchall() or []
+    for r in rows:
+        pid = r["ig_post_id"] if isinstance(r, dict) else r[0]
+        m_url = r["media_url"] if isinstance(r, dict) else r[1]
+        yt_vid = r["yt_video_id"] if isinstance(r, dict) else r[2]
+        tfp = r["title_fingerprint"] if isinstance(r, dict) else r[3]
+        src_id = f"ig_{pid}"
+        cur.execute(
+            "SELECT id FROM autopost_history WHERE tg_user_id = %s AND source_video_id = %s AND status = 'uploaded' LIMIT 1",
+            (tg_user_id, src_id),
+        )
+        if not cur.fetchone():
+            cur.execute("""
+                INSERT INTO autopost_history (task_id, tg_user_id, source_video_id, source_title, status, uploaded_video_id)
+                VALUES (NULL, %s, %s, %s, 'uploaded', %s)
+            """, (tg_user_id, src_id, (tfp or m_url or pid or "")[:200], yt_vid or ""))
+
+
 def remove_ig_sync_channel(tg_user_id: int, ig_username: str) -> bool:
-    """Instagram profilni username bo'yicha kuzatuvdan o'chirish"""
+    """Instagram profilni username bo'yicha kuzatuvdan o'chirish (yuklangan tarixni saqlab qolgan holda)"""
     conn = get_db()
     if not conn: return False
     clean_username = ig_username.strip().lstrip("@").lower()
     try:
         cur = conn.cursor()
+        cur.execute("SELECT id FROM ig_sync_channels WHERE tg_user_id = %s AND ig_username = %s", (tg_user_id, clean_username))
+        cids = [(r["id"] if isinstance(r, dict) else r[0]) for r in (cur.fetchall() or [])]
+        _preserve_ig_synced_history(cur, tg_user_id, cids)
         cur.execute("DELETE FROM ig_sync_channels WHERE tg_user_id = %s AND ig_username = %s", (tg_user_id, clean_username))
         conn.commit()
         return True
@@ -4675,11 +4737,12 @@ def get_user_ig_sync_channels(tg_user_id: int) -> list:
         conn.close()
 
 def delete_ig_sync_channel(sync_channel_id: int, tg_user_id: int) -> bool:
-    """Kuzatuvdagi Instagram kanalni o'chirish"""
+    """Kuzatuvdagi Instagram kanalni o'chirish (yuklangan tarixni saqlab qolgan holda)"""
     conn = get_db()
     if not conn: return False
     try:
         cur = conn.cursor()
+        _preserve_ig_synced_history(cur, tg_user_id, [sync_channel_id])
         cur.execute("DELETE FROM ig_sync_channels WHERE id = %s AND tg_user_id = %s", (sync_channel_id, tg_user_id))
         conn.commit()
         return True
@@ -4706,12 +4769,19 @@ def get_all_active_ig_sync_channels() -> list:
         conn.close()
 
 def is_ig_post_synced(sync_channel_id: int, ig_post_id: str) -> bool:
-    """Ushbu Instagram post avval yuklanganmi?"""
+    """Ushbu Instagram post muvaffaqiyatli yuklanganmi yoki 3+ marta doimiy xato berganmi?"""
     conn = get_db()
     if not conn: return False
+    clean_pid = str(ig_post_id).strip()
     try:
         cur = conn.cursor()
-        cur.execute("SELECT id FROM ig_synced_posts WHERE sync_channel_id = %s AND ig_post_id = %s", (sync_channel_id, str(ig_post_id)))
+        cur.execute("""
+            SELECT id FROM ig_synced_posts
+            WHERE sync_channel_id = %s
+              AND (ig_post_id = %s OR media_pk = %s)
+              AND (status = 'synced' OR status = 'permanent_skip' OR COALESCE(retry_count, 0) >= 3)
+            LIMIT 1
+        """, (sync_channel_id, clean_pid, clean_pid))
         return bool(cur.fetchone())
     except Exception as e:
         print(f"is_ig_post_synced error: {e}")
@@ -4719,17 +4789,120 @@ def is_ig_post_synced(sync_channel_id: int, ig_post_id: str) -> bool:
     finally:
         conn.close()
 
-def record_ig_synced_post(sync_channel_id: int, ig_post_id: str, media_url: str = "", yt_video_id: str = "", status: str = "synced") -> bool:
-    """Yuklangan Instagram postni qayd etish"""
+
+def reset_transient_failed_ig_posts(sync_channel_id: int) -> int:
+    """Vaqtinchalik xato (failed, retry_count < 3) bo'lgan postlarni qayta urinish uchun tozalash."""
     conn = get_db()
-    if not conn: return False
+    if not conn: return 0
     try:
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO ig_synced_posts (sync_channel_id, ig_post_id, media_url, yt_video_id, status)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (sync_channel_id, ig_post_id) DO UPDATE SET status = EXCLUDED.status, yt_video_id = EXCLUDED.yt_video_id
-        """, (sync_channel_id, str(ig_post_id), media_url, yt_video_id, status))
+            DELETE FROM ig_synced_posts
+            WHERE sync_channel_id = %s
+              AND status = 'failed'
+              AND COALESCE(yt_video_id, '') = ''
+              AND COALESCE(retry_count, 0) < 3
+        """, (sync_channel_id,))
+        deleted = cur.rowcount or 0
+        conn.commit()
+        return deleted
+    except Exception as e:
+        conn.rollback()
+        print(f"reset_transient_failed_ig_posts error: {e}")
+        return 0
+    finally:
+        conn.close()
+
+
+def record_ig_synced_post(
+    sync_channel_id: int,
+    ig_post_id: str,
+    media_url: str = "",
+    yt_video_id: str = "",
+    status: str = "synced",
+    tg_user_id: int = None,
+    yt_channel_id: str = "",
+    ig_username: str = "",
+    media_pk: str = "",
+    file_sha256: str = "",
+    title_fingerprint: str = "",
+    error_msg: str = "",
+) -> bool:
+    """Yuklangan yoki xato bergan Instagram postni qayd etish (failed hech qachon synced ni bosmaydi)."""
+    conn = get_db()
+    if not conn: return False
+    clean_pid = str(ig_post_id).strip()
+    try:
+        cur = conn.cursor()
+        if tg_user_id is None or not ig_username:
+            cur.execute("SELECT tg_user_id, ig_username FROM ig_sync_channels WHERE id = %s", (sync_channel_id,))
+            ch_row = cur.fetchone()
+            if ch_row:
+                if tg_user_id is None:
+                    tg_user_id = ch_row["tg_user_id"] if isinstance(ch_row, dict) else ch_row[0]
+                if not ig_username:
+                    ig_username = ch_row["ig_username"] if isinstance(ch_row, dict) else ch_row[1]
+
+        if status == "failed":
+            cur.execute("""
+                INSERT INTO ig_synced_posts (
+                    sync_channel_id, tg_user_id, yt_channel_id, ig_username,
+                    ig_post_id, media_pk, media_url, yt_video_id,
+                    file_sha256, title_fingerprint, retry_count, error_msg, status
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1, %s, 'failed')
+                ON CONFLICT (sync_channel_id, ig_post_id) DO UPDATE SET
+                    retry_count = CASE
+                        WHEN ig_synced_posts.status = 'synced' THEN ig_synced_posts.retry_count
+                        ELSE COALESCE(ig_synced_posts.retry_count, 0) + 1
+                    END,
+                    error_msg = EXCLUDED.error_msg,
+                    status = CASE
+                        WHEN ig_synced_posts.status = 'synced' THEN 'synced'
+                        WHEN COALESCE(ig_synced_posts.retry_count, 0) + 1 >= 3 THEN 'permanent_skip'
+                        ELSE 'failed'
+                    END
+            """, (
+                sync_channel_id, tg_user_id, yt_channel_id or "", ig_username or "",
+                clean_pid, media_pk or "", media_url, yt_video_id or "",
+                file_sha256 or "", title_fingerprint or "", (error_msg or "")[:300]
+            ))
+        else:
+            cur.execute("""
+                INSERT INTO ig_synced_posts (
+                    sync_channel_id, tg_user_id, yt_channel_id, ig_username,
+                    ig_post_id, media_pk, media_url, yt_video_id,
+                    file_sha256, title_fingerprint, retry_count, error_msg, status
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0, '', %s)
+                ON CONFLICT (sync_channel_id, ig_post_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    yt_video_id = EXCLUDED.yt_video_id,
+                    tg_user_id = COALESCE(EXCLUDED.tg_user_id, ig_synced_posts.tg_user_id),
+                    yt_channel_id = COALESCE(NULLIF(EXCLUDED.yt_channel_id, ''), ig_synced_posts.yt_channel_id),
+                    ig_username = COALESCE(NULLIF(EXCLUDED.ig_username, ''), ig_synced_posts.ig_username),
+                    media_pk = COALESCE(NULLIF(EXCLUDED.media_pk, ''), ig_synced_posts.media_pk),
+                    file_sha256 = COALESCE(NULLIF(EXCLUDED.file_sha256, ''), ig_synced_posts.file_sha256),
+                    title_fingerprint = COALESCE(NULLIF(EXCLUDED.title_fingerprint, ''), ig_synced_posts.title_fingerprint),
+                    retry_count = 0,
+                    error_msg = ''
+            """, (
+                sync_channel_id, tg_user_id, yt_channel_id or "", ig_username or "",
+                clean_pid, media_pk or "", media_url, yt_video_id or "",
+                file_sha256 or "", title_fingerprint or "", status
+            ))
+            if status == "synced" and tg_user_id:
+                src_id = f"ig_{clean_pid}"
+                cur.execute(
+                    "SELECT id FROM autopost_history WHERE tg_user_id = %s AND source_video_id = %s AND status = 'uploaded' LIMIT 1",
+                    (tg_user_id, src_id),
+                )
+                if not cur.fetchone():
+                    cur.execute("""
+                        INSERT INTO autopost_history (task_id, tg_user_id, source_video_id, source_title, status, uploaded_video_id)
+                        VALUES (NULL, %s, %s, %s, 'uploaded', %s)
+                    """, (tg_user_id, src_id, (title_fingerprint or media_url or clean_pid)[:200], yt_video_id or ""))
+
         cur.execute("UPDATE ig_sync_channels SET last_checked_at = NOW() WHERE id = %s", (sync_channel_id,))
         conn.commit()
         return True
@@ -4757,32 +4930,66 @@ def update_ig_sync_timestamp(sync_channel_id: int) -> bool:
     finally:
         conn.close()
 
-def is_ig_post_already_uploaded(tg_user_id: int, ig_post_id: str) -> bool:
+def is_ig_post_already_uploaded(
+    tg_user_id: int,
+    ig_post_id: str,
+    yt_channel_id: str = None,
+    media_pk: str = "",
+    file_sha256: str = "",
+    title_fingerprint: str = "",
+) -> bool:
     """
-    Qat'iy deduplikatsiya: Ushbu Instagram post ID foydalanuvchining YouTube kanaliga
-    avval yuklanganmi? (Bir xil videoni qayta yuklashning 100% oldini oladi).
+    Qat'iy 4-qatlamli deduplikatsiya:
+    ig_post_id, media_pk, raw file SHA-256, title_fingerprint va autopost_history bo'yicha tekshiradi.
     """
     conn = get_db()
     if not conn: return False
-    clean_pid = str(ig_post_id).strip()
+    clean_pid = str(ig_post_id or "").strip()
+    clean_pk = str(media_pk or "").strip()
+    clean_sha = str(file_sha256 or "").strip()
+    clean_tfp = str(title_fingerprint or "").strip()
     try:
         cur = conn.cursor()
-        # 1. ig_synced_posts orqali barcha kanallarida tekshirish
-        cur.execute("""
+        # 1. ig_synced_posts orqali barcha kanallarida (va tanlangan yt_channel_id kesimida) tekshirish
+        match_clauses = ["p.ig_post_id = %s", "p.media_pk = %s"]
+        params = [tg_user_id, tg_user_id, clean_pid, clean_pid]
+        if clean_pk:
+            match_clauses.extend(["p.ig_post_id = %s", "p.media_pk = %s"])
+            params.extend([clean_pk, clean_pk])
+        if clean_sha:
+            match_clauses.append("p.file_sha256 = %s")
+            params.append(clean_sha)
+        if len(clean_tfp) >= 15:
+            match_clauses.append("p.title_fingerprint = %s")
+            params.append(clean_tfp)
+
+        ch_filter = ""
+        if yt_channel_id:
+            ch_filter = "AND (p.yt_channel_id IS NULL OR p.yt_channel_id = '' OR p.yt_channel_id = %s)"
+            params.append(str(yt_channel_id))
+
+        cur.execute(f"""
             SELECT p.id FROM ig_synced_posts p
-            JOIN ig_sync_channels c ON p.sync_channel_id = c.id
-            WHERE c.tg_user_id = %s AND p.ig_post_id = %s AND p.status = 'synced'
+            LEFT JOIN ig_sync_channels c ON p.sync_channel_id = c.id
+            WHERE (p.tg_user_id = %s OR c.tg_user_id = %s)
+              AND p.status = 'synced'
+              AND ({' OR '.join(match_clauses)})
+              {ch_filter}
             LIMIT 1
-        """, (tg_user_id, clean_pid))
+        """, tuple(params))
         if cur.fetchone():
             return True
+
         # 2. autopost_history orqali tekshirish
-        cur.execute("""
-            SELECT id FROM autopost_history
-            WHERE tg_user_id = %s AND (source_video_id = %s OR source_video_id = %s) AND status = 'uploaded'
-            LIMIT 1
-        """, (tg_user_id, clean_pid, f"ig_{clean_pid}"))
-        return cur.fetchone() is not None
+        hist_ids = [x for x in (clean_pid, f"ig_{clean_pid}", clean_pk, f"ig_{clean_pk}") if x and x != "ig_"]
+        if hist_ids:
+            cur.execute("""
+                SELECT id FROM autopost_history
+                WHERE tg_user_id = %s AND source_video_id = ANY(%s) AND status = 'uploaded'
+                LIMIT 1
+            """, (tg_user_id, hist_ids))
+            return cur.fetchone() is not None
+        return False
     except Exception as e:
         print(f"is_ig_post_already_uploaded error: {e}")
         return False

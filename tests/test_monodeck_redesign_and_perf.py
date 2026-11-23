@@ -1689,3 +1689,122 @@ async def test_official_channel_monodeckstudio_defaults_and_legacy_upgrade():
             assert "creatorflow_store" not in fe_txt.lower(), f"Stale creatorflow_store in {fe_file}"
             assert "monodeck_bot" not in fe_txt, f"Stale monodeck_bot fallback in {fe_file}"
 
+
+@pytest.mark.asyncio
+async def test_instagram_cloner_deduplication_token_refresh_and_day2_resilience():
+    """Verify IG bidirectional IDs, zero duplicate uploads, Day-2 limit/error recovery, and YouTube OAuth refresh."""
+    import autopost
+    import instagram_cloner as ic
+    from types import SimpleNamespace
+
+    # 1. Bidirectional pk <-> shortcode and composite ID parsing
+    sample_pk = 4028904842105002765
+    sc = ic.pk_to_shortcode(sample_pk)
+    assert sc
+    assert ic.shortcode_to_pk(sc) == sample_pk
+    assert ic.parse_ig_pk(f"{sample_pk}_25025320") == sample_pk
+    assert ic.parse_ig_pk(None) == 0
+
+    # 2. In-memory sync state simulation across Day 1 (hit daily limit) -> Day 2 (resume without dupes)
+    synced_records = {}  # post_id -> dict(status, sha256)
+    uploaded_yt_calls = []
+    posts_feed = [
+        {"post_id": "CodeAAA111", "pk": 1001, "url": "https://www.instagram.com/reel/CodeAAA111/", "title": "First", "caption": "First", "timestamp": 100},
+        {"post_id": "CodeBBB222", "pk": 1002, "url": "https://www.instagram.com/reel/CodeBBB222/", "title": "Second", "caption": "Second", "timestamp": 200},
+        {"post_id": "CodeCCC333", "pk": 1003, "url": "https://www.instagram.com/reel/CodeCCC333/", "title": "Third", "caption": "Third", "timestamp": 300},
+    ]
+
+    def _mock_is_synced(ch_id, pid):
+        rec = synced_records.get(str(pid))
+        return bool(rec and rec["status"] in ("synced", "permanent_skip"))
+
+    def _mock_is_already(uid, pid, yt_channel_id=None, media_pk="", file_sha256="", title_fingerprint=""):
+        for rec in synced_records.values():
+            if rec["status"] != "synced":
+                continue
+            if str(pid) in (rec["post_id"], rec["media_pk"]) or (media_pk and str(media_pk) in (rec["post_id"], rec["media_pk"])):
+                return True
+            if file_sha256 and rec.get("sha256") == file_sha256:
+                return True
+        return False
+
+    def _mock_record(ch_id, pid, media_url="", yt_video_id="", status="synced", **kwargs):
+        synced_records[str(pid)] = {
+            "post_id": str(pid),
+            "media_pk": str(kwargs.get("media_pk") or ""),
+            "sha256": str(kwargs.get("file_sha256") or ""),
+            "status": status,
+        }
+        return True
+
+    async def _mock_dl(url, pid, preferred_title=""):
+        return {
+            "file_path": __file__,
+            "title": f"{preferred_title} #Shorts",
+            "description": preferred_title,
+            "post_id": pid,
+            "file_sha256": f"sha_{pid}",
+            "title_fingerprint": ic.compute_title_fingerprint(preferred_title),
+        }
+
+    day_state = {"limit_hit": False, "call_no": 0}
+
+    def _mock_yt_upload(fpath, title, desc, creds):
+        day_state["call_no"] += 1
+        if day_state["call_no"] == 2:
+            raise Exception("HttpError 400: uploadLimitExceeded")
+        uploaded_yt_calls.append(title)
+        return f"yt_{day_state['call_no']}"
+
+    with patch.object(ic, "get_instagram_targets", return_value=[{"id": 77, "ig_username": "demo_ig"}]), \
+         patch.object(ic.db, "get_yt_connection", return_value={"access_token": "tok", "refresh_token": "ref", "yt_channel_id": "UC_DEMO"}), \
+         patch.object(ic.db, "reset_ig_sync_daily_limit_if_new_day", return_value=True), \
+         patch.object(ic.db, "reset_transient_failed_ig_posts", return_value=0), \
+         patch.object(ic.db, "is_ig_sync_daily_limit_hit_today", side_effect=lambda _: day_state["limit_hit"]), \
+         patch.object(ic.db, "set_ig_sync_daily_limit_hit", side_effect=lambda _: day_state.update({"limit_hit": True}) or True), \
+         patch.object(ic.db, "is_ig_post_synced", side_effect=_mock_is_synced), \
+         patch.object(ic.db, "is_ig_post_already_uploaded", side_effect=_mock_is_already), \
+         patch.object(ic.db, "record_ig_synced_post", side_effect=_mock_record), \
+         patch.object(ic.db, "increment_ig_synced_count", return_value=1), \
+         patch.object(ic.db, "update_ig_sync_timestamp", return_value=True), \
+         patch.object(ic, "scrape_instagram_recent_posts", return_value=posts_feed), \
+         patch.object(ic, "download_and_8layer_uniqueify", side_effect=_mock_dl), \
+         patch.object(ic, "upload_to_youtube", side_effect=_mock_yt_upload), \
+         patch("asyncio.sleep", return_value=None):
+        res_day1 = await ic.sync_instagram_account_now(12345, "demo_ig", force=False)
+        assert res_day1["status"] == "limit_reached"
+        assert res_day1["synced"] == 1
+        assert uploaded_yt_calls == ["First #Shorts"]
+        assert "CodeBBB222" not in synced_records
+        assert "CodeCCC333" not in synced_records
+
+        day_state["limit_hit"] = False
+        res_day2 = await ic.sync_instagram_account_now(12345, "demo_ig", force=False)
+        assert res_day2["status"] == "ok"
+        assert res_day2["synced"] == 2
+        assert uploaded_yt_calls == ["First #Shorts", "Second #Shorts", "Third #Shorts"]
+
+    # 3. upload_to_youtube refreshes expired OAuth token and persists via update_yt_tokens
+    creds_dict = {"tg_user_id": 12345, "yt_channel_id": "UC_DEMO", "access_token": "old_tok", "refresh_token": "ref_tok"}
+    fake_creds = SimpleNamespace(token="old_tok", refresh_token="ref_tok", expired=True)
+
+    def _fake_refresh(req):
+        fake_creds.token = "new_tok"
+        fake_creds.expired = False
+
+    fake_creds.refresh = _fake_refresh
+    fake_yt = SimpleNamespace(
+        videos=lambda: SimpleNamespace(
+            insert=lambda **kw: SimpleNamespace(execute=lambda: {"id": "yt_refreshed_1"})
+        )
+    )
+    with patch.object(autopost, "Credentials", return_value=fake_creds), \
+         patch.object(autopost, "build", return_value=fake_yt), \
+         patch.object(autopost, "MediaFileUpload", return_value=object()), \
+         patch("database.update_yt_tokens") as mock_upd_tok:
+        vid_out = autopost.upload_to_youtube(__file__, "Test", "Desc", creds_dict)
+        assert vid_out == "yt_refreshed_1"
+        assert creds_dict["access_token"] == "new_tok"
+        mock_upd_tok.assert_called_once_with(12345, "UC_DEMO", "new_tok", "ref_tok")
+
+

@@ -2386,12 +2386,18 @@ def load_mega_features(bot: Client):
                     return
 
                 add_instagram_target(uid, clean_ig)
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Hozir Tekshirish & Yuklash", callback_data=f"ig_sync_{clean_ig}")],
+                    [InlineKeyboardButton("📋 Profillar Ro'yxati", callback_data="ig_manage_profiles")],
+                    [InlineKeyboardButton("⬅️ Orqaga", callback_data="menu_ig_cloner")],
+                ])
                 await message.reply_text(
                     f"{ce('CHECK')} <code>@{clean_ig}</code> Instagram profili muvaffaqiyatli kuzatuvga qo'shildi!\n\n"
                     f"🔒 <b>Deduplikatsiya:</b> Faqat yangi videolar yuklanadi (hech qachon ikkita bir xil video qayta yuklanmaydi).\n"
                     f"🚀 <b>Avtopilot:</b> Har kuni YouTube kanalingizning kunlik maksimal limitigacha avtomatik yuklanadi.\n"
                     f"✨ <b>8-Qatlamli Unikalizatsiya:</b> Mualliflik huquqi (copyright) buzilmasligi uchun avtomatik ishlov beriladi.\n\n"
-                    f"Hozir tekshirib ko'rish: <code>/igcloner sync @{clean_ig}</code>"
+                    f"Hozir tekshirib ko'rish: <code>/igcloner sync @{clean_ig}</code>",
+                    reply_markup=kb,
                 )
                 message.stop_propagation()
 

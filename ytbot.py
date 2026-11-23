@@ -6858,7 +6858,10 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
 
         if menu == "ig_cloner":
             from instagram_cloner import get_instagram_targets
+            from database import get_yt_connection
             targets = get_instagram_targets(user_id)
+            yt_conn = get_yt_connection(user_id)
+            yt_name = yt_conn.get("yt_channel_title") if yt_conn and yt_conn.get("access_token") else None
             no_prof = {
                 "uz": "Hozircha kuzatilayotgan profillar yo'q.",
                 "ru": "Пока нет отслеживаемых профилей.",
@@ -6866,7 +6869,15 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                 "es": "No hay perfiles monitoreados aún.",
                 "tr": "Henüz izlenen profil yok."
             }.get(lang, "Hozircha profillar yo'q.")
-            ch_list = "\n".join([f"• @{t['ig_username']}" for t in targets]) if targets else no_prof
+            prof_lines = []
+            for tgt in targets:
+                u_n = tgt.get("ig_username", "")
+                cnt = tgt.get("total_synced_count", 0) or 0
+                is_lim = tgt.get("daily_limit_hit_date") and str(tgt.get("daily_limit_hit_date")) == str(datetime.now(timezone.utc).date())
+                st_badge = "⚠️ Limit" if is_lim else "✅ Faol"
+                prof_lines.append(f"• <b>@{u_n}</b> ({cnt} ta | {st_badge})")
+            ch_list = "\n".join(prof_lines) if prof_lines else no_prof
+            yt_line = f"📺 <b>Ulangan YouTube kanal:</b> <code>{yt_name}</code>\n\n" if yt_name else "⚠️ <b>YouTube kanal ulanmagan!</b> (/ytlogin)\n\n"
             ig_desc = {
                 "uz": "Siz kiritgan Instagram profilidagi Reels'lar 8-qatlamli unikalizatsiya bilan to'g'ridan-to'g'ri YouTube Shorts ga nusxalanadi.",
                 "ru": "Reels из указанных профилей Instagram с 8-слойной уникализацией копируются прямо в YouTube Shorts.",
@@ -6877,6 +6888,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             prof_lbl = {"uz": "Kuzatilayotgan profillar:", "ru": "Отслеживаемые профили:", "en": "Monitored profiles:", "es": "Perfiles monitoreados:", "tr": "İzlenen profiller:"}.get(lang, "Kuzatilayotgan profillar:")
             text = (
                 f'{ce("INSTAGRAM_LOGO")} <b>Instagram Account Auto-Cloner</b>\n\n'
+                f"{yt_line}"
                 f"{ig_desc}\n\n"
                 f"{ce('LIST')} <b>{prof_lbl}</b>\n{ch_list}"
             )
@@ -9638,25 +9650,43 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             await cb.answer("Video fayli topilmadi!", show_alert=True)
             return
         user_id = cb.from_user.id
-        from database import get_default_account, get_all_yt_connections
-        def_acc = get_default_account(user_id)
+        from database import (
+            get_yt_connection,
+            get_all_yt_connections,
+            is_ig_post_already_uploaded,
+            add_autopost_history,
+            update_autopost_history,
+        )
+        def_acc = get_yt_connection(user_id)
         if not def_acc:
             conns = get_all_yt_connections(user_id)
             def_acc = conns[0] if conns else None
         if not def_acc:
             await cb.answer("YouTube kanalingiz ulanmagan! Avval /ytlogin qiling.", show_alert=True)
             return
-            
+
+        vid_id = str(data.get("video_id") or "").strip()
+        if vid_id and is_ig_post_already_uploaded(user_id, vid_id, yt_channel_id=def_acc.get("yt_channel_id")):
+            await cb.answer("⚠️ Bu video YouTube kanalingizga allaqachon yuklangan!", show_alert=True)
+            return
+
         await cb.message.edit_text(f"{e('WAIT')} <b>Shorts YouTube-ga yuklanmoqda...</b>")
         try:
             res_id = await asyncio.to_thread(
                 upload_to_youtube,
                 data["video_path"],
                 data["title"][:90] + " #Shorts",
-                data.get("description", "") + "\n\nUploaded via YouTube Automation Bot",
+                data.get("description", "") + "\n\nUploaded via Mono Deck Studio",
                 def_acc
             )
             if res_id:
+                if vid_id:
+                    try:
+                        hist_id = add_autopost_history(None, user_id, f"ig_{vid_id}", data.get("title", "")[:200])
+                        if hist_id:
+                            update_autopost_history(hist_id, status="uploaded", uploaded_video_id=res_id, uploaded_title=data.get("title", "")[:200])
+                    except Exception:
+                        pass
                 yt_link = f"https://youtube.com/shorts/{res_id}"
                 await cb.message.edit_text(
                     f"{e('SUCCESS')} <b>Video muvaffaqiyatli YouTube Shorts-ga joylandi!</b>\n\n"

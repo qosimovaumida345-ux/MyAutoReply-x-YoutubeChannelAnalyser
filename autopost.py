@@ -278,16 +278,31 @@ def download_video(video_id, proxy_url=None, user_id=None, apply_watermark=False
 # ==================== VIDEO UPLOAD ====================
 
 def upload_to_youtube(file_path, title, description, credentials_dict):
-    """OAuth orqali videoni YouTube ga yuklash"""
+    """OAuth orqali videoni YouTube ga yuklash (eskirgan access_token ni avtomatik yangilaydi)."""
+    from google.auth.transport.requests import Request
+    from database import update_yt_tokens
+
     creds = Credentials(
-        token=credentials_dict['access_token'],
-        refresh_token=credentials_dict['refresh_token'],
+        token=credentials_dict.get('access_token'),
+        refresh_token=credentials_dict.get('refresh_token'),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=YT_CLIENT_ID,
         client_secret=YT_CLIENT_SECRET
     )
 
-    youtube = build("youtube", "v3", credentials=creds)
+    def _refresh_creds_if_needed(force: bool = False):
+        if creds.refresh_token and (force or not creds.token or creds.expired):
+            creds.refresh(Request())
+            credentials_dict['access_token'] = creds.token
+            tg_uid = credentials_dict.get('tg_user_id')
+            yt_chid = credentials_dict.get('yt_channel_id')
+            if tg_uid and yt_chid:
+                try:
+                    update_yt_tokens(tg_uid, yt_chid, creds.token, creds.refresh_token)
+                except Exception:
+                    pass
+
+    _refresh_creds_if_needed(force=False)
 
     body = {
         "snippet": {
@@ -302,15 +317,26 @@ def upload_to_youtube(file_path, title, description, credentials_dict):
         }
     }
 
-    media = MediaFileUpload(file_path, mimetype="video/mp4", resumable=False)
+    def _execute_upload():
+        youtube = build("youtube", "v3", credentials=creds)
+        media = MediaFileUpload(file_path, mimetype="video/mp4", resumable=False)
+        request = youtube.videos().insert(
+            part=",".join(body.keys()),
+            body=body,
+            media_body=media
+        )
+        return request.execute()
 
-    request = youtube.videos().insert(
-        part=",".join(body.keys()),
-        body=body,
-        media_body=media
-    )
-
-    response = request.execute()
+    try:
+        response = _execute_upload()
+    except Exception as exc:
+        err_low = str(exc).lower()
+        is_auth_err = any(k in err_low for k in ("401", "invalid_credentials", "unauthorized", "token has been expired", "autherror"))
+        if is_auth_err and creds.refresh_token:
+            _refresh_creds_if_needed(force=True)
+            response = _execute_upload()
+        else:
+            raise
     return response.get("id")
 
 
@@ -584,7 +610,7 @@ async def autopost_worker(task_id, tg_user_id, search_query, count, client, chat
             await asyncio.sleep(10)
 
         update_autopost_task(task_id, status="completed")
-        await safe_send(f"🎉 `Auto-post yakunlandi! {success_count}/{len(videos)} video yuklandi.`")
+        await safe_send(f"🎉 `Auto-post yakunlandi! {success_count}/{count} video yuklandi.`")
 
     except Exception as e:
         update_autopost_task(task_id, status="failed")
