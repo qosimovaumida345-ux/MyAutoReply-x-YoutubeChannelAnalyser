@@ -11,7 +11,7 @@ export function LoginPage({ user, onAuthSuccess, publicConfig, navigate, t }) {
   const [error, setError] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
 
-  const botUsername = publicConfig?.bot_username || 'monodeck_bot';
+  const botUsername = publicConfig?.bot_username || 'monodeck_app';
 
   useEffect(() => {
     if (cooldown <= 0) return undefined;

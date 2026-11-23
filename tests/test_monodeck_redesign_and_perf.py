@@ -1621,3 +1621,71 @@ def test_p0_p1_audit_fixes_zero_duplicates_and_safe_defaults():
             for cmd in re.findall(r'["\']([a-zA-Z0-9_]+)["\']', m.group(1)):
                 assert cmd not in seen_cmds, f"Duplicate command /{cmd} in {seen_cmds[cmd]} and {fname}"
                 seen_cmds[cmd] = fname
+
+
+@pytest.mark.asyncio
+async def test_official_channel_monodeckstudio_defaults_and_legacy_upgrade():
+    """Verify @MonoDeckStudio default/normalization, legacy @CreatorFlow_Store upgrade, footer/API, and zero leaks."""
+    import json as _json
+    import config
+    import ui_theme
+    import ytbot
+
+    # 1 & 2. config.get_store_channel defaults, upgrades, and off-switch handling
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("STORE_CHANNEL", None)
+        assert config.get_store_channel() == "@MonoDeckStudio"
+    for legacy_val in ("", "@CreatorFlow_Store", "creatorflow_store", "https://t.me/CreatorFlow_Store"):
+        with patch.dict(os.environ, {"STORE_CHANNEL": legacy_val}, clear=False):
+            assert config.get_store_channel() == "@MonoDeckStudio"
+    for off_val in ("off", "none", "OFF"):
+        with patch.dict(os.environ, {"STORE_CHANNEL": off_val}, clear=False):
+            assert config.get_store_channel() == ""
+
+    # 3. normalize_channel_handle handles URLs and numeric chat IDs
+    assert config.normalize_channel_handle("https://t.me/MonoDeckStudio") == "@MonoDeckStudio"
+    assert config.normalize_channel_handle("-100123456789") == "-100123456789"
+
+    # 4. ytbot._resolve_force_sub_channel upgrades DB legacy handle & respects off/custom
+    with patch.dict(os.environ, {"STORE_CHANNEL": ""}, clear=False):
+        with patch("ytbot.get_config", return_value="@CreatorFlow_Store"):
+            assert ytbot._resolve_force_sub_channel() == "@MonoDeckStudio"
+        with patch("ytbot.get_config", return_value="off"):
+            assert ytbot._resolve_force_sub_channel() == ""
+        with patch("ytbot.get_config", return_value="@CustomCh"):
+            assert ytbot._resolve_force_sub_channel() == "@CustomCh"
+        for empty_db in ("", None):
+            with patch("ytbot.get_config", return_value=empty_db):
+                assert ytbot._resolve_force_sub_channel() == "@MonoDeckStudio"
+
+    # 5. ytbot.help_menu_kb includes URL button to https://t.me/MonoDeckStudio
+    with patch.dict(os.environ, {"STORE_CHANNEL": ""}, clear=False):
+        kb = ytbot.help_menu_kb("uz")
+        urls = [btn.url for row in kb.inline_keyboard for btn in row if getattr(btn, "url", None)]
+        assert "https://t.me/MonoDeckStudio" in urls
+
+    # 6. ui_theme.render_editorial_footer includes https://t.me/MonoDeckStudio
+    with patch.dict(os.environ, {"STORE_CHANNEL": ""}, clear=False):
+        footer_html = ui_theme.render_editorial_footer()
+        assert "https://t.me/MonoDeckStudio" in footer_html
+
+    # 7. /api/public-config returns channel_username & channel_name
+    with patch.dict(os.environ, {"STORE_CHANNEL": "@CreatorFlow_Store"}, clear=False):
+        app = _build_wired_test_app()
+        async with TestClient(TestServer(app)) as client:
+            resp = await client.get("/api/public-config")
+            assert resp.status == 200
+            payload = _json.loads(await resp.text())
+            assert payload["channel_username"] == "MonoDeckStudio"
+            assert payload["channel_name"] == "Mono Deck Studio | Checks & News"
+
+    # 8. Zero stale creatorflow_store references & zero monodeck_bot fallbacks in frontend/src
+    for fname in ("ytbot.py", "store_channel_service.py", "database.py", "main.py", "ui_theme.py"):
+        src = (ROOT_DIR / fname).read_text(encoding="utf-8")
+        assert "creatorflow_store" not in src.lower(), f"Stale creatorflow_store found in {fname}"
+    for fe_file in (ROOT_DIR / "frontend" / "src").rglob("*"):
+        if fe_file.is_file() and fe_file.suffix in (".js", ".jsx", ".ts", ".tsx"):
+            fe_txt = fe_file.read_text(encoding="utf-8")
+            assert "creatorflow_store" not in fe_txt.lower(), f"Stale creatorflow_store in {fe_file}"
+            assert "monodeck_bot" not in fe_txt, f"Stale monodeck_bot fallback in {fe_file}"
+

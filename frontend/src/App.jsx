@@ -46,8 +46,10 @@ export function App() {
   const [publicConfig, setPublicConfig] = useState({
     brand: 'MonoDeck',
     app_base_url: 'https://monodeck.site',
-    bot_username: 'monodeck_bot',
+    bot_username: 'monodeck_app',
     support_username: 'monodeck_support',
+    channel_username: 'MonoDeckStudio',
+    channel_name: 'Mono Deck Studio | Checks & News',
   });
 
   const [user, setUser] = useState(() => {

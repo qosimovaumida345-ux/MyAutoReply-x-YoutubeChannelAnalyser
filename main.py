@@ -32,6 +32,8 @@ from config import (
     set_runtime_bot_username,
     extract_username_from_me,
     get_web_app_url,
+    get_store_channel,
+    STORE_CHANNEL_NAME,
 )
 from autopost import exchange_code_with_redirect, get_auth_url, pending_oauth
 from database import save_yt_connection
@@ -521,6 +523,7 @@ async def handle_health(request):
 async def handle_api_public_config(request):
     """Public brand, domain, and active Telegram bot configuration for frontend."""
     import json as _json
+    ch_handle = get_store_channel()
     return web.Response(
         text=_json.dumps({
             "ok": True,
@@ -528,6 +531,8 @@ async def handle_api_public_config(request):
             "app_base_url": APP_BASE_URL,
             "bot_username": get_bot_username(),
             "support_username": SUPPORT_USERNAME,
+            "channel_username": ch_handle.lstrip("@"),
+            "channel_name": STORE_CHANNEL_NAME,
         }),
         content_type="application/json",
         headers={"Cache-Control": "public, max-age=300"},

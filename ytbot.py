@@ -38,7 +38,8 @@ from config import (
     BOT_TOKEN, API_ID, API_HASH, YOUTUBE_API_KEY, get_youtube_key,
     ADMIN_USERNAME, DEFAULT_PROXY, DAILY_LIMIT_USER, DAILY_LIMIT_ADMIN, get_gemini_key,
     WEB_APP_URL, CRYPTO_PAY_TOKEN,
-    STORE_CHANNEL, VIP_PRICE_UZS, VIP_PRICE_STARS
+    STORE_CHANNEL, STORE_CHANNEL_NAME, get_store_channel, normalize_channel_handle,
+    VIP_PRICE_UZS, VIP_PRICE_STARS
 )
 from database import (
     set_autopilot, get_autopilot, stop_autopilot,
@@ -1628,7 +1629,7 @@ def back_main_kb(lang="uz"):
 
 def help_menu_kb(lang="uz"):
     lang = _resolve_lang(lang)
-    return InlineKeyboardMarkup([
+    rows = [
         [InlineKeyboardButton(f"{ce('MEDIA_YOUTUBE')} {t('btn_channel_video', lang)}", callback_data="help_channel"),
          InlineKeyboardButton(f"{ce('TOOL_CHART_GROWTH')} {t('btn_analytics', lang)}", callback_data="help_analytics")],
         [InlineKeyboardButton(f"{ce('BRAND_CHATGPT')} AI & Shorts", callback_data="help_ai"),
@@ -1637,8 +1638,25 @@ def help_menu_kb(lang="uz"):
          InlineKeyboardButton(f"{ce('BTN_GAMES')} {t('btn_games', lang)}", callback_data="help_games")],
         [InlineKeyboardButton(f"{ce('MEDIA_AUTOPILOT')} Shaxsiy Userbot", callback_data="help_userbot"),
          InlineKeyboardButton(f"{ce('BTN_SETTINGS')} Sozlash & Asboblar", callback_data="help_tools")],
-        [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")],
-    ])
+    ]
+    ch = get_store_channel()
+    if ch and ch.startswith("@"):
+        rows.append([InlineKeyboardButton(
+            f"{ce('MEDIA_YOUTUBE')} {STORE_CHANNEL_NAME} ({ch})",
+            url=f"https://t.me/{ch.lstrip('@')}"
+        )])
+    rows.append([InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _resolve_force_sub_channel() -> str:
+    """Resolve active force-sub channel, respecting explicit 'off' and upgrading legacy store handle."""
+    raw_cfg = (get_config("force_sub_channel") or "").strip()
+    if raw_cfg.lower() in ("off", "none", "0", "false", "disabled"):
+        return ""
+    if raw_cfg:
+        return normalize_channel_handle(raw_cfg, default=get_store_channel())
+    return get_store_channel()
 
 # ==================== BOT YARATISH ====================
 
@@ -2667,8 +2685,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
                             pass
 
         # 1. Majburiy kanal obunasini tekshirish
-        raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
-        target_ch = "" if raw_target_ch.lower() in ("@creatorflow_store", "creatorflow_store", "none", "off", "") else raw_target_ch
+        target_ch = _resolve_force_sub_channel()
         from database import _get_cached, _set_cached
         is_sub_cached = _get_cached(f"sub_{user_id}")
         if target_ch and not is_admin and not is_sub_cached:
@@ -3100,8 +3117,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         web_url = get_web_app_url()
         ph = get_telegram_phone(user_id)
         lang = lang or get_user_language(user_id)
-        raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
-        target_ch = "" if raw_target_ch.lower() in ("@creatorflow_store", "creatorflow_store", "none", "off", "") else raw_target_ch
+        target_ch = _resolve_force_sub_channel() or get_store_channel() or "@MonoDeckStudio"
 
         if tier_info["is_vip"]:
             exp = vip_info.get("vip_expires_at")
@@ -3281,8 +3297,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         user_id = cb.from_user.id
         from database import join_channel_contest, get_telegram_phone
         
-        raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
-        target_ch = "" if raw_target_ch.lower() in ("@creatorflow_store", "creatorflow_store", "none", "off", "") else raw_target_ch
+        target_ch = get_store_channel() or _resolve_force_sub_channel()
         if target_ch:
             try:
                 member = await client.get_chat_member(target_ch, user_id)
@@ -3309,7 +3324,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from store_channel_service import send_channel_restock_alert
         ok = await send_channel_restock_alert(client)
         if ok:
-            await message.reply(f"{ce('SUCCESS')} {STORE_CHANNEL or 'Store'} kanaliga Restock e'loni yuborildi!")
+            await message.reply(f"{ce('SUCCESS')} {get_store_channel() or 'Store'} kanaliga Restock e'loni yuborildi!")
         else:
             await message.reply(f"{ce('CROSS')} Kanalga yuborishda xatolik yuz berdi. Bot kanalda admin ekanligini tekshiring.")
 
@@ -3322,7 +3337,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         from store_channel_service import create_and_post_contest
         c_id = await create_and_post_contest(client)
         if c_id:
-            await message.reply(f"{ce('SUCCESS')} {STORE_CHANNEL or 'Store'} kanaliga Konkurs #{c_id} e'loni joylandi!")
+            await message.reply(f"{ce('SUCCESS')} {get_store_channel() or 'Store'} kanaliga Konkurs #{c_id} e'loni joylandi!")
         else:
             await message.reply(f"{ce('CROSS')} Konkurs yaratishda xatolik yuz berdi.")
 
@@ -5053,10 +5068,12 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             return
         parts = message.text.strip().split()
         if len(parts) < 2:
-            current_ch = get_config("force_sub_channel") or "O'rnatilmagan (OFF)"
+            current_ch = _resolve_force_sub_channel() or "O'rnatilmagan (OFF)"
+            official_ch = get_store_channel() or "O'chirilgan"
             await message.reply_text(
                 f"📢 <b>Majburiy Kanal Obunasi Sozlamalari</b>\n\n"
-                f"Hozirgi kanal: <code>{current_ch}</code>\n\n"
+                f"Hozirgi majburiy kanal: <code>{current_ch}</code>\n"
+                f"Rasmiy kanal: <code>{official_ch}</code>\n\n"
                 f"ℹ️ <b>Foydalanish:</b>\n"
                 f"• <code>/forcesub @kanalingiz</code> — Kanalni biriktirish\n"
                 f"• <code>/forcesub off</code> — Majburiy obunani o'chirish\n\n"
@@ -5065,11 +5082,15 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             return
         arg = parts[1].strip()
         if arg.lower() in ("off", "stop", "none", "0"):
-            set_config("force_sub_channel", "")
+            set_config("force_sub_channel", "off")
             await message.reply_text("✅ Majburiy kanal obunasi o'chirildi.")
         else:
-            set_config("force_sub_channel", arg)
-            await message.reply_text(f"✅ Majburiy obuna kanali o'rnatildi: <b>{arg}</b>\nBot kanalda admin ekanligiga ishonch hosil qiling.")
+            normalized = normalize_channel_handle(arg)
+            if not normalized:
+                await message.reply_text("❌ Noto'g'ri kanal manzili! Masalan: <code>/forcesub @MonoDeckStudio</code>")
+                return
+            set_config("force_sub_channel", normalized)
+            await message.reply_text(f"✅ Majburiy obuna kanali o'rnatildi: <b>{normalized}</b>\nBot kanalda admin ekanligiga ishonch hosil qiling.")
 
     @bot.on_callback_query(filters.regex(r"^sub_check$"))
     async def sub_check_callback(client, callback_query: CallbackQuery):
@@ -5077,8 +5098,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         lang = get_user_language(user_id)
         from database import _set_cached
         lang = get_user_language(user_id)
-        raw_target_ch = (STORE_CHANNEL or get_config("force_sub_channel") or "").strip()
-        target_ch = "" if raw_target_ch.lower() in ("@creatorflow_store", "creatorflow_store", "none", "off", "") else raw_target_ch
+        target_ch = _resolve_force_sub_channel()
         if not target_ch:
             _set_cached(f"sub_{user_id}", True, 300)
             ph = get_telegram_phone(user_id)
@@ -9134,7 +9154,7 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             delivered_raw = str(res.get("delivered_data") or "").strip()
             delivered_escaped = html.escape(delivered_raw)
 
-            # @CreatorFlow_Store kanaliga jonli xarid xabarini yuborish
+            # @MonoDeckStudio kanaliga jonli xarid xabarini yuborish
             buyer_tag = f"@{cb.from_user.username}" if cb.from_user.username else (cb.from_user.first_name or "Mijoz")
             prod_name = str(res.get("product_name") or product.get("name") or "Raqamli mahsulot")
             p_uzs = int(res.get("amount_uzs") or product.get("price_uzs") or 0)

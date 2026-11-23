@@ -1,8 +1,9 @@
 import React from 'react';
 
 export function Footer({ publicConfig, t }) {
-  const botUsername = publicConfig?.bot_username || 'monodeck_bot';
+  const botUsername = publicConfig?.bot_username || 'monodeck_app';
   const supportUsername = publicConfig?.support_username || 'monodeck_support';
+  const channelUsername = publicConfig?.channel_username || 'MonoDeckStudio';
   const rawBase = String(publicConfig?.app_base_url || 'monodeck.site');
   const domain = rawBase.replace(/^https?:\/\//, '').split('/')[0] || 'monodeck.site';
 
@@ -22,6 +23,11 @@ export function Footer({ publicConfig, t }) {
           <a href={`https://t.me/${encodeURIComponent(botUsername)}`} target="_blank" rel="noopener noreferrer">
             @{botUsername}
           </a>
+          {channelUsername ? (
+            <a href={`https://t.me/${encodeURIComponent(channelUsername)}`} target="_blank" rel="noopener noreferrer">
+              @{channelUsername}
+            </a>
+          ) : null}
           <a href={`https://t.me/${encodeURIComponent(supportUsername)}`} target="_blank" rel="noopener noreferrer">
             Support
           </a>

@@ -267,8 +267,47 @@ VENTEBOT_BASE_URL = os.getenv("VENTEBOT_BASE_URL", "https://web-production-1c7b1
 USD_TO_UZS_RATE = int(os.getenv("USD_TO_UZS_RATE", "12850"))
 RESELLER_MARKUP_PERCENT = float(os.getenv("RESELLER_MARKUP_PERCENT", "60.0"))
 
-# ==================== CREATORFLOW STORE CHANNEL & VIP ====================
-STORE_CHANNEL = os.getenv("STORE_CHANNEL", "").strip()
+# ==================== MONO DECK STUDIO CHANNEL & VIP ====================
+DEFAULT_STORE_CHANNEL = "@MonoDeckStudio"
+STORE_CHANNEL_NAME = (
+    os.getenv("STORE_CHANNEL_NAME", "Mono Deck Studio | Checks & News").strip()
+    or "Mono Deck Studio | Checks & News"
+)
+_LEGACY_STORE_CHANNEL_SLUGS = frozenset({"creatorflow_store"})
+
+
+def normalize_channel_handle(raw: str, default: str = "") -> str:
+    """Normalize a Telegram channel handle/URL/ID, replacing legacy @CreatorFlow_Store with default."""
+    val = str(raw or "").strip()
+    if not val:
+        return default
+    low = val.lower()
+    if low in ("off", "none", "0", "false", "disabled"):
+        return ""
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/"):
+        if low.startswith(prefix):
+            val = val[len(prefix):].split("?", 1)[0].strip("/")
+            low = val.lower()
+            break
+    slug = val.lstrip("@").strip()
+    if not slug or slug.lower() in _LEGACY_STORE_CHANNEL_SLUGS:
+        return default
+    if slug.lstrip("-").isdigit():
+        return slug
+    return f"@{slug}"
+
+
+STORE_CHANNEL = normalize_channel_handle(os.getenv("STORE_CHANNEL", ""), default=DEFAULT_STORE_CHANNEL)
+
+
+def get_store_channel() -> str:
+    """Resolve official Mono Deck Studio channel (@MonoDeckStudio), auto-upgrading stale @CreatorFlow_Store."""
+    env_val = os.getenv("STORE_CHANNEL")
+    if env_val is not None:
+        return normalize_channel_handle(env_val, default=DEFAULT_STORE_CHANNEL)
+    return normalize_channel_handle(STORE_CHANNEL, default=DEFAULT_STORE_CHANNEL)
+
+
 VIP_PRICE_UZS = int(os.getenv("VIP_PRICE_UZS", "69000"))
 VIP_PRICE_STARS = int(os.getenv("VIP_PRICE_STARS", "250"))
 

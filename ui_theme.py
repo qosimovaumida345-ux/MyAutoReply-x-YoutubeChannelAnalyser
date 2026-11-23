@@ -6,7 +6,7 @@ Zero cyan/purple neon gradients, zero AI slop, zero cluttered navbars.
 """
 
 import html as _html
-from config import BRAND_NAME, APP_BASE_URL, ADSENSE_CLIENT_ID, get_bot_username, SUPPORT_USERNAME
+from config import BRAND_NAME, APP_BASE_URL, ADSENSE_CLIENT_ID, get_bot_username, SUPPORT_USERNAME, get_store_channel
 
 
 BRAND_MARK_SVG = (
@@ -254,6 +254,11 @@ def render_editorial_footer() -> str:
     domain = _html.escape(APP_BASE_URL.split("://", 1)[-1].split("/", 1)[0])
     bot_u = _html.escape(get_bot_username())
     sup_u = _html.escape(SUPPORT_USERNAME)
+    ch_clean = get_store_channel().lstrip("@").strip()
+    ch_link = ""
+    if ch_clean and not ch_clean.lstrip("-").isdigit():
+        ch_esc = _html.escape(ch_clean)
+        ch_link = f'<a href="https://t.me/{ch_esc}" target="_blank" rel="noopener noreferrer">@{ch_esc}</a>'
     return (
         '<footer class="md-footer">'
         '<div class="md-footer-inner">'
@@ -264,6 +269,7 @@ def render_editorial_footer() -> str:
         '<a href="/docs">API Docs</a>'
         '<a href="/captcha">Shield Captcha</a>'
         f'<a href="https://t.me/{bot_u}" target="_blank" rel="noopener noreferrer">@{bot_u}</a>'
+        f'{ch_link}'
         f'<a href="https://t.me/{sup_u}" target="_blank" rel="noopener noreferrer">Support</a>'
         '</div>'
         '</div>'

@@ -1151,7 +1151,7 @@ def init_db():
     """)
     cur.execute("CREATE INDEX IF NOT EXISTS idx_user_vip_expires ON user_vip_subscriptions(vip_expires_at)")
 
-    # Kanal Konkurslari jadvali (@CreatorFlow_Store)
+    # Kanal Konkurslari jadvali (@MonoDeckStudio)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS channel_contests (
             id SERIAL PRIMARY KEY,

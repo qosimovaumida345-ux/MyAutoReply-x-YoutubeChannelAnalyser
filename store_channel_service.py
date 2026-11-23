@@ -20,7 +20,16 @@ from pyrogram import Client
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pyrogram.enums import ParseMode
 
-from config import STORE_CHANNEL, VIP_PRICE_UZS, VIP_PRICE_STARS, BRAND_NAME, get_bot_username, extract_username_from_me
+from config import (
+    STORE_CHANNEL,
+    STORE_CHANNEL_NAME,
+    get_store_channel,
+    VIP_PRICE_UZS,
+    VIP_PRICE_STARS,
+    BRAND_NAME,
+    get_bot_username,
+    extract_username_from_me,
+)
 from custom_emojis import ce, get_brand_emoji
 from database import (
     create_channel_contest,
@@ -52,13 +61,14 @@ def _resolve_active_bot_username(client: Optional[Client] = None) -> str:
 
 
 async def _send_channel_message(bot_client: Client, text: str, reply_markup=None) -> Optional[int]:
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return None
 
     if _userbot_client:
         try:
             msg = await _userbot_client.send_message(
-                STORE_CHANNEL, text,
+                channel, text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=reply_markup,
             )
@@ -67,7 +77,7 @@ async def _send_channel_message(bot_client: Client, text: str, reply_markup=None
             logger.warning(f"Userbot orqali kanalga yuborishda xato: {ub_err}, bot ga fallback...")
 
     try:
-        msg = await bot_client.send_message(STORE_CHANNEL, text, reply_markup=reply_markup)
+        msg = await bot_client.send_message(channel, text, reply_markup=reply_markup)
         return msg.id if msg else None
     except Exception as bot_err:
         logger.error(f"Bot orqali kanalga yuborishda xato: {bot_err}")
@@ -83,7 +93,8 @@ async def broadcast_channel_purchase(
     price_uzs: int,
     order_id: Optional[str] = None,
 ) -> bool:
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return False
 
     try:
@@ -123,7 +134,8 @@ async def broadcast_channel_purchase(
 # ==================== RESTOCK E'LONLARI ====================
 
 async def send_channel_restock_alert(client: Client, items_summary: Optional[str] = None) -> bool:
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return False
 
     try:
@@ -439,7 +451,8 @@ async def _maybe_reword_daily_intro(promo_title: str) -> Optional[str]:
 
 async def send_channel_promo(client: Client, promo_index: Optional[int] = None) -> bool:
     """Kanalga har kuni har xil format va custom emojilar bilan kunlik post yuborish."""
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return False
 
     try:
@@ -459,7 +472,7 @@ async def send_channel_promo(client: Client, promo_index: Optional[int] = None) 
             f"{opener_line}\n\n"
             f"{promo['body']}\n\n"
             f"{closer_line}\n"
-            f"{tail_emoji} <b>Bot:</b> @{bot_username} · <b>Web:</b> monodeck.site"
+            f"{tail_emoji} <b>Bot:</b> @{bot_username} · <b>Kanal:</b> {channel} · <b>Web:</b> monodeck.site"
         )
 
         kb = InlineKeyboardMarkup([
@@ -483,7 +496,8 @@ async def create_and_post_contest(
     prize_text: str = "1 Oylik Mono Deck Studio VIP (69,000 UZS) + 100 Stars",
     duration_hours: int = 48,
 ) -> Optional[int]:
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return None
 
     try:
@@ -497,7 +511,7 @@ async def create_and_post_contest(
             f"{ce('TROPHY')} <b>Bosh sovrin:</b>\n"
             f"<b>{prize_text}</b>\n\n"
             f"{ce('ROCKET')} <b>Ishtirok etish shartlari:</b>\n"
-            f"1. {ce('CHANNEL')} {STORE_CHANNEL} kanalimizga a'zo bo'lish\n"
+            f"1. {ce('CHANNEL')} {channel} kanalimizga a'zo bo'lish\n"
             f"2. {ce('PHONE')} Botda telefon raqamingizni tasdiqlash\n"
             f"3. Pastdagi <b>«Ishtirok etish»</b> tugmasini bosish\n\n"
             f"{ce('WAIT')} <b>Muddat:</b> {duration_hours} soat"
@@ -523,7 +537,8 @@ async def send_channel_flash_sale(
     discount_percent: int = 20,
     duration_hours: int = 2,
 ) -> bool:
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return False
     try:
         create_flash_sale(title, discount_percent, duration_hours)
@@ -555,7 +570,8 @@ async def send_channel_drop_promo(
     max_uses: int = 3,
     duration_minutes: int = 60,
 ) -> bool:
-    if not STORE_CHANNEL:
+    channel = get_store_channel()
+    if not channel:
         return False
     try:
         create_fast_drop_promo(code, "balance", reward_uzs, max_uses, duration_minutes)

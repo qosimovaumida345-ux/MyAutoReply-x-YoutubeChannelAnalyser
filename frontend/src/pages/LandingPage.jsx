@@ -3,7 +3,7 @@ import { IconBox, IconChart, IconDownload, IconExternal, IconShield } from '../c
 
 export function LandingPage({ user, navigate, publicConfig, t }) {
   const isAuthed = Boolean(user && user.id > 0);
-  const botUsername = publicConfig?.bot_username || 'monodeck_bot';
+  const botUsername = publicConfig?.bot_username || 'monodeck_app';
 
   const modules = [
     {
