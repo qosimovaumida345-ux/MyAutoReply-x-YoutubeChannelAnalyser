@@ -2895,6 +2895,115 @@ def complete_payment_transaction(tx_id: int, invoice_id: str = None) -> dict:
         conn.close()
 
 
+def get_active_crypto_order(tg_user_id: int, payment_type: str) -> dict:
+    """So'nggi 24 soat ichidagi faol (pending) kripto buyurtmasini olish."""
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT * FROM payment_transactions
+            WHERE tg_user_id = %s
+              AND payment_type = %s
+              AND status = 'pending'
+              AND created_at > NOW() - INTERVAL '24 hours'
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (int(tg_user_id), str(payment_type)),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_active_crypto_order error: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def cancel_payment_transaction(tx_id: int, tg_user_id: int) -> bool:
+    """Foydalanuvchining o'ziga tegishli pending buyurtmasini bekor qilish (anti-IDOR)."""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE payment_transactions
+            SET status = 'cancelled', updated_at = NOW()
+            WHERE id = %s AND tg_user_id = %s AND status = 'pending'
+            RETURNING id
+            """,
+            (int(tx_id), int(tg_user_id)),
+        )
+        row = cur.fetchone()
+        conn.commit()
+        return bool(row)
+    except Exception as e:
+        conn.rollback()
+        print(f"cancel_payment_transaction error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def update_payment_transaction_invoice(tx_id: int, invoice_id: str, payload: str = None) -> bool:
+    """Pending buyurtmaga invoice_id va payload biriktirish."""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE payment_transactions
+            SET invoice_id = %s,
+                payload = COALESCE(%s, payload),
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (str(invoice_id), payload, int(tx_id)),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"update_payment_transaction_invoice error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def mark_payment_transaction_completed_without_credit(tx_id: int, invoice_id: str = None) -> bool:
+    """claim_and_credit_crypto_tx balans qo'shgach, bog'langan order statusini completed ga o'tkazish."""
+    conn = get_db()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE payment_transactions
+            SET status = 'completed',
+                invoice_id = COALESCE(%s, invoice_id),
+                updated_at = NOW()
+            WHERE id = %s AND status = 'pending'
+            """,
+            (invoice_id, int(tx_id)),
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        conn.rollback()
+        print(f"mark_payment_transaction_completed_without_credit error: {e}")
+        return False
+    finally:
+        conn.close()
+
+
 def get_user_payment_history(tg_user_id: int, limit: int = 10):
     conn = get_db()
     if not conn: return []

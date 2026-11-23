@@ -334,7 +334,13 @@ def _get_button_icon_id(cb, raw_text, web_url="", is_vip=False):
     # 2. Web Dashboard & KYC & TON WebApp
     if (web_url and ("kyc" in web_url)) or "kyc" in text_lower:
         return CUSTOM_EMOJI_REGISTRY.get("STATUS_SECURITY", {}).get("id", "5330194932781050507")
-    if (web_url and ("tonconnect" in web_url or "ton" in web_url)) or any(k in cb_lower for k in ["pay_crypto", "pay_ton", "crypto_pkg"]) or any(k in text_lower for k in ["ton (", "ton hamyon", "the open network", "cryptopay", "ton blockchain"]):
+    if any(k in cb_lower for k in ["pay_binance", "order_open_binance", "verify_binance"]) or "binance" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_BINANCE", {}).get("id", "5454205576512818013")
+    if any(k in cb_lower for k in ["pay_cryptobot", "order_open_cryptobot", "check_cryptobot", "cryptobot"]) or "cryptobot" in text_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("PAY_CRYPTOBOT", {}).get("id", "5217705010539812022")
+    if "crypto_order_cancel" in cb_lower:
+        return CUSTOM_EMOJI_REGISTRY.get("STATUS_ERROR", {}).get("id", "5981043230160981261")
+    if (web_url and ("tonconnect" in web_url or "ton" in web_url)) or any(k in cb_lower for k in ["pay_crypto", "pay_ton", "order_open_ton", "crypto_pkg"]) or any(k in text_lower for k in ["ton (", "ton hamyon", "the open network", "cryptopay", "ton blockchain", "via ton", "deposit via ton", "через ton", "con ton", "ton ile", "ton buyurtma", "ордер ton", "ton order", "orden ton", "ton sipari"]):
         return CUSTOM_EMOJI_REGISTRY.get("PAY_TON_CRYPTO", {}).get("id", "5078343973303485905")
     if (web_url and not any(k in web_url for k in ["kyc", "tonconnect", "ton"])) or "web dashboard" in text_lower or "dashboard" in text_lower or cb_lower in ("dashboard", "web_dashboard"):
         return CUSTOM_EMOJI_REGISTRY.get("BTN_DASHBOARD", {}).get("id", "6327577233305112811")
@@ -488,19 +494,24 @@ def _get_button_style(cb, raw_text, web_url=""):
             return "danger"
         return "primary"
 
-    # 0. DANGER (Qizil) — Out of stock / tugagan tovarlar
+    # 0. DANGER (Qizil) — Out of stock / Bekor qilish (Cancel Order)
     if any(k in raw_text for k in ["zaxirada yo'q", "out of stock", "tugagan", "mavjud emas", "sold out"]) or raw_text.startswith("⚠️"):
+        return "danger"
+    if any(k in cb for k in ["crypto_order_cancel", "cancel"]) or any(
+        k in raw_text for k in ["cancel", "bekor", "отмен", "cancelar", "iptal"]
+    ):
         return "danger"
 
     # 1. SUCCESS (Yashil) — Balans, To'lovlar, Xizmatlar, Yutuqlar, Referal, CapCut, VenteBot tovarlar
     if any(k in cb for k in [
-        "vb_item_", "vb_catalog", "menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_", "stars_pkg", "crypto_pkg", "humo_pkg",
+        "vb_item_", "vb_catalog", "menu_wallet", "pay_", "wallet", "box_open", "sub_check", "buy_",
+        "stars_pkg", "crypto_pkg", "humo_pkg", "crypto_order_open", "crypto_order_verify", "check_cryptobot",
         "marketplace", "market", "menu_marketplace", "menu_vouchers", "menu_cashout", "aivid_buy",
         "menu_referral", "menu_leaderboard", "menu_capcut", "capcut"
     ]) or any(k in raw_text for k in [
         "sotib olish", "to'ldirish", "ochish", "tekshirish", "deposit", "kassa", "marketplace",
         "balans", "obuna", "stars", "referal", "do'stlarni", "liderlar", "capcut", "voucher", "chek",
-        "📦", "humo", "uzcard"
+        "📦", "humo", "uzcard", "verify", "открыть ордер", "проверить", "verificar", "doğrula"
     ]):
         return "success"
 
@@ -1167,7 +1178,7 @@ def main_menu_kb(user_id=None, lang=None):
 def wallet_menu_kb(user_id=None, lang=None):
     import os
     from config import ENABLE_CRYPTO_PAY, CRYPTO_PAY_TOKEN
-    from database import get_user_ton_wallet
+    from database import get_user_ton_wallet, get_binance_crypto_config
     lang = lang or _resolve_lang(user_id)
     uid = int(user_id) if isinstance(user_id, int) or (isinstance(user_id, str) and user_id.isdigit()) else None
     web_url = os.environ.get("WEB_URL", WEB_APP_URL)
@@ -1175,7 +1186,26 @@ def wallet_menu_kb(user_id=None, lang=None):
         [InlineKeyboardButton(f"{ce('PAY_HUMO_UZCARD')} {t('btn_pay_humo', lang)}", callback_data="pay_humo_menu")],
         [InlineKeyboardButton(f"{ce('PAY_STARS')} {t('btn_pay_stars', lang)}", callback_data="pay_stars_menu")],
     ]
-    if ENABLE_CRYPTO_PAY or bool(CRYPTO_PAY_TOKEN):
+    cfg = get_binance_crypto_config()
+    cryptobot_token = (os.getenv("CRYPTO_PAY_TOKEN", "") or CRYPTO_PAY_TOKEN or "").strip()
+    if ENABLE_CRYPTO_PAY or bool(cryptobot_token):
+        has_binance = bool(
+            cfg.get("binance_uid")
+            or cfg.get("binance_api_key")
+            or cfg.get("usdt_trc20_address")
+            or cfg.get("usdt_bep20_address")
+        )
+        has_ton = bool(cfg.get("ton_wallet_address"))
+        has_cb = bool(cryptobot_token)
+        no_specific_cfg = not (has_binance or has_ton or has_cb)
+
+        if has_binance or no_specific_cfg:
+            rows.append([InlineKeyboardButton(f"{ce('PAY_BINANCE')} {t('btn_pay_binance', lang)}", callback_data="pay_binance_menu")])
+        if has_cb:
+            rows.append([InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} {t('btn_pay_cryptobot', lang)}", callback_data="pay_cryptobot_menu")])
+        if has_ton or no_specific_cfg:
+            rows.append([InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {t('btn_pay_ton', lang)}", callback_data="pay_ton_direct_menu")])
+
         ton_wallet = get_user_ton_wallet(uid) if uid else None
         if ton_wallet:
             addr = ton_wallet.get("wallet_address", "")
@@ -1183,7 +1213,6 @@ def wallet_menu_kb(user_id=None, lang=None):
             ton_btn_text = t("btn_ton_wallet_connected", lang, masked=masked)
         else:
             ton_btn_text = t("btn_ton_wallet_connect", lang)
-        rows.append([InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {t('btn_pay_ton', lang)}", callback_data="pay_crypto_menu")])
         rows.append([InlineKeyboardButton(f"{ce('PAY_TON_CRYPTO')} {ton_btn_text}", web_app=WebAppInfo(url=f"{web_url}/tonconnect/page?user_id={user_id or 0}"))])
     rows.extend([
         [InlineKeyboardButton(f"{ce('PAY_CASHOUT')} {t('btn_cashout', lang)}", callback_data="menu_cashout")],
@@ -1192,6 +1221,92 @@ def wallet_menu_kb(user_id=None, lang=None):
         [InlineKeyboardButton(f"{ce('BTN_HOME')} {t('btn_home', lang)}", callback_data="back_main")],
     ])
     return InlineKeyboardMarkup(rows)
+
+
+def render_crypto_order_card(order: dict, lang: str = "uz"):
+    """Kripto buyurtma (Binance / TON / @CryptoBot) kartochkasi va tugmalarini lokalizatsiyada chizish."""
+    import json
+    from database import get_binance_crypto_config
+
+    lang = _resolve_lang(None) if not lang else lang
+    order_id = int(order.get("id") or 0)
+    ptype = str(order.get("payment_type") or "").strip()
+    amt_usd = float(order.get("amount_original") or 0)
+    amt_usd_str = f"{amt_usd:g}"
+    amt_uzs = int(order.get("amount_uzs") or 0)
+    cfg = get_binance_crypto_config()
+
+    if ptype == "binance_order":
+        lines = []
+        if cfg.get("binance_uid"):
+            lines.append(f"{ce('PAY_BINANCE')} <b>Binance Pay UID:</b> <code>{cfg['binance_uid']}</code>")
+        if cfg.get("usdt_trc20_address"):
+            lines.append(f"{ce('PAY_CRYPTO_USDT')} <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
+        if cfg.get("usdt_bep20_address"):
+            lines.append(f"{ce('PAY_CRYPTO_USDT')} <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
+        addr_block = "\n".join(lines) if lines else f"⚠️ <i>{t('crypto_not_configured', lang)}</i>"
+        text = t(
+            "crypto_order_card_binance",
+            lang,
+            order_id=order_id,
+            amount_usd=amt_usd_str,
+            amount_uzs=amt_uzs,
+            addr_block=addr_block,
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} {t('btn_verify_binance_order', lang)}", callback_data=f"crypto_order_verify_{order_id}")],
+            [InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data=f"crypto_order_cancel_{order_id}")],
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")],
+        ])
+        return text, kb
+
+    if ptype == "ton_order":
+        lines = []
+        if cfg.get("ton_wallet_address"):
+            lines.append(f"{ce('PAY_TON_CRYPTO')} <b>TON Address:</b> <code>{cfg['ton_wallet_address']}</code>")
+            if cfg.get("ton_wallet_memo"):
+                lines.append(f"{ce('STATUS_WARNING')} <b>TON Memo / Tag:</b> <code>{cfg['ton_wallet_memo']}</code> <i>(Required!)</i>")
+        addr_block = "\n".join(lines) if lines else f"⚠️ <i>{t('crypto_not_configured', lang)}</i>"
+        text = t(
+            "crypto_order_card_ton",
+            lang,
+            order_id=order_id,
+            amount_usd=amt_usd_str,
+            amount_uzs=amt_uzs,
+            addr_block=addr_block,
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} {t('btn_verify_ton_order', lang)}", callback_data=f"crypto_order_verify_{order_id}")],
+            [InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data=f"crypto_order_cancel_{order_id}")],
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")],
+        ])
+        return text, kb
+
+    # Default: cryptopay (@CryptoBot)
+    invoice_id = str(order.get("invoice_id") or "")
+    pay_url = str(order.get("pay_url") or "").strip()
+    if not pay_url and order.get("payload"):
+        try:
+            pdata = json.loads(order["payload"]) if isinstance(order["payload"], str) else order["payload"]
+            pay_url = str((pdata or {}).get("pay_url") or "").strip()
+        except Exception:
+            pay_url = ""
+
+    text = t(
+        "crypto_order_card_cryptobot",
+        lang,
+        order_id=order_id,
+        amount_usd=amt_usd_str,
+        amount_uzs=amt_uzs,
+        invoice_id=invoice_id,
+    )
+    rows = []
+    if pay_url:
+        rows.append([InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} {t('btn_pay_cryptobot_link', lang, amount=amt_usd_str)}", url=pay_url)])
+    rows.append([InlineKeyboardButton(f"{ce('STATUS_LOADING')} {t('btn_verify_cryptobot', lang)}", callback_data=f"check_cryptobot_inv_{invoice_id}")])
+    rows.append([InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data=f"crypto_order_cancel_{order_id}")])
+    rows.append([InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")])
+    return text, InlineKeyboardMarkup(rows)
 
 def _format_wallet_balance_text(lang: str, bal: int) -> str:
     """Format wallet balance caption and hide crypto line when crypto payments are disabled."""
@@ -6707,6 +6822,11 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         menu = "wallet" if cb.data == "btn_balance" else cb.data.replace("menu_", "")
         
         if menu == "wallet":
+            try:
+                from mega_features import USER_STATES
+                USER_STATES.pop(user_id, None)
+            except Exception:
+                pass
             bal = get_user_balance(user_id)
             text = _format_wallet_balance_text(lang, bal)
             await cb.message.edit_text(text, reply_markup=wallet_menu_kb(user_id))
@@ -7210,122 +7330,199 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         else:
             await cb.answer("To'lov chekini yaratib bo'lmadi!", show_alert=True)
 
-    @bot.on_callback_query(filters.regex(r"^(?:pay_crypto_menu|pay_ton_menu)$"))
-    async def cb_pay_crypto_menu(client, cb: CallbackQuery):
+    async def _show_crypto_entry_or_active_order(cb: CallbackQuery, method_key: str):
+        """Show user's active pending crypto order or ask confirmation to open a new order."""
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        try:
+            from mega_features import USER_STATES
+            USER_STATES.pop(user_id, None)
+        except Exception:
+            pass
+
+        from database import get_active_crypto_order
+        import json
+
+        ptype_map = {
+            "binance": "binance_order",
+            "ton": "ton_order",
+            "cryptobot": "cryptopay",
+        }
+        ptype = ptype_map[method_key]
+        active = await asyncio.to_thread(get_active_crypto_order, user_id, ptype)
+        if active:
+            has_valid_cb = True
+            if method_key == "cryptobot":
+                raw_pl = active.get("payload") or "{}"
+                try:
+                    pl_dict = json.loads(raw_pl) if isinstance(raw_pl, str) else raw_pl
+                except Exception:
+                    pl_dict = {}
+                has_valid_cb = bool(active.get("invoice_id") and (pl_dict or {}).get("pay_url"))
+            if has_valid_cb:
+                txt, kb = render_crypto_order_card(active, lang)
+                await cb.message.edit_text(txt, reply_markup=kb)
+                await cb.answer()
+                return
+
+        emoji_key = {
+            "binance": "PAY_BINANCE",
+            "ton": "PAY_TON_CRYPTO",
+            "cryptobot": "PAY_CRYPTOBOT",
+        }[method_key]
+        open_btn_key = {
+            "binance": "btn_open_binance_order",
+            "ton": "btn_open_ton_order",
+            "cryptobot": "btn_open_cryptobot_order",
+        }[method_key]
+        confirm_key = {
+            "binance": "crypto_confirm_open_binance",
+            "ton": "crypto_confirm_open_ton",
+            "cryptobot": "crypto_confirm_open_cryptobot",
+        }[method_key]
+
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce(emoji_key)} {t(open_btn_key, lang)}", callback_data=f"crypto_order_open_{method_key}")],
+            [InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data="menu_wallet")],
+        ])
+        await cb.message.edit_text(f"{ce(emoji_key)} {t(confirm_key, lang)}", reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^(?:pay_binance_menu|pay_crypto_menu)$"))
+    async def cb_pay_binance_menu(client, cb: CallbackQuery):
+        await _show_crypto_entry_or_active_order(cb, "binance")
+
+    @bot.on_callback_query(filters.regex(r"^(?:pay_ton_direct_menu|pay_ton_menu)$"))
+    async def cb_pay_ton_direct_menu(client, cb: CallbackQuery):
+        await _show_crypto_entry_or_active_order(cb, "ton")
+
+    @bot.on_callback_query(filters.regex(r"^(?:pay_cryptobot_menu|cryptobot_custom_amount)$"))
+    async def cb_pay_cryptobot_menu(client, cb: CallbackQuery):
+        await _show_crypto_entry_or_active_order(cb, "cryptobot")
+
+    @bot.on_callback_query(filters.regex(r"^crypto_order_open_(binance|ton|cryptobot)$"))
+    async def cb_crypto_order_open(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        method = cb.matches[0].group(1)
         from database import get_binance_crypto_config
         from config import USD_TO_UZS_RATE, CRYPTO_PAY_TOKEN
+        from mega_features import USER_STATES
         import os
 
         cfg = get_binance_crypto_config()
-        cryptobot_token = (os.getenv("CRYPTO_PAY_TOKEN", "") or CRYPTO_PAY_TOKEN or "").strip()
-        lines = []
-        if cfg.get("binance_uid"):
-            lines.append(f"{ce('PAY_BINANCE')} <b>Binance Pay UID:</b> <code>{cfg['binance_uid']}</code> <i>(0% komissiya)</i>")
-        if cfg.get("usdt_trc20_address"):
-            lines.append(f"{ce('PAY_CRYPTO_USDT')} <b>USDT (TRC20):</b> <code>{cfg['usdt_trc20_address']}</code>")
-        if cfg.get("usdt_bep20_address"):
-            lines.append(f"{ce('PAY_CRYPTO_USDT')} <b>USDT (BEP20 / BSC):</b> <code>{cfg['usdt_bep20_address']}</code>")
-        if cfg.get("ton_wallet_address"):
-            lines.append(f"{ce('PAY_TON_CRYPTO')} <b>TON Network:</b> <code>{cfg['ton_wallet_address']}</code>")
-            if cfg.get("ton_wallet_memo"):
-                lines.append(
-                    f"{ce('STATUS_WARNING')} <b>TON Memo / Tag:</b> <code>{cfg['ton_wallet_memo']}</code> "
-                    "<i>(Binance TON depozit uchun izohga yozish shart!)</i>"
-                )
-
-        addr_section = ""
-        if lines:
-            addr_block = "\n".join(lines)
-            addr_section = (
-                f"<b>2-usul — Binance / On-Chain (Istalgan summa + TxID):</b>\n"
-                f"{addr_block}\n\n"
-                f"{ce('DEV_API_DOCS')} <b>TxID Tasdiqlash (10 soniya):</b> "
-                f"To'lovni yuborgach, chekdagi <b>Tranzaksiya ID (TxID / TxHash / Binance Order ID)</b> ni "
-                f"pastdagi tugma orqali yuboring — tizim o'zi aniq summani hisoblab balansingizga qo'shadi!"
-            )
-
-        cb_section = ""
-        if cryptobot_token:
-            cb_section = (
-                f"{ce('PAY_CRYPTOBOT')} <b>1-usul — @CryptoBot (Avto-to'lov, ko'p koinli):</b>\n"
-                f"Telegram ichida 1 bosishda <code>USDT, TON, BTC, ETH, TRX, BNB</code> orqali "
-                f"istalgan summada to'lang (TxID nusxalash shart emas)."
-            )
-
-        if cb_section and addr_section:
-            body_parts = f"{cb_section}\n\n{addr_section}"
-        elif cb_section:
-            body_parts = cb_section
-        elif addr_section:
-            body_parts = addr_section
+        if method == "binance":
+            configured = bool(cfg.get("binance_uid") or cfg.get("binance_api_key") or cfg.get("usdt_trc20_address") or cfg.get("usdt_bep20_address"))
+        elif method == "ton":
+            configured = bool(cfg.get("ton_wallet_address"))
         else:
-            body_parts = "⚠️ <i>Kripto depozit manzillari .env orqali hali sozlanmagan.</i>"
+            configured = bool((os.getenv("CRYPTO_PAY_TOKEN", "") or CRYPTO_PAY_TOKEN or "").strip())
 
-        text = (
-            f"{ce('PAY_CRYPTO_USDT')} <b>Multi-Crypto — Custom Summa To'lov</b>\n\n"
-            f"💵 <b>Kurs:</b> <code>1 USDT ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
-            f"{body_parts}"
-        )
-        rows = []
-        if cryptobot_token:
-            rows.append([InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot Avto-To'lov (Custom summa)", callback_data="cryptobot_custom_amount")])
-        if lines:
-            rows.append([InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} TxID / Order ID yuborish", callback_data="crypto_enter_txid")])
-        rows.append([InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="menu_wallet")])
-        kb = InlineKeyboardMarkup(rows)
-        await cb.message.edit_text(text, reply_markup=kb)
+        if not configured:
+            await cb.answer(t("crypto_not_configured", lang), show_alert=True)
+            return
+
+        USER_STATES[user_id] = {"action": "waiting_crypto_order_amount", "method": method}
+        ask_key = f"crypto_ask_amount_{method}"
+        emoji_key = {"binance": "PAY_BINANCE", "ton": "PAY_TON_CRYPTO", "cryptobot": "PAY_CRYPTOBOT"}[method]
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data="menu_wallet")]
+        ])
+        await cb.message.edit_text(f"{ce(emoji_key)} {t(ask_key, lang, rate=USD_TO_UZS_RATE)}", reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^crypto_order_verify_(\d+)$"))
+    async def cb_crypto_order_verify(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        order_id = int(cb.matches[0].group(1))
+        from database import get_payment_transaction
+        from mega_features import USER_STATES
+
+        order = await asyncio.to_thread(get_payment_transaction, order_id)
+        if not order or int(order.get("tg_user_id") or 0) != int(user_id) or order.get("status") != "pending":
+            await cb.answer(t("crypto_order_not_found", lang), show_alert=True)
+            return
+
+        ptype = str(order.get("payment_type") or "binance_order")
+        USER_STATES[user_id] = {
+            "action": "waiting_crypto_order_txid",
+            "order_id": order_id,
+            "method": ptype,
+        }
+        back_cb = "pay_ton_direct_menu" if ptype == "ton_order" else "pay_binance_menu"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data=f"crypto_order_cancel_{order_id}")],
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data=back_cb)],
+        ])
+        await cb.message.edit_text(f"{ce('DEV_API_DOCS')} {t('crypto_ask_txid', lang, order_id=order_id)}", reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^crypto_order_cancel_(\d+)$"))
+    async def cb_crypto_order_cancel(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        lang = get_user_language(user_id)
+        order_id = int(cb.matches[0].group(1))
+        from database import get_payment_transaction, cancel_payment_transaction
+        from crypto_pay import delete_crypto_pay_invoice
+        from mega_features import USER_STATES
+
+        USER_STATES.pop(user_id, None)
+        order = await asyncio.to_thread(get_payment_transaction, order_id)
+        if not order or int(order.get("tg_user_id") or 0) != int(user_id) or order.get("status") != "pending":
+            await cb.answer(t("crypto_order_not_found", lang), show_alert=True)
+            return
+
+        ok = await asyncio.to_thread(cancel_payment_transaction, order_id, user_id)
+        if not ok:
+            await cb.answer(t("crypto_order_not_found", lang), show_alert=True)
+            return
+
+        if order.get("payment_type") == "cryptopay" and order.get("invoice_id"):
+            try:
+                await delete_crypto_pay_invoice(str(order["invoice_id"]))
+            except Exception:
+                pass
+
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")]
+        ])
+        await cb.message.edit_text(f"{ce('STATUS_ERROR')} {t('crypto_order_cancelled', lang, order_id=order_id)}", reply_markup=kb)
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^crypto_enter_txid$"))
     async def cb_crypto_enter_txid(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         from mega_features import USER_STATES
-        USER_STATES[user_id] = {"action": "waiting_crypto_txid"}
-        text = (
-            f"{ce('DEV_API_DOCS')} <b>Tranzaksiya ID (TxID / Binance Order ID) ni yuboring</b>\n\n"
-            "Binance Pay Order ID yoki blockchain TxHash ni shu yerga matn sifatida tashlang.\n"
-            "<i>Tizim to'lov miqdorini jonli kursda hisoblab darhol balansingizga qo'shadi!</i>"
-        )
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="pay_crypto_menu")]])
-        await cb.message.edit_text(text, reply_markup=kb)
-        await cb.answer()
-
-    @bot.on_callback_query(filters.regex(r"^cryptobot_custom_amount$"))
-    async def cb_cryptobot_custom_amount(client, cb: CallbackQuery):
-        user_id = cb.from_user.id
-        from mega_features import USER_STATES
-        from config import USD_TO_UZS_RATE
-        USER_STATES[user_id] = {"action": "waiting_cryptobot_amount"}
-        text = (
-            f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot Multi-Coin Avto-To'lov</b>\n\n"
-            f"💵 <b>Joriy kurs:</b> <code>1 USD ≈ {USD_TO_UZS_RATE:,} so'm</code>\n\n"
-            "Hisobingizni necha <b>$ USD</b> ekvivalentida to'ldirmoqchisiz?\n"
-            "Istalgan summani yozib yuboring (masalan: <code>1.5</code>, <code>5</code>, <code>15</code>, <code>50</code>).\n\n"
-            "<i>Keyingi oynada @CryptoBot ichida USDT, TON, BTC, ETH, TRX, BNB, LTC yoki USDC bilan to'lay olasiz (min: $0.50).</i>"
-        )
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} Bekor qilish", callback_data="pay_crypto_menu")]])
-        await cb.message.edit_text(text, reply_markup=kb)
+        USER_STATES[user_id] = {"action": "waiting_crypto_order_txid", "order_id": 0, "method": "binance_order"}
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data="menu_wallet")]])
+        await cb.message.edit_text(f"{ce('DEV_API_DOCS')} {t('crypto_ask_txid', lang, order_id='-')}", reply_markup=kb)
         await cb.answer()
 
     @bot.on_callback_query(filters.regex(r"^check_cryptobot_inv_(\d+)$"))
     async def cb_check_cryptobot_inv(client, cb: CallbackQuery):
         user_id = cb.from_user.id
+        lang = get_user_language(user_id)
         inv_id = cb.matches[0].group(1)
         from crypto_pay import get_crypto_pay_invoice
         from binance_crypto_verifier import get_live_usd_price
-        from database import claim_and_credit_crypto_tx, get_payment_transaction, get_db
+        from database import (
+            claim_and_credit_crypto_tx,
+            get_payment_transaction,
+            mark_payment_transaction_completed_without_credit,
+        )
         from config import USD_TO_UZS_RATE
         import json
 
         inv = await get_crypto_pay_invoice(inv_id)
         if not inv:
-            await cb.answer("❌ @CryptoBot dan invoice ma'lumoti olinmadi. Bir ozdan so'ng urining.", show_alert=True)
+            await cb.answer(t("cryptobot_not_paid_yet", lang), show_alert=True)
             return
 
         status = str(inv.get("status") or "").lower()
         if status != "paid":
-            await cb.answer("⏳ To'lov hali yakunlanmagan! @CryptoBot orqali to'lab, qayta bosing.", show_alert=True)
+            await cb.answer(t("cryptobot_not_paid_yet", lang), show_alert=True)
             return
 
         raw_payload = inv.get("payload") or "{}"
@@ -7343,10 +7540,10 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             tx_row = await asyncio.to_thread(get_payment_transaction, int(tx_rec))
             if tx_row:
                 if int(tx_row.get("tg_user_id") or 0) != int(user_id):
-                    await cb.answer("❌ Ushbu hisob-faktura boshqa foydalanuvchiga tegishli.", show_alert=True)
+                    await cb.answer(t("crypto_order_not_found", lang), show_alert=True)
                     return
                 if tx_row.get("status") == "completed":
-                    await cb.answer("✅ Ushbu @CryptoBot to'lovi allaqachon hisobingizga o'tkazilgan!", show_alert=True)
+                    await cb.answer(t("cryptobot_already_credited", lang), show_alert=True)
                     return
 
         if str(inv.get("currency_type") or "").lower() == "fiat" and str(inv.get("fiat") or "").upper() == "USD":
@@ -7354,14 +7551,14 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             amt_crypto = float(inv.get("paid_amount") or inv.get("amount") or 0)
             usd_val = float(inv.get("amount") or 0)
             if usd_val <= 0:
-                await cb.answer("❌ Noto'g'ri to'lov summasi.", show_alert=True)
+                await cb.answer(t("crypto_invalid_amount", lang), show_alert=True)
                 return
             amount_uzs = max(500, int(round(usd_val * USD_TO_UZS_RATE)))
         else:
             asset = str(inv.get("asset") or "USDT").upper()
             amt_crypto = float(inv.get("amount") or 0)
             if amt_crypto <= 0:
-                await cb.answer("❌ Noto'g'ri to'lov summasi.", show_alert=True)
+                await cb.answer(t("crypto_invalid_amount", lang), show_alert=True)
                 return
             usd_price = await get_live_usd_price(asset)
             amount_uzs = max(500, int(round(amt_crypto * usd_price * USD_TO_UZS_RATE)))
@@ -7376,36 +7573,17 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             amount_uzs,
         )
         if not c_res.get("ok"):
-            await cb.answer(f"⚠️ {c_res.get('error', 'Allaqachon tasdiqlangan!')}", show_alert=True)
+            await cb.answer(t("cryptobot_already_credited", lang), show_alert=True)
             return
 
-        # Mark payment_transactions row completed if present so webhook won't double-credit
         if tx_rec and str(tx_rec).isdigit():
-            def _mark_pt_done():
-                conn = get_db()
-                if conn:
-                    try:
-                        cur = conn.cursor()
-                        cur.execute(
-                            "UPDATE payment_transactions SET status = 'completed', invoice_id = %s, updated_at = NOW() WHERE id = %s",
-                            (str(inv_id), int(tx_rec)),
-                        )
-                        conn.commit()
-                    except Exception:
-                        conn.rollback()
-                    finally:
-                        conn.close()
-            await asyncio.to_thread(_mark_pt_done)
+            await asyncio.to_thread(mark_payment_transaction_completed_without_credit, int(tx_rec), str(inv_id))
 
         await cb.message.edit_text(
-            f"{ce('STATUS_SUCCESS')} <b>@CryptoBot TO'LOVI TASDIQLANDI!</b>\n\n"
-            f"{ce('PAY_CRYPTOBOT')} <b>Tizim:</b> @CryptoBot ({asset})\n"
-            f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{amt_crypto} {asset}</code>\n"
-            f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{amount_uzs:,} so'm</code>\n"
-            f"{ce('DEV_API_DOCS')} <b>Invoice ID:</b> <code>#{inv_id}</code>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BTN_WALLET')} Hamyon", callback_data="menu_wallet")]]),
+            f"{ce('STATUS_SUCCESS')} {t('cryptobot_paid_success', lang, asset=asset, amount_crypto=amt_crypto, amount_uzs=amount_uzs, invoice_id=inv_id)}",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BTN_WALLET')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")]]),
         )
-        await cb.answer("✅ To'lov tasdiqlandi!", show_alert=False)
+        await cb.answer("✅", show_alert=False)
 
     @bot.on_callback_query(filters.regex(r"^crypto_pkg_([0-9d]+)_([A-Z]+)$"))
     async def cb_crypto_pkg(client, cb: CallbackQuery):

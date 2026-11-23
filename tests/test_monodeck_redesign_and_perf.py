@@ -969,7 +969,11 @@ def test_wallet_menu_no_literal_masked_and_crypto_hidden_when_disabled():
          patch.object(config, "CRYPTO_PAY_TOKEN", ""):
         kb_off = ytbot.wallet_menu_kb(6735799833, "en")
         texts_off = [btn.text for row in kb_off.inline_keyboard for btn in row]
-        assert not any("TON Wallet" in s or "Via TON" in s for s in texts_off)
+        assert not any(
+            k in s
+            for s in texts_off
+            for k in ("TON Wallet", "Via TON", "Deposit via TON", "Deposit via Binance", "Deposit via @CryptoBot")
+        )
         assert any("HUMO / Uzcard" in s for s in texts_off)
         assert any("Telegram Stars" in s for s in texts_off)
 
@@ -1319,3 +1323,204 @@ async def test_cryptobot_fiat_usd_multi_coin_invoice_and_webhook_routes():
     main_src = (ROOT_DIR / "main.py").read_text(encoding="utf-8")
     assert '"/webhook/cryptopay"' in main_src
     assert '"/api/cryptopay/webhook"' in main_src
+
+
+def test_separate_wallet_buttons_icons_and_styles():
+    """Verify Binance, @CryptoBot, and TON render as separate buttons with verified custom emoji IDs and styles."""
+    import os
+    import config
+    import ytbot
+
+    fake_wallet = {"wallet_address": "UQB5es0x95ojgzAoAXmCtJYX2BbK1mwtyBzeqZupOVoxC5gz"}
+    env_vars = {
+        "BINANCE_UID": "554433221",
+        "USDT_TRC20_ADDRESS": "TTestAddress123",
+        "USDT_BEP20_ADDRESS": "0xTestAddress123",
+        "TON_WALLET_ADDRESS": "EQD5mxRgCuRNLxKxeOjG6r141SroLF5FtomPnet-sgP5xNJb",
+        "TON_WALLET_MEMO": "174725708",
+        "CRYPTO_PAY_TOKEN": "123:test_cryptobot_token",
+    }
+    with patch("database.get_user_ton_wallet", return_value=fake_wallet), \
+         patch.dict(os.environ, env_vars, clear=False), \
+         patch.object(config, "ENABLE_CRYPTO_PAY", True), \
+         patch.object(config, "CRYPTO_PAY_TOKEN", "123:test_cryptobot_token"):
+        kb = ytbot.wallet_menu_kb(6735799833, "en")
+        markup = ytbot._build_bot_api_reply_markup(kb, user_id=6735799833)
+        flat = [btn for row in markup["inline_keyboard"] for btn in row]
+        by_cb = {b.get("callback_data"): b for b in flat if b.get("callback_data")}
+
+        assert "pay_binance_menu" in by_cb
+        assert "pay_cryptobot_menu" in by_cb
+        assert "pay_ton_direct_menu" in by_cb
+        assert "pay_crypto_menu" not in by_cb
+
+        assert by_cb["pay_binance_menu"]["icon_custom_emoji_id"] == "5454205576512818013"
+        assert by_cb["pay_cryptobot_menu"]["icon_custom_emoji_id"] == "5217705010539812022"
+        assert by_cb["pay_ton_direct_menu"]["icon_custom_emoji_id"] == "5078343973303485905"
+        assert by_cb["pay_binance_menu"]["style"] == "success"
+        assert by_cb["pay_cryptobot_menu"]["style"] == "success"
+        assert by_cb["pay_ton_direct_menu"]["style"] == "success"
+
+        _, card_kb = ytbot.render_crypto_order_card(
+            {"id": 77, "payment_type": "binance_order", "amount_original": 10.0, "amount_uzs": 128500},
+            "en",
+        )
+        card_markup = ytbot._build_bot_api_reply_markup(card_kb, user_id=6735799833)
+        card_flat = {
+            b.get("callback_data"): b
+            for row in card_markup["inline_keyboard"]
+            for b in row
+            if b.get("callback_data")
+        }
+        assert card_flat["crypto_order_verify_77"]["style"] == "success"
+        assert card_flat["crypto_order_cancel_77"]["style"] == "danger"
+
+
+def test_all_five_languages_crypto_locales_and_order_cards():
+    """Verify all 5 languages (uz, ru, en, es, tr) translate and format every crypto order screen without errors."""
+    import os
+    from locales import TRANSLATIONS, t
+    import ytbot
+
+    langs = ("uz", "ru", "en", "es", "tr")
+    no_arg_keys = (
+        "btn_pay_binance",
+        "btn_pay_cryptobot",
+        "btn_pay_ton",
+        "btn_open_binance_order",
+        "btn_open_cryptobot_order",
+        "btn_open_ton_order",
+        "btn_verify_binance_order",
+        "btn_verify_ton_order",
+        "btn_verify_cryptobot",
+        "btn_cancel_order",
+        "btn_back_wallet",
+        "crypto_confirm_open_binance",
+        "crypto_confirm_open_ton",
+        "crypto_confirm_open_cryptobot",
+        "crypto_invalid_amount",
+        "crypto_amount_range_err",
+        "crypto_not_configured",
+        "crypto_order_not_found",
+        "crypto_checking_tx",
+        "cryptobot_not_paid_yet",
+        "cryptobot_already_credited",
+    )
+    for k in no_arg_keys:
+        assert k in TRANSLATIONS, f"Missing locale key {k}"
+        for lang in langs:
+            assert lang in TRANSLATIONS[k], f"Missing {lang} for {k}"
+            assert t(k, lang).strip()
+
+    env_vars = {
+        "BINANCE_UID": "554433221",
+        "USDT_TRC20_ADDRESS": "TTestTRC20Addr",
+        "USDT_BEP20_ADDRESS": "0xTestBEP20Addr",
+        "TON_WALLET_ADDRESS": "EQD5mxRgCuRNLxKxeOjG6r141SroLF5FtomPnet-sgP5xNJb",
+        "TON_WALLET_MEMO": "174725708",
+    }
+    with patch.dict(os.environ, env_vars, clear=False):
+        for lang in langs:
+            assert "$" in t("btn_pay_cryptobot_link", lang, amount="5")
+            assert "12,850" in t("crypto_ask_amount_binance", lang, rate=12850)
+            assert "12,850" in t("crypto_ask_amount_ton", lang, rate=12850)
+            assert "12,850" in t("crypto_ask_amount_cryptobot", lang, rate=12850)
+            assert "#99" in t("crypto_ask_txid", lang, order_id=99)
+            assert "#99" in t("crypto_order_cancelled", lang, order_id=99)
+            assert "bad" in t("crypto_tx_failed", lang, error="bad")
+            assert "bad" in t("cryptobot_invoice_err", lang, error="bad")
+            assert "#99" in t(
+                "crypto_tx_success",
+                lang,
+                order_id=99,
+                network="TRC20",
+                amount_crypto=5,
+                asset="USDT",
+                usd_value=5.0,
+                amount_uzs=64250,
+                new_balance=94250,
+                tx_short="abc123",
+            )
+            assert "#555" in t(
+                "cryptobot_paid_success",
+                lang,
+                asset="TON",
+                amount_crypto=1.2,
+                amount_uzs=64250,
+                invoice_id="555",
+            )
+
+            txt_b, kb_b = ytbot.render_crypto_order_card(
+                {"id": 101, "payment_type": "binance_order", "amount_original": 10, "amount_uzs": 128500},
+                lang,
+            )
+            assert "#101" in txt_b and "554433221" in txt_b
+            cbs_b = [btn.callback_data for row in kb_b.inline_keyboard for btn in row if btn.callback_data]
+            assert "crypto_order_verify_101" in cbs_b and "crypto_order_cancel_101" in cbs_b
+
+            txt_t, kb_t = ytbot.render_crypto_order_card(
+                {"id": 102, "payment_type": "ton_order", "amount_original": 5, "amount_uzs": 64250},
+                lang,
+            )
+            assert "#102" in txt_t and "174725708" in txt_t and "EQD5mxRg" in txt_t
+            cbs_t = [btn.callback_data for row in kb_t.inline_keyboard for btn in row if btn.callback_data]
+            assert "crypto_order_verify_102" in cbs_t and "crypto_order_cancel_102" in cbs_t
+
+            txt_c, kb_c = ytbot.render_crypto_order_card(
+                {
+                    "id": 103,
+                    "payment_type": "cryptopay",
+                    "amount_original": 2.5,
+                    "amount_uzs": 32125,
+                    "invoice_id": "888777",
+                    "pay_url": "https://t.me/CryptoBot?start=IV888777",
+                },
+                lang,
+            )
+            assert "#103" in txt_c and "#888777" in txt_c
+            urls_c = [btn.url for row in kb_c.inline_keyboard for btn in row if getattr(btn, "url", None)]
+            cbs_c = [btn.callback_data for row in kb_c.inline_keyboard for btn in row if btn.callback_data]
+            assert urls_c == ["https://t.me/CryptoBot?start=IV888777"]
+            assert "check_cryptobot_inv_888777" in cbs_c and "crypto_order_cancel_103" in cbs_c
+
+
+def test_crypto_order_cancel_idor_and_mark_completed():
+    """Verify cancel_payment_transaction enforces user ownership and completion updates status cleanly."""
+    import database
+
+    executed = []
+
+    class FakeCur:
+        def __init__(self, row=None):
+            self._row = row
+        def execute(self, sql, params=None):
+            executed.append((sql, params))
+        def fetchone(self):
+            return self._row
+
+    class FakeConn:
+        def __init__(self, row=None):
+            self._row = row
+        def cursor(self):
+            return FakeCur(self._row)
+        def commit(self):
+            pass
+        def rollback(self):
+            pass
+        def close(self):
+            pass
+
+    # Different owner gets None row -> returns False
+    with patch("database.get_db", return_value=FakeConn(row=None)):
+        assert database.cancel_payment_transaction(77, 999999) is False
+        assert "tg_user_id = %s" in executed[-1][0]
+
+    # Actual owner cancels pending order -> returns True
+    with patch("database.get_db", return_value=FakeConn(row={"id": 77})):
+        assert database.cancel_payment_transaction(77, 6735799833) is True
+
+    # Mark completed without crediting updates status = 'completed'
+    with patch("database.get_db", return_value=FakeConn()):
+        assert database.mark_payment_transaction_completed_without_credit(77, "tx_abc") is True
+        assert "SET status = 'completed'" in executed[-1][0]
+        assert "user_balances" not in executed[-1][0]

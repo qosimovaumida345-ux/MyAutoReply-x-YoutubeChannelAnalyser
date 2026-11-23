@@ -224,3 +224,21 @@ async def get_crypto_pay_me() -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
+
+async def delete_crypto_pay_invoice(invoice_id: str) -> bool:
+    """@CryptoBot dagi foydalanilmagan pending invoice ni o'chirish (best-effort)."""
+    token = _get_crypto_pay_token()
+    clean_id = str(invoice_id or "").strip()
+    if not token or not clean_id or not clean_id.isdigit():
+        return False
+    headers = {"Crypto-Pay-API-Token": token}
+    url = f"{BASE_URL}/deleteInvoice"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json={"invoice_id": int(clean_id)}, headers=headers, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                res = await resp.json()
+                return bool(resp.status == 200 and res.get("ok"))
+    except Exception as e:
+        logger.warning(f"delete_crypto_pay_invoice error: {e}")
+    return False
+

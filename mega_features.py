@@ -2624,18 +2624,26 @@ def load_mega_features(bot: Client):
                     await message.reply_text(f"{ce('SUCCESS')} Chek kodi (<code>{rrn_code}</code>) saqlandi!")
                 message.stop_propagation()
 
-            # 16b. Custom Crypto / Binance TxID tekshiruvi
-            elif action == "waiting_crypto_txid":
+            # 16b. Custom Crypto / Binance / TON buyurtmasi uchun TxID tekshiruvi
+            elif action in ("waiting_crypto_order_txid", "waiting_crypto_txid"):
                 USER_STATES.pop(uid, None)
+                order_id = int(state.get("order_id") or 0)
+                lang = db.get_user_language(uid)
                 raw_tx = text.strip()
-                wait_msg = await message.reply_text(f"{ce('STATUS_LOADING')} <b>Tranzaksiya tekshirilmoqda (Binance / Blockchain)...</b>")
+                wait_msg = await message.reply_text(f"{ce('STATUS_LOADING')} {t('crypto_checking_tx', lang)}")
                 try:
                     from binance_crypto_verifier import verify_crypto_tx_by_id
                     v_res = await verify_crypto_tx_by_id(raw_tx)
                     if not v_res.get("ok"):
+                        retry_rows = []
+                        if order_id:
+                            verify_key = "btn_verify_ton_order" if state.get("method") == "ton_order" else "btn_verify_binance_order"
+                            retry_rows.append([InlineKeyboardButton(f"{ce('STATUS_SUCCESS')} {t(verify_key, lang)}", callback_data=f"crypto_order_verify_{order_id}")])
+                            retry_rows.append([InlineKeyboardButton(f"{ce('STATUS_ERROR')} {t('btn_cancel_order', lang)}", callback_data=f"crypto_order_cancel_{order_id}")])
+                        retry_rows.append([InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")])
                         await wait_msg.edit_text(
-                            f"{ce('ERROR')} <b>To'lov tasdiqlanmadi:</b>\n{v_res.get('error', 'Tranzaksiya topilmadi.')}\n\n"
-                            "Qayta urinish uchun <b>/balance -> Crypto Deposit</b> orqali TxID yuboring."
+                            f"{ce('ERROR')} {t('crypto_tx_failed', lang, error=v_res.get('error', 'TxID topilmadi'))}",
+                            reply_markup=InlineKeyboardMarkup(retry_rows),
                         )
                     else:
                         c_res = await asyncio.to_thread(
@@ -2648,65 +2656,97 @@ def load_mega_features(bot: Client):
                             v_res["amount_uzs"],
                         )
                         if not c_res.get("ok"):
-                            await wait_msg.edit_text(f"{ce('ERROR')} {c_res.get('error', 'Balansga yozishda xato.')}")
+                            await wait_msg.edit_text(f"{ce('ERROR')} {c_res.get('error', 'Error crediting balance.')}")
                         else:
+                            if order_id:
+                                await asyncio.to_thread(
+                                    db.mark_payment_transaction_completed_without_credit,
+                                    order_id,
+                                    v_res["tx_id"],
+                                )
+                            tx_short = f"{v_res['tx_id'][:28]}..." if len(v_res["tx_id"]) > 28 else v_res["tx_id"]
                             await wait_msg.edit_text(
-                                f"{ce('SUCCESS')} <b>KRIPTO TO'LOV MUVAFFAQIYATLI TASDIQLANDI!</b>\n\n"
-                                f"{ce('PAY_TON_CRYPTO')} <b>Tarmoq:</b> <code>{v_res['network']}</code>\n"
-                                f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>{v_res['amount_crypto']} {v_res['asset']}</code> (~${v_res['usd_value']})\n"
-                                f"{ce('BTN_WALLET')} <b>Hisobingizga qo'shildi:</b> <code>+{v_res['amount_uzs']:,} so'm</code>\n"
-                                f"{ce('PAY_TON_CRYPTO')} <b>Yangi balans:</b> <code>{c_res['new_balance']:,} so'm</code>\n"
-                                f"{ce('DEV_API_DOCS')} <b>TxID:</b> <code>{v_res['tx_id'][:28]}...</code>"
+                                f"{ce('SUCCESS')} {t('crypto_tx_success', lang, order_id=order_id or '-', network=v_res['network'], amount_crypto=v_res['amount_crypto'], asset=v_res['asset'], usd_value=v_res['usd_value'], amount_uzs=v_res['amount_uzs'], new_balance=c_res['new_balance'], tx_short=tx_short)}",
+                                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BTN_BACK')} {t('btn_back_wallet', lang)}", callback_data="menu_wallet")]]),
                             )
                 except Exception as crypto_err:
-                    await wait_msg.edit_text(f"{ce('ERROR')} Tekshirishda xatolik: {str(crypto_err)[:200]}")
+                    await wait_msg.edit_text(f"{ce('ERROR')} Error: {str(crypto_err)[:200]}")
                 message.stop_propagation()
 
-            # 16c. @CryptoBot Custom Summada Hisob-faktura yaratish
-            elif action == "waiting_cryptobot_amount":
-                raw_val = text.strip().lower().replace("$", "").replace("usdt", "").replace(",", ".").strip()
+            # 16c. Alohida Crypto buyurtma (Binance / TON / @CryptoBot) uchun aniq summa kiritish
+            elif action in ("waiting_crypto_order_amount", "waiting_cryptobot_amount"):
+                lang = db.get_user_language(uid)
+                method = state.get("method") or "cryptobot"
+                raw_val = text.strip().lower().replace("$", "").replace("usdt", "").replace("usd", "").replace("ton", "").replace(",", ".").strip()
                 try:
                     amt_usd = float(raw_val)
                 except ValueError:
-                    await message.reply_text(f"{ce('ERROR')} Iltimos faqat raqam kiriting (masalan: <code>2.5</code> yoki <code>10</code>).")
+                    await message.reply_text(f"{ce('ERROR')} {t('crypto_invalid_amount', lang)}")
                     message.stop_propagation()
                     return
                 if amt_usd < 0.5 or amt_usd > 5000:
-                    await message.reply_text(f"{ce('ERROR')} Summa <b>$0.50</b> dan <b>$5000</b> gacha bo'lishi kerak.")
+                    await message.reply_text(f"{ce('ERROR')} {t('crypto_amount_range_err', lang)}")
                     message.stop_propagation()
                     return
                 USER_STATES.pop(uid, None)
                 from config import USD_TO_UZS_RATE
-                from crypto_pay import create_crypto_pay_invoice
-                amount_uzs = max(500, int(round(amt_usd * USD_TO_UZS_RATE)))
-                tx_rec = db.create_payment_transaction(uid, "cryptopay", round(amt_usd, 2), "USD", amount_uzs)
-                try:
-                    inv = await create_crypto_pay_invoice(
-                        uid,
-                        "USD",
-                        round(amt_usd, 2),
-                        amount_uzs,
-                        tx_rec,
-                        currency_type="fiat",
-                    )
-                    if inv.get("ok"):
-                        inv_id = inv["invoice_id"]
-                        await message.reply_text(
-                            f"{ce('PAY_CRYPTOBOT')} <b>@CryptoBot To'lov Cheki Tayyor!</b>\n\n"
-                            f"{ce('PAY_CRYPTO_USDT')} <b>Summa:</b> <code>${amt_usd:g} USD</code> <i>(USDT / TON / BTC / ETH / TRX / BNB)</i>\n"
-                            f"{ce('BTN_WALLET')} <b>Hisobga tushadi:</b> <code>+{amount_uzs:,} so'm</code>\n"
-                            f"{ce('DEV_API_DOCS')} <b>Invoice:</b> <code>#{inv_id}</code>\n\n"
-                            "<i>1-tugma orqali istalgan koiningizda to'lang va 2-tugma bilan balansga tushiring:</i>",
-                            reply_markup=InlineKeyboardMarkup([
-                                [InlineKeyboardButton(f"{ce('PAY_CRYPTOBOT')} @CryptoBot orqali to'lash (${amt_usd:g})", url=inv["pay_url"])],
-                                [InlineKeyboardButton(f"{ce('STATUS_LOADING')} To'lovni tekshirish", callback_data=f"check_cryptobot_inv_{inv_id}")],
-                                [InlineKeyboardButton(f"{ce('BTN_BACK')} Orqaga", callback_data="pay_crypto_menu")],
-                            ]),
+                from ytbot import render_crypto_order_card
+                import json
+
+                amt_clean = round(amt_usd, 2)
+                amount_uzs = max(500, int(round(amt_clean * USD_TO_UZS_RATE)))
+
+                if method == "cryptobot":
+                    from crypto_pay import create_crypto_pay_invoice
+                    tx_rec = await asyncio.to_thread(db.create_payment_transaction, uid, "cryptopay", amt_clean, "USD", amount_uzs)
+                    try:
+                        inv = await create_crypto_pay_invoice(
+                            uid,
+                            "USD",
+                            amt_clean,
+                            amount_uzs,
+                            tx_rec,
+                            currency_type="fiat",
                         )
-                    else:
-                        await message.reply_text(f"{ce('ERROR')} @CryptoBot chek yaratilmadi: {inv.get('error', 'Xato')}")
-                except Exception as cb_err:
-                    await message.reply_text(f"{ce('ERROR')} @CryptoBot ulanish xatosi: {str(cb_err)[:200]}")
+                        if not inv.get("ok"):
+                            if tx_rec:
+                                await asyncio.to_thread(db.cancel_payment_transaction, tx_rec, uid)
+                            await message.reply_text(f"{ce('ERROR')} {t('cryptobot_invoice_err', lang, error=inv.get('error', 'Error'))}")
+                            message.stop_propagation()
+                            return
+                        inv_id = str(inv["invoice_id"])
+                        pay_url = str(inv["pay_url"] or "")
+                        await asyncio.to_thread(
+                            db.update_payment_transaction_invoice,
+                            tx_rec,
+                            inv_id,
+                            json.dumps({"pay_url": pay_url}),
+                        )
+                        order_dict = {
+                            "id": tx_rec,
+                            "payment_type": "cryptopay",
+                            "amount_original": amt_clean,
+                            "amount_uzs": amount_uzs,
+                            "invoice_id": inv_id,
+                            "pay_url": pay_url,
+                        }
+                        card_txt, card_kb = render_crypto_order_card(order_dict, lang)
+                        await message.reply_text(card_txt, reply_markup=card_kb)
+                    except Exception as cb_err:
+                        if tx_rec:
+                            await asyncio.to_thread(db.cancel_payment_transaction, tx_rec, uid)
+                        await message.reply_text(f"{ce('ERROR')} {t('cryptobot_invoice_err', lang, error=str(cb_err)[:200])}")
+                else:
+                    ptype = "ton_order" if method == "ton" else "binance_order"
+                    order_id = await asyncio.to_thread(db.create_payment_transaction, uid, ptype, amt_clean, "USD", amount_uzs)
+                    order_dict = {
+                        "id": order_id,
+                        "payment_type": ptype,
+                        "amount_original": amt_clean,
+                        "amount_uzs": amount_uzs,
+                    }
+                    card_txt, card_kb = render_crypto_order_card(order_dict, lang)
+                    await message.reply_text(card_txt, reply_markup=card_kb)
                 message.stop_propagation()
 
             # 17. VenteBot Reseller Aktivatsiya ma'lumotini kutish

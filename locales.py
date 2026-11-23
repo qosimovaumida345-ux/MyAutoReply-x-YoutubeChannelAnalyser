@@ -434,7 +434,7 @@ TRANSLATIONS = {
         "uz": (
             '💰 <b>Sizning Balansingiz:</b> <code>{balance:,} so\'m</code>\n\n'
             "To'lov turlari:\n"
-            '• 💎 <b>Crypto (Binance Pay / USDT / TON — istalgan summa)</b>\n'
+            '• 💎 <b>Crypto (Binance Pay / @CryptoBot / TON — istalgan summa)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Sovg\'a Vaucherlari (/redeem)</b>\n\n'
@@ -443,7 +443,7 @@ TRANSLATIONS = {
         "ru": (
             '💰 <b>Ваш Баланс:</b> <code>{balance:,} сум</code>\n\n'
             "Способы пополнения:\n"
-            '• 💎 <b>Crypto (Binance Pay / USDT / TON — любая сумма)</b>\n'
+            '• 💎 <b>Crypto (Binance Pay / @CryptoBot / TON — любая сумма)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Подарочные Ваучеры (/redeem)</b>\n\n'
@@ -452,7 +452,7 @@ TRANSLATIONS = {
         "en": (
             '💰 <b>Your Balance:</b> <code>{balance:,} UZS</code>\n\n'
             "Payment methods:\n"
-            '• 💎 <b>Crypto (Binance Pay / USDT / TON — Custom Amount)</b>\n'
+            '• 💎 <b>Crypto (Binance Pay / @CryptoBot / TON — Custom Amount)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Gift Vouchers (/redeem)</b>\n\n'
@@ -461,7 +461,7 @@ TRANSLATIONS = {
         "es": (
             '💰 <b>Tu Saldo:</b> <code>{balance:,} UZS</code>\n\n'
             "Métodos de pago:\n"
-            '• 💎 <b>Crypto (Binance Pay / USDT / TON)</b>\n'
+            '• 💎 <b>Crypto (Binance Pay / @CryptoBot / TON — Monto Libre)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Vales de Regalo (/redeem)</b>\n\n'
@@ -470,7 +470,7 @@ TRANSLATIONS = {
         "tr": (
             '💰 <b>Bakiyeniz:</b> <code>{balance:,} UZS</code>\n\n'
             "Ödeme Yöntemleri:\n"
-            '• 💎 <b>Kripto (Binance Pay / USDT / TON)</b>\n'
+            '• 💎 <b>Kripto (Binance Pay / @CryptoBot / TON — Özel Tutar)</b>\n'
             '• 💳 <b>HUMO / Uzcard (UZS)</b>\n'
             '• ⭐ <b>Telegram Stars</b>\n'
             '• 🎁 <b>Hediye Kuponları (/redeem)</b>\n\n'
@@ -593,12 +593,553 @@ TRANSLATIONS = {
         "es": "Depositar con Telegram Stars",
         "tr": "Telegram Stars ile Yükle"
     },
+    "btn_pay_binance": {
+        "uz": "Binance / USDT orqali to'ldirish",
+        "ru": "Пополнить через Binance / USDT",
+        "en": "Deposit via Binance / USDT",
+        "es": "Depositar con Binance / USDT",
+        "tr": "Binance / USDT ile Yükle"
+    },
+    "btn_pay_cryptobot": {
+        "uz": "@CryptoBot orqali to'ldirish",
+        "ru": "Пополнить через @CryptoBot",
+        "en": "Deposit via @CryptoBot",
+        "es": "Depositar con @CryptoBot",
+        "tr": "@CryptoBot ile Yükle"
+    },
     "btn_pay_ton": {
         "uz": "TON (The Open Network) orqali",
-        "ru": "Через TON (The Open Network)",
-        "en": "Via TON (The Open Network)",
-        "es": "Vía TON (The Open Network)",
-        "tr": "TON (The Open Network) ile"
+        "ru": "Пополнить через TON",
+        "en": "Deposit via TON",
+        "es": "Depositar con TON",
+        "tr": "TON ile Yükle"
+    },
+    "btn_open_binance_order": {
+        "uz": "Binance Buyurtma Ochish",
+        "ru": "Открыть ордер Binance",
+        "en": "Open Binance Order",
+        "es": "Abrir orden Binance",
+        "tr": "Binance Siparişi Aç"
+    },
+    "btn_open_cryptobot_order": {
+        "uz": "@CryptoBot Buyurtma Ochish",
+        "ru": "Открыть ордер @CryptoBot",
+        "en": "Open @CryptoBot Order",
+        "es": "Abrir orden @CryptoBot",
+        "tr": "@CryptoBot Siparişi Aç"
+    },
+    "btn_open_ton_order": {
+        "uz": "TON Buyurtma Ochish",
+        "ru": "Открыть ордер TON",
+        "en": "Open TON Order",
+        "es": "Abrir orden TON",
+        "tr": "TON Siparişi Aç"
+    },
+    "btn_verify_binance_order": {
+        "uz": "Order ID / TxID bilan tasdiqlash",
+        "ru": "Проверить по Order ID / TxID",
+        "en": "Verify with Order ID / TxID",
+        "es": "Verificar con Order ID / TxID",
+        "tr": "Order ID / TxID ile Doğrula"
+    },
+    "btn_verify_ton_order": {
+        "uz": "TxID / Hash bilan tasdiqlash",
+        "ru": "Проверить по TxID / Hash",
+        "en": "Verify with TxID / Hash",
+        "es": "Verificar con TxID / Hash",
+        "tr": "TxID / Hash ile Doğrula"
+    },
+    "btn_verify_cryptobot": {
+        "uz": "To'lovni tekshirish",
+        "ru": "Проверить оплату",
+        "en": "Verify Payment",
+        "es": "Verificar pago",
+        "tr": "Ödemeyi Doğrula"
+    },
+    "btn_pay_cryptobot_link": {
+        "uz": "@CryptoBot orqali to'lash (${amount})",
+        "ru": "Оплатить через @CryptoBot (${amount})",
+        "en": "Pay via @CryptoBot (${amount})",
+        "es": "Pagar por @CryptoBot (${amount})",
+        "tr": "@CryptoBot ile Öde (${amount})"
+    },
+    "btn_cancel_order": {
+        "uz": "Buyurtmani bekor qilish",
+        "ru": "Отменить ордер",
+        "en": "Cancel Order",
+        "es": "Cancelar orden",
+        "tr": "Siparişi İptal Et"
+    },
+    "btn_back_wallet": {
+        "uz": "Hamyonga qaytish",
+        "ru": "Назад в кошелек",
+        "en": "Back to Wallet",
+        "es": "Volver a la billetera",
+        "tr": "Cüzdana Dön"
+    },
+    "crypto_confirm_open_binance": {
+        "uz": (
+            "<b>Binance Pay / USDT Depozit Buyurtmasi</b>\n\n"
+            "Binance Pay UID yoki USDT (TRC20 / BEP20) orqali balans to'ldirish uchun yangi buyurtma (order) ochaymi?\n\n"
+            "<i>Keyingi qadamda aniq qancha summa tashlashingizni yozasiz va Binance Order ID / TxID orqali tasdiqlaysiz.</i>"
+        ),
+        "ru": (
+            "<b>Ордер на пополнение Binance Pay / USDT</b>\n\n"
+            "Открыть новый ордер для пополнения через Binance Pay UID или USDT (TRC20 / BEP20)?\n\n"
+            "<i>На следующем шаге вы укажете точную сумму и подтвердите платеж по Binance Order ID / TxID.</i>"
+        ),
+        "en": (
+            "<b>Binance Pay / USDT Deposit Order</b>\n\n"
+            "Would you like to open a new deposit order for Binance Pay UID or USDT (TRC20 / BEP20)?\n\n"
+            "<i>Next, you'll enter your exact deposit amount and verify the transfer using your Binance Order ID / TxID.</i>"
+        ),
+        "es": (
+            "<b>Orden de depósito Binance Pay / USDT</b>\n\n"
+            "¿Deseas abrir una nueva orden de depósito para Binance Pay UID o USDT (TRC20 / BEP20)?\n\n"
+            "<i>En el siguiente paso indicarás el monto exacto y lo verificarás con tu Binance Order ID / TxID.</i>"
+        ),
+        "tr": (
+            "<b>Binance Pay / USDT Yatırım Siparişi</b>\n\n"
+            "Binance Pay UID veya USDT (TRC20 / BEP20) ile bakiye yüklemek için yeni bir sipariş açalım mı?\n\n"
+            "<i>Bir sonraki adımda tam tutarı yazıp Binance Order ID / TxID ile doğrulayacaksınız.</i>"
+        )
+    },
+    "crypto_confirm_open_ton": {
+        "uz": (
+            "<b>TON (The Open Network) Depozit Buyurtmasi</b>\n\n"
+            "TON tarmog'i orqali hisob to'ldirish uchun yangi buyurtma (order) ochaymi?\n\n"
+            "<i>Keyingi qadamda aniq qancha summa tashlashingizni yozasiz, so'ngra manzil, Memo va TxID tekshiruvi beriladi.</i>"
+        ),
+        "ru": (
+            "<b>Ордер на пополнение TON (The Open Network)</b>\n\n"
+            "Открыть новый ордер для пополнения через сеть TON?\n\n"
+            "<i>На следующем шаге вы укажете точную сумму, после чего получите адрес, Memo и кнопку проверки TxID.</i>"
+        ),
+        "en": (
+            "<b>TON (The Open Network) Deposit Order</b>\n\n"
+            "Would you like to open a new TON network deposit order?\n\n"
+            "<i>Next, you'll enter the exact amount to deposit and receive the TON address, Memo tag, and TxID verification button.</i>"
+        ),
+        "es": (
+            "<b>Orden de depósito TON (The Open Network)</b>\n\n"
+            "¿Deseas abrir una nueva orden de depósito en la red TON?\n\n"
+            "<i>A continuación escribirás el monto exacto y recibirás la dirección TON, Memo y verificación por TxID.</i>"
+        ),
+        "tr": (
+            "<b>TON (The Open Network) Yatırım Siparişi</b>\n\n"
+            "TON ağı üzerinden bakiye yüklemek için yeni bir sipariş açalım mı?\n\n"
+            "<i>Sonraki adımda yatıracağınız tutarı yazacak, ardından TON adresini, Memo etiketini ve TxID doğrulamasını alacaksınız.</i>"
+        )
+    },
+    "crypto_confirm_open_cryptobot": {
+        "uz": (
+            "<b>@CryptoBot (Multi-Coin) To'lov Buyurtmasi</b>\n\n"
+            "@CryptoBot orqali istalgan koin (USDT, TON, BTC, ETH, TRX, BNB) bilan avtomatik to'lov buyurtmasi ochaymi?\n\n"
+            "<i>Keyingi qadamda aniq $ USD summani yozasiz va 1 bosishli @CryptoBot to'lov cheki yaratiladi.</i>"
+        ),
+        "ru": (
+            "<b>Ордер оплаты через @CryptoBot (Multi-Coin)</b>\n\n"
+            "Открыть новый ордер для автоматической оплаты через @CryptoBot (USDT, TON, BTC, ETH, TRX, BNB)?\n\n"
+            "<i>На следующем шаге введите сумму в $ USD, и бот создаст мгновенный счет @CryptoBot.</i>"
+        ),
+        "en": (
+            "<b>@CryptoBot (Multi-Coin) Deposit Order</b>\n\n"
+            "Would you like to open a new @CryptoBot order (supports USDT, TON, BTC, ETH, TRX, BNB, LTC, USDC)?\n\n"
+            "<i>Next, enter the exact $ USD amount you want to deposit and we'll generate your instant @CryptoBot invoice.</i>"
+        ),
+        "es": (
+            "<b>Orden de pago @CryptoBot (Multi-Coin)</b>\n\n"
+            "¿Deseas abrir una nueva orden con @CryptoBot (acepta USDT, TON, BTC, ETH, TRX, BNB)?\n\n"
+            "<i>Luego ingresa el monto exacto en $ USD para generar tu factura instantánea de @CryptoBot.</i>"
+        ),
+        "tr": (
+            "<b>@CryptoBot (Multi-Coin) Ödeme Siparişi</b>\n\n"
+            "@CryptoBot üzerinden (USDT, TON, BTC, ETH, TRX, BNB) otomatik ödeme siparişi açalım mı?\n\n"
+            "<i>Sonraki adımda tam $ USD tutarını yazın, anında @CryptoBot faturanızı oluşturalım.</i>"
+        )
+    },
+    "crypto_ask_amount_binance": {
+        "uz": (
+            "<b>Binance / USDT — Summani Kiriting</b>\n\n"
+            "💵 <b>Joriy kurs:</b> <code>1 USD ≈ {rate:,} so'm</code>\n\n"
+            "Aniq qancha <b>$ USD / USDT</b> o'tkazmoqchisiz?\n"
+            "<i>Masalan: <code>2.5</code>, <code>10</code>, <code>25</code> (Min: $0.50 — Max: $5,000)</i>"
+        ),
+        "ru": (
+            "<b>Binance / USDT — Введите сумму</b>\n\n"
+            "💵 <b>Текущий курс:</b> <code>1 USD ≈ {rate:,} сум</code>\n\n"
+            "Какую точную сумму в <b>$ USD / USDT</b> вы отправите?\n"
+            "<i>Например: <code>2.5</code>, <code>10</code>, <code>25</code> (Мин: $0.50 — Макс: $5,000)</i>"
+        ),
+        "en": (
+            "<b>Binance / USDT — Enter Exact Amount</b>\n\n"
+            "💵 <b>Live Rate:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "How much exact <b>$ USD / USDT</b> are you going to send?\n"
+            "<i>Example: <code>2.5</code>, <code>10</code>, <code>25</code> (Min: $0.50 — Max: $5,000)</i>"
+        ),
+        "es": (
+            "<b>Binance / USDT — Ingresa el monto exacto</b>\n\n"
+            "💵 <b>Tasa actual:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "¿Cuánto exactamente en <b>$ USD / USDT</b> vas a enviar?\n"
+            "<i>Ejemplo: <code>2.5</code>, <code>10</code>, <code>25</code> (Mín: $0.50 — Máx: $5,000)</i>"
+        ),
+        "tr": (
+            "<b>Binance / USDT — Tam Tutarı Girin</b>\n\n"
+            "💵 <b>Güncel Kur:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "Tam olarak kaç <b>$ USD / USDT</b> göndereceksiniz?\n"
+            "<i>Örnek: <code>2.5</code>, <code>10</code>, <code>25</code> (Min: $0.50 — Maks: $5,000)</i>"
+        )
+    },
+    "crypto_ask_amount_ton": {
+        "uz": (
+            "<b>TON Depozit — Summani Kiriting</b>\n\n"
+            "💵 <b>Joriy kurs:</b> <code>1 USD ≈ {rate:,} so'm</code>\n\n"
+            "Taxminan qancha <b>$ USD</b> ekvivalentida TON yubormoqchisiz?\n"
+            "<i>Masalan: <code>2</code>, <code>5</code>, <code>15</code> (Min: $0.50 — Max: $5,000. Yakuniy balans haqiqiy kelgan TON miqdoriga qarab hisoblanadi.)</i>"
+        ),
+        "ru": (
+            "<b>Депозит TON — Введите сумму</b>\n\n"
+            "💵 <b>Текущий курс:</b> <code>1 USD ≈ {rate:,} сум</code>\n\n"
+            "На какую сумму в <b>$ USD</b> (в TON) вы планируете пополнение?\n"
+            "<i>Например: <code>2</code>, <code>5</code>, <code>15</code> (Мин: $0.50 — Макс: $5,000. Итог начисляется по фактически зачисленным TON.)</i>"
+        ),
+        "en": (
+            "<b>TON Deposit — Enter Exact Amount</b>\n\n"
+            "💵 <b>Live Rate:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "How much in <b>$ USD</b> equivalent (paid in TON) are you depositing?\n"
+            "<i>Example: <code>2</code>, <code>5</code>, <code>15</code> (Min: $0.50 — Max: $5,000. Final UZS credit is calculated from actual credited TON.)</i>"
+        ),
+        "es": (
+            "<b>Depósito TON — Ingresa el monto</b>\n\n"
+            "💵 <b>Tasa actual:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "¿Cuánto equivalente en <b>$ USD</b> (en TON) vas a depositar?\n"
+            "<i>Ejemplo: <code>2</code>, <code>5</code>, <code>15</code> (Mín: $0.50 — Máx: $5,000)</i>"
+        ),
+        "tr": (
+            "<b>TON Yatırımı — Tutarı Girin</b>\n\n"
+            "💵 <b>Güncel Kur:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "TON olarak kaç <b>$ USD</b> karşılığı yatırım yapacaksınız?\n"
+            "<i>Örnek: <code>2</code>, <code>5</code>, <code>15</code> (Min: $0.50 — Maks: $5,000)</i>"
+        )
+    },
+    "crypto_ask_amount_cryptobot": {
+        "uz": (
+            "<b>@CryptoBot — Summani Kiriting</b>\n\n"
+            "💵 <b>Joriy kurs:</b> <code>1 USD ≈ {rate:,} so'm</code>\n\n"
+            "Hisobingizni necha <b>$ USD</b> ga to'ldirmoqchisiz?\n"
+            "<i>Masalan: <code>1.5</code>, <code>5</code>, <code>20</code> (Keyin @CryptoBot da USDT, TON, BTC, ETH, TRX, BNB bilan to'laysiz. Min: $0.50)</i>"
+        ),
+        "ru": (
+            "<b>@CryptoBot — Введите сумму</b>\n\n"
+            "💵 <b>Текущий курс:</b> <code>1 USD ≈ {rate:,} сум</code>\n\n"
+            "На какую сумму в <b>$ USD</b> хотите пополнить баланс?\n"
+            "<i>Например: <code>1.5</code>, <code>5</code>, <code>20</code> (В @CryptoBot можно оплатить USDT, TON, BTC, ETH, TRX, BNB. Мин: $0.50)</i>"
+        ),
+        "en": (
+            "<b>@CryptoBot — Enter Exact Amount</b>\n\n"
+            "💵 <b>Live Rate:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "How much <b>$ USD</b> would you like to deposit?\n"
+            "<i>Example: <code>1.5</code>, <code>5</code>, <code>20</code> (Pay inside @CryptoBot with USDT, TON, BTC, ETH, TRX, BNB. Min: $0.50)</i>"
+        ),
+        "es": (
+            "<b>@CryptoBot — Ingresa el monto</b>\n\n"
+            "💵 <b>Tasa actual:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "¿Cuánto en <b>$ USD</b> deseas depositar?\n"
+            "<i>Ejemplo: <code>1.5</code>, <code>5</code>, <code>20</code> (Paga con USDT, TON, BTC, ETH, TRX, BNB. Mín: $0.50)</i>"
+        ),
+        "tr": (
+            "<b>@CryptoBot — Tutarı Girin</b>\n\n"
+            "💵 <b>Güncel Kur:</b> <code>1 USD ≈ {rate:,} UZS</code>\n\n"
+            "Bakiyenize kaç <b>$ USD</b> yüklemek istersiniz?\n"
+            "<i>Örnek: <code>1.5</code>, <code>5</code>, <code>20</code> (USDT, TON, BTC, ETH, TRX, BNB desteklenir. Min: $0.50)</i>"
+        )
+    },
+    "crypto_invalid_amount": {
+        "uz": "Iltimos, faqat to'g'ri raqam kiriting (masalan: <code>2.5</code> yoki <code>10</code>).",
+        "ru": "Пожалуйста, введите корректное число (например: <code>2.5</code> или <code>10</code>).",
+        "en": "Please enter a valid number (for example: <code>2.5</code> or <code>10</code>).",
+        "es": "Por favor, ingresa un número válido (por ejemplo: <code>2.5</code> o <code>10</code>).",
+        "tr": "Lütfen geçerli bir sayı girin (örneğin: <code>2.5</code> veya <code>10</code>)."
+    },
+    "crypto_amount_range_err": {
+        "uz": "Summa <b>$0.50</b> dan <b>$5,000</b> gacha bo'lishi kerak.",
+        "ru": "Сумма должна быть от <b>$0.50</b> до <b>$5,000</b>.",
+        "en": "Amount must be between <b>$0.50</b> and <b>$5,000</b>.",
+        "es": "El monto debe estar entre <b>$0.50</b> y <b>$5,000</b>.",
+        "tr": "Tutar <b>$0.50</b> ile <b>$5,000</b> arasında olmalıdır."
+    },
+    "crypto_not_configured": {
+        "uz": "Ushbu to'lov usuli hozircha .env orqali sozlanmagan.",
+        "ru": "Этот способ оплаты пока не настроен в .env.",
+        "en": "This payment method is not configured in .env yet.",
+        "es": "Este método de pago aún no está configurado en .env.",
+        "tr": "Bu ödeme yöntemi henüz .env üzerinden yapılandırılmamış."
+    },
+    "crypto_order_card_binance": {
+        "uz": (
+            "<b>Binance Pay / USDT Buyurtma #{order_id}</b>\n\n"
+            "💵 <b>Summa:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} so'm</code>)\n\n"
+            "<b>Quyidagi manzillardan biriga to'lov qiling:</b>\n"
+            "{addr_block}\n\n"
+            "<i>To'lagach, Binance Pay <b>Order ID</b> yoki blockchain <b>TxID</b> ni tekshirish uchun pastdagi tugmani bosing.</i>"
+        ),
+        "ru": (
+            "<b>Ордер Binance Pay / USDT #{order_id}</b>\n\n"
+            "💵 <b>Сумма:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} сум</code>)\n\n"
+            "<b>Переведите средства на один из реквизитов:</b>\n"
+            "{addr_block}\n\n"
+            "<i>После оплаты нажмите кнопку ниже и отправьте Binance <b>Order ID</b> или <b>TxID</b>.</i>"
+        ),
+        "en": (
+            "<b>Binance Pay / USDT Order #{order_id}</b>\n\n"
+            "💵 <b>Amount:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n\n"
+            "<b>Send your payment to one of these addresses:</b>\n"
+            "{addr_block}\n\n"
+            "<i>Once sent, click below to verify with your Binance Pay <b>Order ID</b> or blockchain <b>TxID</b>.</i>"
+        ),
+        "es": (
+            "<b>Orden Binance Pay / USDT #{order_id}</b>\n\n"
+            "💵 <b>Monto:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n\n"
+            "<b>Envía tu pago a una de estas direcciones:</b>\n"
+            "{addr_block}\n\n"
+            "<i>Después de pagar, pulsa abajo para verificar con tu <b>Order ID</b> o <b>TxID</b>.</i>"
+        ),
+        "tr": (
+            "<b>Binance Pay / USDT Sipariş #{order_id}</b>\n\n"
+            "💵 <b>Tutar:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n\n"
+            "<b>Ödemeyi aşağıdaki adreslerden birine gönderin:</b>\n"
+            "{addr_block}\n\n"
+            "<i>Ödemeden sonra Binance <b>Order ID</b> veya <b>TxID</b> ile doğrulamak için aşağıya dokunun.</i>"
+        )
+    },
+    "crypto_order_card_ton": {
+        "uz": (
+            "<b>TON Depozit Buyurtma #{order_id}</b>\n\n"
+            "💵 <b>Summa:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} so'm</code>)\n\n"
+            "<b>Quyidagi TON rekvizitlariga o'tkazing:</b>\n"
+            "{addr_block}\n\n"
+            "<i>To'lov tasdiqlangach, pastdagi tugma orqali <b>TxID / TxHash</b> ni yuboring.</i>"
+        ),
+        "ru": (
+            "<b>Ордер TON #{order_id}</b>\n\n"
+            "💵 <b>Сумма:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} сум</code>)\n\n"
+            "<b>Отправьте TON по следующим реквизитам:</b>\n"
+            "{addr_block}\n\n"
+            "<i>После отправки нажмите кнопку ниже и укажите <b>TxID / TxHash</b>.</i>"
+        ),
+        "en": (
+            "<b>TON Deposit Order #{order_id}</b>\n\n"
+            "💵 <b>Amount:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n\n"
+            "<b>Send TON using the details below:</b>\n"
+            "{addr_block}\n\n"
+            "<i>Once sent, click below to verify using your <b>TxID / TxHash</b>.</i>"
+        ),
+        "es": (
+            "<b>Orden TON #{order_id}</b>\n\n"
+            "💵 <b>Monto:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n\n"
+            "<b>Envía TON a los siguientes datos:</b>\n"
+            "{addr_block}\n\n"
+            "<i>Luego pulsa abajo para verificar con tu <b>TxID / TxHash</b>.</i>"
+        ),
+        "tr": (
+            "<b>TON Yatırım Siparişi #{order_id}</b>\n\n"
+            "💵 <b>Tutar:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n\n"
+            "<b>Aşağıdaki TON bilgilerine gönderim yapın:</b>\n"
+            "{addr_block}\n\n"
+            "<i>Gönderdikten sonra <b>TxID / TxHash</b> ile doğrulamak için aşağıya dokunun.</i>"
+        )
+    },
+    "crypto_order_card_cryptobot": {
+        "uz": (
+            "<b>@CryptoBot Buyurtma #{order_id}</b>\n\n"
+            "💵 <b>Summa:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} so'm</code>)\n"
+            "🧾 <b>Invoice:</b> <code>#{invoice_id}</code>\n"
+            "🪙 <b>Qo'llab-quvvatlanadigan koinlar:</b> <code>USDT, TON, BTC, ETH, TRX, BNB, LTC, USDC</code>\n\n"
+            "<i>1-tugma orqali to'lang, so'ngra 2-tugma bilan tekshiring (yoki bekor qiling).</i>"
+        ),
+        "ru": (
+            "<b>Ордер @CryptoBot #{order_id}</b>\n\n"
+            "💵 <b>Сумма:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} сум</code>)\n"
+            "🧾 <b>Счет:</b> <code>#{invoice_id}</code>\n"
+            "🪙 <b>Доступные монеты:</b> <code>USDT, TON, BTC, ETH, TRX, BNB, LTC, USDC</code>\n\n"
+            "<i>Оплатите по 1-й кнопке и нажмите 2-ю для проверки (либо отмените ордер).</i>"
+        ),
+        "en": (
+            "<b>@CryptoBot Order #{order_id}</b>\n\n"
+            "💵 <b>Amount:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n"
+            "🧾 <b>Invoice:</b> <code>#{invoice_id}</code>\n"
+            "🪙 <b>Accepted Coins:</b> <code>USDT, TON, BTC, ETH, TRX, BNB, LTC, USDC</code>\n\n"
+            "<i>Pay with button 1, then click button 2 to verify (or cancel order).</i>"
+        ),
+        "es": (
+            "<b>Orden @CryptoBot #{order_id}</b>\n\n"
+            "💵 <b>Monto:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n"
+            "🧾 <b>Factura:</b> <code>#{invoice_id}</code>\n"
+            "🪙 <b>Monedas aceptadas:</b> <code>USDT, TON, BTC, ETH, TRX, BNB, LTC, USDC</code>\n\n"
+            "<i>Paga con el botón 1 y verifica con el botón 2 (o cancela la orden).</i>"
+        ),
+        "tr": (
+            "<b>@CryptoBot Sipariş #{order_id}</b>\n\n"
+            "💵 <b>Tutar:</b> <code>${amount_usd} USD</code> (≈ <code>{amount_uzs:,} UZS</code>)\n"
+            "🧾 <b>Fatura:</b> <code>#{invoice_id}</code>\n"
+            "🪙 <b>Desteklenen Coinler:</b> <code>USDT, TON, BTC, ETH, TRX, BNB, LTC, USDC</code>\n\n"
+            "<i>1. buton ile ödeyip 2. butonla doğrulayın (veya iptal edin).</i>"
+        )
+    },
+    "crypto_ask_txid": {
+        "uz": (
+            "<b>Buyurtma #{order_id} — Order ID / TxID yuboring</b>\n\n"
+            "To'lov chekidagi <b>Binance Pay Order ID</b> (masalan: <code>338192045678123456</code>) yoki blockchain <b>TxID / TxHash</b> ni shu chatga yozib yuboring.\n\n"
+            "<i>Tizim haqiqiy tushgan summani tekshirib darhol balansingizga qo'shadi.</i>"
+        ),
+        "ru": (
+            "<b>Ордер #{order_id} — Отправьте Order ID / TxID</b>\n\n"
+            "Отправьте в чат <b>Binance Pay Order ID</b> (например: <code>338192045678123456</code>) или <b>TxID / TxHash</b> транзакции.\n\n"
+            "<i>Система проверит фактически полученную сумму и мгновенно зачислит ее на баланс.</i>"
+        ),
+        "en": (
+            "<b>Order #{order_id} — Send Order ID / TxID</b>\n\n"
+            "Reply with your <b>Binance Pay Order ID</b> (e.g., <code>338192045678123456</code>) or blockchain <b>TxID / TxHash</b>.\n\n"
+            "<i>We will verify the exact received amount and credit your balance immediately.</i>"
+        ),
+        "es": (
+            "<b>Orden #{order_id} — Envía Order ID / TxID</b>\n\n"
+            "Responde con tu <b>Binance Pay Order ID</b> o <b>TxID / TxHash</b>.\n\n"
+            "<i>Verificaremos el monto exacto recibido y lo acreditaremos al instante.</i>"
+        ),
+        "tr": (
+            "<b>Sipariş #{order_id} — Order ID / TxID Gönderin</b>\n\n"
+            "Lütfen <b>Binance Pay Order ID</b> veya blockchain <b>TxID / TxHash</b> bilgisini bu sohbete gönderin.\n\n"
+            "<i>Gelen tutar doğrulanıp bakiyenize anında eklenecektir.</i>"
+        )
+    },
+    "crypto_order_cancelled": {
+        "uz": "<b>Buyurtma #{order_id} bekor qilindi.</b>\n\nIstagan vaqtda hamyondan yangi buyurtma ochishingiz mumkin.",
+        "ru": "<b>Ордер #{order_id} отменен.</b>\n\nВы можете в любой момент открыть новый ордер в кошельке.",
+        "en": "<b>Order #{order_id} has been cancelled.</b>\n\nYou can open a new order anytime from your wallet.",
+        "es": "<b>La orden #{order_id} ha sido cancelada.</b>\n\nPuedes abrir una nueva orden cuando quieras desde tu billetera.",
+        "tr": "<b>Sipariş #{order_id} iptal edildi.</b>\n\nCüzdanınızdan istediğiniz zaman yeni sipariş açabilirsiniz."
+    },
+    "crypto_order_not_found": {
+        "uz": "Faol buyurtma topilmadi yoki allaqachon yakunlangan.",
+        "ru": "Активный ордер не найден или уже завершен.",
+        "en": "Active order not found or already closed.",
+        "es": "No se encontró ninguna orden activa o ya fue cerrada.",
+        "tr": "Aktif sipariş bulunamadı veya zaten kapatılmış."
+    },
+    "crypto_checking_tx": {
+        "uz": "<b>Tranzaksiya tekshirilmoqda (Binance / Blockchain)...</b>",
+        "ru": "<b>Проверка транзакции (Binance / Blockchain)...</b>",
+        "en": "<b>Verifying transaction (Binance / Blockchain)...</b>",
+        "es": "<b>Verificando transacción (Binance / Blockchain)...</b>",
+        "tr": "<b>İşlem doğrulanıyor (Binance / Blockchain)...</b>"
+    },
+    "crypto_tx_failed": {
+        "uz": "<b>To'lov tasdiqlanmadi:</b>\n{error}\n\nQayta urinish uchun buyurtmadan Order ID / TxID tugmasini bosing.",
+        "ru": "<b>Платеж не подтвержден:</b>\n{error}\n\nНажмите кнопку проверки Order ID / TxID в ордере еще раз.",
+        "en": "<b>Payment verification failed:</b>\n{error}\n\nRe-open your order in Wallet to try again or cancel it.",
+        "es": "<b>Error al verificar el pago:</b>\n{error}\n\nVuelve a tu orden en la billetera para reintentar o cancelar.",
+        "tr": "<b>Ödeme doğrulanamadı:</b>\n{error}\n\nTekrar denemek veya iptal etmek için cüzdanınızdaki siparişi açın."
+    },
+    "crypto_tx_success": {
+        "uz": (
+            "<b>KRIPTO TO'LOV TASDIQLANDI! (Buyurtma #{order_id})</b>\n\n"
+            "🌐 <b>Tarmoq:</b> <code>{network}</code>\n"
+            "🪙 <b>Summa:</b> <code>{amount_crypto} {asset}</code> (~${usd_value})\n"
+            "💰 <b>Hisobga qo'shildi:</b> <code>+{amount_uzs:,} so'm</code>\n"
+            "⚖️ <b>Yangi balans:</b> <code>{new_balance:,} so'm</code>\n"
+            "🧾 <b>TxID:</b> <code>{tx_short}</code>"
+        ),
+        "ru": (
+            "<b>КРИПТО-ПЛАТЕЖ ПОДТВЕРЖДЕН! (Ордер #{order_id})</b>\n\n"
+            "🌐 <b>Сеть:</b> <code>{network}</code>\n"
+            "🪙 <b>Сумма:</b> <code>{amount_crypto} {asset}</code> (~${usd_value})\n"
+            "💰 <b>Зачислено:</b> <code>+{amount_uzs:,} сум</code>\n"
+            "⚖️ <b>Новый баланс:</b> <code>{new_balance:,} сум</code>\n"
+            "🧾 <b>TxID:</b> <code>{tx_short}</code>"
+        ),
+        "en": (
+            "<b>CRYPTO PAYMENT CONFIRMED! (Order #{order_id})</b>\n\n"
+            "🌐 <b>Network:</b> <code>{network}</code>\n"
+            "🪙 <b>Amount:</b> <code>{amount_crypto} {asset}</code> (~${usd_value})\n"
+            "💰 <b>Credited:</b> <code>+{amount_uzs:,} UZS</code>\n"
+            "⚖️ <b>New Balance:</b> <code>{new_balance:,} UZS</code>\n"
+            "🧾 <b>TxID:</b> <code>{tx_short}</code>"
+        ),
+        "es": (
+            "<b>¡PAGO CRYPTO CONFIRMADO! (Orden #{order_id})</b>\n\n"
+            "🌐 <b>Red:</b> <code>{network}</code>\n"
+            "🪙 <b>Monto:</b> <code>{amount_crypto} {asset}</code> (~${usd_value})\n"
+            "💰 <b>Acreditado:</b> <code>+{amount_uzs:,} UZS</code>\n"
+            "⚖️ <b>Nuevo saldo:</b> <code>{new_balance:,} UZS</code>\n"
+            "🧾 <b>TxID:</b> <code>{tx_short}</code>"
+        ),
+        "tr": (
+            "<b>KRİPTO ÖDEME ONAYLANDI! (Sipariş #{order_id})</b>\n\n"
+            "🌐 <b>Ağ:</b> <code>{network}</code>\n"
+            "🪙 <b>Tutar:</b> <code>{amount_crypto} {asset}</code> (~${usd_value})\n"
+            "💰 <b>Eklenen:</b> <code>+{amount_uzs:,} UZS</code>\n"
+            "⚖️ <b>Yeni Bakiye:</b> <code>{new_balance:,} UZS</code>\n"
+            "🧾 <b>TxID:</b> <code>{tx_short}</code>"
+        )
+    },
+    "cryptobot_invoice_err": {
+        "uz": "@CryptoBot cheki yaratib bo'lmadi: {error}",
+        "ru": "Не удалось создать счет @CryptoBot: {error}",
+        "en": "Failed to create @CryptoBot invoice: {error}",
+        "es": "No se pudo crear la factura en @CryptoBot: {error}",
+        "tr": "@CryptoBot faturası oluşturulamadı: {error}"
+    },
+    "cryptobot_not_paid_yet": {
+        "uz": "⏳ To'lov hali yakunlanmagan! @CryptoBot orqali to'lab, qayta bosing.",
+        "ru": "⏳ Оплата еще не завершена! Оплатите в @CryptoBot и нажмите снова.",
+        "en": "⏳ Payment not completed yet! Please pay in @CryptoBot and check again.",
+        "es": "⏳ ¡El pago aún no está completo! Paga en @CryptoBot y vuelve a verificar.",
+        "tr": "⏳ Ödeme henüz tamamlanmadı! @CryptoBot üzerinden ödeyip tekrar deneyin."
+    },
+    "cryptobot_already_credited": {
+        "uz": "✅ Ushbu @CryptoBot to'lovi allaqachon hisobingizga o'tkazilgan!",
+        "ru": "✅ Этот платеж @CryptoBot уже зачислен на ваш баланс!",
+        "en": "✅ This @CryptoBot payment has already been credited!",
+        "es": "✅ ¡Este pago de @CryptoBot ya fue acreditado!",
+        "tr": "✅ Bu @CryptoBot ödemesi zaten hesabınıza eklendi!"
+    },
+    "cryptobot_paid_success": {
+        "uz": (
+            "<b>@CryptoBot TO'LOVI TASDIQLANDI!</b>\n\n"
+            "🤖 <b>Tizim:</b> @CryptoBot ({asset})\n"
+            "💵 <b>Summa:</b> <code>{amount_crypto} {asset}</code>\n"
+            "💰 <b>Hisobingizga qo'shildi:</b> <code>+{amount_uzs:,} so'm</code>\n"
+            "🧾 <b>Invoice ID:</b> <code>#{invoice_id}</code>"
+        ),
+        "ru": (
+            "<b>ОПЛАТА @CryptoBot ПОДТВЕРЖДЕНА!</b>\n\n"
+            "🤖 <b>Система:</b> @CryptoBot ({asset})\n"
+            "💵 <b>Сумма:</b> <code>{amount_crypto} {asset}</code>\n"
+            "💰 <b>Зачислено:</b> <code>+{amount_uzs:,} сум</code>\n"
+            "🧾 <b>Invoice ID:</b> <code>#{invoice_id}</code>"
+        ),
+        "en": (
+            "<b>@CryptoBot PAYMENT CONFIRMED!</b>\n\n"
+            "🤖 <b>Method:</b> @CryptoBot ({asset})\n"
+            "💵 <b>Amount:</b> <code>{amount_crypto} {asset}</code>\n"
+            "💰 <b>Credited:</b> <code>+{amount_uzs:,} UZS</code>\n"
+            "🧾 <b>Invoice ID:</b> <code>#{invoice_id}</code>"
+        ),
+        "es": (
+            "<b>¡PAGO DE @CryptoBot CONFIRMADO!</b>\n\n"
+            "🤖 <b>Método:</b> @CryptoBot ({asset})\n"
+            "💵 <b>Monto:</b> <code>{amount_crypto} {asset}</code>\n"
+            "💰 <b>Acreditado:</b> <code>+{amount_uzs:,} UZS</code>\n"
+            "🧾 <b>Invoice ID:</b> <code>#{invoice_id}</code>"
+        ),
+        "tr": (
+            "<b>@CryptoBot ÖDEMESİ ONAYLANDI!</b>\n\n"
+            "🤖 <b>Yöntem:</b> @CryptoBot ({asset})\n"
+            "💵 <b>Tutar:</b> <code>{amount_crypto} {asset}</code>\n"
+            "💰 <b>Eklenen:</b> <code>+{amount_uzs:,} UZS</code>\n"
+            "🧾 <b>Fatura ID:</b> <code>#{invoice_id}</code>"
+        )
     },
     "btn_ton_wallet_connect": {
         "uz": "TON Hamyonni Ulash",
