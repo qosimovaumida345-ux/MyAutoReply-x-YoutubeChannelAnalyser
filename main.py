@@ -4850,7 +4850,7 @@ async def handle_api_reseller_buy(request):
             return auth_err
         product_id = _safe_int(data.get("product_id", 0), 0)
         qty = _safe_int(data.get("quantity", 1), 1)
-        activation_identifier = str(data.get("activation_identifier", "")).strip()[:256]
+        activation_identifier = str(data.get("activation_identifier", "")).strip()[:500]
 
         if user_id <= 0 or product_id <= 0:
             return web.json_response({"success": False, "message": "user_id va product_id kiritilishi shart"}, status=400)
@@ -4906,6 +4906,49 @@ async def handle_api_reseller_admin_wallet(request):
     except Exception as e:
         print(f"[api/reseller/admin/wallet] error: {e}")
         return web.json_response({"success": False, "error": "Hamyon ma'lumotlarini yuklashda xatolik yuz berdi"}, status=500)
+
+
+async def handle_api_reseller_muse_buff(request):
+    """Muse AI token buff xizmati holati va narxi"""
+    try:
+        from ventebot_service import ventebot_service
+        force = request.query.get("refresh", "0") in ("1", "true")
+        res = await ventebot_service.get_muse_catalog(force_refresh=force)
+        return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        print(f"[api/reseller/muse-buff] error: {e}")
+        return web.json_response({"success": False, "error": "Muse AI xizmatini yuklashda xatolik"}, status=500)
+
+
+async def handle_api_reseller_muse_quote(request):
+    """Muse AI token buff narxini hisoblash"""
+    try:
+        from ventebot_service import ventebot_service
+        data = await request.json()
+        invite_code = str(data.get("invite_code", "")).strip()
+        qty = _safe_int(data.get("quantity", 1), 1)
+        res = await ventebot_service.get_muse_quote(invite_code=invite_code, quantity=qty)
+        return web.json_response(res)
+    except Exception as e:
+        print(f"[api/reseller/muse-buff/quote] error: {e}")
+        return web.json_response({"success": False, "error": "Narxni hisoblashda xatolik"}, status=500)
+
+
+async def handle_api_reseller_muse_buy(request):
+    """Muse AI token buff xarid qilish (Anti-IDOR)"""
+    try:
+        from ventebot_service import ventebot_service
+        data = await request.json()
+        user_id, auth_err = _require_user_auth(request, data)
+        if auth_err:
+            return auth_err
+        invite_code = str(data.get("invite_code", "")).strip()
+        qty = _safe_int(data.get("quantity", 1), 1)
+        res = await ventebot_service.buy_muse_buff_with_uzs(tg_user_id=user_id, invite_code=invite_code, quantity=qty)
+        return web.json_response(res)
+    except Exception as e:
+        print(f"[api/reseller/muse-buff/buy] error: {e}")
+        return web.json_response({"success": False, "error": "Xarid jarayonida ichki xatolik"}, status=500)
 
 
 # ==================== RATE LIMITING & SECURITY MIDDLEWARE ====================
@@ -5067,6 +5110,11 @@ async def security_and_rate_limit_middleware(request, handler):
     now = time.time()
     t_start = time.perf_counter()
     path = request.path.rstrip("/")
+    low_path = path.lower()
+    if low_path.endswith((".php", ".asp", ".aspx", ".env")) or low_path.startswith(
+        ("/wp-admin", "/wp-content", "/wp-includes", "/.tmb", "/.git", "/cgi-bin")
+    ):
+        return _add_security_headers(web.Response(status=404, text="Not Found"), request)
 
     from telemetry_service import get_dynamic_config, record_api_call
 
@@ -5107,6 +5155,8 @@ async def security_and_rate_limit_middleware(request, handler):
         "/static",
         "/favicon.ico",
         "/favicon.svg",
+        "/favicon.png",
+        "/apple-touch-icon.png",
         "/api/public-config",
         "/api/nft",
         "/api/telegram-file",
@@ -5922,6 +5972,8 @@ async def start_web_server(port):
     app.router.add_post("/api/stars/open-case-uzs", handle_api_stars_open_case_uzs)
     app.router.add_get("/favicon.ico", handle_favicon)
     app.router.add_get("/favicon.svg", handle_favicon)
+    app.router.add_get("/favicon.png", handle_favicon)
+    app.router.add_get("/apple-touch-icon.png", handle_favicon)
     app.router.add_get("/api/user/avatar/{user_id}", handle_api_user_avatar)
     app.router.add_get("/api/telegram-file/{file_id}", handle_api_telegram_file)
     app.router.add_post("/api/stars/create-invoice", handle_api_stars_create_invoice)
@@ -5964,6 +6016,9 @@ async def start_web_server(port):
     app.router.add_post("/api/reseller/buy", handle_api_reseller_buy)
     app.router.add_get("/api/reseller/my-orders", handle_api_reseller_my_orders)
     app.router.add_get("/api/reseller/admin/wallet", handle_api_reseller_admin_wallet)
+    app.router.add_get("/api/reseller/muse-buff", handle_api_reseller_muse_buff)
+    app.router.add_post("/api/reseller/muse-buff/quote", handle_api_reseller_muse_quote)
+    app.router.add_post("/api/reseller/muse-buff/buy", handle_api_reseller_muse_buy)
 
     # Yangi: CryptoPay Webhook va KYC WebApp
     app.router.add_post("/webhook/cryptopay", handle_cryptopay_webhook)

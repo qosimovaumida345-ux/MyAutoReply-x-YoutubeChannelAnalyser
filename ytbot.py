@@ -1476,7 +1476,8 @@ def channel_menu_kb(lang="uz", user_id=None):
             
             if connections:
                 # If only 1 channel and no default set, that channel is active
-                active_id = default_ch or connections[0].get("yt_channel_id")
+                default_cid = default_ch.get("yt_channel_id") if isinstance(default_ch, dict) else default_ch
+                active_id = default_cid or connections[0].get("yt_channel_id")
                 
                 header_title = {
                     "uz": f"{ce('MEDIA_YOUTUBE')} Kanallar (Bosing va tanlang):",
@@ -8928,13 +8929,59 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             page = int(match.group(3))
 
         res = await ventebot_service.get_products(lang="uz")
-        if not res.get("success"):
-            await cb.answer(f"Xatolik: {res.get('message')}", show_alert=True)
-            return
-
-        all_products = res.get("products", [])
+        all_products = res.get("products", []) if res.get("success") else []
         if not all_products:
-            await cb.answer("Hozircha faol tovarlar topilmadi.", show_alert=True)
+            cat_title, cat_icon = CATEGORY_META.get(cat, ("Raqamli Mahsulotlar", "STORE"))
+            native_rows_map = {
+                "ai": [
+                    [InlineKeyboardButton(f"{ce('BRAND_CLAUDE')} Claude Code & Codex", callback_data="mkt_view_coding_agent")],
+                    [InlineKeyboardButton(f"{ce('BRAND_OPENROUTER')} OpenRouter API (25,000 so'm)", callback_data="mkt_view_openrouter"),
+                     InlineKeyboardButton(f"{ce('BRAND_GEMINI')} Gemini API (25,000 so'm)", callback_data="mkt_view_gemini")],
+                    [InlineKeyboardButton(f"{ce('BRAND_GROQ')} Groq Cloud API (18,000 so'm)", callback_data="mkt_view_groq"),
+                     InlineKeyboardButton(f"{ce('BRAND_CREATORFLOW')} Flux.1 AI Images", callback_data="mkt_view_flux")],
+                    [InlineKeyboardButton(f"{ce('TOOL_PROMPT_PACK')} 500+ Viral Prompt Pack", callback_data="mkt_view_prompts")],
+                ],
+                "design_video": [
+                    [InlineKeyboardButton(f"{ce('MEDIA_SCISSORS')} Shorts Clipper", callback_data="mkt_view_clipper"),
+                     InlineKeyboardButton(f"{ce('MEDIA_UNIKAL')} Video Uniquifier", callback_data="mkt_view_unikal")],
+                    [InlineKeyboardButton(f"{ce('BRAND_CREATORFLOW')} Flux.1 AI Images", callback_data="mkt_view_flux"),
+                     InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Starter Pack (CapCut Pro)", callback_data="vb_bundles")],
+                ],
+                "media_streaming": [
+                    [InlineKeyboardButton(f"{ce('TOOL_LIVE_STREAM')} 24/7 Autostream Cloud", callback_data="mkt_view_autostream"),
+                     InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} VIP Unlimited Pro", callback_data="mkt_view_vip")],
+                    [InlineKeyboardButton(f"{ce('TOOL_LIKES')} Layklar", callback_data="mkt_order_like"),
+                     InlineKeyboardButton(f"{ce('TOOL_SUBS')} Obuna", callback_data="mkt_order_subscribe"),
+                     InlineKeyboardButton(f"{ce('TOOL_COMMENTS')} Izohlar", callback_data="mkt_order_comment")],
+                ],
+                "vpn_security": [
+                    [InlineKeyboardButton(f"{ce('BRAND_PROXY_IPV4')} Dedicated IPv4 Proxy", callback_data="mkt_view_proxy"),
+                     InlineKeyboardButton(f"{ce('PAY_VIP_CROWN')} VIP Pro", callback_data="mkt_view_vip")],
+                ],
+                "dev_tools": [
+                    [InlineKeyboardButton(f"{ce('BRAND_CLAUDE')} Claude Code & Codex", callback_data="mkt_view_coding_agent")],
+                    [InlineKeyboardButton(f"{ce('BRAND_OPENROUTER')} OpenRouter API", callback_data="mkt_view_openrouter"),
+                     InlineKeyboardButton(f"{ce('BRAND_GROQ')} Groq Cloud API", callback_data="mkt_view_groq")],
+                    [InlineKeyboardButton(f"{ce('TOOL_QR_CODE')} Smart DeepLink & QR", callback_data="mkt_view_deeplink")],
+                ],
+            }
+            fb_buttons = list(native_rows_map.get(cat, native_rows_map["ai"]))
+            fb_buttons.append([
+                InlineKeyboardButton(f"{ce('GIFT_CASE_BOX')} Super To'plamlar", callback_data="vb_bundles"),
+                InlineKeyboardButton(f"{ce('MEDIA_AUTOPILOT')} Aiko AI Maslahatchi", callback_data="store_ai_advisor"),
+            ])
+            fb_buttons.append([
+                InlineKeyboardButton(f"{ce('BTN_ORDERS')} Mening xaridlarim", callback_data="vb_my_orders"),
+                InlineKeyboardButton(f"{ce('BTN_WALLET')} Balansni to'ldirish", callback_data="menu_wallet"),
+            ])
+            fb_buttons.append([InlineKeyboardButton(f"{ce('BTN_SERVICES')} Barcha bo'limlar", callback_data="menu_marketplace")])
+            fb_text = (
+                f"{ce(cat_icon)} <b>{cat_title}</b>\n\n"
+                f"{ce('MONEY')} <b>Joriy balansingiz:</b> <code>{bal:,} so'm</code>\n\n"
+                f"<i>Quyidagi tezkor xizmatlardan birini tanlang:</i>"
+            )
+            await cb.message.edit_text(fb_text, reply_markup=InlineKeyboardMarkup(fb_buttons))
+            await cb.answer()
             return
 
         cat_products = [p for p in all_products if p.get("category") == cat]
@@ -8987,6 +9034,8 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
         )
 
         buttons = []
+        if cat == "ai" and any(str(s.get("service", "")).lower() == "muse_buff" and s.get("available", True) for s in (res.get("services") or [])):
+            buttons.append([InlineKeyboardButton(f"{ce('BOLT')} Muse AI Token Buff (1B-30B)", callback_data="vb_muse_menu")])
         for p in page_items:
             p_id = p.get("id")
             name = p.get("name", "Product")
@@ -9086,7 +9135,12 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             record_cart_initiated(user_id, product_id, name, price_uzs)
 
         stock_str = f"{stock} ta mavjud" if stock is not None else "Avtomatik zaxira"
-        delivery_str = "Tezkor zaxira (Stock)" if delivery_type == "stock" else "Akkaunt aktivatsiyasi"
+        if delivery_type == "stock":
+            delivery_str = "Tezkor zaxira (Stock)"
+        elif delivery_type == "supplier_api":
+            delivery_str = "Avtomatik API yetkazish"
+        else:
+            delivery_str = "Akkaunt aktivatsiyasi"
 
         icon_tag = f"{get_brand_emoji(name)} "
 
@@ -9192,6 +9246,8 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             btns = []
             if delivered_raw.startswith("http://") or delivered_raw.startswith("https://"):
                 btns.append([InlineKeyboardButton(f"{ce('ROCKET')} Obunani faollashtirish", url=delivered_raw)])
+            if str(res.get("status", "")).upper() in ("PAID_PENDING_DELIVERY", "AWAITING_ACTIVATION", "AWAITING_ACTIVATION_INFO") and v_order_id.isdigit():
+                btns.append([InlineKeyboardButton(f"{ce('REFRESH')} Buyurtma holatini tekshirish", callback_data=f"vb_check_order_{v_order_id}")])
             btns.extend([
                 [InlineKeyboardButton(f"{ce('DEV_API_DOCS')} Chekni Tekshirish", callback_data=f"receipt_verify_{r_hash}")],
                 [InlineKeyboardButton(f"{ce('BTN_ORDERS')} Mening xaridlarim", callback_data="vb_my_orders")],
@@ -9236,6 +9292,69 @@ def create_ytbot(bot_token: str = None, session_name: str = "yt_analytics_bot"):
             [InlineKeyboardButton(f"{ce('HOME')} Bosh menyu", callback_data="back_main")]
         ])
         await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vb_check_order_(\d+)$"))
+    async def cb_vb_check_order(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        vb_order_id = int(cb.matches[0].group(1))
+        from database import get_ventebot_order_by_vb_id, update_ventebot_order_status, add_user_balance
+        from ventebot_service import ventebot_service
+        local_order = get_ventebot_order_by_vb_id(user_id, vb_order_id)
+        if not local_order:
+            await cb.answer("Buyurtma topilmadi!", show_alert=True)
+            return
+        details = await ventebot_service.get_order_details(vb_order_id)
+        up_status = str(details.get("status") or "").upper()
+        if up_status == "COMPLETED":
+            items = details.get("items") or []
+            delivered = "\n".join(str(i.get("account_data", "")).strip() for i in items if i.get("account_data")) or str(details.get("account_data") or "")
+            update_ventebot_order_status(local_order["id"], "COMPLETED", delivered)
+            await cb.answer("Buyurtma tayyor! Ma'lumotlar yangilandi.", show_alert=True)
+        elif up_status == "CANCELLED" and local_order.get("status") != "REFUNDED":
+            amt_uzs = int(local_order.get("amount_uzs") or 0)
+            if amt_uzs > 0:
+                add_user_balance(user_id, amt_uzs)
+            update_ventebot_order_status(local_order["id"], "REFUNDED", "Upstream CANCELLED")
+            await cb.answer(f"Buyurtma bekor qilindi. {amt_uzs:,} so'm balansingizga qaytarildi!", show_alert=True)
+        else:
+            await cb.answer(f"Joriy holat: {up_status or local_order.get('status')}", show_alert=True)
+
+    @bot.on_callback_query(filters.regex(r"^vb_muse_menu$"))
+    async def cb_vb_muse_menu(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from ventebot_service import ventebot_service
+        bal = get_user_balance(user_id)
+        cat = await ventebot_service.get_muse_catalog()
+        if not cat.get("success") or not cat.get("available"):
+            await cb.answer(cat.get("message") or "Muse AI xizmati hozircha mavjud emas.", show_alert=True)
+            return
+        svc = cat.get("service") or {}
+        per_b_uzs = int(svc.get("price_per_billion_uzs") or 0)
+        text = (
+            f"{ce('BOLT')} <b>Muse AI Token Buff (1B – 30B)</b>\n\n"
+            f"• <b>1 milliard token narxi:</b> <code>{per_b_uzs:,} so'm</code>\n"
+            f"• <b>Minimal / Maksimal:</b> 1 – 30 milliard token\n"
+            f"• <b>Talab etiladi:</b> 6 belgili Invite kod (masalan: <code>ABBADJ</code>)\n\n"
+            f"{ce('MONEY')} <b>Balansingiz:</b> <code>{bal:,} so'm</code>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"{ce('BOLT')} Token xarid qilish", callback_data="vb_muse_buy")],
+            [InlineKeyboardButton(f"{ce('BTN_BACK')} AI Modellar", callback_data="vb_cat_ai")],
+        ])
+        await cb.message.edit_text(text, reply_markup=kb)
+        await cb.answer()
+
+    @bot.on_callback_query(filters.regex(r"^vb_muse_buy$"))
+    async def cb_vb_muse_buy(client, cb: CallbackQuery):
+        user_id = cb.from_user.id
+        from mega_features import USER_STATES
+        USER_STATES[user_id] = {"action": "waiting_muse_buff"}
+        await cb.message.reply_text(
+            f"{ce('DOCUMENT')} <b>Muse AI Invite kod va token miqdorini yuboring:</b>\n\n"
+            f"Format: <code>INVITE_KOD MIQDOR</code> (1 dan 30 gacha)\n"
+            f"Masalan: <code>ABBADJ 10</code>"
+        )
         await cb.answer()
 
     # ==================== RECEIPT VERIFICATION CALLBACK ====================

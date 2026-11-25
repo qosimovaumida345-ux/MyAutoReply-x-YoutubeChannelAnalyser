@@ -1301,7 +1301,8 @@ def register_casino_handlers(bot: Client):
     async def cb_spin_wheel(client, cb: CallbackQuery):
         user_id = cb.from_user.id
         CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
-        can_free = db.can_user_free_spin(user_id) if hasattr(db, 'can_user_free_spin') else False
+        from games_monetization import can_user_free_spin
+        can_free = can_user_free_spin(user_id)
         bal = db.get_user_balance(user_id)
         status_text = "✅ <b>Bugungi bepul aylantirish mavjud!</b>" if can_free else "⏳ <i>Bugungi bepul imkoniyat ishlatilgan.</i>"
         text = (
@@ -1324,7 +1325,8 @@ def register_casino_handlers(bot: Client):
         user_id = cb.from_user.id
         CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bal = db.get_user_balance(user_id)
-        open_duels = db.get_open_duels(5) if hasattr(db, 'get_open_duels') else []
+        from games_monetization import get_open_duels
+        open_duels = get_open_duels(5)
         duels_text = ""
         if open_duels:
             duels_text = "\n\n⚔️ <b>Hozirgi faol duellar:</b>\n" + "\n".join([f"• Duel #{d['id']}: <code>{d['amount_uzs']:,} so'm</code> ({d['choice'].upper()})" for d in open_duels])
@@ -1350,7 +1352,8 @@ def register_casino_handlers(bot: Client):
         user_id = cb.from_user.id
         CRASH_ACTIVE_VIEWERS.pop(cb.message.chat.id, None)
         bal = db.get_user_balance(user_id)
-        info = db.get_current_lottery_info() if hasattr(db, 'get_current_lottery_info') else {"pool_id": 1, "tickets_sold": 0, "total_bank": 0, "prize_fund": 0}
+        from games_monetization import get_current_lottery_info
+        info = get_current_lottery_info()
         text = (
             f"🎟 <b>Jekpot Mega Lotereya (Tiraj #{info.get('pool_id', 1)})</b>\n\n"
             f"Kichik bilet narxi bilan katta jekpot yutib oling!\n\n"

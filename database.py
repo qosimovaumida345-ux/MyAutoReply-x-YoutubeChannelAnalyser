@@ -1583,6 +1583,9 @@ def is_bot_admin(tg_user_id):
         conn.close()
 
 
+is_admin = is_bot_admin
+
+
 def get_all_admins():
     conn = get_db()
     if not conn: return []
@@ -6106,6 +6109,27 @@ def update_ventebot_order_status(order_id: int, status: str, delivered_data: str
         conn.rollback()
         print(f"update_ventebot_order_status error: {e}")
         return False
+    finally:
+        conn.close()
+
+
+def get_ventebot_order_by_vb_id(tg_user_id: int, ventebot_order_id: int) -> dict | None:
+    """Foydalanuvchining VenteBot buyurtmasini ID bo'yicha olish (Anti-IDOR)."""
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM ventebot_reseller_orders
+            WHERE tg_user_id = %s AND (ventebot_order_id = %s OR id = %s)
+            ORDER BY id DESC LIMIT 1
+        """, (int(tg_user_id), int(ventebot_order_id), int(ventebot_order_id)))
+        row = cur.fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        print(f"get_ventebot_order_by_vb_id error: {e}")
+        return None
     finally:
         conn.close()
 

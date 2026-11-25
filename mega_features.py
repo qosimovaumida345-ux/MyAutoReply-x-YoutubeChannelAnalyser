@@ -1009,7 +1009,8 @@ def load_mega_features(bot: Client):
             return f"{ce('ERROR')} Kodni kiriting!"
 
         def _try_voucher():
-            v_res = db.redeem_voucher(uid, code)
+            from games_monetization import redeem_voucher
+            v_res = redeem_voucher(uid, code)
             if v_res.get("ok"):
                 return True, (
                     f"{ce('SUCCESS')} <b>Vaucher muvaffaqiyatli faollashtirildi!</b>\n\n"
@@ -2297,7 +2298,7 @@ def load_mega_features(bot: Client):
                 message.stop_propagation()
 
             # 3. Admin javobi foydalanuvchiga
-            elif action == "admin_replying" and (uid == OWNER_ID or db.is_admin(uid)):
+            elif action == "admin_replying" and (uid == OWNER_ID or db.is_bot_admin(uid)):
                 USER_STATES.pop(uid, None)
                 ticket_id = state.get("ticket_id")
                 target_uid = state.get("target_user_id")
@@ -2824,6 +2825,44 @@ def load_mega_features(bot: Client):
                         [InlineKeyboardButton(f"{ce('BACK')} Do'konga qaytish", callback_data="menu_marketplace")]
                     ])
                     await loading_msg.edit_text(f"{ce('CROSS')} <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Nomaʼlum xatolik')}", reply_markup=kb)
+                message.stop_propagation()
+            elif action == "waiting_muse_buff":
+                USER_STATES.pop(uid, None)
+                parts = text.strip().split()
+                if len(parts) < 2:
+                    await message.reply_text(
+                        f"{ce('ERROR')} Format noto'g'ri! Iltimos, <b>6 belgili Invite kod</b> va <b>miqdor (1-30)</b> ni yuboring.\n"
+                        f"Masalan: <code>ABBADJ 10</code>"
+                    )
+                    message.stop_propagation()
+                    return
+                inv_code = parts[0].strip().upper()
+                try:
+                    qty = int(parts[1])
+                except ValueError:
+                    await message.reply_text(f"{ce('ERROR')} Miqdor butun son bo'lishi kerak (1 dan 30 gacha)!")
+                    message.stop_propagation()
+                    return
+                loading_msg = await message.reply_text(f"⏳ Muse AI ({qty}B token) buyurtmangiz rasmiylashtirilmoqda...")
+                from ventebot_service import ventebot_service
+                res = await ventebot_service.buy_muse_buff_with_uzs(uid, inv_code, qty)
+                if res.get("success"):
+                    import html
+                    ans = (
+                        f"{ce('SUCCESS')} <b>Muse AI Token Buff qabul qilindi!</b>\n\n"
+                        f"{ce('BOX')} <b>Xizmat:</b> {html.escape(str(res.get('product_name') or ''))}\n"
+                        f"{ce('WALLET')} <b>Yangi balansingiz:</b> <code>{res.get('new_balance_uzs', 0):,} so'm</code>\n"
+                        f"{ce('KEY')} <b>Buyurtma ID:</b> <code>#{res.get('ventebot_order_id')}</code>\n"
+                        f"{ce('INFO')} <b>Ma'lumot:</b> <code>{html.escape(str(res.get('delivered_data') or ''))}</code>"
+                    )
+                    kb = InlineKeyboardMarkup([
+                        [InlineKeyboardButton(f"{ce('CART')} Mening xaridlarim", callback_data="vb_my_orders")],
+                        [InlineKeyboardButton(f"{ce('STORE')} Do'konga qaytish", callback_data="menu_marketplace")],
+                    ])
+                    await loading_msg.edit_text(ans, reply_markup=kb)
+                else:
+                    kb = InlineKeyboardMarkup([[InlineKeyboardButton(f"{ce('BACK')} Do'konga qaytish", callback_data="menu_marketplace")]])
+                    await loading_msg.edit_text(f"{ce('CROSS')} <b>Xarid amalga oshmadi:</b>\n{res.get('message', 'Xatolik')}", reply_markup=kb)
                 message.stop_propagation()
             else:
                 message.continue_propagation()

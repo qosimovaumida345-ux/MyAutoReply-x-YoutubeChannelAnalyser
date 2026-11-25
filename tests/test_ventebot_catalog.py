@@ -347,3 +347,123 @@ def test_ytbot_catalog_partitioning():
 
     summary = f"({available_count} ta mavjud, {out_of_stock_count} ta tugagan)"
     assert summary == "(2 ta mavjud, 2 ta tugagan)"
+
+
+# =========================================================================
+# 7. VenteBot v1.2.0 (batman.sarl) Migration & AST Integrity Tests
+# =========================================================================
+
+def test_ventebot_base_url_auto_upgrades_legacy_hosts(monkeypatch):
+    """Legacy dead Railway/batmanbot.store URLs in env must auto-upgrade to https://batman.sarl."""
+    from config import get_ventebot_base_url, normalize_ventebot_base_url
+
+    monkeypatch.setenv("VENTEBOT_BASE_URL", "https://web-production-1c7b1.up.railway.app")
+    assert get_ventebot_base_url() == "https://batman.sarl"
+
+    monkeypatch.setenv("VENTEBOT_BASE_URL", "https://batmanbot.store/api/swagger")
+    assert get_ventebot_base_url() == "https://batman.sarl"
+
+    assert normalize_ventebot_base_url("https://batman.sarl/api/swagger") == "https://batman.sarl"
+    assert normalize_ventebot_base_url("https://batman.sarl/api/reseller") == "https://batman.sarl"
+
+
+@pytest.mark.asyncio
+async def test_get_products_maps_uz_to_en_and_filters_api_test():
+    """get_products(lang='uz') must send ?lang=en upstream and exclude api_test=True items."""
+    captured = {}
+
+    class FakeResp:
+        status = 200
+        headers = {"ETag": '"v120"'}
+        content_type = "application/json"
+
+        async def json(self, content_type=None):
+            return {
+                "success": True,
+                "products": [
+                    {"id": 1, "name": "API Test Item", "price_usd": 0.01, "api_test": True, "delivery_type": "api_test", "stock": 1},
+                    {"id": 10, "name": "ChatGPT Plus", "price_usd": 5.0, "api_test": False, "delivery_type": "stock", "stock": 3},
+                ],
+                "services": [{"service": "muse_buff", "available": True}],
+            }
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class FakeSession:
+        def get(self, url, **kwargs):
+            captured["url"] = url
+            return FakeResp()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    ventebot_service.cache.clear()
+    with patch("aiohttp.ClientSession", return_value=FakeSession()), \
+         patch("currency_service.currency_service.get_usd_to_uzs_rate", new=AsyncMock(return_value=12850.0)):
+        res = await ventebot_service.get_products(lang="uz", force_refresh=True)
+
+    assert "lang=en" in captured["url"]
+    assert res["success"] is True
+    assert len(res["products"]) == 1
+    assert res["products"][0]["id"] == 10
+    assert res["services"][0]["service"] == "muse_buff"
+
+
+@pytest.mark.asyncio
+async def test_muse_quote_validates_invite_and_quantity():
+    """Muse AI quote must reject invalid invite codes and out-of-range quantities."""
+    res_bad_code = await ventebot_service.get_muse_quote("BAD", 5)
+    assert res_bad_code["success"] is False
+
+    res_bad_qty = await ventebot_service.get_muse_quote("ABBADJ", 35)
+    assert res_bad_qty["success"] is False
+
+
+def test_cross_module_imports_and_db_attributes_integrity():
+    """Ensure zero broken local from-imports or missing db.* attributes across root .py modules."""
+    import ast, glob, os
+    root_mods = {}
+    for p in glob.glob("*.py"):
+        mod = os.path.splitext(p)[0]
+        with open(p, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=p)
+        defs = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                defs.add(node.name)
+            elif isinstance(node, ast.Assign):
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        defs.add(t.id)
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                defs.add(node.target.id)
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    defs.add(alias.asname or alias.name)
+        root_mods[mod] = (tree, defs)
+
+    missing_imports = []
+    for mod, (tree, _) in root_mods.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module in root_mods:
+                target_defs = root_mods[node.module][1]
+                for alias in node.names:
+                    if alias.name != "*" and alias.name not in target_defs:
+                        missing_imports.append(f"{mod}.py:{node.lineno}:{node.module}.{alias.name}")
+    assert not missing_imports, f"Missing cross-module imports: {missing_imports}"
+
+    db_defs = root_mods["database"][1]
+    missing_db = []
+    for mod, (tree, _) in root_mods.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "db":
+                if node.attr not in db_defs:
+                    missing_db.append(f"{mod}.py:{node.lineno}:db.{node.attr}")
+    assert not missing_db, f"Missing db.* attributes: {missing_db}"

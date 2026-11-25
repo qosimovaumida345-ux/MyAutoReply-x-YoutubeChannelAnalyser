@@ -127,3 +127,22 @@ async def dispatch_task(
     except Exception as gh_err:
         logger.error(f"GitHub Actions dispatch xatosi: {gh_err}")
         return {"ok": False, "error": str(gh_err)}
+
+
+async def trigger_github_worker(
+    task_type: str,
+    url: str,
+    chat_id: str,
+    format: str = "720",
+    caption: str = "",
+) -> tuple[bool, str]:
+    """Compatibility wrapper for main.py GitHub Actions offload."""
+    uid = int(chat_id) if str(chat_id).lstrip("-").isdigit() else 0
+    res = await dispatch_task(
+        task_type=task_type,
+        url=url,
+        chat_id=uid,
+        format=format,
+        caption=caption,
+    )
+    return bool(res.get("ok")), str(res.get("provider") or res.get("error") or "")

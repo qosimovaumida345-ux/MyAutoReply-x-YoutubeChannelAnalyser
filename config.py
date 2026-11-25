@@ -262,10 +262,59 @@ TON_WALLET_ADDRESS = os.getenv("TON_WALLET_ADDRESS", "").strip()
 TON_WALLET_MEMO = os.getenv("TON_WALLET_MEMO", "").strip()
 
 # ==================== VENTEBOT RESELLER API ====================
+from urllib.parse import urlparse as _urlparse
+
+DEFAULT_VENTEBOT_BASE_URL = "https://batman.sarl"
+_LEGACY_VENTEBOT_HOSTS = frozenset({
+    "web-production-1c7b1.up.railway.app",
+    "batmanbot.store",
+    "www.batmanbot.store",
+})
+
+
+def normalize_ventebot_base_url(raw: str, default: str = DEFAULT_VENTEBOT_BASE_URL) -> str:
+    """Normalize VenteBot Reseller API base URL and auto-upgrade dead legacy hosts."""
+    val = str(raw or "").strip().rstrip("/")
+    if not val:
+        return default
+    for suffix in ("/api/swagger", "/api/reseller", "/api"):
+        if val.lower().endswith(suffix):
+            val = val[: -len(suffix)].rstrip("/")
+            break
+    parsed = _urlparse(val)
+    host = (parsed.hostname or "").lower()
+    if not parsed.scheme or not host or host in _LEGACY_VENTEBOT_HOSTS:
+        return default
+    clean_path = (parsed.path or "").rstrip("/")
+    return f"{parsed.scheme}://{parsed.netloc}{clean_path}".rstrip("/")
+
+
+def get_ventebot_base_url() -> str:
+    """Resolve active VenteBot Reseller API base URL from env with legacy host upgrade."""
+    env_val = os.getenv("VENTEBOT_BASE_URL")
+    if env_val is not None:
+        return normalize_ventebot_base_url(env_val, default=DEFAULT_VENTEBOT_BASE_URL)
+    return DEFAULT_VENTEBOT_BASE_URL
+
+
 VENTEBOT_API_KEY = os.getenv("VENTEBOT_API_KEY", "").strip()
-VENTEBOT_BASE_URL = os.getenv("VENTEBOT_BASE_URL", "https://web-production-1c7b1.up.railway.app").rstrip("/")
+VENTEBOT_BASE_URL = get_ventebot_base_url()
 USD_TO_UZS_RATE = int(os.getenv("USD_TO_UZS_RATE", "12850"))
 RESELLER_MARKUP_PERCENT = float(os.getenv("RESELLER_MARKUP_PERCENT", "60.0"))
+
+
+def _parse_url_list(raw: str) -> list[str]:
+    items = []
+    for part in str(raw or "").replace("\n", ",").split(","):
+        cleaned = part.strip().rstrip("/")
+        if cleaned:
+            items.append(cleaned)
+    return items
+
+
+WORKER_URLS = _parse_url_list(os.getenv("WORKER_URLS", "") or os.getenv("WORKER_API_URL", ""))
+STREAMER_URLS = _parse_url_list(os.getenv("STREAMER_URLS", ""))
+MAIN_MAX_CONCURRENT_TASKS = max(1, int(os.getenv("MAIN_MAX_CONCURRENT_TASKS", "2") or "2"))
 
 # ==================== MONO DECK STUDIO CHANNEL & VIP ====================
 DEFAULT_STORE_CHANNEL = "@MonoDeckStudio"
